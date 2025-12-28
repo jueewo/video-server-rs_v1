@@ -150,7 +150,13 @@ async fn main() -> anyhow::Result<()> {
                 .layer(
                     CorsLayer::new()
                         .allow_origin("http://localhost:4321".parse::<HeaderValue>().unwrap())
-                        .allow_origin("https://app.appkask.com".parse::<HeaderValue>().unwrap())
+                        // .allow_origin("https://app.appkask.com".parse::<HeaderValue>().unwrap())
+                        .allow_origin(tower_http::cors::AllowOrigin::predicate(
+                                |origin: &HeaderValue, _request_parts: &_| {
+                                    origin.as_bytes().ends_with(b".appkask.com") ||
+                                    origin.as_bytes() == b"https://appkask.com"
+                                }
+                            ))
                         .allow_credentials(true)
                         .allow_methods([Method::GET, Method::OPTIONS])
                         .allow_headers([

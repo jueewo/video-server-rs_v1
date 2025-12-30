@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>HLS Live Stream Test</title>
+        <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+                background: #1a1a1a;
+                color: #fff;
+            }
+            h1 {
+                color: #4caf50;
+            }
+            #video-container {
+                margin: 20px 0;
+                background: #000;
+                border-radius: 8px;
+                overflow: hidden;
+            }
+            video {
+                width: 100%;
+                max-width: 800px;
+                display: block;
+            }
+            #log {
+                background: #2d2d2d;
+                border: 1px solid #444;
+                border-radius: 4px;
+                padding: 15px;
+                height: 300px;
+                overflow-y: auto;
+                font-family: "Courier New", monospace;
+                font-size: 12px;
+                margin-top: 20px;
+            }
+            .log-entry {
+                padding: 5px 0;
+                border-bottom: 1px solid #3a3a3a;
+            }
+            .log-info {
+                color: #4caf50;
+            }
+            .log-warn {
+                color: #ff9800;
+            }
+            .log-error {
+                color: #f44336;
+            }
+            .controls {
+                margin: 20px 0;
+            }
+            button {
+                background: #4caf50;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 4px;
+                cursor: pointer;
+                margin-right: 10px;
+                font-size: 14px;
+            }
+            button:hover {
+                background: #45a049;
+            }
+            button:disabled {
+                background: #666;
+                cursor: not-allowed;
+            }
+            .info-box {
+                background: #2d2d2d;
+                padding: 15px;
+                border-radius: 4px;
+                margin: 20px 0;
+            }
+            .info-box h3 {
+                margin-top: 0;
+                color: #4caf50;
+            }
+            input {
+                padding: 8px;
+                border-radius: 4px;
+                border: 1px solid #444;
+                background: #2d2d2d;
+                color: #fff;
+                font-size: 14px;
+                width: 400px;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>🎥 HLS Live Stream Test</h1>
+
+        <div class="info-box">
+            <h3>Stream Configuration</h3>
+            <p>
+                <label for="streamUrl">Stream URL:</label><br />
+                <input
+                    type="text"
+                    id="streamUrl"
+                    value="http://localhost:3000/hls/live/index.m3u8"
+                />
+                <button onclick="loadStream()">Load Stream</button>
+            </p>
+        </div>
+
+        <div id="video-container">
+            <video id="video" controls autoplay muted></video>
+        </div>
+
+        <div class="controls">
+            <button onclick="playVideo()">Play</button>
+            <button onclick="pauseVideo()">Pause</button>
+            <button onclick="reloadStream()">Reload Stream</button>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+
+        <div class="info-box">
+            <h3>Status</h3>
+            <p id="status">Initializing...</p>
+        </div>
+
+        <div class="info-box">
+            <h3>Debug Log</h3>
+            <div id="log"></div>
+        </div>
+
+        <script>
+            const video = document.getElementById("video");
+            const logDiv = document.getElementById("log");
+            const statusDiv = document.getElementById("status");
+            let hls;
+
+            function log(message, type = "info") {
+                const timestamp = new Date().toLocaleTimeString();
+                const entry = document.createElement("div");
+                entry.className = `log-entry log-${type}`;
+                entry.textContent = `[${timestamp}] ${message}`;
+                logDiv.appendChild(entry);
+                logDiv.scrollTop = logDiv.scrollHeight;
+                console.log(`[${type.toUpperCase()}]`, message);
+            }
+
+            function updateStatus(message, isError = false) {
+                statusDiv.textContent = message;
+                statusDiv.style.color = isError ? "#f44336" : "#4CAF50";
+            }
+
+            function clearLog() {
+                logDiv.innerHTML = "";
+                log("Log cleared", "info");
+            }
+
+            function playVideo() {
+                video
+                    .play()
+                    .then(() => log("Video playing", "info"))
+                    .catch((err) => log(`Play error: ${err.message}`, "error"));
+            }
+
+            function pauseVideo() {
+                video.pause();
+                log("Video paused", "info");
+            }
+
+            function reloadStream() {
+                if (hls) {
+                    hls.destroy();
+                }
+                loadStream();
+            }
+
+            function loadStream() {
+                const streamUrl = document.getElementById("streamUrl").value;
+
+                if (hls) {
+                    hls.destroy();
+                    log("Destroyed previous HLS instance", "info");
+                }
+
+                if (Hls.isSupported()) {
+                    log("HLS.js is supported", "info");
+                    updateStatus("Initializing HLS player...");
+
+                    hls = new Hls({
+                        debug: true,
+                        enableWorker: true,
+                        lowLatencyMode: true,
+                        backBufferLength: 90,
+                        maxBufferLength: 10,
+                        maxMaxBufferLength: 20,
+                        maxBufferSize: 60 * 1000 * 1000,
+                        maxBufferHole: 0.5,
+                        highBufferWatchdogPeriod: 2,
+                        nudgeOffset: 0.1,
+                        nudgeMaxRetry: 3,
+                        maxFragLookUpTolerance: 0.25,
+                        liveSyncDurationCount: 3,
+                        liveMaxLatencyDurationCount: 10,
+                        liveDurationInfinity: false,
+                        xhrSetup: function (xhr, url) {
+                            log(`Loading: ${url}`, "info");
+                        },
+                    });
+
+                    // HLS Events
+                    hls.on(Hls.Events.MANIFEST_LOADING, () => {
+                        log("Loading manifest...", "info");
+                        updateStatus("Loading manifest...");
+                    });
+
+                    hls.on(Hls.Events.MANIFEST_LOADED, (event, data) => {
+                        log(
+                            `Manifest loaded: ${data.levels.length} quality levels`,
+                            "info",
+                        );
+                        updateStatus("Manifest loaded successfully");
+                    });
+
+                    hls.on(Hls.Events.LEVEL_LOADED, (event, data) => {
+                        log(
+                            `Level loaded: ${data.details.fragments.length} fragments`,
+                            "info",
+                        );
+                    });
+
+                    hls.on(Hls.Events.FRAG_LOADING, (event, data) => {
+                        log(`Loading fragment: ${data.frag.sn}`, "info");
+                    });
+
+                    hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
+                        log(
+                            `Fragment loaded: ${data.frag.sn} (${data.frag.duration.toFixed(2)}s)`,
+                            "info",
+                        );
+                    });
+
+                    hls.on(Hls.Events.FRAG_PARSING_DATA, (event, data) => {
+                        log(`Parsing fragment data: ${data.type}`, "info");
+                    });
+
+                    hls.on(Hls.Events.FRAG_PARSED, (event, data) => {
+                        log(`Fragment parsed: ${data.frag.sn}`, "info");
+                    });
+
+                    hls.on(Hls.Events.ERROR, (event, data) => {
+                        const errorType = data.type;
+                        const errorDetails = data.details;
+                        const errorFatal = data.fatal;
+
+                        log(
+                            `ERROR: ${errorType} - ${errorDetails} (fatal: ${errorFatal})`,
+                            "error",
+                        );
+
+                        if (data.response) {
+                            log(
+                                `Response code: ${data.response.code}`,
+                                "error",
+                            );
+                            log(
+                                `Response text: ${data.response.text}`,
+                                "error",
+                            );
+                        }
+
+                        if (errorFatal) {
+                            updateStatus(`Fatal error: ${errorDetails}`, true);
+
+                            switch (errorType) {
+                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                    log(
+                                        "Attempting to recover from network error...",
+                                        "warn",
+                                    );
+                                    hls.startLoad();
+                                    break;
+                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                    log(
+                                        "Attempting to recover from media error...",
+                                        "warn",
+                                    );
+                                    hls.recoverMediaError();
+                                    break;
+                                default:
+                                    log(
+                                        "Unrecoverable error, destroying HLS instance",
+                                        "error",
+                                    );
+                                    hls.destroy();
+                                    break;
+                            }
+                        } else {
+                            updateStatus(
+                                `Non-fatal error: ${errorDetails}`,
+                                false,
+                            );
+                        }
+                    });
+
+                    hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+                        log("Media attached to video element", "info");
+                        updateStatus("Media attached, loading stream...");
+                    });
+
+                    hls.on(Hls.Events.MEDIA_DETACHED, () => {
+                        log("Media detached from video element", "warn");
+                    });
+
+                    // Load the stream
+                    hls.loadSource(streamUrl);
+                    hls.attachMedia(video);
+
+                    video.addEventListener("loadedmetadata", () => {
+                        log(
+                            `Video metadata loaded: ${video.videoWidth}x${video.videoHeight}`,
+                            "info",
+                        );
+                        updateStatus("Ready to play");
+                    });
+
+                    video.addEventListener("playing", () => {
+                        log("Video is playing", "info");
+                        updateStatus("Playing");
+                    });
+
+                    video.addEventListener("waiting", () => {
+                        log("Video is buffering...", "warn");
+                        updateStatus("Buffering...");
+                    });
+
+                    video.addEventListener("stalled", () => {
+                        log("Video playback stalled", "warn");
+                    });
+
+                    video.addEventListener("error", (e) => {
+                        log(
+                            `Video element error: ${video.error ? video.error.message : "Unknown"}`,
+                            "error",
+                        );
+                        updateStatus("Video error", true);
+                    });
+                } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+                    log("Native HLS support detected (Safari)", "info");
+                    video.src = streamUrl;
+                    updateStatus("Using native HLS support");
+                } else {
+                    log("HLS is not supported in this browser", "error");
+                    updateStatus("HLS not supported", true);
+                }
+            }
+
+            // Auto-load on page load
+            window.addEventListener("load", () => {
+                log("Page loaded, initializing player...", "info");
+                loadStream();
+            });
+        </script>
+    </body>
+</html>

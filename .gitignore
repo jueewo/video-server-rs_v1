@@ -1,6 +1,9 @@
 # Mac stuff:
 .DS_Store
 
+# Environment variables
+.env
+
 # trunk output folder
 dist
 

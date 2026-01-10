@@ -14,7 +14,7 @@ use tower_sessions::{cookie::SameSite, Expiry, MemoryStore, Session, SessionMana
 
 // Import the crates
 use image_manager::{ImageManagerState, image_routes};
-use user_auth::{AuthState, auth_routes};
+use user_auth::{AuthState, OidcConfig, auth_routes};
 use video_manager::{VideoManagerState, video_routes, RTMP_PUBLISH_TOKEN};
 
 // -------------------------------
@@ -268,6 +268,9 @@ async fn webhook_stream_ended() -> StatusCode {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Load environment variables from .env file (if it exists)
+    let _ = dotenvy::dotenv();
+
     tracing_subscriber::fmt::init();
 
     println!("\n🚀 Initializing Modular Video Server...");
@@ -305,7 +308,28 @@ async fn main() -> anyhow::Result<()> {
 
     let image_state = Arc::new(ImageManagerState::new(pool.clone(), storage_dir));
 
-    let auth_state = Arc::new(AuthState::new());
+    // Initialize OIDC configuration
+    let oidc_config = OidcConfig::from_env();
+    println!("🔐 OIDC Configuration:");
+    println!("   - Issuer URL: {}", oidc_config.issuer_url);
+    println!("   - Client ID: {}", oidc_config.client_id);
+    println!("   - Redirect URI: {}", oidc_config.redirect_uri);
+
+    let auth_state = match AuthState::new(oidc_config.clone()).await {
+        Ok(state) => {
+            if state.oidc_client.is_some() {
+                println!("✅ OIDC authentication enabled");
+            } else {
+                println!("⚠️  OIDC authentication disabled (provider unavailable)");
+            }
+            Arc::new(state)
+        }
+        Err(e) => {
+            println!("⚠️  Failed to initialize OIDC: {}", e);
+            println!("   Using emergency login only");
+            Arc::new(AuthState::new_without_oidc(oidc_config))
+        }
+    };
 
     let app_state = Arc::new(AppState {
         video_state: video_state.clone(),
@@ -313,12 +337,21 @@ async fn main() -> anyhow::Result<()> {
         auth_state: auth_state.clone(),
     });
 
-    // Session layer
+    // Session layer with explicit configuration
     let session_store = MemoryStore::default();
     let session_layer = SessionManagerLayer::new(session_store)
-        .with_secure(false)
+        .with_name("video_server_session") // Explicit session cookie name
+        .with_secure(false) // Set to true in production with HTTPS
+        .with_http_only(true) // Prevent JavaScript access
         .with_expiry(Expiry::OnInactivity(Duration::days(7)))
-        .with_same_site(SameSite::Lax);
+        .with_same_site(SameSite::Lax) // Allow cross-site for OIDC redirects
+        .with_path("/"); // Cookie available for entire site
+
+    println!("🍪 Session Configuration:");
+    println!("   - Cookie name: video_server_session");
+    println!("   - HTTP-only: true");
+    println!("   - Same-site: Lax");
+    println!("   - Expiry: 7 days inactivity");
 
     // Build the application router
     let app = Router::new()
@@ -378,10 +411,12 @@ async fn main() -> anyhow::Result<()> {
     println!("   ✅ image-manager    (Image upload & serving)");
     println!("   ✅ user-auth        (Session management, OIDC ready)");
 
-    println!("\n📊 SERVER ENDPOINTS:");
+    println!("📊 SERVER ENDPOINTS:");
     println!("   • Web UI:        http://{}", addr);
     println!("   • Test Player:   http://{}/test", addr);
     println!("   • Login:         http://{}/login", addr);
+    println!("   • OIDC Login:    http://{}/oidc/authorize", addr);
+    println!("   • Emergency:     http://{}/login/emergency", addr);
     println!("   • Images:        http://{}/images", addr);
     println!("   • Upload:        http://{}/upload", addr);
     println!("   • Health:        http://{}/health", addr);
@@ -425,7 +460,12 @@ async fn main() -> anyhow::Result<()> {
     println!("   This server is now modular with separate crates:");
     println!("   • crates/video-manager - Video streaming logic");
     println!("   • crates/image-manager - Image handling logic");
-    println!("   • crates/user-auth     - Authentication (OIDC ready)");
+    println!("   • crates/user-auth     - OIDC Authentication (Casdoor)");
+
+    println!("\n🔐 AUTHENTICATION:");
+    println!("   • Primary:   OIDC with Casdoor (Login with Appkask)");
+    println!("   • Fallback:  Emergency local login");
+    println!("   • Configure: Set OIDC_* environment variables");
 
     println!("\n{}\n", "═".repeat(64));
 

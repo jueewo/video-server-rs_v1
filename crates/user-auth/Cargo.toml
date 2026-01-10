@@ -1,0 +1,27 @@
+[package]
+name = "user-auth"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Web framework
+axum = { workspace = true }
+tower-sessions = { workspace = true }
+
+# OIDC support
+openidconnect = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Async trait support
+async-trait = { workspace = true }

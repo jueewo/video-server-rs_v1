@@ -13,9 +13,9 @@ use tower_http::cors::CorsLayer;
 use tower_sessions::{cookie::SameSite, Expiry, MemoryStore, Session, SessionManagerLayer};
 
 // Import the crates
-use image_manager::{ImageManagerState, image_routes};
-use user_auth::{AuthState, OidcConfig, auth_routes};
-use video_manager::{VideoManagerState, video_routes, RTMP_PUBLISH_TOKEN};
+use image_manager::{image_routes, ImageManagerState};
+use user_auth::{auth_routes, AuthState, OidcConfig};
+use video_manager::{video_routes, VideoManagerState, RTMP_PUBLISH_TOKEN};
 
 // -------------------------------
 // Shared App State
@@ -237,7 +237,7 @@ async fn index_handler(session: Session) -> Result<Html<String>, StatusCode> {
 // -------------------------------
 
 async fn test_page_handler() -> Html<&'static str> {
-    Html(include_str!("../test-hls.html"))
+    Html(include_str!("../scripts/test-hls.html"))
 }
 
 // -------------------------------
@@ -364,18 +364,9 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/webhooks/stream-ended", post(webhook_stream_ended))
         .with_state(app_state)
         // Merge module routers
-        .merge(
-            auth_routes()
-                .with_state(auth_state)
-        )
-        .merge(
-            video_routes()
-                .with_state(video_state)
-        )
-        .merge(
-            image_routes()
-                .with_state(image_state)
-        )
+        .merge(auth_routes(auth_state.clone()))
+        .merge(video_routes().with_state(video_state))
+        .merge(image_routes().with_state(image_state))
         // Apply middleware
         .layer(
             ServiceBuilder::new()
@@ -434,13 +425,19 @@ async fn main() -> anyhow::Result<()> {
     println!("   ffmpeg -f avfoundation -framerate 30 -video_size 1280x720 -i \"0:0\" \\");
     println!("     -c:v libx264 -preset veryfast -tune zerolatency \\");
     println!("     -c:a aac -b:a 128k -ar 44100 \\");
-    println!("     -f flv \"rtmp://localhost:1935/live?token={}\"", RTMP_PUBLISH_TOKEN);
+    println!(
+        "     -f flv \"rtmp://localhost:1935/live?token={}\"",
+        RTMP_PUBLISH_TOKEN
+    );
 
     println!("\n   Linux (Webcam + Microphone):");
     println!("   ffmpeg -f v4l2 -i /dev/video0 -f alsa -i hw:0 \\");
     println!("     -c:v libx264 -preset veryfast -tune zerolatency \\");
     println!("     -c:a aac -b:a 128k -ar 44100 \\");
-    println!("     -f flv \"rtmp://localhost:1935/live?token={}\"", RTMP_PUBLISH_TOKEN);
+    println!(
+        "     -f flv \"rtmp://localhost:1935/live?token={}\"",
+        RTMP_PUBLISH_TOKEN
+    );
 
     println!("\n   OBS Studio:");
     println!("   • Server:     rtmp://localhost:1935/live");

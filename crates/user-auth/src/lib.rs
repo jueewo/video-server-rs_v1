@@ -4,6 +4,7 @@ use axum::{
     response::{Html, Redirect},
     routing::get,
     Router,
+    Form,
 };
 use openidconnect::{
     core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata},
@@ -24,6 +25,9 @@ pub struct OidcConfig {
     pub client_id: String,
     pub client_secret: String,
     pub redirect_uri: String,
+    pub enable_emergency_login: bool,
+    pub su_user: String,
+    pub su_pwd: String,
 }
 
 impl OidcConfig {
@@ -37,6 +41,14 @@ impl OidcConfig {
                 .unwrap_or_else(|_| "your-client-secret".to_string()),
             redirect_uri: std::env::var("OIDC_REDIRECT_URI")
                 .unwrap_or_else(|_| "http://localhost:3000/oidc/callback".to_string()),
+            enable_emergency_login: std::env::var("ENABLE_EMERGENCY_LOGIN")
+                .unwrap_or_else(|_| "false".to_string())
+                .parse()
+                .unwrap_or(false),
+            su_user: std::env::var("SU_USER")
+                .unwrap_or_else(|_| "admin".to_string()),
+            su_pwd: std::env::var("SU_PWD")
+                .unwrap_or_else(|_| "".to_string()),
         }
     }
 }
@@ -99,14 +111,25 @@ impl AuthState {
 // -------------------------------
 // Router Setup
 // -------------------------------
-pub fn auth_routes() -> Router<Arc<AuthState>> {
-    Router::new()
+pub fn auth_routes(state: Arc<AuthState>) -> Router {
+    let mut router = Router::new()
         .route("/login", get(login_page_handler))
-        .route("/login/emergency", get(emergency_login_handler))
         .route("/logout", get(logout_handler))
         .route("/oidc/authorize", get(oidc_authorize_handler))
         .route("/oidc/callback", get(oidc_callback_handler))
-        .route("/auth/error", get(auth_error_handler))
+        .route("/auth/error", get(auth_error_handler));
+
+    // Only register emergency login routes if enabled
+    if state.config.enable_emergency_login {
+        println!("⚠️  Emergency login is ENABLED");
+        router = router
+            .route("/login/emergency", get(emergency_login_form_handler))
+            .route("/login/emergency/auth", axum::routing::post(emergency_login_auth_handler));
+    } else {
+        println!("🔒 Emergency login is DISABLED");
+    }
+
+    router.with_state(state)
 }
 
 // -------------------------------
@@ -142,6 +165,7 @@ pub async fn login_page_handler(
     }
 
     let oidc_available = state.oidc_client.is_some();
+    let emergency_enabled = state.config.enable_emergency_login;
 
     let html = format!(
         r#"<!DOCTYPE html>
@@ -173,21 +197,39 @@ pub async fn login_page_handler(
     </div>
 </body>
 </html>"#,
-        if oidc_available {
-            r#"
+        match (oidc_available, emergency_enabled) {
+            (true, true) => {
+                r#"
         <p>Click the button below to login with Casdoor:</p>
         <a href="/oidc/authorize" class="btn">Login with Casdoor</a>
         <br><br>
         <a href="/login/emergency" class="btn btn-secondary">Emergency Login</a>
         "#
-        } else {
-            r#"
+            }
+            (true, false) => {
+                r#"
+        <p>Click the button below to login with Casdoor:</p>
+        <a href="/oidc/authorize" class="btn">Login with Casdoor</a>
+        "#
+            }
+            (false, true) => {
+                r#"
         <div class="warning">
             <strong>⚠️ OIDC Not Available</strong>
             <p>OIDC authentication is not configured. Using emergency login only.</p>
         </div>
         <a href="/login/emergency" class="btn">Emergency Login</a>
         "#
+            }
+            (false, false) => {
+                r#"
+        <div class="warning">
+            <strong>⚠️ Authentication Not Available</strong>
+            <p>Neither OIDC nor emergency login is configured.</p>
+            <p>Please contact your system administrator.</p>
+        </div>
+        "#
+            }
         }
     );
     Ok(Html(html))
@@ -527,28 +569,123 @@ pub async fn auth_error_handler(Query(query): Query<AuthErrorQuery>) -> Html<Str
 }
 
 // -------------------------------
-// Emergency Login Handler
+// Emergency Login Handlers
 // -------------------------------
-pub async fn emergency_login_handler(
+
+/// Emergency login form display
+pub async fn emergency_login_form_handler(
+    State(_state): State<Arc<AuthState>>,
     session: Session,
 ) -> Result<Html<String>, StatusCode> {
-    // Set basic session values for emergency access
-    session.insert("authenticated", true).await.unwrap();
-    session.insert("user_id", "emergency-user".to_string()).await.unwrap();
-    session.insert("email", "emergency@localhost".to_string()).await.unwrap();
-    session.insert("name", "Emergency User".to_string()).await.unwrap();
-
-    println!("⚠️  Emergency login used");
+    // Check if already authenticated
+    if is_authenticated(&session).await {
+        return Ok(Html(format!(
+            r#"<!DOCTYPE html>
+<html>
+<head>
+    <title>Already Logged In</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }}
+        .message {{ background: #e7f3ff; border: 1px solid #2196F3; padding: 20px; border-radius: 5px; }}
+        a {{ color: #2196F3; text-decoration: none; }}
+        a:hover {{ text-decoration: underline; }}
+    </style>
+</head>
+<body>
+    <div class="message">
+        <h2>✅ Already Logged In</h2>
+        <p>You are already authenticated.</p>
+        <p><a href="/">← Back to Home</a> | <a href="/logout">Logout</a></p>
+    </div>
+</body>
+</html>"#
+        )));
+    }
 
     Ok(Html(
         r#"<!DOCTYPE html>
 <html>
 <head>
     <title>Emergency Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .login-box { background: white; border: 1px solid #ddd; padding: 30px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        .warning { background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="password"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+        .btn { display: inline-block; padding: 12px 24px; margin: 10px 5px; background: #dc3545; color: white; text-decoration: none; border-radius: 5px; border: none; cursor: pointer; font-size: 16px; width: 100%; }
+        .btn:hover { background: #c82333; }
+        .btn-secondary { background: #6c757d; }
+        .btn-secondary:hover { background: #5a6268; }
+        .error { background: #f8d7da; color: #721c24; padding: 15px; border-left: 4px solid #f5c6cb; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h1>⚠️ Emergency Login</h1>
+
+        <div class="warning">
+            <strong>Warning:</strong> This is an emergency login option for system administrators only.
+            All login attempts are logged.
+        </div>
+
+        <form method="POST" action="/login/emergency/auth">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required autofocus>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+
+            <button type="submit" class="btn">Login</button>
+            <a href="/login" class="btn btn-secondary">← Back to Login</a>
+        </form>
+    </div>
+</body>
+</html>"#.to_string()
+    ))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EmergencyLoginForm {
+    username: String,
+    password: String,
+}
+
+/// Emergency login authentication handler
+pub async fn emergency_login_auth_handler(
+    State(state): State<Arc<AuthState>>,
+    session: Session,
+    Form(form): Form<EmergencyLoginForm>,
+) -> Result<Html<String>, StatusCode> {
+    let config = &state.config;
+
+    // Validate credentials
+    let credentials_valid = form.username == config.su_user && form.password == config.su_pwd;
+
+    if credentials_valid {
+        // Set session values for emergency access
+        session.insert("authenticated", true).await.unwrap();
+        session.insert("user_id", format!("emergency-{}", form.username)).await.unwrap();
+        session.insert("email", format!("{}@emergency.localhost", form.username)).await.unwrap();
+        session.insert("name", format!("Emergency User ({})", form.username)).await.unwrap();
+
+        println!("⚠️  Emergency login successful for user: {}", form.username);
+
+        Ok(Html(
+            r#"<!DOCTYPE html>
+<html>
+<head>
+    <title>Emergency Login Successful</title>
     <meta http-equiv="refresh" content="2;url=/">
     <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
-        .success { background: #d4edda; border: 1px solid #c3e6cb; padding: 20px; border-radius: 5px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; padding: 20px; border-radius: 5px; color: #155724; }
     </style>
 </head>
 <body>
@@ -559,7 +696,33 @@ pub async fn emergency_login_handler(
     </div>
 </body>
 </html>"#.to_string()
-    ))
+        ))
+    } else {
+        // Log failed attempt
+        println!("🚨 Failed emergency login attempt for user: {}", form.username);
+
+        Ok(Html(
+            r#"<!DOCTYPE html>
+<html>
+<head>
+    <title>Emergency Login Failed</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; padding: 20px; border-radius: 5px; color: #721c24; }
+        .btn { display: inline-block; padding: 12px 24px; margin: 10px 5px; background: #dc3545; color: white; text-decoration: none; border-radius: 5px; }
+        .btn:hover { background: #c82333; }
+    </style>
+</head>
+<body>
+    <div class="error">
+        <h2>❌ Login Failed</h2>
+        <p>Invalid credentials. This attempt has been logged.</p>
+        <p><a href="/login/emergency" class="btn">← Try Again</a></p>
+    </div>
+</body>
+</html>"#.to_string()
+        ))
+    }
 }
 
 // -------------------------------

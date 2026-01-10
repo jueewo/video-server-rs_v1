@@ -1,0 +1,148 @@
+# Caddyfile for Video Server (Production)
+# 
+# This configuration provides HTTPS and reverse proxy for:
+# - Rust HTTP server (port 3000)
+# - MediaMTX HLS/WebRTC (if using MediaMTX)
+
+# ============================================
+# Production Configuration
+# ============================================
+
+# Replace with your actual domain
+app.appkask.com {
+    # Enable automatic HTTPS with Let's Encrypt
+    
+    # Security headers
+    header {
+        # Security
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        
+        # CORS for video streaming
+        Access-Control-Allow-Origin "https://app.appkask.com"
+        Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization, Range"
+        Access-Control-Allow-Credentials "true"
+    }
+    
+    # Handle CORS preflight
+    @cors_preflight {
+        method OPTIONS
+    }
+    handle @cors_preflight {
+        header Access-Control-Allow-Origin "https://app.appkask.com"
+        header Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        header Access-Control-Allow-Headers "Content-Type, Authorization, Range"
+        header Access-Control-Max-Age "3600"
+        respond 204
+    }
+    
+    # HLS streaming paths - no buffering for live streams
+    @hls_paths {
+        path /hls/* /live/*
+    }
+    handle @hls_paths {
+        # Disable buffering for live streaming
+        header Cache-Control "no-cache, no-store, must-revalidate"
+        reverse_proxy localhost:3000 {
+            flush_interval -1
+        }
+    }
+    
+    # WebRTC signaling (if using MediaMTX)
+    @webrtc {
+        path /whip/* /whep/*
+    }
+    handle @webrtc {
+        reverse_proxy localhost:8889
+    }
+    
+    # Main application - reverse proxy to Rust server
+    reverse_proxy localhost:3000 {
+        # Enable WebSocket support (if needed)
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        
+        # Health check
+        health_uri /health
+        health_interval 10s
+        health_timeout 5s
+    }
+    
+    # Logging
+    log {
+        output file /var/log/caddy/app.appkask.com.log {
+            roll_size 100mb
+            roll_keep 10
+        }
+        format json
+    }
+}
+
+# ============================================
+# Local Development Configuration
+# ============================================
+
+localhost:8080 {
+    # Simpler config for local dev
+    
+    # Enable CORS for all origins
+    header {
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        Access-Control-Allow-Headers "*"
+    }
+    
+    # Reverse proxy to Rust server
+    reverse_proxy localhost:3000
+}
+
+# ============================================
+# MediaMTX Integration (Optional)
+# ============================================
+
+# If using MediaMTX, you might want direct access to some endpoints
+# Uncomment this section if needed
+
+# stream.appkask.com {
+#     # HLS endpoint (direct to MediaMTX)
+#     handle /hls/* {
+#         reverse_proxy localhost:8888 {
+#             flush_interval -1
+#         }
+#     }
+#     
+#     # WebRTC endpoint (direct to MediaMTX)
+#     handle /webrtc/* {
+#         reverse_proxy localhost:8889
+#     }
+#     
+#     # API endpoint (authenticated only)
+#     handle /api/* {
+#         reverse_proxy localhost:9997
+#     }
+# }
+
+# ============================================
+# API Subdomain (Optional)
+# ============================================
+
+# api.appkask.com {
+#     # API-specific configuration
+#     
+#     # Rate limiting
+#     rate_limit {
+#         zone api_limit {
+#             key {remote_host}
+#             events 100
+#             window 1m
+#         }
+#     }
+#     
+#     # Reverse proxy to Rust server
+#     reverse_proxy localhost:3000
+# }

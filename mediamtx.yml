@@ -1,0 +1,41 @@
+# MediaMTX Configuration - Optimized for Low Latency
+
+logLevel: info
+api: yes
+apiAddress: :9997
+metrics: yes
+metricsAddress: :9998
+
+paths:
+  live:
+    source: publisher
+    runOnInit: curl -sf "http://localhost:3000/api/stream/validate?token=$MTX_QUERY" || exit 1
+    runOnInitRestart: yes
+
+    # Recording configuration
+    record: yes
+    recordPath: ./livestreams/%path/%Y-%m-%d_%H-%M-%S
+    recordFormat: fmp4
+    recordSegmentDuration: 1h
+    recordDeleteAfter: 24h
+
+rtmp: yes
+rtmpAddress: :1935
+rtmpEncryption: "no"
+
+# Optimized HLS for lower latency
+hls: yes
+hlsAddress: :8888
+hlsVariant: lowLatency
+hlsSegmentCount: 3 # Reduced from 7 (fewer segments to buffer)
+hlsSegmentDuration: 500ms # Reduced from 1s (shorter segments)
+hlsPartDuration: 100ms # Reduced from 200ms (smaller parts)
+hlsSegmentMaxSize: 50M
+hlsAllowOrigins: ["*"]
+hlsMuxerCloseAfter: 60s
+
+webrtc: yes
+webrtcAddress: :8889
+
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302

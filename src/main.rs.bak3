@@ -1,0 +1,478 @@
+use axum::{
+    extract::{Path, Query, State},
+    http::{header, HeaderValue, Method, StatusCode},
+    response::{Html, Response},
+    routing::{get, post},
+    Router,
+};
+use reqwest::Client;
+use sqlx::{sqlite::SqlitePoolOptions, Pool, Sqlite};
+use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
+use time::Duration;
+use tower::ServiceBuilder;
+use tower_http::cors::CorsLayer;
+use tower_sessions::{Expiry, MemoryStore, Session, SessionManagerLayer, cookie::SameSite};
+
+// -------------------------------
+// Configuration
+// -------------------------------
+const RTMP_PUBLISH_TOKEN: &str = "supersecret123"; // Change this to a strong secret!
+const LIVE_STREAM_KEY: &str = "live"; // URL slug for live: /hls/live/index.m3u8
+const MEDIAMTX_HLS_URL: &str = "http://localhost:8888"; // MediaMTX HLS endpoint
+const MEDIAMTX_API_URL: &str = "http://localhost:9997"; // MediaMTX API endpoint
+
+// Shared app state
+#[derive(Clone)]
+struct AppState {
+    pool: Pool<Sqlite>,
+    storage_dir: PathBuf,
+    http_client: Client,
+}
+
+// -------------------------------
+// Authentication Handlers
+// -------------------------------
+
+// Simple login handler (replace with real auth in production)
+async fn login_handler(mut session: Session) -> Result<&'static str, StatusCode> {
+    session.insert("user_id", 1u32).await.unwrap();
+    session.insert("authenticated", true).await.unwrap();
+    Ok("Logged in – you can now view private and live streams")
+}
+
+async fn logout_handler(mut session: Session) -> Result<&'static str, StatusCode> {
+    let _ = session.remove::<bool>("authenticated").await;
+    let _ = session.remove::<u32>("user_id").await;
+    Ok("Logged out")
+}
+
+// -------------------------------
+// MediaMTX Authentication Endpoints
+// -------------------------------
+
+// Validate stream publisher (called by MediaMTX via runOnInit)
+async fn validate_stream_handler(
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<StatusCode, StatusCode> {
+    let token = params.get("token").ok_or(StatusCode::UNAUTHORIZED)?;
+
+    if token == RTMP_PUBLISH_TOKEN {
+        println!("✅ Stream publisher authorized: token={}", token);
+        Ok(StatusCode::OK)
+    } else {
+        println!("❌ Stream publisher rejected: invalid token");
+        Err(StatusCode::UNAUTHORIZED)
+    }
+}
+
+// Authorize stream viewer (called by MediaMTX via runOnRead)
+async fn authorize_stream_handler(session: Session) -> Result<StatusCode, StatusCode> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if authenticated {
+        let user_id: Option<u32> = session.get("user_id").await.ok().flatten();
+        println!("✅ Stream viewer authorized: user_id={:?}", user_id);
+        Ok(StatusCode::OK)
+    } else {
+        println!("❌ Stream viewer rejected: not authenticated");
+        Err(StatusCode::UNAUTHORIZED)
+    }
+}
+
+// -------------------------------
+// Webhook Handlers (Optional)
+// -------------------------------
+
+async fn webhook_stream_ready() -> StatusCode {
+    println!("📡 Stream is now live!");
+    StatusCode::OK
+}
+
+async fn webhook_stream_ended() -> StatusCode {
+    println!("📡 Stream has ended");
+    StatusCode::OK
+}
+
+// -------------------------------
+// Test Page Handler
+// -------------------------------
+
+async fn test_page_handler() -> Html<&'static str> {
+    Html(include_str!("../test-hls.html"))
+}
+
+// -------------------------------
+// Index Page
+// -------------------------------
+
+async fn index_handler(State(state): State<Arc<AppState>>) -> Result<Html<String>, StatusCode> {
+    let videos: Vec<(String, String)> =
+        sqlx::query_as("SELECT slug, title FROM videos WHERE is_public = 1")
+            .fetch_all(&state.pool)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let mut html = String::from(
+        r#"<html>
+<head>
+    <title>Public Videos</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        h1 { color: #4CAF50; }
+        ul { list-style: none; padding: 0; }
+        li { padding: 10px; margin: 5px 0; background: #f5f5f5; border-radius: 4px; }
+        a { text-decoration: none; color: #333; font-weight: bold; }
+        a:hover { color: #4CAF50; }
+        .info { background: #e3f2fd; padding: 15px; border-radius: 4px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>🎥 Public Videos</h1>
+    <ul>"#,
+    );
+
+    for (slug, title) in videos {
+        html.push_str(&format!(
+            "<li><a href=\"/hls/{}/master.m3u8\">{}</a></li>",
+            slug, title
+        ));
+    }
+
+    html.push_str(
+        r#"</ul>
+    <div class="info">
+        <p><strong>Want to watch live streams?</strong></p>
+        <p><a href="/login">Login</a> to view private content and live streams</p>
+        <p><a href="/test">Test Live Stream Player</a></p>
+    </div>
+</body>
+</html>"#,
+    );
+
+    Ok(Html(html))
+}
+
+// -------------------------------
+// HLS Proxy Handler for Live Streams
+// -------------------------------
+
+async fn hls_proxy_handler(
+    Path(path): Path<String>,
+    session: Session,
+    State(state): State<Arc<AppState>>,
+) -> Result<Response, StatusCode> {
+    // Parse the path to extract slug and file
+    let parts: Vec<&str> = path.splitn(2, '/').collect();
+    if parts.len() < 2 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let slug = parts[0];
+    let file_path = parts[1];
+
+    // Handle live stream - proxy to MediaMTX
+    if slug == LIVE_STREAM_KEY {
+        // Check authentication for live stream
+        let authenticated: bool = session
+            .get("authenticated")
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or(false);
+
+        if !authenticated {
+            println!("❌ HLS request rejected: not authenticated");
+            return Err(StatusCode::UNAUTHORIZED);
+        }
+
+        // Proxy request to MediaMTX
+        let mediamtx_url = format!("{}/{}/{}", MEDIAMTX_HLS_URL, slug, file_path);
+
+        println!("📡 Proxying HLS request: {}", mediamtx_url);
+
+        let response = state
+            .http_client
+            .get(&mediamtx_url)
+            .send()
+            .await
+            .map_err(|e| {
+                println!("❌ MediaMTX proxy error: {}", e);
+                StatusCode::BAD_GATEWAY
+            })?;
+
+        // Check if MediaMTX returned an error
+        if !response.status().is_success() {
+            println!("❌ MediaMTX returned error: {}", response.status());
+            return Err(StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY));
+        }
+
+        // Determine content type
+        let content_type = if file_path.ends_with(".m3u8") {
+            "application/vnd.apple.mpegurl"
+        } else if file_path.ends_with(".ts") {
+            "video/MP2T"
+        } else {
+            "application/octet-stream"
+        };
+
+        // Get response body
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|_| StatusCode::BAD_GATEWAY)?;
+
+        // Build response with proper headers
+        return Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, content_type)
+            .header(
+                header::CACHE_CONTROL,
+                if file_path.ends_with(".m3u8") {
+                    "no-cache, no-store, must-revalidate"
+                } else {
+                    "max-age=10"
+                },
+            )
+            .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+            .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, OPTIONS")
+            .body(axum::body::Body::from(bytes))
+            .unwrap());
+    }
+
+    // Handle VOD - serve from local storage
+    // DB lookup for regular videos
+    let video: Option<(i32,)> = sqlx::query_as("SELECT is_public FROM videos WHERE slug = ?")
+        .bind(slug)
+        .fetch_optional(&state.pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let is_public = video.map(|(p,)| p == 1).unwrap_or(false);
+
+    // Authentication required for non-public videos
+    if !is_public {
+        let authenticated: bool = session
+            .get("authenticated")
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or(false);
+
+        if !authenticated {
+            return Err(StatusCode::UNAUTHORIZED);
+        }
+    }
+
+    // Serve VOD file from storage
+    let base_folder = if is_public { "public" } else { "private" };
+    let full_path = state
+        .storage_dir
+        .join(base_folder)
+        .join(slug)
+        .join(file_path);
+
+    // Check if file exists and read it
+    let file = tokio::fs::File::open(&full_path)
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+
+    // Determine content type
+    let content_type = if file_path.ends_with(".m3u8") {
+        "application/vnd.apple.mpegurl"
+    } else if file_path.ends_with(".ts") {
+        "video/MP2T"
+    } else {
+        "application/octet-stream"
+    };
+
+    // Stream the file
+    let stream = tokio_util::io::ReaderStream::new(file);
+    let body = axum::body::Body::from_stream(stream);
+
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, content_type)
+        .header(header::CACHE_CONTROL, "max-age=3600")
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, OPTIONS")
+        .body(body)
+        .unwrap())
+}
+
+// -------------------------------
+// Health Check Endpoint
+// -------------------------------
+
+async fn health_check() -> &'static str {
+    "OK"
+}
+
+// -------------------------------
+// MediaMTX Status Endpoint (for debugging)
+// -------------------------------
+
+async fn mediamtx_status(State(state): State<Arc<AppState>>) -> Result<String, StatusCode> {
+    let url = format!("{}/v3/paths/list", MEDIAMTX_API_URL);
+
+    let response = state
+        .http_client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+
+    let text = response
+        .text()
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+
+    Ok(text)
+}
+
+// -------------------------------
+// Main Function
+// -------------------------------
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    tracing_subscriber::fmt::init();
+
+    println!("\n🚀 Initializing Video Server with MediaMTX...");
+
+    // DB setup
+    let pool = SqlitePoolOptions::new()
+        .max_connections(5)
+        .connect("sqlite:video.db?mode=rwc")
+        .await?;
+
+    sqlx::migrate!("./migrations").run(&pool).await?;
+
+    let storage_dir = std::env::current_dir()?.join("storage");
+    std::fs::create_dir_all(&storage_dir)?;
+
+    // Create HTTP client for MediaMTX communication
+    let http_client = Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+
+    let state = Arc::new(AppState {
+        pool,
+        storage_dir,
+        http_client,
+    });
+
+    // Session layer
+    let session_store = MemoryStore::default();
+    let session_layer = SessionManagerLayer::new(session_store)
+        .with_secure(false)
+        .with_expiry(Expiry::OnInactivity(Duration::days(7)));
+
+    let app = Router::new()
+        .route("/", get(index_handler))
+        .route("/login", get(login_handler))
+        .route("/logout", get(logout_handler))
+        .route("/test", get(test_page_handler))
+        .route("/health", get(health_check))
+        // MediaMTX authentication endpoints
+        .route("/api/stream/validate", get(validate_stream_handler))
+        .route("/api/stream/authorize", get(authorize_stream_handler))
+        // MediaMTX webhook endpoints (optional)
+        .route("/api/webhooks/stream-ready", post(webhook_stream_ready))
+        .route("/api/webhooks/stream-ended", post(webhook_stream_ended))
+        // MediaMTX status (for debugging)
+        .route("/api/mediamtx/status", get(mediamtx_status))
+        // HLS proxy handler (handles both live and VOD)
+        .route("/hls/*path", get(hls_proxy_handler))
+        .with_state(state)
+        .layer(
+            ServiceBuilder::new()
+                .layer(
+                    CorsLayer::new()
+                        .allow_origin(tower_http::cors::AllowOrigin::predicate(
+                            |origin: &HeaderValue, _| {
+                                let origin_str = origin.to_str().unwrap_or("");
+                                (origin_str.ends_with("appkask.com")
+                                    || origin_str.ends_with(".appkask.com"))
+                                    || origin_str.contains("localhost")
+                            },
+                        ))
+                        .allow_credentials(true)
+                        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+                        .allow_headers([
+                            axum::http::header::CONTENT_TYPE,
+                            axum::http::header::RANGE,
+                            axum::http::header::AUTHORIZATION,
+                        ]),
+                )
+                .layer(session_layer),
+        );
+
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+
+    println!("\n╔════════════════════════════════════════════════════════════════╗");
+    println!("║   🎥  VIDEO SERVER WITH MEDIAMTX - READY!                     ║");
+    println!("╚════════════════════════════════════════════════════════════════╝\n");
+
+    println!("📊 SERVER ENDPOINTS:");
+    println!("   • Web UI:        http://{}", addr);
+    println!("   • Test Player:   http://{}/test", addr);
+    println!("   • Login:         http://{}/login", addr);
+    println!("   • Health:        http://{}/health", addr);
+    println!("   • MediaMTX API:  http://{}/api/mediamtx/status", addr);
+
+    println!("\n📡 MEDIAMTX CONFIGURATION:");
+    println!("   • RTMP Input:    rtmp://localhost:1935/live");
+    println!("   • HLS Output:    http://localhost:8888/live/index.m3u8");
+    println!("   • WebRTC Output: http://localhost:8889/live");
+    println!("   • API:           http://localhost:9997");
+    println!("   • Metrics:       http://localhost:9998/metrics");
+
+    println!("\n🎬 STREAMING COMMANDS:");
+    println!("\n   macOS (Camera + Microphone):");
+    println!("   ffmpeg -f avfoundation -framerate 30 -video_size 1280x720 -i \"0:0\" \\");
+    println!("     -c:v libx264 -preset veryfast -tune zerolatency \\");
+    println!("     -c:a aac -b:a 128k -ar 44100 \\");
+    println!("     -f flv \"rtmp://localhost:1935/live?token={}\"", RTMP_PUBLISH_TOKEN);
+
+    println!("\n   Linux (Webcam + Microphone):");
+    println!("   ffmpeg -f v4l2 -i /dev/video0 -f alsa -i hw:0 \\");
+    println!("     -c:v libx264 -preset veryfast -tune zerolatency \\");
+    println!("     -c:a aac -b:a 128k -ar 44100 \\");
+    println!("     -f flv \"rtmp://localhost:1935/live?token={}\"", RTMP_PUBLISH_TOKEN);
+
+    println!("\n   OBS Studio:");
+    println!("   • Server:     rtmp://localhost:1935/live");
+    println!("   • Stream Key: ?token={}", RTMP_PUBLISH_TOKEN);
+
+    println!("\n⚠️  IMPORTANT:");
+    println!("   1. Make sure MediaMTX is running: mediamtx mediamtx.yml");
+    println!("   2. Login first: http://{}/login", addr);
+    println!("   3. Then watch: http://{}/test", addr);
+
+    println!("\n💡 TIPS:");
+    println!("   • List devices: ffmpeg -f avfoundation -list_devices true -i \"\"");
+    println!("   • Check MediaMTX: curl http://localhost:9997/v3/paths/list");
+    println!("   • View logs: MediaMTX logs appear in its terminal");
+
+    println!("\n{}\n", "═".repeat(64));
+
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    axum::serve(listener, app).await?;
+    Ok(())
+}
+
+// Debug endpoint to check session status
+async fn check_session_handler(session: Session) -> Result<String, StatusCode> {
+    let authenticated: Option<bool> = session.get("authenticated").await.ok().flatten();
+    let user_id: Option<u32> = session.get("user_id").await.ok().flatten();
+
+    Ok(format!(
+        "Session Status:\nAuthenticated: {:?}\nUser ID: {:?}",
+        authenticated, user_id
+    ))
+}

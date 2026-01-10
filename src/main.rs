@@ -1,5 +1,4 @@
 use axum::{
-    extract::State,
     http::{header::HeaderValue, Method, StatusCode},
     response::Html,
     routing::{get, post},
@@ -16,7 +15,7 @@ use tower_sessions::{cookie::SameSite, Expiry, MemoryStore, Session, SessionMana
 // Import the crates
 use image_manager::{ImageManagerState, image_routes};
 use user_auth::{AuthState, auth_routes};
-use video_manager::{VideoManagerState, video_routes, RTMP_PUBLISH_TOKEN, get_videos};
+use video_manager::{VideoManagerState, video_routes, RTMP_PUBLISH_TOKEN};
 
 // -------------------------------
 // Shared App State
@@ -33,10 +32,7 @@ struct AppState {
 // Main Page Handler
 // -------------------------------
 
-async fn index_handler(
-    State(state): State<Arc<AppState>>,
-    session: Session,
-) -> Result<Html<String>, StatusCode> {
+async fn index_handler(session: Session) -> Result<Html<String>, StatusCode> {
     // Check if user is authenticated
     let authenticated: bool = session
         .get("authenticated")
@@ -45,117 +41,193 @@ async fn index_handler(
         .flatten()
         .unwrap_or(false);
 
-    // Get videos based on authentication status
-    let videos = get_videos(&state.video_state.pool, authenticated)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let page_title = if authenticated {
-        "🎥 All Videos"
-    } else {
-        "🎥 Public Videos"
-    };
-
-    let mut html = format!(
-        r#"<html>
+    let html = format!(
+        r#"<!DOCTYPE html>
+<html>
 <head>
-    <title>{}</title>
+    <title>Video Server - Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body {{ font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }}
-        h1 {{ color: #4CAF50; }}
-        .header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }}
-        .auth-links {{ display: flex; gap: 15px; }}
-        .auth-links a {{ color: #1976D2; text-decoration: none; font-weight: bold; }}
-        .auth-links a:hover {{ text-decoration: underline; }}
-        ul {{ list-style: none; padding: 0; }}
-        li {{ padding: 10px; margin: 5px 0; background: #f5f5f5; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }}
-        li.private {{ background: #fff3e0; border-left: 4px solid #ff9800; }}
-        a {{ text-decoration: none; color: #333; font-weight: bold; }}
-        a:hover {{ color: #4CAF50; }}
-        .badge {{
-            background: #ff9800;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 12px;
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }}
+        .container {{
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 50px 40px;
+            text-align: center;
+        }}
+        h1 {{
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }}
+        .subtitle {{
+            color: #666;
+            font-size: 1.1em;
+            margin-bottom: 40px;
+        }}
+        .status {{
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 10px 20px;
+            border-radius: 25px;
+            display: inline-block;
+            margin-bottom: 30px;
             font-weight: bold;
         }}
-        .info {{ background: #e3f2fd; padding: 15px; border-radius: 4px; margin: 20px 0; }}
-        .section {{ margin: 30px 0; }}
-        .section h2 {{ color: #666; font-size: 18px; margin-bottom: 10px; }}
+        .status.guest {{
+            background: #fff3e0;
+            color: #f57c00;
+        }}
+        .buttons {{
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin: 30px 0;
+        }}
+        .btn {{
+            padding: 18px 30px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1.1em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }}
+        .btn-primary {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }}
+        .btn-primary:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }}
+        .btn-secondary {{
+            background: #4CAF50;
+            color: white;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+        }}
+        .btn-secondary:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.6);
+        }}
+        .btn-outline {{
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }}
+        .btn-outline:hover {{
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }}
+        .btn-login {{
+            background: #FF6B6B;
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+        }}
+        .btn-login:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.6);
+        }}
+        .btn-logout {{
+            background: #95a5a6;
+            color: white;
+            padding: 12px 24px;
+            font-size: 0.9em;
+        }}
+        .btn-logout:hover {{
+            background: #7f8c8d;
+        }}
+        .footer {{
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #999;
+            font-size: 0.9em;
+        }}
+        .emoji {{
+            font-size: 1.3em;
+        }}
+        @media (max-width: 600px) {{
+            .container {{
+                padding: 30px 20px;
+            }}
+            h1 {{
+                font-size: 2em;
+            }}
+            .btn {{
+                font-size: 1em;
+                padding: 15px 25px;
+            }}
+        }}
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>{}</h1>
-        <div class="auth-links">
-            <a href="/images">📸 Images</a>"#,
-        page_title, page_title
-    );
+    <div class="container">
+        <h1>🎬 Video Server</h1>
+        <p class="subtitle">Your personal media hub</p>
 
-    if authenticated {
-        html.push_str("<a href=\"/logout\">Logout</a>");
-    } else {
-        html.push_str("<a href=\"/login\">Login</a>");
-    }
+        <div class="status{}">{}</div>
 
-    html.push_str("</div></div>");
+        <div class="buttons">
+            <a href="/videos" class="btn btn-primary">
+                <span class="emoji">🎥</span>
+                Browse Videos
+            </a>
 
-    // Separate videos into public and private
-    let mut public_videos: Vec<(String, String, i32)> = Vec::new();
-    let mut private_videos: Vec<(String, String, i32)> = Vec::new();
+            <a href="/images" class="btn btn-secondary">
+                <span class="emoji">🖼️</span>
+                View Image Gallery
+            </a>
 
-    for video in videos {
-        if video.2 == 1 {
-            public_videos.push(video);
+            <a href="/test" class="btn btn-outline">
+                <span class="emoji">📡</span>
+                Live Stream Test
+            </a>
+        </div>
+
+        {}
+
+        <div class="footer">
+            <p>Modular Video Server v1.0</p>
+            <p>Powered by Rust 🦀 + Axum</p>
+        </div>
+    </div>
+</body>
+</html>"#,
+        if authenticated { "" } else { " guest" },
+        if authenticated {
+            format!("✅ Logged In")
         } else {
-            private_videos.push(video);
+            "👋 Guest Mode".to_string()
+        },
+        if authenticated {
+            r#"<a href="/logout" class="btn btn-logout">Logout</a>"#
+        } else {
+            r#"<a href="/login" class="btn btn-login">
+                <span class="emoji">🔐</span>
+                Login to Access Private Content
+            </a>"#
         }
-    }
-
-    // Show public videos
-    if !public_videos.is_empty() {
-        html.push_str("<div class=\"section\"><h2>📺 Public Videos</h2><ul>");
-        for (slug, title, _) in public_videos {
-            html.push_str(&format!(
-                "<li><a href=\"/watch/{}\">{}</a></li>",
-                slug, title
-            ));
-        }
-        html.push_str("</ul></div>");
-    }
-
-    // Show private videos (only if authenticated)
-    if authenticated && !private_videos.is_empty() {
-        html.push_str("<div class=\"section\"><h2>🔒 Private Videos</h2><ul>");
-        for (slug, title, _) in private_videos {
-            html.push_str(&format!(
-                "<li class=\"private\"><a href=\"/watch/{}\">{}</a><span class=\"badge\">PRIVATE</span></li>",
-                slug, title
-            ));
-        }
-        html.push_str("</ul></div>");
-    }
-
-    // Info section
-    if !authenticated {
-        html.push_str(
-            r#"<div class="info">
-            <p><strong>Want to watch private videos and live streams?</strong></p>
-            <p><a href="/login">Login</a> to access exclusive content</p>
-            <p><a href="/test">Test Live Stream Player</a></p>
-        </div>"#,
-        );
-    } else {
-        html.push_str(
-            r#"<div class="info">
-            <p><a href="/test">📡 Test Live Stream Player</a></p>
-            <p><a href="/upload">📤 Upload Images</a></p>
-        </div>"#,
-        );
-    }
-
-    html.push_str("</body></html>");
+    );
 
     Ok(Html(html))
 }

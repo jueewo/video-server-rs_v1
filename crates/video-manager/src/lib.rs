@@ -44,6 +44,7 @@ impl VideoManagerState {
 // -------------------------------
 pub fn video_routes() -> Router<Arc<VideoManagerState>> {
     Router::new()
+        .route("/videos", get(videos_list_handler))
         .route("/watch/:slug", get(video_player_handler))
         .route("/hls/*path", get(hls_proxy_handler))
         .route("/api/stream/validate", get(validate_stream_handler))
@@ -87,6 +88,142 @@ async fn authorize_stream_handler(session: Session) -> Result<StatusCode, Status
         println!("❌ Stream viewer rejected: not authenticated");
         Err(StatusCode::UNAUTHORIZED)
     }
+}
+
+// -------------------------------
+// Video Listing Page Handler
+// -------------------------------
+
+pub async fn videos_list_handler(
+    session: Session,
+    State(state): State<Arc<VideoManagerState>>,
+) -> Result<Html<String>, StatusCode> {
+    // Check if user is authenticated
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    // Get videos based on authentication status
+    let videos = get_videos(&state.pool, authenticated)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let page_title = if authenticated {
+        "🎥 All Videos"
+    } else {
+        "🎥 Public Videos"
+    };
+
+    let mut html = format!(
+        r#"<html>
+<head>
+    <title>{}</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }}
+        h1 {{ color: #4CAF50; }}
+        .header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }}
+        .auth-links {{ display: flex; gap: 15px; }}
+        .auth-links a {{ color: #1976D2; text-decoration: none; font-weight: bold; }}
+        .auth-links a:hover {{ text-decoration: underline; }}
+        ul {{ list-style: none; padding: 0; }}
+        li {{ padding: 10px; margin: 5px 0; background: #f5f5f5; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }}
+        li.private {{ background: #fff3e0; border-left: 4px solid #ff9800; }}
+        a {{ text-decoration: none; color: #333; font-weight: bold; }}
+        a:hover {{ color: #4CAF50; }}
+        .badge {{
+            background: #ff9800;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }}
+        .info {{ background: #e3f2fd; padding: 15px; border-radius: 4px; margin: 20px 0; }}
+        .section {{ margin: 30px 0; }}
+        .section h2 {{ color: #666; font-size: 18px; margin-bottom: 10px; }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{}</h1>
+        <div class="auth-links">
+            <a href="/">🏠 Home</a>
+            <a href="/images">📸 Images</a>"#,
+        page_title, page_title
+    );
+
+    if authenticated {
+        html.push_str("<a href=\"/logout\">Logout</a>");
+    } else {
+        html.push_str("<a href=\"/login\">Login</a>");
+    }
+
+    html.push_str("</div></div>");
+
+    // Separate videos into public and private
+    let mut public_videos: Vec<(String, String, i32)> = Vec::new();
+    let mut private_videos: Vec<(String, String, i32)> = Vec::new();
+
+    for video in videos {
+        if video.2 == 1 {
+            public_videos.push(video);
+        } else {
+            private_videos.push(video);
+        }
+    }
+
+    // Show public videos
+    if !public_videos.is_empty() {
+        html.push_str("<div class=\"section\"><h2>📺 Public Videos</h2><ul>");
+        for (slug, title, _) in public_videos {
+            html.push_str(&format!(
+                "<li><a href=\"/watch/{}\">{}</a></li>",
+                slug, title
+            ));
+        }
+        html.push_str("</ul></div>");
+    } else {
+        html.push_str("<div class=\"section\"><p>No public videos available.</p></div>");
+    }
+
+    // Show private videos (only if authenticated)
+    if authenticated {
+        if !private_videos.is_empty() {
+            html.push_str("<div class=\"section\"><h2>🔒 Private Videos</h2><ul>");
+            for (slug, title, _) in private_videos {
+                html.push_str(&format!(
+                    "<li class=\"private\"><a href=\"/watch/{}\">{}</a><span class=\"badge\">PRIVATE</span></li>",
+                    slug, title
+                ));
+            }
+            html.push_str("</ul></div>");
+        }
+    }
+
+    // Info section
+    if !authenticated {
+        html.push_str(
+            r#"<div class="info">
+            <p><strong>Want to watch private videos and live streams?</strong></p>
+            <p><a href="/login">Login</a> to access exclusive content</p>
+            <p><a href="/test">Test Live Stream Player</a></p>
+        </div>"#,
+        );
+    } else {
+        html.push_str(
+            r#"<div class="info">
+            <p><a href="/test">📡 Test Live Stream Player</a></p>
+            <p><a href="/upload">📤 Upload Images</a></p>
+        </div>"#,
+        );
+    }
+
+    html.push_str("</body></html>");
+
+    Ok(Html(html))
 }
 
 // -------------------------------
@@ -223,7 +360,10 @@ pub async fn video_player_handler(
 <body>
     <div class="container">
         <div class="header">
-            <a href="/" class="back-link">← Back to Videos</a>
+            <div>
+                <a href="/" class="back-link">🏠 Home</a> |
+                <a href="/videos" class="back-link">📺 Videos</a>
+            </div>
             <div class="info" id="player-info">Initializing player...</div>
         </div>
 

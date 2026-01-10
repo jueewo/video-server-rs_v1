@@ -562,7 +562,8 @@ pub async fn images_gallery_handler(
 <body>
     <h1>{}</h1>
     <div class="info">
-        <a href="/">← Back to Videos</a> |
+        <a href="/">🏠 Home</a> |
+        <a href="/videos">📺 Videos</a> |
 "#,
         title, title
     );

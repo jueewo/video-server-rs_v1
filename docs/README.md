@@ -23,7 +23,8 @@ docs/
 │   └── IMAGE_QUICKSTART.md            # Image serving quick start
 ├── architecture/                       # Architecture documentation
 │   ├── MODULAR_ARCHITECTURE.md        # Modular architecture overview
-│   └── MODULAR_QUICKSTART.md          # Modular architecture quick start
+│   ├── MODULAR_QUICKSTART.md          # Modular architecture quick start
+│   └── ASKAMA_TEMPLATES.md            # Template system documentation
 ├── LIVE_STREAMING_GUIDE.md            # Complete streaming guide
 └── MEDIAMTX_MIGRATION.md              # MediaMTX integration details
 ```
@@ -84,6 +85,7 @@ docs/
 
 - **[Modular Architecture](./architecture/MODULAR_ARCHITECTURE.md)** - System design
 - **[Quick Start](./architecture/MODULAR_QUICKSTART.md)** - Understanding modules
+- **[Askama Templates](./architecture/ASKAMA_TEMPLATES.md)** - Template system guide
 
 ## 🎯 Common Tasks
 
@@ -257,7 +259,8 @@ When adding documentation:
 ### Advanced
 1. [auth/OIDC_IMPLEMENTATION.md](./auth/OIDC_IMPLEMENTATION.md) - Deep dive into auth
 2. [auth/EMERGENCY_LOGIN_IMPLEMENTATION.md](./auth/EMERGENCY_LOGIN_IMPLEMENTATION.md) - Security patterns
-3. [PROJECT_STATUS.md](../PROJECT_STATUS.md) - Contribute to the project
+3. [architecture/ASKAMA_TEMPLATES.md](./architecture/ASKAMA_TEMPLATES.md) - Template system
+4. [PROJECT_STATUS.md](../PROJECT_STATUS.md) - Contribute to the project
 
 ## 📄 License
 

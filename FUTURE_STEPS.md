@@ -166,18 +166,21 @@ video-server-rs_v1/
 #### Week 1-2: Setup & Video CRUD Foundation
 
 **Tasks:**
-- [ ] Add Askama template engine to video-manager
-- [ ] Create base templates (layout, navigation)
+- [x] Add Askama template engine to video-manager ✅ **DONE**
+- [x] Create base templates (layout, navigation) ✅ **DONE**
 - [ ] Design database schema updates for metadata
 
 **Dependencies:**
 ```toml
+# Already added! ✅
 # crates/video-manager/Cargo.toml
 [dependencies]
 askama = "0.12"
 askama_axum = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 ```
+
+**Note:** Askama is already integrated! See `docs/architecture/ASKAMA_TEMPLATES.md` for details.
 
 **Database Changes:**
 ```sql
@@ -224,6 +227,8 @@ GET    /videos/:id                → View video details
 </div>
 {% endblock %}
 ```
+
+**Note:** Base template already exists! See `templates/base.html`
 
 2. **video_edit.html** - Edit form with all fields
 3. **video_create.html** - Creation form
@@ -857,8 +862,8 @@ let video = reqwest::get(
 ## 📊 Technology Stack Summary
 
 ### Media Server (Simple)
-- **Framework:** Axum
-- **Templates:** Askama
+- **Framework:** Axum ✅
+- **Templates:** Askama ✅ **Already implemented**
 - **Database:** SQLite → PostgreSQL (optional)
 - **Deployment:** Single binary
 
@@ -918,19 +923,15 @@ let video = reqwest::get(
 
 ### Immediate Next Steps
 
-1. **Week 1: Add Askama to video-manager**
-```bash
-cd crates/video-manager
-cargo add askama askama_axum
-```
+1. **✅ DONE: Askama already added!**
+   - Main app uses Askama ✅
+   - User-auth uses Askama ✅
+   - Templates in place ✅
+   - See `docs/architecture/ASKAMA_TEMPLATES.md`
 
-2. **Week 1: Create first template**
-```bash
-mkdir -p crates/video-manager/src/templates
-touch crates/video-manager/src/templates/video_list.html
-```
+2. **Week 1-2: Implement video CRUD**
+</text>
 
-3. **Week 2-3: Implement video CRUD**
 - Create forms
 - Add routes
 - Test functionality

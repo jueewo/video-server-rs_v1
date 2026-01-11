@@ -1,6 +1,6 @@
 # Video Server Project Status
 
-**Last Updated:** January 9, 2026
+**Last Updated:** January 11, 2024
 
 ## Current Status: ✅ Production Ready with MediaMTX
 
@@ -8,9 +8,9 @@ The Rust-based HLS live streaming server uses MediaMTX for production-grade stre
 
 ### ✅ Implemented Features
 
+#### Streaming & Media
 - [x] RTMP ingest on port 1935 (token-based authentication via MediaMTX)
 - [x] MediaMTX integration for production-ready streaming
-- [x] Session-based authentication (login/logout)
 - [x] HLS streaming with proper CORS headers (2-3s latency)
 - [x] WebRTC support for ultra-low latency (<1s)
 - [x] Video + Audio support
@@ -21,14 +21,63 @@ The Rust-based HLS live streaming server uses MediaMTX for production-grade stre
 - [x] Stream monitoring via MediaMTX API
 - [x] Prometheus metrics endpoint
 
+#### Authentication & Security
+- [x] OIDC authentication with Casdoor (PKCE flow)
+- [x] Session-based authentication (login/logout)
+- [x] Emergency login feature with credential validation
+- [x] Configurable emergency login (enable/disable)
+- [x] Comprehensive authentication logging
+- [x] 7-day session expiry with HTTP-only cookies
+
+#### UI & Templates
+- [x] **Askama template system** ✨ NEW
+- [x] Clean HTML templates with template inheritance
+- [x] Compile-time template checking
+- [x] Base template with consistent styling
+- [x] All auth pages using templates
+- [x] Professional UI design
+
+#### Architecture
+- [x] Modular crate architecture (user-auth, video-manager, image-manager)
+- [x] Clean separation of concerns
+- [x] Scalable design ready for future features
+
 ### 📝 Documentation Created
 
+#### Main Documentation
 1. **docs/README.md** - Documentation index and quick reference
-2. **docs/LIVE_STREAMING_GUIDE.md** - Current setup guide and troubleshooting
-3. **docs/MEDIAMTX_MIGRATION.md** - Production migration plan
-4. **Caddyfile** - Caddy 2 reverse proxy configuration
-5. **test-hls.html** - HLS player test page with debugging
-6. **PROJECT_STATUS.md** - This file
+2. **QUICKSTART.md** - Quick start guide
+3. **TROUBLESHOOTING.md** - General troubleshooting
+4. **FUTURE_STEPS.md** - Development roadmap and architecture plan
+
+#### Streaming Documentation
+5. **docs/LIVE_STREAMING_GUIDE.md** - Complete streaming setup and troubleshooting
+6. **docs/MEDIAMTX_MIGRATION.md** - Production migration plan
+
+#### Authentication Documentation
+7. **docs/auth/OIDC_QUICKSTART.md** - OIDC setup guide
+8. **docs/auth/OIDC_IMPLEMENTATION.md** - OIDC technical details
+9. **docs/auth/OIDC_TROUBLESHOOTING.md** - OIDC troubleshooting
+10. **docs/auth/CASDOOR_SETUP.md** - Casdoor configuration
+11. **docs/auth/CASDOOR_PKCE_GUIDE.md** - PKCE flow documentation
+12. **docs/auth/EMERGENCY_LOGIN.md** - Emergency login complete guide (378 lines)
+13. **docs/auth/EMERGENCY_LOGIN_QUICKSTART.md** - Emergency login quick start
+14. **docs/auth/EMERGENCY_LOGIN_IMPLEMENTATION.md** - Emergency login technical details
+
+#### Architecture Documentation
+15. **docs/architecture/MODULAR_ARCHITECTURE.md** - System architecture overview
+16. **docs/architecture/MODULAR_QUICKSTART.md** - Understanding the codebase
+17. **docs/architecture/ASKAMA_TEMPLATES.md** - Template system guide (576 lines) ✨ NEW
+
+#### Feature Documentation
+18. **docs/features/IMAGE_SERVING.md** - Image serving guide
+19. **docs/features/IMAGE_QUICKSTART.md** - Image quick start
+
+#### Configuration & Scripts
+20. **Caddyfile** - Caddy 2 reverse proxy configuration
+21. **scripts/test-emergency-login.sh** - Emergency login test script
+22. **scripts/test-hls.html** - HLS player test page
+23. **.env.example** - Environment configuration template with all options
 
 ## Architecture
 

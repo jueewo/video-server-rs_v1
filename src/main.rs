@@ -10,7 +10,7 @@ use sqlx::sqlite::SqlitePoolOptions;
 use std::{net::SocketAddr, sync::Arc};
 use time::Duration;
 use tower::ServiceBuilder;
-use tower_http::cors::CorsLayer;
+use tower_http::{cors::CorsLayer, services::ServeDir};
 use tower_sessions::{cookie::SameSite, Expiry, MemoryStore, Session, SessionManagerLayer};
 
 // Import the crates
@@ -54,14 +54,6 @@ async fn index_handler(session: Session) -> Result<Html<String>, StatusCode> {
 
     let template = IndexTemplate { authenticated };
     Ok(Html(template.render().unwrap()))
-}
-
-// -------------------------------
-// Test Page Handler
-// -------------------------------
-
-async fn test_page_handler() -> Html<&'static str> {
-    Html(include_str!("../scripts/test-hls.html"))
 }
 
 // -------------------------------
@@ -130,7 +122,7 @@ async fn main() -> anyhow::Result<()> {
         http_client,
     ));
 
-    let image_state = Arc::new(ImageManagerState::new(pool.clone(), storage_dir));
+    let image_state = Arc::new(ImageManagerState::new(pool.clone(), storage_dir.clone()));
 
     // Initialize OIDC configuration
     let oidc_config = OidcConfig::from_env();
@@ -181,7 +173,6 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         // Main routes
         .route("/", get(index_handler))
-        .route("/test", get(test_page_handler))
         .route("/health", get(health_check))
         // Webhook endpoints (optional)
         .route("/api/webhooks/stream-ready", post(webhook_stream_ready))
@@ -191,6 +182,8 @@ async fn main() -> anyhow::Result<()> {
         .merge(auth_routes(auth_state.clone()))
         .merge(video_routes().with_state(video_state))
         .merge(image_routes().with_state(image_state))
+        // Serve static files from storage directory
+        .nest_service("/storage", ServeDir::new(&storage_dir))
         // Apply middleware
         .layer(
             ServiceBuilder::new()

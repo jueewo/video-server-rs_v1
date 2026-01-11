@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - Video Player{% endblock %}
+
+{% block extra_styles %}
+.video-container {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.video-wrapper {
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 aspect ratio */
+    height: 0;
+    overflow: hidden;
+    background: #000;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.video-wrapper video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
+}
+
+.video-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.video-header h1 {
+    margin-bottom: 0;
+    flex: 1;
+}
+
+.video-details {
+    background: #f8f9fa;
+    padding: 25px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+}
+
+.detail-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    font-size: 16px;
+}
+
+.detail-row:last-child {
+    margin-bottom: 0;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: #555;
+    min-width: 100px;
+}
+
+.detail-value {
+    color: #333;
+}
+
+.controls-section {
+    margin-top: 30px;
+}
+
+.player-instructions {
+    background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #667eea;
+}
+
+.player-instructions h3 {
+    color: #667eea;
+    margin-top: 0;
+    margin-bottom: 12px;
+}
+
+.player-instructions ul {
+    margin: 10px 0 10px 20px;
+    color: #555;
+}
+
+.player-instructions li {
+    margin-bottom: 8px;
+}
+
+.player-status {
+    background: #f8f9fa;
+    padding: 12px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    text-align: center;
+    color: #666;
+    font-size: 14px;
+}
+
+@media (max-width: 768px) {
+    .video-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .detail-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+
+    .detail-label {
+        min-width: auto;
+    }
+}
+{% endblock %}
+
+{% block content %}
+<div class="container video-container">
+    <div class="video-header">
+        <h1>{{ title }}</h1>
+        {% if is_public %}
+            <span class="status-badge public">📺 Public</span>
+        {% else %}
+            <span class="status-badge private">🔒 Private</span>
+        {% endif %}
+    </div>
+
+    <div class="player-status" id="player-info">Initializing player...</div>
+
+    <div class="video-wrapper">
+        <video id="video" controls autoplay poster="/storage/videos/{% if is_public %}public{% else %}private{% endif %}/{{ slug }}/poster.webp">
+            Your browser does not support the video tag.
+        </video>
+    </div>
+
+    <div class="video-details">
+        <div class="detail-row">
+            <span class="detail-label">🎬 Title:</span>
+            <span class="detail-value">{{ title }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">🔗 Slug:</span>
+            <span class="detail-value"><code>{{ slug }}</code></span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">👁️ Visibility:</span>
+            <span class="detail-value">
+                {% if is_public %}
+                    <strong style="color: #4CAF50;">Public</strong> - Anyone can watch
+                {% else %}
+                    <strong style="color: #ff9800;">Private</strong> - Login required
+                {% endif %}
+            </span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">📂 Stream:</span>
+            <span class="detail-value"><code>/hls/{{ slug }}/master.m3u8</code></span>
+        </div>
+    </div>
+
+    <div class="player-instructions">
+        <h3>🎮 Player</h3> Controls</h3>
+        <ul>
+            <li><strong>Play/Pause:</strong> Click the video or use the spacebar</li>
+            <li><strong>Volume:</strong> Use the volume slider or arrow keys</li>
+            <li><strong>Fullscreen:</strong> Click the fullscreen button or press F</li>
+            <li><strong>Seek:</strong> Click on the progress bar or use arrow keys</li>
+        </ul>
+    </div>
+
+    <div class="controls-section">
+        <h2>🎯 Navigation</h2>
+        <div class="buttons">
+            <a href="/videos" class="btn btn-primary">
+                <span class="emoji">◀️</span>
+                Back to Videos
+            </a>
+            {% if authenticated %}
+                <a href="/images" class="btn btn-secondary">
+                    <span class="emoji">🖼️</span>
+                    View Images
+                </a>
+                <a href="/test" class="btn btn-outline">
+                    <span class="emoji">📡</span>
+                    Live Stream
+                </a>
+            {% else %}
+                <a href="/login" class="btn btn-outline">
+                    <span class="emoji">🔐</span>
+                    Login for More
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if !authenticated && !is_public %}
+    <div class="warning">
+        <strong>⚠️ Limited Access</strong>
+        <p>This is a private video. You may have limited access. <a href="/login">Login</a> for full access to all features.</p>
+    </div>
+    {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script>
+    const video = document.getElementById('video');
+    const videoSrc = '/hls/{{ slug }}/master.m3u8';
+    const playerInfo = document.getElementById('player-info');
+
+    function showError(message) {
+        playerInfo.textContent = '❌ Error: ' + message;
+        playerInfo.style.background = '#f8d7da';
+        playerInfo.style.color = '#721c24';
+    }
+
+    function showSuccess(message) {
+        playerInfo.textContent = '✅ ' + message;
+        playerInfo.style.background = '#d4edda';
+        playerInfo.style.color = '#155724';
+    }
+
+    function showInfo(message) {
+        playerInfo.textContent = 'ℹ️ ' + message;
+        playerInfo.style.background = '#e7f3ff';
+        playerInfo.style.color = '#0c5460';
+    }
+
+    // Check if poster image exists, if not remove the attribute
+    video.addEventListener('error', function(e) {
+        if (e.target.error && e.target.error.code === 4) {
+            // Network error, might be poster image - remove it
+            video.removeAttribute('poster');
+        }
+    }, true);
+
+    // HLS.js support (Chrome, Firefox, Edge, etc.)
+    if (Hls.isSupported()) {
+        const hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: false,
+            backBufferLength: 90
+        });
+
+        hls.loadSource(videoSrc);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+            showSuccess('HLS player ready (using HLS.js)');
+            video.play().catch(e => {
+                console.log('Autoplay prevented:', e);
+                showInfo('Click play to start video');
+            });
+        });
+
+        hls.on(Hls.Events.ERROR, function(event, data) {
+            console.error('HLS.js error:', data);
+            if (data.fatal) {
+                switch(data.type) {
+                    case Hls.ErrorTypes.NETWORK_ERROR:
+                        showError('Network error - trying to recover...');
+                        hls.startLoad();
+                        break;
+                    case Hls.ErrorTypes.MEDIA_ERROR:
+                        showError('Media error - trying to recover...');
+                        hls.recoverMediaError();
+                        break;
+                    default:
+                        showError('Fatal error: ' + data.details);
+                        hls.destroy();
+                        break;
+                }
+            }
+        });
+    }
+    // Native HLS support (Safari, iOS)
+    else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = videoSrc;
+        showSuccess('HLS player ready (native support)');
+
+        video.addEventListener('loadedmetadata', function() {
+            video.play().catch(e => {
+                console.log('Autoplay prevented:', e);
+                showInfo('Click play to start video');
+            });
+        });
+
+        video.addEventListener('error', function(e) {
+            if (video.error) {
+                showError('Failed to load video: ' + video.error.message);
+            }
+        });
+    }
+    // No HLS support
+    else {
+        showError('Your browser does not support HLS video streaming. Please use a modern browser like Chrome, Firefox, Safari, or Edge.');
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Space or K - play/pause
+        if (e.key === ' ' || e.key === 'Spacebar' || e.key === 'k' || e.key === 'K') {
+            e.preventDefault();
+            if (video.paused) {
+                video.play();
+            } else {
+                video.pause();
+            }
+        }
+        // Left arrow - rewind 10s
+        if (e.key === 'ArrowLeft') {
+            video.currentTime -= 10;
+        }
+        // Right arrow - forward 10s
+        if (e.key === 'ArrowRight') {
+            video.currentTime += 10;
+        }
+        // J - rewind 10s
+        if (e.key === 'j' || e.key === 'J') {
+            video.currentTime -= 10;
+        }
+        // L - forward 10s
+        if (e.key === 'l' || e.key === 'L') {
+            video.currentTime += 10;
+        }
+        // F - fullscreen
+        if (e.key === 'f' || e.key === 'F') {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                video.requestFullscreen();
+            }
+        }
+        // M - mute/unmute
+        if (e.key === 'm' || e.key === 'M') {
+            video.muted = !video.muted;
+        }
+    });
+</script>
+{% endblock %}

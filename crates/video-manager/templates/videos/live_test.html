@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+
+{% block title %}Live Stream Test - Video Server{% endblock %}
+
+{% block extra_styles %}
+.player-container {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.live-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #dc3545;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 14px;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.live-dot {
+    width: 10px;
+    height: 10px;
+    background: white;
+    border-radius: 50%;
+    animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+.stream-wrapper {
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 aspect ratio */
+    height: 0;
+    overflow: hidden;
+    background: #000;
+    border-radius: 12px;
+    margin: 30px 0;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.stream-wrapper video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
+}
+
+.stream-status {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+}
+
+.status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.status-row:last-child {
+    border-bottom: none;
+}
+
+.status-label {
+    font-weight: 600;
+    color: #555;
+}
+
+.status-value {
+    color: #333;
+    font-family: 'Courier New', monospace;
+}
+
+.instruction-card {
+    background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+    padding: 25px;
+    border-radius: 12px;
+    margin: 30px 0;
+    border-left: 4px solid #667eea;
+}
+
+.instruction-card h3 {
+    color: #667eea;
+    margin-top: 0;
+    margin-bottom: 15px;
+}
+
+.instruction-card code {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.code-block {
+    background: #2d2d2d;
+    color: #f8f8f2;
+    padding: 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 15px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.mediamtx-section {
+    background: #fff3cd;
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #ffc107;
+    margin: 20px 0;
+}
+
+.mediamtx-section h3 {
+    color: #856404;
+    margin-top: 0;
+}
+
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin: 30px 0;
+}
+
+.feature-card {
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.feature-card:hover {
+    border-color: #667eea;
+    transform: translateY(-5px);
+    box-shadow: 0 5px 20px rgba(102, 126, 234, 0.2);
+}
+
+.feature-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+
+.feature-title {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.feature-desc {
+    font-size: 14px;
+    color: #666;
+}
+
+@media (max-width: 768px) {
+    .status-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .feature-grid {
+        grid-template-columns: 1fr;
+    }
+}
+{% endblock %}
+
+{% block content %}
+<div class="container player-container">
+    <div class="video-header">
+        <h1></h1>📡 Live Stream Test</h1>
+        <span class="live-indicator">
+            <span class="live-dot"></span>
+            LIVE
+        </span>
+    </div>
+
+    <p class="subtitle">Watch the live HLS stream from MediaMTX</p>
+
+    {% if authenticated %}
+        <div class="stream-wrapper">
+            <video id="video" controls autoplay muted></video>
+        </div>
+
+        <div class="stream-status">
+            <h3>📊 Stream Information</h3>
+            <div class="status-row">
+                <span class="status-label">Stream Key:</span>
+                <span class="status-value">live</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Protocol:</span>
+                <span class="status-value">HLS (HTTP Live Streaming)</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Stream URL:</span>
+                <span class="status-value">/hls/live/index.m3u8</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Access:</span>
+                <span class="status-value" style="color: #28a745;">✅ Authenticated</span>
+            </div>
+        </div>
+
+        <div class="instruction-card">
+            <h3>🎥 How to Start Broadcasting</h3>
+            <p><strong>Using O</p>BS Studio:</strong></p>
+            <ol style="margin-left: 20px; color: #555;">
+                <li>Open OBS Studio and go to <strong>Settings → Stream</strong></li>
+                <li>Set <strong>Service</strong> to "Custom"</li>
+                <li>Set <strong>Server</strong> to: <code>rtmp://localhost:1935/live</code></li>
+                <li>Set <strong>Stream Key</strong> to: <code>supersecret123</code></li>
+                <li>Click <strong>Apply</strong> and <strong>OK</strong></li>
+                <li>Click <strong>Start Streaming</strong> in OBS</li>
+                <li>Your stream will appear above within a few seconds!</li>
+            </ol>
+        </div>
+
+        <div class="mediamtx-section">
+            <h3>⚙️ MediaMTX Configuration</h3>
+            <p>This server uses MediaMTX for RTMP ingestion and HLS delivery.</p>
+            <div class="code-block">
+# RTMP Input (from OBS/streaming software)
+rtmp://localhost:1935/live
+
+# HLS Output (for playback)
+http://localhost:8888/live/index.m3u8
+
+# MediaMTX API
+http://localhost:9997
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>✨ Live</h2> Streaming Features</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🔐</div>
+                    <div class="feature-title">Secure Access</div>
+                    <div class="feature-desc">Token-based authentication for publishers and session-based for viewers</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <div class="feature-title">Low Latency</div>
+                    <div class="feature-desc">HLS streaming with optimized segment duration</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <div class="feature-title">Cross-Platform</div>
+                    <div class="feature-desc">Works on all modern browsers and devices</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎬</div>
+                    <div class="feature-title">Professional</div>
+                    <div class="feature-desc">RTMP ingestion compatible with OBS, FFmpeg, and more</div>
+                </div>
+            </div>
+        </div>
+
+    {% else %}
+        <div class="warning">
+            <strong>🔒 Authentication Required</strong>
+            <p>You must be logged in to view live streams.</p>
+        </div>
+
+        <div class="buttons">
+            <a href="/login" class="btn btn-primary">
+                <span class="emoji">🔐</span>
+                Login to Watch
+            </a>
+            <a href="/videos" class="btn btn-secondary">
+                <span class="emoji">🎥</span>
+                Browse Public Videos
+            </a>
+        </div>
+    {% endif %}
+
+    <div class="controls-section">
+        <h2>🎯 Navigation</h2>
+        <div class="buttons">
+            <a href="/videos</h2>" class="btn btn-primary">
+                <span class="emoji">🎥</span>
+                Watch Videos
+            </a>
+            <a href="/images" class="btn btn-secondary">
+                <span class="emoji">🖼️</span>
+                View Images
+            </a>
+            <a href="/" class="btn btn-outline">
+                <span class="emoji">🏠</span>
+                Home
+            </a>
+        </div>
+    </div>
+</div>
+
+{% if authenticated %}
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script>
+    const video = document.getElementById('video');
+    const videoSrc = '/hls/live/index.m3u8';
+
+    if (Hls.isSupported()) {
+        const hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: true,
+            backBufferLength: 90
+        });
+        hls.loadSource(videoSrc);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+            console.log('✅ HLS manifest loaded');
+        });
+
+        hls.on(Hls.Events.ERROR, function(event, data) {
+            if (data.fatal) {
+                console.error('❌ HLS Error:', data);
+                switch(data.type) {
+                    case Hls.ErrorTypes.NETWORK_ERROR:
+                        console.log('Network error - retrying...');
+                        hls.startLoad();
+                        break;
+                    case Hls.ErrorTypes.MEDIA_ERROR:
+                        console.log('Media error - recovering...');
+                        hls.recoverMediaError();
+                        break;
+                    default:
+                        console.log('Fatal error - reloading...');
+                        hls.destroy();
+                        break;
+                }
+            }
+        });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Native HLS support (Safari)
+        video.src = videoSrc;
+        video.addEventListener('loadedmetadata', function() {
+            console.log('✅ Native HLS loaded');
+        });
+    } else {
+        console.error('❌ HLS not supported in this browser');
+        video.innerHTML = '<p style="color: white; padding: 20px; text-align: center;">Your browser does not support HLS streaming.</p>';
+    }
+</script>
+{% endif %}
+{% endblock %}

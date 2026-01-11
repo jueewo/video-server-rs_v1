@@ -1,7 +1,8 @@
+use askama::Template;
 use axum::{
     extract::{Path, State},
     http::{header, StatusCode},
-    response::{Html, Response},
+    response::Response,
     routing::get,
     Router,
 };
@@ -10,6 +11,34 @@ use sqlx::{Pool, Sqlite};
 use std::{path::PathBuf, sync::Arc};
 use tokio_util::io::ReaderStream;
 use tower_sessions::Session;
+
+// -------------------------------
+// Template Structs
+// -------------------------------
+
+#[derive(Template)]
+#[template(path = "videos/list.html")]
+pub struct VideoListTemplate {
+    authenticated: bool,
+    page_title: String,
+    public_videos: Vec<(String, String, i32)>,
+    private_videos: Vec<(String, String, i32)>,
+}
+
+#[derive(Template)]
+#[template(path = "videos/player.html")]
+pub struct VideoPlayerTemplate {
+    authenticated: bool,
+    title: String,
+    slug: String,
+    is_public: bool,
+}
+
+#[derive(Template)]
+#[template(path = "videos/live_test.html")]
+pub struct LiveTestTemplate {
+    authenticated: bool,
+}
 
 // -------------------------------
 // Configuration Constants
@@ -46,6 +75,7 @@ pub fn video_routes() -> Router<Arc<VideoManagerState>> {
     Router::new()
         .route("/videos", get(videos_list_handler))
         .route("/watch/:slug", get(video_player_handler))
+        .route("/test", get(live_test_handler))
         .route("/hls/*path", get(hls_proxy_handler))
         .route("/api/stream/validate", get(validate_stream_handler))
         .route("/api/stream/authorize", get(authorize_stream_handler))
@@ -97,7 +127,7 @@ async fn authorize_stream_handler(session: Session) -> Result<StatusCode, Status
 pub async fn videos_list_handler(
     session: Session,
     State(state): State<Arc<VideoManagerState>>,
-) -> Result<Html<String>, StatusCode> {
+) -> Result<VideoListTemplate, StatusCode> {
     // Check if user is authenticated
     let authenticated: bool = session
         .get("authenticated")
@@ -112,56 +142,10 @@ pub async fn videos_list_handler(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let page_title = if authenticated {
-        "🎥 All Videos"
+        "🎥 All Videos".to_string()
     } else {
-        "🎥 Public Videos"
+        "🎥 Public Videos".to_string()
     };
-
-    let mut html = format!(
-        r#"<html>
-<head>
-    <title>{}</title>
-    <style>
-        body {{ font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }}
-        h1 {{ color: #4CAF50; }}
-        .header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }}
-        .auth-links {{ display: flex; gap: 15px; }}
-        .auth-links a {{ color: #1976D2; text-decoration: none; font-weight: bold; }}
-        .auth-links a:hover {{ text-decoration: underline; }}
-        ul {{ list-style: none; padding: 0; }}
-        li {{ padding: 10px; margin: 5px 0; background: #f5f5f5; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }}
-        li.private {{ background: #fff3e0; border-left: 4px solid #ff9800; }}
-        a {{ text-decoration: none; color: #333; font-weight: bold; }}
-        a:hover {{ color: #4CAF50; }}
-        .badge {{
-            background: #ff9800;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: bold;
-        }}
-        .info {{ background: #e3f2fd; padding: 15px; border-radius: 4px; margin: 20px 0; }}
-        .section {{ margin: 30px 0; }}
-        .section h2 {{ color: #666; font-size: 18px; margin-bottom: 10px; }}
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>{}</h1>
-        <div class="auth-links">
-            <a href="/">🏠 Home</a>
-            <a href="/images">📸 Images</a>"#,
-        page_title, page_title
-    );
-
-    if authenticated {
-        html.push_str("<a href=\"/logout\">Logout</a>");
-    } else {
-        html.push_str("<a href=\"/login\">Login</a>");
-    }
-
-    html.push_str("</div></div>");
 
     // Separate videos into public and private
     let mut public_videos: Vec<(String, String, i32)> = Vec::new();
@@ -175,55 +159,12 @@ pub async fn videos_list_handler(
         }
     }
 
-    // Show public videos
-    if !public_videos.is_empty() {
-        html.push_str("<div class=\"section\"><h2>📺 Public Videos</h2><ul>");
-        for (slug, title, _) in public_videos {
-            html.push_str(&format!(
-                "<li><a href=\"/watch/{}\">{}</a></li>",
-                slug, title
-            ));
-        }
-        html.push_str("</ul></div>");
-    } else {
-        html.push_str("<div class=\"section\"><p>No public videos available.</p></div>");
-    }
-
-    // Show private videos (only if authenticated)
-    if authenticated {
-        if !private_videos.is_empty() {
-            html.push_str("<div class=\"section\"><h2>🔒 Private Videos</h2><ul>");
-            for (slug, title, _) in private_videos {
-                html.push_str(&format!(
-                    "<li class=\"private\"><a href=\"/watch/{}\">{}</a><span class=\"badge\">PRIVATE</span></li>",
-                    slug, title
-                ));
-            }
-            html.push_str("</ul></div>");
-        }
-    }
-
-    // Info section
-    if !authenticated {
-        html.push_str(
-            r#"<div class="info">
-            <p><strong>Want to watch private videos and live streams?</strong></p>
-            <p><a href="/login">Login</a> to access exclusive content</p>
-            <p><a href="/test">Test Live Stream Player</a></p>
-        </div>"#,
-        );
-    } else {
-        html.push_str(
-            r#"<div class="info">
-            <p><a href="/test">📡 Test Live Stream Player</a></p>
-            <p><a href="/upload">📤 Upload Images</a></p>
-        </div>"#,
-        );
-    }
-
-    html.push_str("</body></html>");
-
-    Ok(Html(html))
+    Ok(VideoListTemplate {
+        authenticated,
+        page_title,
+        public_videos,
+        private_videos,
+    })
 }
 
 // -------------------------------
@@ -234,246 +175,52 @@ pub async fn video_player_handler(
     Path(slug): Path<String>,
     session: Session,
     State(state): State<Arc<VideoManagerState>>,
-) -> Result<Html<String>, StatusCode> {
+) -> Result<VideoPlayerTemplate, StatusCode> {
     // Lookup video in database
-    let video: Option<(String, i32)> = sqlx::query_as(
-        "SELECT title, is_public FROM videos WHERE slug = ?"
-    )
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let video: Option<(String, i32)> =
+        sqlx::query_as("SELECT title, is_public FROM videos WHERE slug = ?")
+            .bind(&slug)
+            .fetch_optional(&state.pool)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let (title, is_public) = video.ok_or(StatusCode::NOT_FOUND)?;
     let is_public = is_public == 1;
 
-    // Check authentication for private videos
-    if !is_public {
-        let authenticated: bool = session
-            .get("authenticated")
-            .await
-            .ok()
-            .flatten()
-            .unwrap_or(false);
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
 
-        if !authenticated {
-            return Ok(Html(String::from(
-                r#"<html>
-<head>
-    <title>Private Video</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 100px auto; padding: 20px; text-align: center; }
-        .error { background: #ffebee; padding: 20px; border-radius: 8px; color: #c62828; }
-        a { color: #1976D2; text-decoration: none; font-weight: bold; }
-        a:hover { text-decoration: underline; }
-    </style>
-</head>
-<body>
-    <div class="error">
-        <h1>🔒 Authentication Required</h1>
-        <p>This is a private video. Please login to watch.</p>
-        <p><a href="/login">Login</a> | <a href="/">Back to Home</a></p>
-    </div>
-</body>
-</html>"#,
-            )));
-        }
+    // For private videos, require authentication
+    if !is_public && !authenticated {
+        return Err(StatusCode::UNAUTHORIZED);
     }
 
-    // Generate video player HTML with HLS.js support
-    let html = format!(
-        r#"<!DOCTYPE html>
-<html>
-<head>
-    <title>{} - Video Player</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{
-            font-family: Arial, sans-serif;
-            background: #000;
-            color: #fff;
-        }}
-        .container {{
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }}
-        .header {{
-            background: #1a1a1a;
-            padding: 15px 20px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }}
-        .back-link {{
-            color: #4CAF50;
-            text-decoration: none;
-            font-weight: bold;
-        }}
-        .back-link:hover {{ text-decoration: underline; }}
-        h1 {{
-            font-size: 24px;
-            margin: 10px 0;
-        }}
-        .video-wrapper {{
-            position: relative;
-            width: 100%;
-            padding-bottom: 56.25%; /* 16:9 aspect ratio */
-            background: #000;
-            border-radius: 8px;
-            overflow: hidden;
-        }}
-        video {{
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }}
-        .controls {{
-            margin-top: 20px;
-            background: #1a1a1a;
-            padding: 15px;
-            border-radius: 8px;
-        }}
-        .info {{
-            color: #888;
-            font-size: 14px;
-        }}
-        .error {{
-            background: #f44336;
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 20px 0;
-        }}
-        @media (max-width: 768px) {{
-            h1 {{ font-size: 18px; }}
-            .header {{ flex-direction: column; gap: 10px; }}
-        }}
-    </style>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div>
-                <a href="/" class="back-link">🏠 Home</a> |
-                <a href="/videos" class="back-link">📺 Videos</a>
-            </div>
-            <div class="info" id="player-info">Initializing player...</div>
-        </div>
+    Ok(VideoPlayerTemplate {
+        authenticated,
+        title,
+        slug,
+        is_public,
+    })
+}
 
-        <h1>{}</h1>
+// -------------------------------
+// Live Stream Test Handler
+// -------------------------------
 
-        <div class="video-wrapper">
-            <video id="video" controls autoplay></video>
-        </div>
+pub async fn live_test_handler(session: Session) -> Result<LiveTestTemplate, StatusCode> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
 
-        <div class="controls" id="error-message" style="display: none;">
-            <div class="error">
-                <strong>Error:</strong> <span id="error-text"></span>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const video = document.getElementById('video');
-        const videoSrc = '/hls/{}/master.m3u8';
-        const playerInfo = document.getElementById('player-info');
-        const errorMessage = document.getElementById('error-message');
-        const errorText = document.getElementById('error-text');
-
-        function showError(message) {{
-            errorMessage.style.display = 'block';
-            errorText.textContent = message;
-            playerInfo.textContent = 'Playback failed';
-        }}
-
-        if (video.canPlayType('application/vnd.apple.mpegurl')) {{
-            video.src = videoSrc;
-            playerInfo.textContent = 'Using native HLS player (Safari)';
-
-            video.addEventListener('error', function() {{
-                showError('Failed to load video. Please check your connection.');
-            }});
-        }}
-        else if (Hls.isSupported()) {{
-            const hls = new Hls({{
-                enableWorker: true,
-                lowLatencyMode: false,
-                backBufferLength: 90
-            }});
-
-            hls.loadSource(videoSrc);
-            hls.attachMedia(video);
-
-            hls.on(Hls.Events.MANIFEST_PARSED, function() {{
-                playerInfo.textContent = 'Using HLS.js player (Firefox, Chrome, Edge)';
-                video.play().catch(e => {{
-                    console.log('Autoplay prevented:', e);
-                    playerInfo.textContent = 'Click play to start';
-                }});
-            }});
-
-            hls.on(Hls.Events.ERROR, function(event, data) {{
-                console.error('HLS.js error:', data);
-                if (data.fatal) {{
-                    switch(data.type) {{
-                        case Hls.ErrorTypes.NETWORK_ERROR:
-                            showError('Network error - trying to recover...');
-                            hls.startLoad();
-                            break;
-                        case Hls.ErrorTypes.MEDIA_ERROR:
-                            showError('Media error - trying to recover...');
-                            hls.recoverMediaError();
-                            break;
-                        default:
-                            showError('Fatal error: ' + data.details);
-                            hls.destroy();
-                            break;
-                    }}
-                }}
-            }});
-        }}
-        else {{
-            showError('Your browser does not support HLS video streaming. Please use a modern browser like Chrome, Firefox, Safari, or Edge.');
-            playerInfo.textContent = 'Unsupported browser';
-        }}
-
-        document.addEventListener('keydown', function(e) {{
-            if (e.key === ' ' || e.key === 'Spacebar') {{
-                e.preventDefault();
-                if (video.paused) {{
-                    video.play();
-                }} else {{
-                    video.pause();
-                }}
-            }}
-            if (e.key === 'ArrowLeft') {{
-                video.currentTime -= 10;
-            }}
-            if (e.key === 'ArrowRight') {{
-                video.currentTime += 10;
-            }}
-            if (e.key === 'f' || e.key === 'F') {{
-                if (document.fullscreenElement) {{
-                    document.exitFullscreen();
-                }} else {{
-                    video.requestFullscreen();
-                }}
-            }}
-        }});
-    </script>
-</body>
-</html>"#,
-        title, title, slug
-    );
-
-    Ok(Html(html))
+    Ok(LiveTestTemplate { authenticated })
 }
 
 // -------------------------------
@@ -527,7 +274,9 @@ pub async fn hls_proxy_handler(
         // Check if MediaMTX returned an error
         if !response.status().is_success() {
             println!("❌ MediaMTX returned error: {}", response.status());
-            return Err(StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY));
+            return Err(
+                StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY)
+            );
         }
 
         // Determine content type
@@ -588,7 +337,11 @@ pub async fn hls_proxy_handler(
     }
 
     // Serve VOD file from storage
-    let base_folder = if is_public { "videos/public" } else { "videos/private" };
+    let base_folder = if is_public {
+        "videos/public"
+    } else {
+        "videos/private"
+    };
     let full_path = state
         .storage_dir
         .join(base_folder)
@@ -627,7 +380,9 @@ pub async fn hls_proxy_handler(
 // MediaMTX Status Endpoint
 // -------------------------------
 
-pub async fn mediamtx_status(State(state): State<Arc<VideoManagerState>>) -> Result<String, StatusCode> {
+pub async fn mediamtx_status(
+    State(state): State<Arc<VideoManagerState>>,
+) -> Result<String, StatusCode> {
     let url = format!("{}/v3/paths/list", MEDIAMTX_API_URL);
 
     let response = state
@@ -637,10 +392,7 @@ pub async fn mediamtx_status(State(state): State<Arc<VideoManagerState>>) -> Res
         .await
         .map_err(|_| StatusCode::BAD_GATEWAY)?;
 
-    let text = response
-        .text()
-        .await
-        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    let text = response.text().await.map_err(|_| StatusCode::BAD_GATEWAY)?;
 
     Ok(text)
 }
@@ -658,8 +410,10 @@ pub async fn get_videos(
             .fetch_all(pool)
             .await
     } else {
-        sqlx::query_as("SELECT slug, title, is_public FROM videos WHERE is_public = 1 ORDER BY title")
-            .fetch_all(pool)
-            .await
+        sqlx::query_as(
+            "SELECT slug, title, is_public FROM videos WHERE is_public = 1 ORDER BY title",
+        )
+        .fetch_all(pool)
+        .await
     }
 }

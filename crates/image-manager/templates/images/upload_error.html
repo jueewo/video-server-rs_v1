@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Error - Image Gallery{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="error">
+        <h1>❌ Upload Failed</h1>
+        <p>There was a problem uploading your image.</p>
+    </div>
+
+    <div class="warning">
+        <h3>Error Details</h3>
+        <p>{{ error_message }}</p>
+    </div>
+
+    <div class="section">
+        <h2>💡 Troubleshooting Tips</h2>
+        <ul style="margin-left: 20px; line-height: 1.8;">
+            <li><strong>File size:</strong> Make sure your image is under 10 MB</li>
+            <li><strong>File format:</strong> Use JPEG, PNG, GIF, or WebP</li>
+            <li><strong>Slug format:</strong> Use only lowercase letters, numbers, and hyphens</li>
+            <li><strong>Unique slug:</strong> Each image must have a unique slug</li>
+            <li><strong>All fields:</strong> Make sure title and file are provided</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>🎯 What's Next?</h2>
+        <div class="buttons">
+            <a href="/upload" class="btn btn-primary">
+                <span class="emoji">🔄</span>
+                Try Again
+            </a>
+            <a href="/images" class="btn btn-secondary">
+                <span class="emoji">🖼️</span>
+                Back to Gallery
+            </a>
+            <a href="/" class="btn btn-outline">
+                <span class="emoji">🏠</span>
+                Go Home
+            </a>
+        </div>
+    </div>
+
+    <div class="info">
+        <strong>ℹ️ Need Help?</strong>
+        <p>If you continue to experience issues, please check the server logs or contact support.</p>
+    </div>
+</div>
+{% endblock %}

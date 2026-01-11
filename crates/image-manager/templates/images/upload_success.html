@@ -1,0 +1,59 @@
+{% extends "base.html" %} {% block title %}Upload Successful - Image Gallery{%
+endblock %} {% block content %}
+<div class="container">
+    <div class="success">
+        <h1>✅ Upload Successful!</h1>
+        <p>Your image has been uploaded successfully.</p>
+    </div>
+
+    <div class="section">
+        <h2>📋 Image Details</h2>
+        <div
+            style="
+                background: #f8f9fa;
+                padding: 20px;
+                border-radius: 8px;
+                margin-top: 20px;
+            "
+        >
+            <div style="margin-bottom: 15px">
+                <strong>Title:</strong> {{ title }}
+            </div>
+            <div style="margin-bottom: 15px">
+                <strong>Slug:</strong> <code>{{ slug }}</code>
+            </div>
+            <div style="margin-bottom: 15px">
+                <strong>Visibility:</strong>
+                {% if is_public %}
+                <span class="badge public">PUBLIC</span> - Anyone can view {%
+                else %} <span class="badge private">PRIVATE</span> - Login
+                required {% endif %}
+            </div>
+            {% if !description.is_empty() %}
+            <div style="margin-bottom: 15px">
+                <strong>Description:</strong> {{ description }}
+            </div>
+            {% endif %}
+            <div><strong>URL:</strong> <code>{{ url }}</code></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🎯 What's Next?</h2>
+        <div class="buttons">
+            <a href="/images/{{ slug }}" class="btn btn-primary">
+                <span class="emoji">👁️</span>
+                View Image
+            </a>
+            <a href="/images" class="btn btn-secondary">
+                <span class="emoji">🖼️</span>
+                Back to Gallery
+            </a>
+            <a href="/upload" class="btn btn-outline">
+                <span class="emoji">📤</span>
+                Upload Another
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

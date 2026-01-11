@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} - Image Gallery{% endblock %}
+
+{% block extra_styles %}
+.cta-box {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 30px;
+    border-radius: 12px;
+    margin: 30px 0;
+    text-align: center;
+}
+
+.cta-box h3 {
+    color: white;
+    margin-bottom: 15px;
+}
+
+.cta-box p {
+    margin-bottom: 20px;
+    font-size: 16px;
+}
+
+.cta-box .btn {
+    background: white;
+    color: #667eea;
+}
+
+.cta-box .btn:hover {
+    background: #f0f0f0;
+}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="section-header">
+        <div></div>
+            <h1>{{ page_title }}</h1>
+            <p class="subtitle">
+                {% if authenticated %}
+                    Your personal image gallery
+                {% else %}
+                    Browse our public image collection
+                {% endif %}
+            </p>
+        </div>
+        <div>
+            {% if authenticated %}
+                <span class="status-badge authenticated">✅ Authenticated</span>
+            {% else %}
+                <span class="status-badge guest">👋 Guest Mode</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if !authenticated %}
+    <div class="info">
+        <strong>ℹ️ Limited Access</strong>
+        <p>You're viewing public images only. <a href="/login">Login</a> to access private images and upload functionality.</p>
+    </div>
+    {% endif %}
+
+    <!-- Public Images Section -->
+    {% if !public_images.is_empty() %}
+    <div class="section">
+        <h2>📸 Public Images</h2>
+        <div class="image-grid">
+            {% for image in public_images %}
+            <div class="image-card" onclick="window.location.href='/images/{{ image.0 }}'">
+                <div class="image-thumbnail">
+                    <img src="/images/{{ image.0 }}" alt="{{ image.1 }}" loading="lazy">
+                </div>
+                <div class="image-info">
+                    <div class="image-title">{{ image.1 }}</div>
+                    {% if !image.2.is_empty() %}
+                    <div class="image-description">{{ image.2 }}</div>
+                    {% endif %}
+                    <div class="image-meta">
+                        <span class="badge public">PUBLIC</span>
+                        <span style="color: #999; font-size: 14px;">{{ image.0 }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="section">
+        <h2>📸 Public Images</h2>
+        <div class="empty-state">
+            <span class="emoji">📭</span>
+            <p>No public images available at the moment.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Private Images Section (Only if authenticated) -->
+    {% if authenticated %}
+        {% if !private_images.is_empty() %}
+        <div class="section">
+            <h2>🔒 Private Images</h2>
+            <div class="image-grid">
+                {% for image in private_images %}
+                <div class="image-card private" onclick="window.location.href='/images/{{ image.0 }}'">
+                    <div class="image-thumbnail">
+                        <img src="/images/{{ image.0 }}" alt="{{ image.1 }}" loading="lazy">
+                    </div>
+                    <div class="image-info">
+                        <div class="image-title">{{ image.1 }}</div>
+                        {% if !image.2.is_empty() %}
+                        <div class="image-description">{{ image.2 }}</div>
+                        {% endif %}
+                        <div class="image-meta">
+                            <span class="badge private">PRIVATE</span>
+                            <span style="color: #999; font-size: 14px;">🔐 Members only</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="section">
+            <h2>🔒 Private Images</h2>
+            <div class="empty-state">
+                <span class="emoji">🔓</span>
+                <p>No private images available.</p>
+            </div>
+        </div>
+        {% endif %}
+    {% endif %}
+
+    <!-- Call to Action -->
+    {% if !authenticated %}
+    <div class="cta-box">
+        <h3>🌟 Want to See More?</h3>
+        <p>Login to access private images and upload your own content.</p>
+        <div class="buttons" style="justify-content: center;">
+            <a href="/login" class="btn" style="margin: 0;">
+                <span class="emoji">🔐</span>
+                Login Now
+            </a>
+        </div>
+    </div>
+    {% else %}
+    <div class="section">
+        <h2>🎯 Quick Actions</h2>
+        <div class="buttons">
+            <a href="/upload" class="btn btn-primary">
+                <span class="emoji">📤</span>
+                Upload New Image
+            </a>
+            <a href="/videos" class="btn btn-secondary">
+                <span class="emoji">🎥</span>
+                Browse Videos
+            </a>
+            <a href="/test" class="btn btn-outline">
+                <span class="emoji">📡</span>
+                Watch Live Stream
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

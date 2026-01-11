@@ -45,9 +45,15 @@ Successfully migrated the `video-manager` crate from inline HTML strings to **As
 - ✅ Added keyboard shortcuts
 - ✅ Improved error handling
 
+### Phase 5: Image Manager Fix (Critical)
+- ✅ Fixed unauthorized image access (401 error)
+- ✅ Return HTML pages instead of raw errors
+- ✅ Added professional error pages
+- ✅ Consistent design with video-manager
+
 ---
 
-## 📁 Files Created (10)
+## 📁 Files Created (11)
 
 1. `crates/video-manager/templates/base.html` (485 lines)
 2. `crates/video-manager/templates/videos/list.html` (164 lines)
@@ -58,13 +64,15 @@ Successfully migrated the `video-manager` crate from inline HTML strings to **As
 7. `VIDEO_MANAGER_ASKAMA_COMPLETE.md` (378 lines)
 8. `IMPLEMENTATION_CHECKLIST.md` (234 lines)
 9. `VIDEO_PLAYBACK_FIX.md` (485 lines)
-10. `FINAL_SUMMARY.md` (this file)
+10. `IMAGE_UNAUTHORIZED_FIX.md` (334 lines)
+11. `FINAL_SUMMARY.md` (this file)
 
-## 📝 Files Modified (3)
+## 📝 Files Modified (4)
 
 1. `crates/video-manager/Cargo.toml` - Added Askama dependencies
 2. `crates/video-manager/src/lib.rs` - Converted to templates
-3. `src/main.rs` - Added static file server, fixed storage_dir cloning
+3. `crates/image-manager/src/lib.rs` - Fixed unauthorized error handling
+4. `src/main.rs` - Added static file server, fixed storage_dir cloning
 
 ---
 
@@ -141,6 +149,13 @@ storage/videos/
 - ✅ Call-to-action for guests
 - ✅ Hover effects and animations
 - ✅ Fully responsive (1-4 columns)
+
+### Image Manager
+- ✅ Professional unauthorized page (401)
+- ✅ HTML error pages instead of raw errors
+- ✅ Login button for unauthorized access
+- ✅ Consistent design with video-manager
+- ✅ User-friendly error messages
 
 ### Video Player Page
 - ✅ HLS.js streaming integration
@@ -274,6 +289,7 @@ cargo run
 | Video Playback | ❌ Broken | ✅ Working | **FIXED** |
 | Poster Images | ❌ None | ✅ Supported | **ADDED** |
 | Keyboard Shortcuts | ❌ None | ✅ 8 shortcuts | **ADDED** |
+| Image Unauthorized | ❌ Raw 401 | ✅ HTML Page | **FIXED** |
 | Build Time | ~3.5s | ~3.5s | No change |
 
 ---
@@ -319,12 +335,14 @@ cargo run
 ## 📚 Documentation
 
 ### Complete Documentation Set
+### Documentation Set
 1. **Templates Guide** - `docs/features/video-manager-templates.md`
 2. **Quick Reference** - `crates/video-manager/TEMPLATES_README.md`
 3. **Implementation Checklist** - `IMPLEMENTATION_CHECKLIST.md`
 4. **Completion Summary** - `VIDEO_MANAGER_ASKAMA_COMPLETE.md`
 5. **Playback Fix** - `VIDEO_PLAYBACK_FIX.md`
-6. **This Summary** - `FINAL_SUMMARY.md`
+6. **Image Unauthorized Fix** - `IMAGE_UNAUTHORIZED_FIX.md`
+7. **This Summary** - `FINAL_SUMMARY.md`
 
 ---
 
@@ -341,6 +359,8 @@ cargo run
 - [x] Mobile responsive
 - [x] Authentication working
 - [x] Error handling robust
+- [x] Image unauthorized page working
+- [x] All error pages user-friendly
 
 ### Production Ready
 **Status:** 🟢 **READY FOR PRODUCTION**
@@ -366,11 +386,12 @@ The `video-manager` crate has been successfully migrated to Askama templates wit
 ### Achievement Highlights
 1. **Complete Template Migration** - 100% Askama templates
 2. **Critical Bug Fixed** - Video playback restored
-3. **Feature Enhancement** - Poster images added
-4. **Professional Design** - Modern gradient theme
-5. **Type Safety** - Compile-time checking
-6. **User Experience** - Keyboard shortcuts, smooth animations
-7. **Documentation** - Comprehensive guides created
+3. **Critical Bug Fixed** - Image unauthorized page (no more raw 401)
+4. **Feature Enhancement** - Poster images added
+5. **Professional Design** - Modern gradient theme
+6. **Type Safety** - Compile-time checking
+7. **User Experience** - Keyboard shortcuts, smooth animations
+8. **Documentation** - Comprehensive guides created
 
 ### Code Quality
 - **Warnings:** 0
@@ -387,13 +408,14 @@ The `video-manager` crate has been successfully migrated to Askama templates wit
 - [Video Manager Templates](docs/features/video-manager-templates.md)
 - [Quick Reference](crates/video-manager/TEMPLATES_README.md)
 - [Playback Fix Details](VIDEO_PLAYBACK_FIX.md)
+- [Image Unauthorized Fix](IMAGE_UNAUTHORIZED_FIX.md)
 - [Project Quick Start](QUICKSTART.md)
 
 ---
 
 ## 👏 Conclusion
 
-The video-manager crate is now fully modernized with Askama templates, featuring a professional design, working video playback, poster images, and comprehensive documentation. The implementation is production-ready and maintains all security and functionality requirements.
+The video-manager crate is now fully modernized with Askama templates, featuring a professional design, working video playback, poster images, and comprehensive documentation. Additionally, the image-manager now returns user-friendly HTML error pages instead of raw HTTP errors. The implementation is production-ready and maintains all security and functionality requirements.
 
 **Mission Accomplished! 🎉**
 

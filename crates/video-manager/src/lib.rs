@@ -2,7 +2,7 @@ use askama::Template;
 use axum::{
     extract::{Path, State},
     http::{header, StatusCode},
-    response::Response,
+    response::{IntoResponse, Response},
     routing::get,
     Router,
 };
@@ -37,6 +37,18 @@ pub struct VideoPlayerTemplate {
 #[derive(Template)]
 #[template(path = "videos/live_test.html")]
 pub struct LiveTestTemplate {
+    authenticated: bool,
+}
+
+#[derive(Template)]
+#[template(path = "unauthorized.html")]
+pub struct UnauthorizedTemplate {
+    authenticated: bool,
+}
+
+#[derive(Template)]
+#[template(path = "not_found.html")]
+pub struct NotFoundTemplate {
     authenticated: bool,
 }
 
@@ -175,19 +187,8 @@ pub async fn video_player_handler(
     Path(slug): Path<String>,
     session: Session,
     State(state): State<Arc<VideoManagerState>>,
-) -> Result<VideoPlayerTemplate, StatusCode> {
-    // Lookup video in database
-    let video: Option<(String, i32)> =
-        sqlx::query_as("SELECT title, is_public FROM videos WHERE slug = ?")
-            .bind(&slug)
-            .fetch_optional(&state.pool)
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let (title, is_public) = video.ok_or(StatusCode::NOT_FOUND)?;
-    let is_public = is_public == 1;
-
-    // Check authentication
+) -> Result<VideoPlayerTemplate, Response> {
+    // Check authentication first
     let authenticated: bool = session
         .get("authenticated")
         .await
@@ -195,9 +196,28 @@ pub async fn video_player_handler(
         .flatten()
         .unwrap_or(false);
 
+    // Lookup video in database
+    let video: Option<(String, i32)> =
+        sqlx::query_as("SELECT title, is_public FROM videos WHERE slug = ?")
+            .bind(&slug)
+            .fetch_optional(&state.pool)
+            .await
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response())?;
+
+    let (title, is_public) = video.ok_or_else(|| {
+        (StatusCode::NOT_FOUND, NotFoundTemplate { authenticated }).into_response()
+    })?;
+    let is_public = is_public == 1;
+
     // For private videos, require authentication
     if !is_public && !authenticated {
-        return Err(StatusCode::UNAUTHORIZED);
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            UnauthorizedTemplate {
+                authenticated: false,
+            },
+        )
+            .into_response());
     }
 
     Ok(VideoPlayerTemplate {

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Video Server{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>🔐 Login to Video Server</h1>
+
+    {% if oidc_available && emergency_enabled %}
+        <p>Click the button below to login with Casdoor:</p></p>
+        <div class="buttons">
+            <a href="/oidc/authorize" class="btn btn-primary">Login with Casdoor</a>
+            <a href="/login/emergency" class="btn btn-secondary">Emergency Login</a>
+        </div>
+    {% elif oidc_available %}
+        <p>Click the button below to login with Casdoor:</p>
+        <div class="buttons">
+            <a href="/oidc/authorize" class="btn btn-primary">Login with Casdoor</a>
+        </div>
+    {% elif emergency_enabled %}
+        <div class="warning">
+            <strong>⚠️ OIDC Not Available</strong>
+            <p>OIDC authentication is not configured. Using emergency login only.</p>
+        </div>
+        <div class="buttons">
+            <a href="/login/emergency" class="btn btn-primary">Emergency Login</a>
+        </div>
+    {% else %}
+        <div class="warning">
+            <strong>⚠️ Authentication Not Available</strong>
+            <p>Neither OIDC nor emergency login is configured.</p>
+            <p>Please contact your system administrator.</p>
+        </div>
+    {% endif %}
+
+    <div class="info">
+        <strong>ℹ️ About Authentication</strong>
+        <p>This server uses OIDC (OpenID Connect) for secure authentication with Casdoor.</p>
+    </div>
+</div>
+{% endblock %}

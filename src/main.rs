@@ -1,3 +1,4 @@
+use askama::Template;
 use axum::{
     http::{header::HeaderValue, Method, StatusCode},
     response::Html,
@@ -29,6 +30,16 @@ struct AppState {
 }
 
 // -------------------------------
+// Templates
+// -------------------------------
+
+#[derive(Template)]
+#[template(path = "index.html")]
+struct IndexTemplate {
+    authenticated: bool,
+}
+
+// -------------------------------
 // Main Page Handler
 // -------------------------------
 
@@ -41,195 +52,8 @@ async fn index_handler(session: Session) -> Result<Html<String>, StatusCode> {
         .flatten()
         .unwrap_or(false);
 
-    let html = format!(
-        r#"<!DOCTYPE html>
-<html>
-<head>
-    <title>Video Server - Home</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }}
-        .container {{
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            max-width: 600px;
-            width: 100%;
-            padding: 50px 40px;
-            text-align: center;
-        }}
-        h1 {{
-            color: #333;
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }}
-        .subtitle {{
-            color: #666;
-            font-size: 1.1em;
-            margin-bottom: 40px;
-        }}
-        .status {{
-            background: #e8f5e9;
-            color: #2e7d32;
-            padding: 10px 20px;
-            border-radius: 25px;
-            display: inline-block;
-            margin-bottom: 30px;
-            font-weight: bold;
-        }}
-        .status.guest {{
-            background: #fff3e0;
-            color: #f57c00;
-        }}
-        .buttons {{
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin: 30px 0;
-        }}
-        .btn {{
-            padding: 18px 30px;
-            border-radius: 12px;
-            text-decoration: none;
-            font-weight: bold;
-            font-size: 1.1em;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            transition: all 0.3s ease;
-            border: none;
-            cursor: pointer;
-        }}
-        .btn-primary {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-        }}
-        .btn-primary:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-        }}
-        .btn-secondary {{
-            background: #4CAF50;
-            color: white;
-            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
-        }}
-        .btn-secondary:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.6);
-        }}
-        .btn-outline {{
-            background: white;
-            color: #667eea;
-            border: 2px solid #667eea;
-        }}
-        .btn-outline:hover {{
-            background: #667eea;
-            color: white;
-            transform: translateY(-2px);
-        }}
-        .btn-login {{
-            background: #FF6B6B;
-            color: white;
-            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
-        }}
-        .btn-login:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.6);
-        }}
-        .btn-logout {{
-            background: #95a5a6;
-            color: white;
-            padding: 12px 24px;
-            font-size: 0.9em;
-        }}
-        .btn-logout:hover {{
-            background: #7f8c8d;
-        }}
-        .footer {{
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-            color: #999;
-            font-size: 0.9em;
-        }}
-        .emoji {{
-            font-size: 1.3em;
-        }}
-        @media (max-width: 600px) {{
-            .container {{
-                padding: 30px 20px;
-            }}
-            h1 {{
-                font-size: 2em;
-            }}
-            .btn {{
-                font-size: 1em;
-                padding: 15px 25px;
-            }}
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🎬 Video Server</h1>
-        <p class="subtitle">Your personal media hub</p>
-
-        <div class="status{}">{}</div>
-
-        <div class="buttons">
-            <a href="/videos" class="btn btn-primary">
-                <span class="emoji">🎥</span>
-                Browse Videos
-            </a>
-
-            <a href="/images" class="btn btn-secondary">
-                <span class="emoji">🖼️</span>
-                View Image Gallery
-            </a>
-
-            <a href="/test" class="btn btn-outline">
-                <span class="emoji">📡</span>
-                Live Stream Test
-            </a>
-        </div>
-
-        {}
-
-        <div class="footer">
-            <p>Modular Video Server v1.0</p>
-            <p>Powered by Rust 🦀 + Axum</p>
-        </div>
-    </div>
-</body>
-</html>"#,
-        if authenticated { "" } else { " guest" },
-        if authenticated {
-            format!("✅ Logged In")
-        } else {
-            "👋 Guest Mode".to_string()
-        },
-        if authenticated {
-            r#"<a href="/logout" class="btn btn-logout">Logout</a>"#
-        } else {
-            r#"<a href="/login" class="btn btn-login">
-                <span class="emoji">🔐</span>
-                Login to Access Private Content
-            </a>"#
-        }
-    );
-
-    Ok(Html(html))
+    let template = IndexTemplate { authenticated };
+    Ok(Html(template.render().unwrap()))
 }
 
 // -------------------------------

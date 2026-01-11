@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Image{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>🖼️ Upload Image</h1>
+
+    <form action="/images/upload" method="POST" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="title">Image Title:</label>
+            <input type="text" id="title" name="title" placeholder="Enter image title" required>
+        </div>
+
+        <div class="form-group">
+            <label for="description">Description (optional):</label>
+            <textarea id="description" name="description" rows="4" placeholder="Enter image description"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="visibility">Visibility:</label>
+            <select id="visibility" name="visibility" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="public">Public</option>
+                <option value="private">Private</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="file">Select Image:</label>
+            <input type="file" id="file" name="file" accept="image/*" required>
+        </div>
+
+        <div class="buttons">
+            <button type="submit" class="btn btn-primary">Upload Image</button>
+            <a href="/images" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+
+    <div class="info">
+        <strong>ℹ️ Supported Formats</strong>
+        <p></p>JPEG, PNG, GIF, WebP</p>
+    </div>
+</div>
+{% endblock %}

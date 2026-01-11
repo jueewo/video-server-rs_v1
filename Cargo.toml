@@ -42,6 +42,10 @@ time = "0.3"
 reqwest = { version = "0.12.28", features = ["json"] }
 dotenvy = "0.15"
 
+# Templates
+askama = "0.12"
+askama_axum = "0.4"
+
 [workspace.dependencies]
 # Shared dependencies for all crates
 axum = { version = "0.7", features = ["multipart"] }
@@ -59,3 +63,5 @@ reqwest = { version = "0.12.28", features = ["json"] }
 openidconnect = "3.5"
 async-trait = "0.1"
 dotenvy = "0.15"
+askama = "0.12"
+askama_axum = "0.4"

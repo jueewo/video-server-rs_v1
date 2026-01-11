@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Video Server - Home{% endblock %}
+
+{% block extra_styles %}
+@media (max-width: 600px) {
+    .container {
+        padding: 30px 20px;
+    }
+    h1 {
+        font-size: 2em;
+    }
+    .btn {
+        font-size: 1em;
+        padding: 15px 25px;
+    }
+}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>🎬 Video Server</h1>
+    <p class="subtitle">Your personal media hub</p>
+
+    <div class="status{% if !authenticated %} guest{% endif %}">
+        {% if authenticated %}
+            ✅ Logged In
+        {% else %}
+            👋 Guest Mode
+        {% endif %}
+    </div>
+
+    <div class="buttons">
+        <a href="/videos" class="btn btn-primary">
+            <span class="emoji">🎥</span>
+            Browse Videos
+        </a>
+
+        <a href="/images" class="btn btn-secondary">
+            <span class="emoji">🖼️</span>
+            View Image Gallery
+        </a>
+
+        <a href="/test" class="btn btn-outline">
+            <span class="emoji">📡</span>
+            Live Stream Test
+        </a>
+    </div>
+
+    {% if authenticated %}
+        <a href="/logout" class="btn btn-logout">Logout</a>
+    {% else %}
+        <a href="/login" class="btn btn-login">
+            <span class="emoji">🔐</span>
+            Login to Access Private Content
+        </a>
+    {% endif %}
+
+    <div class="footer">
+        <p>Modular Video Server v1.0</p>
+        <p>Powered by Rust 🦀 + Axum</p>
+    </div>
+</div>
+{% endblock %}

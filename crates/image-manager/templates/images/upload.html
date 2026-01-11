@@ -1,44 +1,150 @@
-{% extends "base.html" %}
-
-{% block title %}Upload Image{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}Upload Image{% endblock %} {% block
+content %}
 <div class="container">
     <h1>🖼️ Upload Image</h1>
 
-    <form action="/images/upload" method="POST" enctype="multipart/form-data">
+    <form
+        action="/api/images/upload"
+        method="POST"
+        enctype="multipart/form-data"
+        id="uploadForm"
+    >
         <div class="form-group">
-            <label for="title">Image Title:</label>
-            <input type="text" id="title" name="title" placeholder="Enter image title" required>
+            <label for="file">Select Image *</label>
+            <input
+                type="file"
+                id="file"
+                name="file"
+                accept="image/*"
+                required
+            />
+            <div id="preview" style="margin-top: 15px; display: none">
+                <img
+                    id="previewImg"
+                    src=""
+                    alt="Preview"
+                    style="
+                        max-width: 300px;
+                        max-height: 300px;
+                        border-radius: 4px;
+                        border: 2px solid #ddd;
+                    "
+                />
+            </div>
         </div>
 
         <div class="form-group">
-            <label for="description">Description (optional):</label>
-            <textarea id="description" name="description" rows="4" placeholder="Enter image description"></textarea>
+            <label for="slug">Slug (URL identifier) *</label>
+            <input
+                type="text"
+                id="slug"
+                name="slug"
+                placeholder="e.g., my-image"
+                required
+                pattern="[a-z0-9-]+"
+                title="Only lowercase letters, numbers, and hyphens"
+            />
+            <small style="color: #666; display: block; margin-top: 5px"
+                >Only lowercase letters, numbers, and hyphens. Will be
+                auto-generated from title.</small
+            >
         </div>
 
         <div class="form-group">
-            <label for="visibility">Visibility:</label>
-            <select id="visibility" name="visibility" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                <option value="public">Public</option>
-                <option value="private">Private</option>
+            <label for="title">Image Title *</label>
+            <input
+                type="text"
+                id="title"
+                name="title"
+                placeholder="e.g., My Beautiful Image"
+                required
+            />
+        </div>
+
+        <div class="form-group">
+            <label for="description">Description (optional)</label>
+            <textarea
+                id="description"
+                name="description"
+                rows="4"
+                placeholder="Enter image description"
+            ></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="is_public">Visibility *</label>
+            <select
+                id="is_public"
+                name="is_public"
+                style="
+                    width: 100%;
+                    padding: 10px;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                "
+                required
+            >
+                <option value="1">Public (anyone can view)</option>
+                <option value="0">Private (requires login)</option>
             </select>
         </div>
 
-        <div class="form-group">
-            <label for="file">Select Image:</label>
-            <input type="file" id="file" name="file" accept="image/*" required>
-        </div>
-
         <div class="buttons">
-            <button type="submit" class="btn btn-primary">Upload Image</button>
+            <button type="submit" class="btn btn-primary" id="submitBtn">
+                Upload Image
+            </button>
             <a href="/images" class="btn btn-secondary">Cancel</a>
         </div>
     </form>
 
     <div class="info">
-        <strong>ℹ️ Supported Formats</strong>
-        <p></p>JPEG, PNG, GIF, WebP</p>
+        <strong>Supported formats:</strong> JPG, PNG, GIF, WebP, SVG, BMP<br />
+        <strong>Max size:</strong> 10 MB<br />
+        <strong>ℹ️ Note:</strong> Images will be automatically converted to WebP
+        format for optimal performance (except SVG)
     </div>
 </div>
+
+<script>
+    // Image preview
+    document.getElementById("file").addEventListener("change", function (e) {
+        const file = e.target.files[0];
+        if (file && file.type.startsWith("image/")) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                document.getElementById("previewImg").src = e.target.result;
+                document.getElementById("preview").style.display = "block";
+            };
+            reader.readAsDataURL(file);
+        } else {
+            document.getElementById("preview").style.display = "none";
+        }
+    });
+
+    // Auto-generate slug from title
+    document.getElementById("title").addEventListener("input", function (e) {
+        const slugInput = document.getElementById("slug");
+        if (!slugInput.value || slugInput.dataset.autoFilled === "true") {
+            const slug = e.target.value
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, "-")
+                .replace(/^-+|-+$/g, "");
+            slugInput.value = slug;
+            slugInput.dataset.autoFilled = "true";
+        }
+    });
+
+    document.getElementById("slug").addEventListener("input", function () {
+        this.dataset.autoFilled = "false";
+    });
+
+    // Form submission feedback
+    document
+        .getElementById("uploadForm")
+        .addEventListener("submit", function (e) {
+            const submitBtn = document.getElementById("submitBtn");
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Uploading...";
+        });
+</script>
 {% endblock %}

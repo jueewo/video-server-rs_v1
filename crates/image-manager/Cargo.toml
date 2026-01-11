@@ -30,3 +30,6 @@ tracing = { workspace = true }
 
 # Utilities
 time = { workspace = true }
+
+# Image processing
+image = { workspace = true }

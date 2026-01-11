@@ -35,21 +35,31 @@
 {% block content %}
 <div class="container">
     <div class="section-header">
-        <div></div>
-            <h1>{{ page_title }}</h1>
-            <p class="subtitle">
-                {% if authenticated %}
-                    Your personal image gallery
-                {% else %}
-                    Browse our public image collection
-                {% endif %}
-            </p>
+            <div>
+                <h1>{{ page_title }}</h1>
+                <p class="subtitle">
+                    {% if authenticated %}
+                        Your personal image gallery
+                    {% else %}
+                        Browse our public image collection
+                    {% endif %}
+                </p>
+            </div>
         </div>
         <div>
             {% if authenticated %}
-                <span class="status-badge authenticated">✅ Authenticated</span>
+                <div>
+                    <span class="status-badge authenticated">✅ Authenticated</span>
+                    <a href="/upload" class="btn btn-primary">
+                        <span class="emoji">📤</span>
+                        Upload New Image
+                    </a>
+                </div>
             {% else %}
-                <span class="status-badge guest">👋 Guest Mode</span>
+                <div>
+                    <span class="status-badge guest">👋 Guest Mode</span>
+                    <a href="/login" class="btn btn-primary">Login</a>
+                </div>
             {% endif %}
         </div>
     </div>

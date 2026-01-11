@@ -305,8 +305,58 @@ pub async fn upload_image_handler(
         ));
     }
 
-    // Generate filename with slug and original extension
-    let stored_filename = format!("{}.{}", slug, extension.to_lowercase());
+    // ... old without transcode to webp ..
+    // // Generate filename with slug and original extension
+    // let stored_filename = format!("{}.{}", slug, extension.to_lowercase());
+
+    // ... new with transcode to webp ..
+    // Transcode image to WebP (except for SVG which is vector format)
+    let (final_file_data, final_extension) = if extension.to_lowercase() == "svg" {
+        // Keep SVG as-is (it's vector format, doesn't benefit from WebP)
+        (file_data, "svg".to_string())
+    } else {
+        // Load image from bytes
+        let img = image::load_from_memory(&file_data).map_err(|e| {
+            println!("❌ Error loading image: {}", e);
+            (
+                StatusCode::BAD_REQUEST,
+                UploadErrorTemplate {
+                    authenticated: true,
+                    error_message: format!("Invalid image file: {}", e),
+                },
+            )
+        })?;
+
+        // Convert to WebP with quality 85 (good balance of quality and size)
+        let mut webp_data = Vec::new();
+        let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut webp_data);
+
+        // Or for lossy compression with better file sizes:
+        // let encoder = image::codecs::webp::WebPEncoder::new_with_quality(&mut webp_data, 85.0);
+
+        img.write_with_encoder(encoder).map_err(|e| {
+            println!("❌ Error encoding to WebP: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                UploadErrorTemplate {
+                    authenticated: true,
+                    error_message: "Failed to convert image to WebP.".to_string(),
+                },
+            )
+        })?;
+
+        println!(
+            "✅ Transcoded {} ({} bytes) to WebP ({} bytes)",
+            original_filename,
+            file_data.len(),
+            webp_data.len()
+        );
+
+        (webp_data, "webp".to_string())
+    };
+
+    // Generate filename with slug and webp extension
+    let stored_filename = format!("{}.{}", slug, final_extension);
 
     // Check if slug already exists
     let existing: Option<(i32,)> = sqlx::query_as("SELECT id FROM images WHERE slug = ?")
@@ -343,8 +393,23 @@ pub async fn upload_image_handler(
     };
     let file_path = state.storage_dir.join(base_folder).join(&stored_filename);
 
+    //... old
     // Save file to disk
-    tokio::fs::write(&file_path, &file_data)
+    // tokio::fs::write(&file_path, &file_data)
+    //     .await
+    //     .map_err(|e| {
+    //         println!("❌ Error saving file: {}", e);
+    //         (
+    //             StatusCode::INTERNAL_SERVER_ERROR,
+    //             UploadErrorTemplate {
+    //                 authenticated: true,
+    //                 error_message: "Failed to save file to disk.".to_string(),
+    //             },
+    //         )
+    //     })?;
+
+    // Save file to disk (now with WebP data)
+    tokio::fs::write(&file_path, &final_file_data)
         .await
         .map_err(|e| {
             println!("❌ Error saving file: {}", e);

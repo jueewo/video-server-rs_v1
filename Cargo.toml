@@ -65,3 +65,6 @@ async-trait = "0.1"
 dotenvy = "0.15"
 askama = "0.12"
 askama_axum = "0.4"
+
+# Image processing
+image = { version = "0.24", features = ["webp"] }

@@ -6,6 +6,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use image::{imageops, GenericImageView};
 use sqlx::{Pool, Sqlite};
 use std::{path::PathBuf, sync::Arc};
 use tower_sessions::Session;
@@ -422,6 +423,61 @@ pub async fn upload_image_handler(
             )
         })?;
 
+    // Generate thumbnail if not SVG
+    if final_extension != "svg" {
+        // Load image from bytes
+        let img = image::load_from_memory(&final_file_data).map_err(|e| {
+            println!("❌ Error loading image for thumbnail: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                UploadErrorTemplate {
+                    authenticated: true,
+                    error_message: "Failed to process image for thumbnail.".to_string(),
+                },
+            )
+        })?;
+
+        // Resize to fit within 400x400 maintaining aspect ratio
+        let (width, height) = img.dimensions();
+        let max_size = 400.0;
+        let scale = if width > height {
+            max_size / width as f32
+        } else {
+            max_size / height as f32
+        };
+        let new_width = (width as f32 * scale) as u32;
+        let new_height = (height as f32 * scale) as u32;
+        let thumb_img =
+            imageops::resize(&img, new_width, new_height, imageops::FilterType::Lanczos3);
+
+        let mut thumb_data = Vec::new();
+        let thumb_encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut thumb_data);
+        thumb_img.write_with_encoder(thumb_encoder).map_err(|e| {
+            println!("❌ Error encoding thumbnail: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                UploadErrorTemplate {
+                    authenticated: true,
+                    error_message: "Failed to create thumbnail.".to_string(),
+                },
+            )
+        })?;
+
+        let thumb_filename = format!("{}_thumb.webp", slug);
+        let thumb_path = state.storage_dir.join(base_folder).join(&thumb_filename);
+
+        if let Err(e) = tokio::fs::write(&thumb_path, &thumb_data).await {
+            println!("❌ Error saving thumbnail: {}", e);
+            // Don't fail the upload for thumbnail save error
+        } else {
+            println!(
+                "✅ Thumbnail created: {} ({} bytes)",
+                thumb_filename,
+                thumb_data.len()
+            );
+        }
+    }
+
     // Insert into database
     sqlx::query(
         "INSERT INTO images (slug, filename, title, description, is_public) VALUES (?, ?, ?, ?, ?)",
@@ -512,10 +568,17 @@ pub async fn serve_image_handler(
     session: Session,
     State(state): State<Arc<ImageManagerState>>,
 ) -> Response {
+    // Handle thumbnail requests
+    let (lookup_slug, is_thumb) = if slug.ends_with("_thumb") {
+        (slug.trim_end_matches("_thumb").to_string(), true)
+    } else {
+        (slug.clone(), false)
+    };
+
     // Lookup image in database
     let image: Result<Option<(String, i32)>, sqlx::Error> =
         sqlx::query_as("SELECT filename, is_public FROM images WHERE slug = ?")
-            .bind(&slug)
+            .bind(&lookup_slug)
             .fetch_optional(&state.pool)
             .await;
 
@@ -531,9 +594,14 @@ pub async fn serve_image_handler(
         }
     };
 
-    let (filename, is_public) = image;
+    let (mut filename, is_public) = image;
 
     let is_public = is_public == 1;
+
+    // Adjust filename for thumbnails
+    if is_thumb {
+        filename = format!("{}_thumb.webp", lookup_slug);
+    }
 
     // Check authentication for private images
     if !is_public {

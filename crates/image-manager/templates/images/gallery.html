@@ -76,11 +76,11 @@
     <div class="section">
         <h2>📸 Public Images</h2>
         <div class="image-grid">
-            {% for image in public_images %}
-            <div class="image-card" onclick="window.location.href='/images/{{ image.0 }}'">
-                <div class="image-thumbnail">
-                    <img src="/images/{{ image.0 }}" alt="{{ image.1 }}" loading="lazy">
-                </div>
+        {% for image in public_images %}
+        <div class="image-card" onclick="window.location.href='/images/{{ image.0 }}'">
+            <div class="image-thumbnail">
+                <img src="/images/{{ image.0 }}_thumb" alt="{{ image.1 }}" loading="lazy" onerror="this.src='/images/{{ image.0 }}'">
+            </div>
                 <div class="image-info">
                     <div class="image-title">{{ image.1 }}</div>
                     {% if !image.2.is_empty() %}
@@ -114,7 +114,7 @@
                 {% for image in private_images %}
                 <div class="image-card private" onclick="window.location.href='/images/{{ image.0 }}'">
                     <div class="image-thumbnail">
-                        <img src="/images/{{ image.0 }}" alt="{{ image.1 }}" loading="lazy">
+                        <img src="/images/{{ image.0 }}_thumb" alt="{{ image.1 }}" loading="lazy" onerror="this.src='/images/{{ image.0 }}'">
                     </div>
                     <div class="image-info">
                         <div class="image-title">{{ image.1 }}</div>

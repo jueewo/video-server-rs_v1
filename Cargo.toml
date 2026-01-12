@@ -10,6 +10,11 @@ resolver = "2"
 name = "video-server-rs"
 version = "0.1.0"
 edition = "2021"
+default-run = "video-server-rs"
+
+[[bin]]
+name = "generate-thumbnails"
+path = "scripts/generate_thumbnails.rs"
 
 [dependencies]
 # Local crates
@@ -45,6 +50,9 @@ dotenvy = "0.15"
 # Templates
 askama = "0.12"
 askama_axum = "0.4"
+
+# Image processing
+image = { version = "0.24", features = ["webp"] }
 
 [workspace.dependencies]
 # Shared dependencies for all crates

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}User Profile - Video Server{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>User Profile</h1>
+    
+    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h2>{{ name }}</h2>
+        <p><strong>Email:</strong> {{ email }}</p>
+        <p><strong>User ID:</strong> {{ user_id }}</p>
+    </div>
+
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="/" class="btn btn-primary">Back to Home</a>
+        <a href="/images" class="btn btn-secondary">My Images</a>
+        <a href="/videos" class="btn btn-outline">My Videos</a>
+    </div>
+</div>
+{% endblock %}

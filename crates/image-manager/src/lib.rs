@@ -478,15 +478,24 @@ pub async fn upload_image_handler(
         }
     }
 
+    // Get user_id from session
+    let user_id: String = session
+        .get("user_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "anonymous".to_string());
+
     // Insert into database
     sqlx::query(
-        "INSERT INTO images (slug, filename, title, description, is_public) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO images (slug, filename, title, description, is_public, user_id) VALUES (?, ?, ?, ?, ?, ?)",
     )
     .bind(&slug)
     .bind(&stored_filename)
     .bind(&title)
     .bind(&description)
     .bind(is_public)
+    .bind(&user_id)
     .execute(&state.pool)
     .await
     .map_err(|e| {
@@ -529,8 +538,15 @@ pub async fn images_gallery_handler(
         .flatten()
         .unwrap_or(false);
 
-    // Get images from database
-    let images = get_images(&state.pool, authenticated)
+    // Get user_id from session
+    let user_id: Option<String> = if authenticated {
+        session.get("user_id").await.ok().flatten()
+    } else {
+        None
+    };
+
+    // Get images from database (filtered by ownership)
+    let images = get_images(&state.pool, user_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -667,19 +683,29 @@ pub async fn serve_image_handler(
 // -------------------------------
 pub async fn get_images(
     pool: &Pool<Sqlite>,
-    authenticated: bool,
+    user_id: Option<String>,
 ) -> Result<Vec<(String, String, String, i32)>, sqlx::Error> {
-    if authenticated {
-        sqlx::query_as(
-            "SELECT slug, title, COALESCE(description, '') as description, is_public FROM images ORDER BY created_at DESC",
-        )
-        .fetch_all(pool)
-        .await
-    } else {
-        sqlx::query_as(
-            "SELECT slug, title, COALESCE(description, '') as description, is_public FROM images WHERE is_public = 1 ORDER BY created_at DESC"
-        )
-        .fetch_all(pool)
-        .await
+    match user_id {
+        Some(uid) => {
+            // Show public images + user's private images
+            sqlx::query_as(
+                "SELECT slug, title, COALESCE(description, '') as description, is_public FROM images
+                 WHERE is_public = 1 OR user_id = ?
+                 ORDER BY created_at DESC",
+            )
+            .bind(uid)
+            .fetch_all(pool)
+            .await
+        }
+        None => {
+            // Show only public images for unauthenticated users
+            sqlx::query_as(
+                "SELECT slug, title, COALESCE(description, '') as description, is_public FROM images
+                 WHERE is_public = 1
+                 ORDER BY created_at DESC"
+            )
+            .fetch_all(pool)
+            .await
+        }
     }
 }

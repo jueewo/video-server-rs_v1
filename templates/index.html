@@ -2,21 +2,6 @@
 
 {% block title %}Video Server - Home{% endblock %}
 
-{% block extra_styles %}
-@media (max-width: 600px) {
-    .container {
-        padding: 30px 20px;
-    }
-    h1 {
-        font-size: 2em;
-    }
-    .btn {
-        font-size: 1em;
-        padding: 15px 25px;
-    }
-}
-{% endblock %}
-
 {% block content %}
 <div class="container">
     <h1>🎬 Video Server</h1>
@@ -45,6 +30,13 @@
             <span class="emoji">📡</span>
             Live Stream Test
         </a>
+
+        {% if authenticated %}
+        <a href="/profile" class="btn btn-outline">
+            <span class="emoji">👤</span>
+            My Profile
+        </a>
+        {% endif %}
     </div>
 
     {% if authenticated %}

@@ -148,8 +148,15 @@ pub async fn videos_list_handler(
         .flatten()
         .unwrap_or(false);
 
-    // Get videos based on authentication status
-    let videos = get_videos(&state.pool, authenticated)
+    // Get user_id from session
+    let user_id: Option<String> = if authenticated {
+        session.get("user_id").await.ok().flatten()
+    } else {
+        None
+    };
+
+    // Get videos based on authentication and ownership
+    let videos = get_videos(&state.pool, user_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -423,17 +430,29 @@ pub async fn mediamtx_status(
 
 pub async fn get_videos(
     pool: &Pool<Sqlite>,
-    authenticated: bool,
+    user_id: Option<String>,
 ) -> Result<Vec<(String, String, i32)>, sqlx::Error> {
-    if authenticated {
-        sqlx::query_as("SELECT slug, title, is_public FROM videos ORDER BY is_public DESC, title")
+    match user_id {
+        Some(uid) => {
+            // Show public videos + user's private videos
+            sqlx::query_as(
+                "SELECT slug, title, is_public FROM videos
+                 WHERE is_public = 1 OR user_id = ?
+                 ORDER BY is_public DESC, title",
+            )
+            .bind(uid)
             .fetch_all(pool)
             .await
-    } else {
-        sqlx::query_as(
-            "SELECT slug, title, is_public FROM videos WHERE is_public = 1 ORDER BY title",
-        )
-        .fetch_all(pool)
-        .await
+        }
+        None => {
+            // Show only public videos for unauthenticated users
+            sqlx::query_as(
+                "SELECT slug, title, is_public FROM videos
+                 WHERE is_public = 1
+                 ORDER BY title",
+            )
+            .fetch_all(pool)
+            .await
+        }
     }
 }

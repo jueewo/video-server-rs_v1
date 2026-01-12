@@ -109,6 +109,7 @@ pub fn auth_routes(state: Arc<AuthState>) -> Router {
     let mut router = Router::new()
         .route("/login", get(login_page_handler))
         .route("/logout", get(logout_handler))
+        .route("/profile", get(user_profile_handler))
         .route("/oidc/authorize", get(oidc_authorize_handler))
         .route("/oidc/callback", get(oidc_callback_handler))
         .route("/auth/error", get(auth_error_handler));
@@ -161,6 +162,54 @@ struct EmergencyFailedTemplate;
 struct AuthErrorTemplate {
     reason: String,
     detail: Option<String>,
+}
+
+#[derive(Template)]
+#[template(path = "auth/profile.html")]
+struct UserProfileTemplate {
+    user_id: String,
+    name: String,
+    email: String,
+}
+
+// -------------------------------
+// User Profile Handler
+// -------------------------------
+pub async fn user_profile_handler(session: Session) -> Result<Html<String>, StatusCode> {
+    // Check if authenticated
+    if !is_authenticated(&session).await {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    // Get user information from session
+    let user_id = session
+        .get("user_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let name = session
+        .get("name")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "Unknown User".to_string());
+
+    let email = session
+        .get("email")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let template = UserProfileTemplate {
+        user_id,
+        name,
+        email,
+    };
+
+    Ok(Html(template.render().unwrap()))
 }
 
 // -------------------------------

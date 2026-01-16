@@ -32,3 +32,6 @@ async-trait = { workspace = true }
 
 # URL encoding
 urlencoding = "2.1"
+
+# Database
+sqlx = { workspace = true }

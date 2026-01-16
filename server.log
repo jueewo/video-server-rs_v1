@@ -1,0 +1,97 @@
+warning: unused import: `collections::HashMap`
+  --> crates/video-manager/src/lib.rs:12:11
+   |
+12 | use std::{collections::HashMap, path::PathBuf, sync::Arc};
+   |           ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `video-manager` (lib) generated 1 warning (run `cargo fix --lib -p video-manager` to apply 1 suggestion)
+   Compiling video-server-rs v0.1.0 (/Users/juergen/MyDev/MyProjects/video-server-rs_v1)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.32s
+     Running `target/debug/video-server-rs`
+
+🚀 Initializing Modular Video Server...
+🔐 OIDC Configuration:
+   - Issuer URL: http://localhost:8088
+   - Client ID: f4e64e4265ac63ea837c
+   - Redirect URI: http://localhost:3000/oidc/callback
+🔍 Discovering OIDC provider: http://localhost:8088
+✅ OIDC provider discovery successful
+✅ OIDC authentication enabled
+🍪 Session Configuration:
+   - Cookie name: video_server_session
+   - HTTP-only: true
+   - Same-site: Lax
+   - Expiry: 7 days inactivity
+🔒 Emergency login is DISABLED
+
+╔════════════════════════════════════════════════════════════════╗
+║   🎥  MODULAR VIDEO SERVER - READY!                           ║
+╚════════════════════════════════════════════════════════════════╝
+
+📦 MODULES LOADED:
+   ✅ video-manager    (Video streaming & HLS proxy)
+   ✅ image-manager    (Image upload & serving)
+   ✅ user-auth        (Session management, OIDC ready)
+   ✅ access-codes     (Shared media access)
+📊 SERVER ENDPOINTS:
+   • Web UI:        http://0.0.0.0:3000
+   • Test Player:   http://0.0.0.0:3000/test
+   • Login:         http://0.0.0.0:3000/login
+   • OIDC Login:    http://0.0.0.0:3000/oidc/authorize
+   • Emergency:     http://0.0.0.0:3000/login/emergency
+   • Images:        http://0.0.0.0:3000/images
+   • Upload:        http://0.0.0.0:3000/upload
+   • Health:        http://0.0.0.0:3000/health
+   • MediaMTX API:  http://0.0.0.0:3000/api/mediamtx/status
+   • Access Codes:  http://0.0.0.0:3000/api/access-codes
+
+📡 MEDIAMTX CONFIGURATION:
+   • RTMP Input:    rtmp://localhost:1935/live
+   • HLS Output:    http://localhost:8888/live/index.m3u8
+   • WebRTC Output: http://localhost:8889/live
+   • API:           http://localhost:9997
+   • Metrics:       http://localhost:9998/metrics
+
+🎬 STREAMING COMMANDS:
+
+   macOS (Camera + Microphone):
+   ffmpeg -f avfoundation -framerate 30 -video_size 1280x720 -i "0:0" \
+     -c:v libx264 -preset veryfast -tune zerolatency \
+     -c:a aac -b:a 128k -ar 44100 \
+     -f flv "rtmp://localhost:1935/live?token=supersecret123"
+
+   Linux (Webcam + Microphone):
+   ffmpeg -f v4l2 -i /dev/video0 -f alsa -i hw:0 \
+     -c:v libx264 -preset veryfast -tune zerolatency \
+     -c:a aac -b:a 128k -ar 44100 \
+     -f flv "rtmp://localhost:1935/live?token=supersecret123"
+
+   OBS Studio:
+   • Server:     rtmp://localhost:1935/live
+   • Stream Key: ?token=supersecret123
+
+⚠️  IMPORTANT:
+   1. Make sure MediaMTX is running: mediamtx mediamtx.yml
+   2. Login first: http://0.0.0.0:3000/login
+   3. Then watch: http://0.0.0.0:3000/test
+
+💡 TIPS:
+   • List devices: ffmpeg -f avfoundation -list_devices true -i ""
+   • Check MediaMTX: curl http://localhost:9997/v3/paths/list
+   • View logs: MediaMTX logs appear in its terminal
+
+🔧 ARCHITECTURE:
+   This server is now modular with separate crates:
+   • crates/video-manager - Video streaming logic
+   • crates/image-manager - Image handling logic
+   • crates/user-auth     - OIDC Authentication (Casdoor)
+
+🔐 AUTHENTICATION:
+   • Primary:   OIDC with Casdoor (Login with Appkask)
+   • Fallback:  Emergency local login
+   • Configure: Set OIDC_* environment variables
+
+════════════════════════════════════════════════════════════════
+

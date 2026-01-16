@@ -1,18 +1,63 @@
-{% extends "base.html" %}
-
-{% block title %}User Profile - Video Server{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}User Profile - Video Server{%
+endblock %} {% block content %}
 <div class="container">
     <h1>User Profile</h1>
-    
-    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+
+    <div
+        style="
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        "
+    >
         <h2>{{ name }}</h2>
         <p><strong>Email:</strong> {{ email }}</p>
         <p><strong>User ID:</strong> {{ user_id }}</p>
     </div>
 
-    <div style="text-align: center; margin-top: 30px;">
+    <div
+        style="
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        "
+    >
+        <h3>Access Codes</h3>
+        {% if has_access_codes %} {% for access_code in access_codes %}
+        <div
+            style="
+                border: 1px solid #ddd;
+                padding: 10px;
+                margin: 10px 0;
+                border-radius: 4px;
+            "
+        >
+            <h4>{{ access_code.code }}</h4>
+            <p><strong>Description:</strong> {{ access_code.description }}</p>
+            <p><strong>Created:</strong> {{ access_code.created_at }}</p>
+            {% if access_code.has_expires %}
+            <p><strong>Expires:</strong> {{ access_code.expires_at }}</p>
+            {% endif %}
+
+            <h5>Resources:</h5>
+            {% if access_code.has_resources %}
+            <ul>
+                {% for resource in access_code.resources %}
+                <li>{{ resource.media_type }}: {{ resource.media_slug }}</li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p>No resources linked.</p>
+            {% endif %}
+        </div>
+        {% endfor %} {% else %}
+        <p>No access codes created.</p>
+        {% endif %}
+    </div>
+
+    <div style="text-align: center; margin-top: 30px">
         <a href="/" class="btn btn-primary">Back to Home</a>
         <a href="/images" class="btn btn-secondary">My Images</a>
         <a href="/videos" class="btn btn-outline">My Videos</a>

@@ -1,14 +1,16 @@
 use askama::Template;
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{header, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
     Router,
 };
 use reqwest::Client;
+use serde::Deserialize;
 use sqlx::{Pool, Sqlite};
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use time::OffsetDateTime;
 use tokio_util::io::ReaderStream;
 use tower_sessions::Session;
 
@@ -186,12 +188,18 @@ pub async fn videos_list_handler(
     })
 }
 
+#[derive(Deserialize)]
+pub struct AccessCodeQuery {
+    access_code: Option<String>,
+}
+
 // -------------------------------
 // Video Player Page Handler
 // -------------------------------
 
 pub async fn video_player_handler(
     Path(slug): Path<String>,
+    Query(query): Query<AccessCodeQuery>,
     session: Session,
     State(state): State<Arc<VideoManagerState>>,
 ) -> Result<VideoPlayerTemplate, Response> {
@@ -216,15 +224,28 @@ pub async fn video_player_handler(
     })?;
     let is_public = is_public == 1;
 
-    // For private videos, require authentication
+    // For private videos, check authentication or access code
     if !is_public && !authenticated {
-        return Err((
-            StatusCode::UNAUTHORIZED,
-            UnauthorizedTemplate {
-                authenticated: false,
-            },
-        )
-            .into_response());
+        // Check if access code is provided and valid
+        if let Some(code) = &query.access_code {
+            if !check_access_code(&state.pool, code, "video", &slug).await {
+                return Err((
+                    StatusCode::UNAUTHORIZED,
+                    UnauthorizedTemplate {
+                        authenticated: false,
+                    },
+                )
+                    .into_response());
+            }
+        } else {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                UnauthorizedTemplate {
+                    authenticated: false,
+                },
+            )
+                .into_response());
+        }
     }
 
     Ok(VideoPlayerTemplate {
@@ -256,6 +277,7 @@ pub async fn live_test_handler(session: Session) -> Result<LiveTestTemplate, Sta
 
 pub async fn hls_proxy_handler(
     Path(path): Path<String>,
+    Query(query): Query<AccessCodeQuery>,
     session: Session,
     State(state): State<Arc<VideoManagerState>>,
 ) -> Result<Response, StatusCode> {
@@ -359,7 +381,14 @@ pub async fn hls_proxy_handler(
             .unwrap_or(false);
 
         if !authenticated {
-            return Err(StatusCode::UNAUTHORIZED);
+            // Check if access code is provided and valid
+            if let Some(code) = &query.access_code {
+                if !check_access_code(&state.pool, code, "video", slug).await {
+                    return Err(StatusCode::UNAUTHORIZED);
+                }
+            } else {
+                return Err(StatusCode::UNAUTHORIZED);
+            }
         }
     }
 
@@ -427,6 +456,57 @@ pub async fn mediamtx_status(
 // -------------------------------
 // Helper Functions
 // -------------------------------
+
+pub async fn check_access_code(
+    pool: &Pool<Sqlite>,
+    code: &str,
+    media_type: &str,
+    media_slug: &str,
+) -> bool {
+    // Check if access code exists and hasn't expired
+    let access_code: Option<(i32, Option<String>)> =
+        sqlx::query_as("SELECT id, expires_at FROM access_codes WHERE code = ?")
+            .bind(code)
+            .fetch_optional(pool)
+            .await
+            .unwrap_or(None);
+
+    if let Some((code_id, expires_at)) = access_code {
+        // Check expiration
+        if let Some(expiry_str) = &expires_at {
+            match OffsetDateTime::parse(
+                &expiry_str,
+                &time::format_description::well_known::Iso8601::DEFAULT,
+            ) {
+                Ok(expiry) => {
+                    let now = OffsetDateTime::now_utc();
+                    if expiry < now {
+                        return false; // Code has expired
+                    }
+                }
+                Err(_) => {
+                    return false; // Invalid expiry format
+                }
+            }
+        }
+
+        // Check if this code grants access to the specific media item
+        let permission: Option<i32> = sqlx::query_scalar(
+            "SELECT 1 FROM access_code_permissions
+             WHERE access_code_id = ? AND media_type = ? AND media_slug = ?",
+        )
+        .bind(code_id)
+        .bind(media_type)
+        .bind(media_slug)
+        .fetch_optional(pool)
+        .await
+        .unwrap_or(None);
+
+        permission.is_some()
+    } else {
+        false
+    }
+}
 
 pub async fn get_videos(
     pool: &Pool<Sqlite>,

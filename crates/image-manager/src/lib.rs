@@ -1,14 +1,16 @@
 use askama::Template;
 use axum::{
-    extract::{Multipart, Path, State},
+    extract::{Multipart, Path, Query, State},
     http::{header, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Router,
 };
 use image::{imageops, GenericImageView};
+use serde::Deserialize;
 use sqlx::{Pool, Sqlite};
 use std::{path::PathBuf, sync::Arc};
+use time::OffsetDateTime;
 use tower_sessions::Session;
 
 // -------------------------------
@@ -51,6 +53,11 @@ pub struct UploadErrorTemplate {
 #[template(path = "unauthorized.html")]
 pub struct UnauthorizedTemplate {
     authenticated: bool,
+}
+
+#[derive(Deserialize)]
+pub struct AccessCodeQuery {
+    access_code: Option<String>,
 }
 
 // -------------------------------
@@ -581,6 +588,7 @@ pub async fn images_gallery_handler(
 // -------------------------------
 pub async fn serve_image_handler(
     Path(slug): Path<String>,
+    Query(query): Query<AccessCodeQuery>,
     session: Session,
     State(state): State<Arc<ImageManagerState>>,
 ) -> Response {
@@ -619,7 +627,7 @@ pub async fn serve_image_handler(
         filename = format!("{}_thumb.webp", lookup_slug);
     }
 
-    // Check authentication for private images
+    // Check authentication or access code for private images
     if !is_public {
         let authenticated: bool = session
             .get("authenticated")
@@ -629,14 +637,28 @@ pub async fn serve_image_handler(
             .unwrap_or(false);
 
         if !authenticated {
-            println!("❌ Unauthorized access attempt to private image: {}", slug);
-            return (
-                StatusCode::UNAUTHORIZED,
-                UnauthorizedTemplate {
-                    authenticated: false,
-                },
-            )
-                .into_response();
+            // Check if access code is provided and valid
+            if let Some(code) = &query.access_code {
+                if !check_access_code(&state.pool, code, "image", &lookup_slug).await {
+                    println!("❌ Unauthorized access attempt to private image: {}", slug);
+                    return (
+                        StatusCode::UNAUTHORIZED,
+                        UnauthorizedTemplate {
+                            authenticated: false,
+                        },
+                    )
+                        .into_response();
+                }
+            } else {
+                println!("❌ Unauthorized access attempt to private image: {}", slug);
+                return (
+                    StatusCode::UNAUTHORIZED,
+                    UnauthorizedTemplate {
+                        authenticated: false,
+                    },
+                )
+                    .into_response();
+            }
         }
     }
 
@@ -676,6 +698,60 @@ pub async fn serve_image_handler(
         .header(header::CONTENT_TYPE, content_type)
         .body(file_data.into())
         .unwrap()
+}
+
+// -------------------------------
+// Helper: Check Access Code
+// -------------------------------
+pub async fn check_access_code(
+    pool: &Pool<Sqlite>,
+    code: &str,
+    media_type: &str,
+    media_slug: &str,
+) -> bool {
+    // Check if access code exists and hasn't expired
+    let access_code: Option<(i32, Option<String>)> =
+        sqlx::query_as("SELECT id, expires_at FROM access_codes WHERE code = ?")
+            .bind(code)
+            .fetch_optional(pool)
+            .await
+            .unwrap_or(None);
+
+    if let Some((code_id, expires_at)) = access_code {
+        // Check expiration
+        if let Some(expiry_str) = &expires_at {
+            match OffsetDateTime::parse(
+                &expiry_str,
+                &time::format_description::well_known::Iso8601::DEFAULT,
+            ) {
+                Ok(expiry) => {
+                    let now = OffsetDateTime::now_utc();
+                    if expiry < now {
+                        return false; // Code has expired
+                    }
+                }
+                Err(_) => {
+                    return false; // Invalid expiry format
+                }
+            }
+        }
+
+        // Check if this code grants access to the specific media item
+        let permission: Option<i32> = sqlx::query_scalar(
+            "SELECT 1 FROM access_code_permissions
+             WHERE access_code_id = ? AND media_type = ? AND media_slug = ?",
+        )
+        .bind(code_id)
+        .bind(media_type)
+        .bind(media_slug)
+        .fetch_optional(pool)
+        .await
+        .unwrap_or(None);
+
+        permission.is_some()
+    } else {
+        false
+    }
 }
 
 // -------------------------------

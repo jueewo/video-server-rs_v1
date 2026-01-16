@@ -11,6 +11,7 @@ Features:
 - ✅ HLS output with low latency (2-3 seconds)
 - ✅ WebRTC support (sub-second latency)
 - ✅ Session-based authentication
+- ✅ Access codes for shared media
 - ✅ Stream recording (24-hour retention)
 - ✅ SQLite database for metadata
 - ✅ CORS support
@@ -217,11 +218,107 @@ Sample data includes:
 | `/api/webhooks/stream-ready` | POST | Stream started webhook |
 | `/api/webhooks/stream-ended` | POST | Stream ended webhook |
 
+### Access Code Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/access-codes` | POST | Create access code |
+| `/api/access-codes` | GET | List access codes |
+| `/api/access-codes/:code` | DELETE | Delete access code |
+
 ### Streaming Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/hls/:slug/:file` | GET | HLS proxy (live + VOD) |
+
+## Access Codes
+
+Access codes allow sharing private videos and images without requiring user authentication. Perfect for embedding media in websites, courses, or sharing with external users.
+
+### Ownership & Permissions
+
+- **Access codes are owned by the user who creates them**
+- **Users can only create access codes for media they own**
+- **Each access code grants access to specific videos and images owned by the creator**
+- **Users can only manage (list/delete) access codes they created**
+
+### Creating Access Codes
+
+```bash
+# Create an access code for multiple media items (must be owned by authenticated user)
+curl -X POST http://localhost:3000/api/access-codes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "code": "website2024",
+    "description": "Media for company website",
+    "expires_at": "2024-12-31T23:59:59Z",
+    "media_items": [
+      {"media_type": "video", "media_slug": "welcome"},
+      {"media_type": "image", "media_slug": "logo"}
+    ]
+  }'
+```
+
+### Using Access Codes
+
+Append `?access_code=YOUR_CODE` to any media URL:
+
+```
+# Video player
+http://localhost:3000/watch/welcome?access_code=website2024
+
+# Image direct access
+http://localhost:3000/images/logo?access_code=website2024
+
+# HLS stream (VOD only)
+http://localhost:3000/hls/welcome/index.m3u8?access_code=website2024
+```
+
+### Embedding in Websites
+
+```html
+<!-- Video embed -->
+<iframe src="http://localhost:3000/watch/welcome?access_code=website2024"
+        width="640" height="360"></iframe>
+
+<!-- Image embed -->
+<img src="http://localhost:3000/images/logo?access_code=website2024"
+     alt="Company Logo">
+```
+
+### Managing Access Codes
+
+```bash
+# List all access codes
+curl http://localhost:3000/api/access-codes
+
+# Delete an access code
+curl -X DELETE http://localhost:3000/api/access-codes/website2024
+```
+
+### Database Schema
+
+```sql
+-- Access codes table
+CREATE TABLE access_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    description TEXT
+);
+
+-- Link codes to media items
+CREATE TABLE access_code_permissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    access_code_id INTEGER NOT NULL,
+    media_type TEXT NOT NULL CHECK (media_type IN ('video', 'image')),
+    media_slug TEXT NOT NULL,
+    FOREIGN KEY (access_code_id) REFERENCES access_codes(id) ON DELETE CASCADE,
+    UNIQUE(access_code_id, media_type, media_slug)
+);
+```
 
 ## Testing
 
@@ -391,6 +488,7 @@ video-server-rs_v1/
 - ✅ HLS playback (2-3s latency)
 - ✅ WebRTC support (sub-1s latency)
 - ✅ Session authentication
+- ✅ Access codes for media sharing
 - ✅ Automatic recording
 - ✅ VOD playback
 - ✅ Multi-origin CORS

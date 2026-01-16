@@ -30,42 +30,7 @@ fi
 # Create database and run migration
 echo "📝 Creating database and tables..."
 
-sqlite3 "$DB_FILE" <<EOF
--- Videos table
-CREATE TABLE IF NOT EXISTS videos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    slug TEXT NOT NULL UNIQUE,
-    title TEXT NOT NULL,
-    is_public BOOLEAN NOT NULL DEFAULT 0
-);
-
--- Images table
-CREATE TABLE IF NOT EXISTS images (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    slug TEXT NOT NULL UNIQUE,
-    filename TEXT NOT NULL,
-    title TEXT NOT NULL,
-    description TEXT,
-    is_public BOOLEAN NOT NULL DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Sample data for videos
-INSERT INTO videos (slug, title, is_public) VALUES ('welcome', 'Welcome Video', 1);
-INSERT INTO videos (slug, title, is_public) VALUES ('webconjoint', 'WebConjoint Teaser Video', 1);
-INSERT INTO videos (slug, title, is_public) VALUES ('bbb', 'Big Buck Bunny', 1);
-INSERT INTO videos (slug, title, is_public) VALUES ('lesson1', 'Private Lesson 1', 0);
-
--- Sample data for images
-INSERT INTO images (slug, filename, title, description, is_public)
-VALUES ('logo', 'logo.png', 'Company Logo', 'Our official logo', 1);
-
-INSERT INTO images (slug, filename, title, description, is_public)
-VALUES ('banner', 'banner.jpg', 'Welcome Banner', 'Homepage banner', 1);
-
-INSERT INTO images (slug, filename, title, description, is_public)
-VALUES ('secret', 'secret.png', 'Confidential Image', 'Private content', 0);
-EOF
+sqlite3 "$DB_FILE" < src/schema.sql
 
 echo "✅ Database created successfully"
 echo ""
@@ -88,6 +53,13 @@ else
     echo "❌ Images table missing"
 fi
 
+if echo "$TABLES" | grep -q "access_codes"; then
+    ACCESS_CODE_COUNT=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM access_codes;")
+    echo "✅ Access codes table created ($ACCESS_CODE_COUNT records)"
+else
+    echo "❌ Access codes table missing"
+fi
+
 echo ""
 echo "============================"
 echo "✅ Database initialization complete!"
@@ -95,11 +67,19 @@ echo ""
 echo "Sample data added:"
 echo ""
 echo "Videos:"
-sqlite3 -header -column "$DB_FILE" "SELECT slug, title, CASE WHEN is_public=1 THEN 'Public' ELSE 'Private' END as visibility FROM videos;"
+sqlite3 -header -column "$DB_FILE" "SELECT slug, title, CASE WHEN is_public=1 THEN 'Public' ELSE 'Private' END as visibility, user_id FROM videos;"
 
 echo ""
 echo "Images:"
-sqlite3 -header -column "$DB_FILE" "SELECT slug, title, CASE WHEN is_public=1 THEN 'Public' ELSE 'Private' END as visibility FROM images;"
+sqlite3 -header -column "$DB_FILE" "SELECT slug, title, CASE WHEN is_public=1 THEN 'Public' ELSE 'Private' END as visibility, user_id FROM images;"
+
+echo ""
+echo "Access Codes:"
+sqlite3 -header -column "$DB_FILE" "SELECT code, description, created_by FROM access_codes;"
+
+echo ""
+echo "Access Code Permissions:"
+sqlite3 -header -column "$DB_FILE" "SELECT access_codes.code, access_code_permissions.media_type, access_code_permissions.media_slug FROM access_code_permissions JOIN access_codes ON access_codes.id = access_code_permissions.access_code_id;"
 
 echo ""
 echo "Next steps:"

@@ -30,6 +30,24 @@ pub struct OidcConfig {
     pub su_pwd: String,
 }
 
+#[derive(Clone)]
+struct MediaItem {
+    media_type: String,
+    media_slug: String,
+}
+
+#[derive(Clone)]
+struct AccessCodeWithResources {
+    id: i32,
+    code: String,
+    description: String,
+    expires_at: String,
+    created_at: String,
+    resources: Vec<MediaItem>,
+    has_resources: bool,
+    has_expires: bool,
+}
+
 impl OidcConfig {
     pub fn from_env() -> Self {
         Self {
@@ -58,10 +76,14 @@ impl OidcConfig {
 pub struct AuthState {
     pub oidc_client: Option<CoreClient>,
     pub config: OidcConfig,
+    pub pool: sqlx::SqlitePool,
 }
 
 impl AuthState {
-    pub async fn new(config: OidcConfig) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new(
+        config: OidcConfig,
+        pool: sqlx::SqlitePool,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         println!("🔍 Discovering OIDC provider: {}", config.issuer_url);
 
         let issuer_url = IssuerUrl::new(config.issuer_url.clone())?;
@@ -91,13 +113,15 @@ impl AuthState {
         Ok(Self {
             oidc_client,
             config,
+            pool,
         })
     }
 
-    pub fn new_without_oidc(config: OidcConfig) -> Self {
+    pub fn new_without_oidc(config: OidcConfig, pool: sqlx::SqlitePool) -> Self {
         Self {
             oidc_client: None,
             config,
+            pool,
         }
     }
 }
@@ -170,12 +194,17 @@ struct UserProfileTemplate {
     user_id: String,
     name: String,
     email: String,
+    access_codes: Vec<AccessCodeWithResources>,
+    has_access_codes: bool,
 }
 
 // -------------------------------
 // User Profile Handler
 // -------------------------------
-pub async fn user_profile_handler(session: Session) -> Result<Html<String>, StatusCode> {
+pub async fn user_profile_handler(
+    State(state): State<Arc<AuthState>>,
+    session: Session,
+) -> Result<Html<String>, StatusCode> {
     // Check if authenticated
     if !is_authenticated(&session).await {
         return Err(StatusCode::UNAUTHORIZED);
@@ -203,10 +232,54 @@ pub async fn user_profile_handler(session: Session) -> Result<Html<String>, Stat
         .flatten()
         .unwrap_or_else(|| "unknown".to_string());
 
+    // Fetch access codes created by the user
+    let codes = sqlx::query_as::<_, (i32, String, Option<String>, Option<String>, String)>(
+        "SELECT id, code, description, expires_at, created_at FROM access_codes WHERE created_by = ? ORDER BY created_at DESC"
+    )
+    .bind(&user_id)
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let mut access_codes = Vec::new();
+
+    for (id, code, description, expires_at, created_at) in codes {
+        // Fetch permissions (resources) for this access code
+        let permissions = sqlx::query_as::<_, (String, String)>(
+            "SELECT media_type, media_slug FROM access_code_permissions WHERE access_code_id = ?",
+        )
+        .bind(id)
+        .fetch_all(&state.pool)
+        .await
+        .unwrap_or_default();
+
+        let resources: Vec<MediaItem> = permissions
+            .into_iter()
+            .map(|(media_type, media_slug)| MediaItem {
+                media_type,
+                media_slug,
+            })
+            .collect();
+
+        let expires_at_str = expires_at.unwrap_or_else(|| "".to_string());
+        access_codes.push(AccessCodeWithResources {
+            id,
+            code,
+            description: description.unwrap_or_else(|| "No description".to_string()),
+            expires_at: expires_at_str.clone(),
+            created_at,
+            resources: resources.clone(),
+            has_resources: !resources.is_empty(),
+            has_expires: !expires_at_str.is_empty(),
+        });
+    }
+
     let template = UserProfileTemplate {
         user_id,
         name,
         email,
+        access_codes: access_codes.clone(),
+        has_access_codes: !access_codes.is_empty(),
     };
 
     Ok(Html(template.render().unwrap()))

@@ -121,6 +121,33 @@ This directory contains utility scripts for setup, testing, and maintenance of t
 
 ---
 
+#### `test-access-codes.sh`
+**Purpose:** Test access codes functionality for sharing media
+
+**Usage:**
+```bash
+./scripts/test-access-codes.sh
+```
+
+**What it tests:**
+- Creating access codes with multiple media items
+- Listing access codes
+- Accessing videos and images with access codes
+- Expiration date validation
+- Cleanup of test codes
+
+**Requirements:**
+- Server must be running on port 3000
+- Database must be initialized
+- Test media items must exist (welcome video, logo image)
+
+**Output:**
+- ✅ Green: Tests passed
+- ❌ Red: Tests failed
+- Detailed error messages for debugging
+
+---
+
 ### 📺 Streaming Scripts
 
 #### `live_streaming_on_macbook.sh`
@@ -280,4 +307,4 @@ When adding new scripts:
 ---
 
 **Last Updated:** January 2024  
-**Total Scripts:** 8
+**Total Scripts:** 9

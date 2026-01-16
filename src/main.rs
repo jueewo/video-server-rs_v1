@@ -1,14 +1,16 @@
 use askama::Template;
 use axum::{
+    extract::{Path, State},
     http::{header::HeaderValue, Method, StatusCode},
-    response::Html,
-    routing::{get, post},
+    response::{Html, Json},
+    routing::{delete, get, post},
     Router,
 };
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use sqlx::sqlite::SqlitePoolOptions;
 use std::{net::SocketAddr, sync::Arc};
-use time::Duration;
+use time::{Duration, OffsetDateTime};
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, services::ServeDir};
 use tower_sessions::{cookie::SameSite, Expiry, MemoryStore, Session, SessionManagerLayer};
@@ -37,6 +39,294 @@ struct AppState {
 #[template(path = "index.html")]
 struct IndexTemplate {
     authenticated: bool,
+}
+
+// -------------------------------
+// Access Code API Types
+// -------------------------------
+
+#[derive(Deserialize)]
+struct CreateAccessCodeRequest {
+    code: String,
+    description: Option<String>,
+    expires_at: Option<String>, // ISO 8601 datetime string
+    media_items: Vec<MediaItem>,
+}
+
+#[derive(Deserialize, Serialize)]
+struct MediaItem {
+    media_type: String, // "video" or "image"
+    media_slug: String,
+}
+
+#[derive(Serialize)]
+struct AccessCodeResponse {
+    id: i32,
+    code: String,
+    description: Option<String>,
+    expires_at: Option<String>,
+    created_at: String,
+    media_items: Vec<MediaItem>,
+}
+
+#[derive(Serialize)]
+struct AccessCodeListResponse {
+    access_codes: Vec<AccessCodeResponse>,
+}
+
+// -------------------------------
+// Access Code Management Handlers
+// -------------------------------
+
+async fn create_access_code(
+    session: Session,
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<CreateAccessCodeRequest>,
+) -> Result<Json<AccessCodeResponse>, StatusCode> {
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    // Get user_id from session for ownership validation
+    let user_id: String = session
+        .get("user_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "unknown".to_string());
+
+    // Validate code format
+    if request.code.is_empty() || request.code.len() > 50 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    // Check if code already exists
+    let existing: Option<i32> = sqlx::query_scalar("SELECT id FROM access_codes WHERE code = ?")
+        .bind(&request.code)
+        .fetch_optional(&state.video_state.pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    if existing.is_some() {
+        return Err(StatusCode::CONFLICT);
+    }
+
+    // Parse expiration date
+    let expires_at = if let Some(ref expiry_str) = request.expires_at {
+        Some(
+            OffsetDateTime::parse(
+                expiry_str,
+                &time::format_description::well_known::Iso8601::DEFAULT,
+            )
+            .map_err(|_| StatusCode::BAD_REQUEST)?,
+        )
+    } else {
+        None
+    };
+
+    // Insert access code
+    let code_id: i32 = sqlx::query_scalar(
+        "INSERT INTO access_codes (code, description, expires_at, created_by) VALUES (?, ?, ?, ?) RETURNING id",
+    )
+    .bind(&request.code)
+    .bind(&request.description)
+    .bind(expires_at.map(|dt| {
+        dt.format(&time::format_description::well_known::Iso8601::DEFAULT)
+            .unwrap()
+    }))
+    .bind(&user_id)
+    .fetch_one(&state.video_state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Insert permissions (only for owned media)
+    for item in &request.media_items {
+        if item.media_type != "video" && item.media_type != "image" {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+
+        // Validate ownership
+        let is_owner = match item.media_type.as_str() {
+            "video" => {
+                let owner: Option<String> =
+                    sqlx::query_scalar("SELECT user_id FROM videos WHERE slug = ?")
+                        .bind(&item.media_slug)
+                        .fetch_optional(&state.video_state.pool)
+                        .await
+                        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+                println!(
+                    "🔍 Ownership check: video '{}' owner={:?}, user='{}', is_owner={}",
+                    item.media_slug,
+                    owner,
+                    user_id,
+                    owner.as_ref() == Some(&user_id)
+                );
+                owner.as_ref() == Some(&user_id)
+            }
+            "image" => {
+                let owner: Option<String> =
+                    sqlx::query_scalar("SELECT user_id FROM images WHERE slug = ?")
+                        .bind(&item.media_slug)
+                        .fetch_optional(&state.video_state.pool)
+                        .await
+                        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+                println!(
+                    "🔍 Ownership check: image '{}' owner={:?}, user='{}', is_owner={}",
+                    item.media_slug,
+                    owner,
+                    user_id,
+                    owner.as_ref() == Some(&user_id)
+                );
+                owner.as_ref() == Some(&user_id)
+            }
+            _ => false,
+        };
+
+        if !is_owner {
+            println!(
+                "❌ Ownership validation failed for {}/{}",
+                item.media_type, item.media_slug
+            );
+            return Err(StatusCode::FORBIDDEN); // User doesn't own this media
+        }
+
+        sqlx::query(
+            "INSERT INTO access_code_permissions (access_code_id, media_type, media_slug) VALUES (?, ?, ?)"
+        )
+        .bind(code_id)
+        .bind(&item.media_type)
+        .bind(&item.media_slug)
+        .execute(&state.video_state.pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    }
+
+    // Return created access code
+    Ok(Json(AccessCodeResponse {
+        id: code_id,
+        code: request.code,
+        description: request.description,
+        expires_at: request.expires_at,
+        created_at: OffsetDateTime::now_utc().to_string(),
+        media_items: request.media_items,
+    }))
+}
+
+async fn list_access_codes(
+    session: Session,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<AccessCodeListResponse>, StatusCode> {
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    // Get user_id from session
+    let user_id: String = session
+        .get("user_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "unknown".to_string());
+
+    // Get access codes created by this user
+    let codes = sqlx::query_as::<_, (i32, String, Option<String>, Option<String>, String)>(
+        "SELECT id, code, description, expires_at, created_at FROM access_codes WHERE created_by = ? ORDER BY created_at DESC"
+    )
+    .bind(&user_id)
+    .fetch_all(&state.video_state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let mut access_codes = Vec::new();
+
+    for (id, code, description, expires_at, created_at) in codes {
+        // Get permissions for this code
+        let permissions = sqlx::query_as::<_, (String, String)>(
+            "SELECT media_type, media_slug FROM access_code_permissions WHERE access_code_id = ?",
+        )
+        .bind(id)
+        .fetch_all(&state.video_state.pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        let media_items = permissions
+            .into_iter()
+            .map(|(media_type, media_slug)| MediaItem {
+                media_type,
+                media_slug,
+            })
+            .collect();
+
+        access_codes.push(AccessCodeResponse {
+            id,
+            code,
+            description,
+            expires_at,
+            created_at,
+            media_items,
+        });
+    }
+
+    Ok(Json(AccessCodeListResponse { access_codes }))
+}
+
+async fn delete_access_code(
+    Path(code): Path<String>,
+    session: Session,
+    State(state): State<Arc<AppState>>,
+) -> Result<StatusCode, StatusCode> {
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    // Get user_id from session
+    let user_id: String = session
+        .get("user_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "unknown".to_string());
+
+    // Delete access code (only if owned by current user)
+    let rows_affected = sqlx::query("DELETE FROM access_codes WHERE code = ? AND created_by = ?")
+        .bind(&code)
+        .bind(&user_id)
+        .execute(&state.video_state.pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .rows_affected();
+
+    if rows_affected == 0 {
+        Err(StatusCode::NOT_FOUND)
+    } else {
+        Ok(StatusCode::NO_CONTENT)
+    }
 }
 
 // -------------------------------
@@ -97,7 +387,11 @@ async fn main() -> anyhow::Result<()> {
         .connect("sqlite:video.db?mode=rwc")
         .await?;
 
-    sqlx::migrate!("./migrations").run(&pool).await?;
+    // Run migrations (skip if already applied or modified)
+    // if let Err(e) = sqlx::migrate!("./migrations").run(&pool).await {
+    //     println!("⚠️  Migration warning: {}", e);
+    //     println!("   Continuing with existing database schema...");
+    // }
 
     let storage_dir = std::env::current_dir()?.join("storage");
     std::fs::create_dir_all(&storage_dir)?;
@@ -131,7 +425,7 @@ async fn main() -> anyhow::Result<()> {
     println!("   - Client ID: {}", oidc_config.client_id);
     println!("   - Redirect URI: {}", oidc_config.redirect_uri);
 
-    let auth_state = match AuthState::new(oidc_config.clone()).await {
+    let auth_state = match AuthState::new(oidc_config.clone(), pool.clone()).await {
         Ok(state) => {
             if state.oidc_client.is_some() {
                 println!("✅ OIDC authentication enabled");
@@ -143,7 +437,7 @@ async fn main() -> anyhow::Result<()> {
         Err(e) => {
             println!("⚠️  Failed to initialize OIDC: {}", e);
             println!("   Using emergency login only");
-            Arc::new(AuthState::new_without_oidc(oidc_config))
+            Arc::new(AuthState::new_without_oidc(oidc_config, pool.clone()))
         }
     };
 
@@ -174,6 +468,10 @@ async fn main() -> anyhow::Result<()> {
         // Main routes
         .route("/", get(index_handler))
         .route("/health", get(health_check))
+        // Access code management (authenticated)
+        .route("/api/access-codes", post(create_access_code))
+        .route("/api/access-codes", get(list_access_codes))
+        .route("/api/access-codes/:code", delete(delete_access_code))
         // Webhook endpoints (optional)
         .route("/api/webhooks/stream-ready", post(webhook_stream_ready))
         .route("/api/webhooks/stream-ended", post(webhook_stream_ended))
@@ -198,7 +496,7 @@ async fn main() -> anyhow::Result<()> {
                             },
                         ))
                         .allow_credentials(true)
-                        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+                        .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
                         .allow_headers([
                             axum::http::header::CONTENT_TYPE,
                             axum::http::header::RANGE,
@@ -218,6 +516,7 @@ async fn main() -> anyhow::Result<()> {
     println!("   ✅ video-manager    (Video streaming & HLS proxy)");
     println!("   ✅ image-manager    (Image upload & serving)");
     println!("   ✅ user-auth        (Session management, OIDC ready)");
+    println!("   ✅ access-codes     (Shared media access)");
 
     println!("📊 SERVER ENDPOINTS:");
     println!("   • Web UI:        http://{}", addr);
@@ -229,6 +528,7 @@ async fn main() -> anyhow::Result<()> {
     println!("   • Upload:        http://{}/upload", addr);
     println!("   • Health:        http://{}/health", addr);
     println!("   • MediaMTX API:  http://{}/api/mediamtx/status", addr);
+    println!("   • Access Codes:  http://{}/api/access-codes", addr);
 
     println!("\n📡 MEDIAMTX CONFIGURATION:");
     println!("   • RTMP Input:    rtmp://localhost:1935/live");

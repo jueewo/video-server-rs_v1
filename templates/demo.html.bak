@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Access Code Demo{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>🔑 Access Code Demo</h1>
+    <p class="subtitle">Enter an access code to see assigned resources</p>
+
+    <form method="GET" action="/demo">
+        <div class="form-group">
+            <label for="code">Access Code:</label>
+            <input type="text" id="code" name="code" value="{{ code }}" required>
+        </div>
+        <button type="submit" class="btn btn-primary">View Resources</button>
+    </form>
+
+    {% if error %}
+        <div class="error">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    {% if resources %}
+        <h2>Assigned Resources</h2>
+        <div class="resources">
+            {% for resource in resources %}
+                <div class="resource-item">
+                    <strong>{{ resource.media_type|title }}:</strong> {{ resource.title }} ({{ resource.slug }})
+                    {% if resource.media_type == "video" %}
+                        <a href="/videos/{{ resource.slug }}" class="btn btn-outline">Watch Video</a>
+                    {% elif resource.media_type == "image" %}
+                        <a href="/images/{{ resource.slug }}" class="btn btn-outline">View Image</a>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <div class="footer">
+        <p><a href="/">← Back to Home</a></p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_styles %}
+.resource-item {
+    background: #f8f9fa;
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+}
+
+.resources {
+    margin-top: 20px;
+}
+{% endblock %}

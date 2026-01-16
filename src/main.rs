@@ -1,6 +1,6 @@
 use askama::Template;
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{header::HeaderValue, Method, StatusCode},
     response::{Html, Json},
     routing::{delete, get, post},
@@ -9,7 +9,7 @@ use axum::{
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sqlx::sqlite::SqlitePoolOptions;
-use std::{net::SocketAddr, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use time::{Duration, OffsetDateTime};
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, services::ServeDir};
@@ -39,6 +39,14 @@ struct AppState {
 #[template(path = "index.html")]
 struct IndexTemplate {
     authenticated: bool,
+}
+
+#[derive(Template)]
+#[template(path = "demo.html")]
+struct DemoTemplate {
+    code: String,
+    error: String,
+    resources: Vec<Resource>,
 }
 
 // -------------------------------
@@ -72,6 +80,13 @@ struct AccessCodeResponse {
 #[derive(Serialize)]
 struct AccessCodeListResponse {
     access_codes: Vec<AccessCodeResponse>,
+}
+
+#[derive(Serialize)]
+struct Resource {
+    media_type: String,
+    slug: String,
+    title: String,
 }
 
 // -------------------------------
@@ -346,6 +361,82 @@ async fn index_handler(session: Session) -> Result<Html<String>, StatusCode> {
     Ok(Html(template.render().unwrap()))
 }
 
+async fn demo_handler(
+    Query(params): Query<HashMap<String, String>>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Html<String>, StatusCode> {
+    let code = params.get("code").cloned();
+    let mut error = String::new();
+    let mut resources = Vec::new();
+
+    if let Some(ref access_code) = code {
+        // Check if access code exists and not expired
+        let now = OffsetDateTime::now_utc();
+        let code_info: Option<(i32, Option<String>)> =
+            sqlx::query_as("SELECT id, expires_at FROM access_codes WHERE code = ?")
+                .bind(access_code)
+                .fetch_optional(&state.video_state.pool)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        if let Some((code_id, expires_at)) = code_info {
+            if let Some(exp) = expires_at {
+                let exp_dt = OffsetDateTime::parse(
+                    &exp,
+                    &time::format_description::well_known::Iso8601::DEFAULT,
+                )
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+                if exp_dt < now {
+                    error = "Access code has expired".to_string();
+                }
+            }
+
+            if error.is_empty() {
+                // Get permissions
+                let permissions: Vec<(String, String)> = sqlx::query_as(
+                    "SELECT media_type, media_slug FROM access_code_permissions WHERE access_code_id = ?",
+                )
+                .bind(code_id)
+                .fetch_all(&state.video_state.pool)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+                for (media_type, slug) in permissions {
+                    let title = match media_type.as_str() {
+                        "video" => sqlx::query_scalar("SELECT title FROM videos WHERE slug = ?")
+                            .bind(&slug)
+                            .fetch_optional(&state.video_state.pool)
+                            .await
+                            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+                            .unwrap_or_else(|| "Unknown Video".to_string()),
+                        "image" => sqlx::query_scalar("SELECT title FROM images WHERE slug = ?")
+                            .bind(&slug)
+                            .fetch_optional(&state.video_state.pool)
+                            .await
+                            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+                            .unwrap_or_else(|| "Unknown Image".to_string()),
+                        _ => "Unknown".to_string(),
+                    };
+                    resources.push(Resource {
+                        media_type,
+                        slug,
+                        title,
+                    });
+                }
+            }
+        } else {
+            error = "Invalid access code".to_string();
+        }
+    }
+
+    let template = DemoTemplate {
+        code: code.unwrap_or_default(),
+        error,
+        resources,
+    };
+    Ok(Html(template.render().unwrap()))
+}
+
 // -------------------------------
 // Health Check Endpoint
 // -------------------------------
@@ -467,6 +558,7 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         // Main routes
         .route("/", get(index_handler))
+        .route("/demo", get(demo_handler))
         .route("/health", get(health_check))
         // Access code management (authenticated)
         .route("/api/access-codes", post(create_access_code))
@@ -520,6 +612,7 @@ async fn main() -> anyhow::Result<()> {
 
     println!("📊 SERVER ENDPOINTS:");
     println!("   • Web UI:        http://{}", addr);
+    println!("   • Demo:          http://{}/demo", addr);
     println!("   • Test Player:   http://{}/test", addr);
     println!("   • Login:         http://{}/login", addr);
     println!("   • OIDC Login:    http://{}/oidc/authorize", addr);

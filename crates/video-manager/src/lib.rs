@@ -9,7 +9,7 @@ use axum::{
 use reqwest::Client;
 use serde::Deserialize;
 use sqlx::{Pool, Sqlite};
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
 use time::OffsetDateTime;
 use tokio_util::io::ReaderStream;
 use tower_sessions::Session;

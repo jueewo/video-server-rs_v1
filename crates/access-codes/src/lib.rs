@@ -10,7 +10,7 @@ use sqlx::sqlite::SqlitePool;
 use std::sync::Arc;
 use time::OffsetDateTime;
 use tower_sessions::Session;
-use tracing::{self, info};
+use tracing::{self, info, warn};
 
 #[derive(Clone)]
 pub struct AccessCodeState {
@@ -68,6 +68,13 @@ pub async fn create_access_code(
         .unwrap_or(false);
 
     if !authenticated {
+        warn!(
+            event = "access_denied",
+            resource = "access_codes",
+            action = "create",
+            reason = "unauthenticated",
+            "Unauthenticated attempt to create access code"
+        );
         return Err(StatusCode::UNAUTHORIZED);
     }
 
@@ -92,7 +99,12 @@ pub async fn create_access_code(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     if existing.is_some() {
-        info!(code = %request.code, user_id = %user_id, error = "Access code already exists", "Failed to process request");
+        warn!(
+            event = "access_code_conflict",
+            code = %request.code,
+            user_id = %user_id,
+            "Attempted to create duplicate access code"
+        );
         return Err(StatusCode::CONFLICT);
     }
 
@@ -127,7 +139,11 @@ pub async fn create_access_code(
     // Insert permissions (only for owned media)
     for item in &request.media_items {
         if item.media_type != "video" && item.media_type != "image" {
-            info!(media_type = %item.media_type, error = "Invalid media type", "Failed to process request");
+            warn!(
+                event = "invalid_request",
+                media_type = %item.media_type,
+                "Invalid media type in access code request"
+            );
             return Err(StatusCode::BAD_REQUEST);
         }
 
@@ -140,14 +156,6 @@ pub async fn create_access_code(
                         .fetch_optional(&state.pool)
                         .await
                         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-                println!(
-                    "🔍 Ownership check: video '{}' owner={:?}, user='{}', is_owner={}",
-                    item.media_slug,
-                    owner,
-                    user_id,
-                    owner.as_ref() == Some(&user_id)
-                );
                 owner.as_ref() == Some(&user_id)
             }
             "image" => {
@@ -157,26 +165,23 @@ pub async fn create_access_code(
                         .fetch_optional(&state.pool)
                         .await
                         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-                println!(
-                    "🔍 Ownership check: image '{}' owner={:?}, user='{}', is_owner={}",
-                    item.media_slug,
-                    owner,
-                    user_id,
-                    owner.as_ref() == Some(&user_id)
-                );
                 owner.as_ref() == Some(&user_id)
             }
             _ => false,
         };
 
         if !is_owner {
-            println!(
-                "❌ Ownership validation failed for {}/{}",
-                item.media_type, item.media_slug
+            warn!(
+                event = "access_denied",
+                resource = "media",
+                action = "share",
+                user_id = %user_id,
+                media_type = %item.media_type,
+                media_slug = %item.media_slug,
+                reason = "not_owner",
+                "User attempted to share media they don't own"
             );
-            info!(user_id = %user_id, media_type = %item.media_type, media_slug = %item.media_slug, error = "User does not own this media", "Failed to process request");
-            return Err(StatusCode::FORBIDDEN); // User doesn't own this media
+            return Err(StatusCode::FORBIDDEN);
         }
 
         sqlx::query(
@@ -191,7 +196,13 @@ pub async fn create_access_code(
     }
 
     // Return created access code
-    info!(code = %request.code, user_id = %user_id, media_count = request.media_items.len(), "Access code created");
+    info!(
+        event = "access_code_created",
+        code = %request.code,
+        user_id = %user_id,
+        media_count = request.media_items.len(),
+        "Access code created successfully"
+    );
 
     Ok(Json(AccessCodeResponse {
         id: code_id,
@@ -217,6 +228,13 @@ pub async fn list_access_codes(
         .unwrap_or(false);
 
     if !authenticated {
+        warn!(
+            event = "access_denied",
+            resource = "access_codes",
+            action = "list",
+            reason = "unauthenticated",
+            "Unauthenticated attempt to list access codes"
+        );
         return Err(StatusCode::UNAUTHORIZED);
     }
 
@@ -287,6 +305,14 @@ pub async fn delete_access_code(
         .unwrap_or(false);
 
     if !authenticated {
+        warn!(
+            event = "access_denied",
+            resource = "access_codes",
+            action = "delete",
+            code = %code,
+            reason = "unauthenticated",
+            "Unauthenticated attempt to delete access code"
+        );
         return Err(StatusCode::UNAUTHORIZED);
     }
 
@@ -308,10 +334,23 @@ pub async fn delete_access_code(
         .rows_affected();
 
     if rows_affected == 0 {
-        info!(code = %code, user_id = %user_id, error = "Access code not found or not owned by user", "Failed to process request");
+        warn!(
+            event = "access_denied",
+            resource = "access_codes",
+            action = "delete",
+            code = %code,
+            user_id = %user_id,
+            reason = "not_found_or_not_owner",
+            "Access code not found or user doesn't own it"
+        );
         Err(StatusCode::NOT_FOUND)
     } else {
-        info!(code = %code, user_id = %user_id, "Access code deleted");
+        info!(
+            event = "access_code_deleted",
+            code = %code,
+            user_id = %user_id,
+            "Access code deleted successfully"
+        );
         Ok(StatusCode::NO_CONTENT)
     }
 }

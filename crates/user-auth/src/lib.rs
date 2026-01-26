@@ -15,7 +15,7 @@ use openidconnect::{
 use serde::Deserialize;
 use std::sync::Arc;
 use tower_sessions::Session;
-use tracing::{self, info};
+use tracing::{self, error, info, warn};
 
 // -------------------------------
 // Configuration
@@ -335,9 +335,11 @@ pub async fn oidc_authorize_handler(
     // Generate PKCE challenge with S256 method (for Casdoor)
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
-    println!("🔐 Starting OIDC authorization flow");
-    println!("   - Using PKCE with S256 method");
-    println!("   - Scopes: openid, profile, email");
+    info!(
+        event = "auth_flow_started",
+        auth_type = "oidc",
+        "OIDC authorization flow initiated"
+    );
 
     // Generate authorization URL with PKCE
     let (auth_url, csrf_token, nonce) = client
@@ -376,8 +378,6 @@ pub async fn oidc_authorize_handler(
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     }
 
-    println!("🔐 Redirecting to OIDC provider for authentication");
-
     Ok(Redirect::to(auth_url.as_str()))
 }
 
@@ -396,48 +396,41 @@ pub async fn oidc_callback_handler(
     Query(query): Query<OidcCallbackQuery>,
     session: Session,
 ) -> Result<Redirect, StatusCode> {
-    println!("🔍 OIDC callback received");
-    println!(
-        "   - Code: {}...",
-        &query.code.chars().take(10).collect::<String>()
-    );
-    println!(
-        "   - State: {}...",
-        &query.state.chars().take(10).collect::<String>()
-    );
-
     let client = state.oidc_client.as_ref().ok_or_else(|| {
-        println!("❌ OIDC client not available");
+        error!(
+            event = "auth_error",
+            auth_type = "oidc",
+            reason = "oidc_client_unavailable",
+            "OIDC client not available"
+        );
         StatusCode::SERVICE_UNAVAILABLE
     })?;
 
     // Verify CSRF token
     let stored_csrf: Option<String> = session.get("csrf_token").await.ok().flatten();
 
-    println!("🔍 Verifying CSRF token...");
-
     if stored_csrf.as_ref() != Some(&query.state) {
-        println!("❌ CSRF token mismatch");
-        info!(error = "CSRF token mismatch", "Failed to process request");
+        warn!(
+            event = "auth_failed",
+            auth_type = "oidc",
+            reason = "csrf_mismatch",
+            "CSRF token mismatch - possible CSRF attack or session expired"
+        );
         return Ok(Redirect::to(&format!(
             "/auth/error?reason=csrf_mismatch&detail={}",
             urlencoding::encode("Session expired or invalid. Please try logging in again.")
         )));
     }
-    println!("✅ CSRF token verified");
 
     // Retrieve PKCE verifier
-    println!("🔍 Retrieving PKCE verifier from session...");
     let pkce_verifier_secret: String = match session.get("pkce_verifier").await.ok().flatten() {
-        Some(verifier) => {
-            println!("✅ PKCE verifier found");
-            verifier
-        }
+        Some(verifier) => verifier,
         None => {
-            println!("❌ PKCE verifier not found in session");
-            info!(
-                error = "PKCE verifier not found in session",
-                "Failed to process request"
+            warn!(
+                event = "auth_failed",
+                auth_type = "oidc",
+                reason = "pkce_verifier_missing",
+                "PKCE verifier not found in session - session may have expired"
             );
             return Ok(Redirect::to(&format!(
                 "/auth/error?reason=session_lost&detail={}",
@@ -449,17 +442,14 @@ pub async fn oidc_callback_handler(
     let pkce_verifier = PkceCodeVerifier::new(pkce_verifier_secret);
 
     // Retrieve nonce
-    println!("🔍 Retrieving nonce from session...");
     let nonce_secret: String = match session.get("nonce").await.ok().flatten() {
-        Some(nonce) => {
-            println!("✅ Nonce found");
-            nonce
-        }
+        Some(nonce) => nonce,
         None => {
-            println!("❌ Nonce not found in session");
-            info!(
-                error = "Nonce not found in session",
-                "Failed to process request"
+            warn!(
+                event = "auth_failed",
+                auth_type = "oidc",
+                reason = "nonce_missing",
+                "Nonce not found in session - session may have expired"
             );
             return Ok(Redirect::to(&format!(
                 "/auth/error?reason=session_lost&detail={}",
@@ -470,27 +460,23 @@ pub async fn oidc_callback_handler(
 
     let nonce = Nonce::new(nonce_secret);
 
-    // Exchange authorization code for tokens (with PKCE verifier)
-    println!("🔍 Exchanging authorization code for tokens...");
-    println!("   - Client ID: {}", state.config.client_id);
-    println!("   - Using PKCE code_verifier");
-
+    // Exchange authorization code for tokens
     let token_response = match client
         .exchange_code(AuthorizationCode::new(query.code.clone()))
         .set_pkce_verifier(pkce_verifier)
         .request_async(async_http_client)
         .await
     {
-        Ok(response) => {
-            println!("✅ Token exchange successful");
-            response
-        }
+        Ok(response) => response,
         Err(e) => {
-            println!("❌ Token exchange failed: {}", e);
-            println!("   Error details: {:?}", e);
-
             let error_msg = format!("{}", e);
-            info!(error = %error_msg, "Failed to process request");
+            error!(
+                event = "auth_failed",
+                auth_type = "oidc",
+                reason = "token_exchange_failed",
+                error = %error_msg,
+                "Token exchange with OIDC provider failed"
+            );
             return Ok(Redirect::to(&format!(
                 "/auth/error?reason=token_exchange&detail={}",
                 urlencoding::encode(&format!(
@@ -503,23 +489,25 @@ pub async fn oidc_callback_handler(
 
     // Get ID token and verify
     let id_token = token_response.id_token().ok_or_else(|| {
-        println!("❌ No ID token in response");
-        info!(
-            error = "No ID token in response",
-            "Failed to process request"
+        error!(
+            event = "auth_failed",
+            auth_type = "oidc",
+            reason = "no_id_token",
+            "No ID token in OIDC response"
         );
         StatusCode::UNAUTHORIZED
     })?;
 
-    println!("🔍 Verifying ID token...");
     let claims = match id_token.claims(&client.id_token_verifier(), &nonce) {
-        Ok(claims) => {
-            println!("✅ ID token verified successfully");
-            claims
-        }
+        Ok(claims) => claims,
         Err(e) => {
-            println!("❌ ID token verification failed: {}", e);
-            info!(error = %e, "Failed to process request");
+            error!(
+                event = "auth_failed",
+                auth_type = "oidc",
+                reason = "id_token_verification_failed",
+                error = %e,
+                "ID token verification failed"
+            );
             return Ok(Redirect::to(&format!(
                 "/auth/error?reason=token_verification&detail={}",
                 urlencoding::encode(&format!("ID token verification failed: {}", e))
@@ -539,12 +527,14 @@ pub async fn oidc_callback_handler(
         .map(|n| n.to_string())
         .unwrap_or_else(|| "Unknown User".to_string());
 
-    println!("✅ User authenticated via OIDC:");
-    println!("   - Subject: {}", user_id);
-    println!("   - Email: {}", email);
-    println!("   - Name: {}", name);
-
-    info!(user_id = %user_id, email = %email, name = %name, "User logged in");
+    info!(
+        event = "auth_success",
+        auth_type = "oidc",
+        user_id = %user_id,
+        email = %email,
+        name = %name,
+        "User authenticated successfully via OIDC"
+    );
 
     // Store user information in session
     session
@@ -577,8 +567,6 @@ pub async fn oidc_callback_handler(
     let _ = session.remove::<String>("return_to").await;
 
     let redirect_url = return_to.unwrap_or_else(|| "/".to_string());
-    println!("🎉 Login successful, redirecting to: {}", redirect_url);
-
     Ok(Redirect::to(&redirect_url))
 }
 
@@ -655,18 +643,24 @@ pub async fn emergency_login_auth_handler(
             .await
             .unwrap();
 
-        println!("⚠️  Emergency login successful for user: {}", form.username);
-        info!(user_id = %format!("emergency-{}", form.username), username = %form.username, "User logged in");
+        info!(
+            event = "auth_success",
+            auth_type = "emergency",
+            user_id = %format!("emergency-{}", form.username),
+            username = %form.username,
+            "User authenticated via emergency login"
+        );
 
         let template = EmergencySuccessTemplate;
         Ok(Html(template.render().unwrap()))
     } else {
-        // Log failed attempt
-        println!(
-            "🚨 Failed emergency login attempt for user: {}",
-            form.username
+        warn!(
+            event = "auth_failed",
+            auth_type = "emergency",
+            username = %form.username,
+            reason = "invalid_credentials",
+            "Failed emergency login attempt"
         );
-        info!(username = %form.username, error = "Invalid credentials", "Failed to process request");
 
         let template = EmergencyFailedTemplate;
         Ok(Html(template.render().unwrap()))
@@ -678,12 +672,19 @@ pub async fn emergency_login_auth_handler(
 // -------------------------------
 #[tracing::instrument(skip(session))]
 pub async fn logout_handler(session: Session) -> Result<Redirect, StatusCode> {
+    // Get user_id before clearing session for logging
+    let user_id: Option<String> = session.get("user_id").await.ok().flatten();
+
     let _ = session.remove::<bool>("authenticated").await;
     let _ = session.remove::<String>("user_id").await;
     let _ = session.remove::<String>("email").await;
     let _ = session.remove::<String>("name").await;
 
-    println!("👋 User logged out");
+    info!(
+        event = "logout",
+        user_id = user_id.as_deref().unwrap_or("unknown"),
+        "User logged out"
+    );
 
     Ok(Redirect::to("/"))
 }

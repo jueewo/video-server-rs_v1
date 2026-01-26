@@ -12,9 +12,14 @@ use sqlx::sqlite::SqlitePoolOptions;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use time::{Duration, OffsetDateTime};
 use tower::ServiceBuilder;
-use tower_http::{cors::CorsLayer, services::ServeDir};
+use tower_http::{
+    cors::CorsLayer,
+    services::ServeDir,
+    trace::{DefaultOnRequest, DefaultOnResponse, TraceLayer},
+    LatencyUnit,
+};
 use tower_sessions::{cookie::SameSite, Expiry, MemoryStore, Session, SessionManagerLayer};
-use tracing;
+use tracing::{self, Level};
 
 //.. opentelemetry
 // use axum::{routing::get, Router};
@@ -28,10 +33,12 @@ use tracing;
 // use opentelemetry_sdk::{runtime, trace as sdktrace, Resource};
 // use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use opentelemetry::global;
 use opentelemetry_otlp::WithExportConfig;
-use opentelemetry_sdk::{logs as sdklogs, runtime, trace as sdktrace, Resource};
+use opentelemetry_sdk::{runtime, trace as sdktrace};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+// For OTLP logs bridge
+use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 
 // Import the crates
 use access_codes::{access_code_routes, AccessCodeState, MediaResource};
@@ -441,6 +448,10 @@ async fn webhook_stream_ended() -> StatusCode {
 fn init_tracer() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔧 Initializing OpenTelemetry...");
 
+    // Get OTLP endpoint from environment
+    let otlp_endpoint = std::env::var("OTLP_ENDPOINT")
+        .unwrap_or_else(|_| "http://localhost:4317".to_string());
+
     // Create shared resource
     let resource = opentelemetry_sdk::Resource::new(vec![opentelemetry::KeyValue::new(
         "service.name",
@@ -448,11 +459,11 @@ fn init_tracer() -> Result<(), Box<dyn std::error::Error>> {
     )]);
 
     // Setup traces
-    println!("📡 Connecting to gRPC endpoint: http://localhost:4317");
+    println!("📡 Connecting to OTLP endpoint: {}", otlp_endpoint);
 
     let trace_exporter = opentelemetry_otlp::new_exporter()
         .tonic()
-        .with_endpoint("http://localhost:4317")
+        .with_endpoint(&otlp_endpoint)
         .with_timeout(std::time::Duration::from_secs(10));
 
     let tracer = match opentelemetry_otlp::new_pipeline()
@@ -471,37 +482,37 @@ fn init_tracer() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    // Setup logs
+    // Setup logs exporter using LoggerProvider builder
     let log_exporter = opentelemetry_otlp::new_exporter()
         .tonic()
-        .with_endpoint("http://localhost:4317")
-        .with_timeout(std::time::Duration::from_secs(10));
+        .with_endpoint(&otlp_endpoint)
+        .with_timeout(std::time::Duration::from_secs(10))
+        .build_log_exporter()
+        .expect("Failed to build log exporter");
 
-    let _logger = match opentelemetry_otlp::new_pipeline()
-        .logging()
-        .with_exporter(log_exporter)
-        .install_batch(runtime::Tokio)
-    {
-        Ok(logger) => {
-            println!("✅ Logger installed successfully");
-            logger
-        }
-        Err(e) => {
-            println!("❌ Failed to install logger: {}", e);
-            return Err(Box::new(e));
-        }
-    };
+    let logger_provider = opentelemetry_sdk::logs::LoggerProvider::builder()
+        .with_config(
+            opentelemetry_sdk::logs::Config::default().with_resource(resource.clone()),
+        )
+        .with_batch_exporter(log_exporter, runtime::Tokio)
+        .build();
 
-    // Create OpenTelemetry tracing layer
+    println!("✅ Logger provider installed successfully");
+
+    // Create the tracing bridge that sends log events to OTLP
+    let otel_log_layer = OpenTelemetryTracingBridge::new(&logger_provider);
+
+    // Create OpenTelemetry tracing layer for spans/traces
     let telemetry_layer = tracing_opentelemetry::layer().with_tracer(tracer);
 
     // Initialize tracing subscriber with all layers
     match tracing_subscriber::registry()
-        .with(telemetry_layer)
+        .with(telemetry_layer)           // For traces/spans
+        .with(otel_log_layer)            // For logs via OTLP
         .with(tracing_subscriber::EnvFilter::new(
             std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
         ))
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer())  // Console output
         .try_init()
     {
         Ok(_) => println!("✅ Tracing subscriber initialized"),
@@ -643,6 +654,24 @@ async fn main() -> anyhow::Result<()> {
         // Apply middleware
         .layer(
             ServiceBuilder::new()
+                // Request/Response tracing - logs method, path, status, latency
+                .layer(
+                    TraceLayer::new_for_http()
+                        .make_span_with(|request: &axum::http::Request<_>| {
+                            tracing::info_span!(
+                                "http_request",
+                                method = %request.method(),
+                                path = %request.uri().path(),
+                                query = request.uri().query().unwrap_or(""),
+                            )
+                        })
+                        .on_request(DefaultOnRequest::new().level(Level::INFO))
+                        .on_response(
+                            DefaultOnResponse::new()
+                                .level(Level::INFO)
+                                .latency_unit(LatencyUnit::Millis),
+                        ),
+                )
                 .layer(
                     CorsLayer::new()
                         .allow_origin(tower_http::cors::AllowOrigin::predicate(

@@ -1,0 +1,17 @@
+[package]
+name = "access-codes"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Workspace dependencies
+axum.workspace = true
+tokio.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+tower-sessions.workspace = true
+sqlx.workspace = true
+serde.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+time.workspace = true

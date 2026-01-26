@@ -13,6 +13,7 @@ use std::{path::PathBuf, sync::Arc};
 use time::OffsetDateTime;
 use tokio_util::io::ReaderStream;
 use tower_sessions::Session;
+use tracing::{self, info};
 
 // -------------------------------
 // Template Structs
@@ -101,6 +102,7 @@ pub fn video_routes() -> Router<Arc<VideoManagerState>> {
 // -------------------------------
 
 // Validate stream publisher (called by MediaMTX via runOnInit)
+#[tracing::instrument(skip(params))]
 async fn validate_stream_handler(
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Result<StatusCode, StatusCode> {
@@ -116,6 +118,7 @@ async fn validate_stream_handler(
 }
 
 // Authorize stream viewer (called by MediaMTX via runOnRead)
+#[tracing::instrument(skip(session))]
 async fn authorize_stream_handler(session: Session) -> Result<StatusCode, StatusCode> {
     let authenticated: bool = session
         .get("authenticated")
@@ -138,6 +141,7 @@ async fn authorize_stream_handler(session: Session) -> Result<StatusCode, Status
 // Video Listing Page Handler
 // -------------------------------
 
+#[tracing::instrument(skip(session, state))]
 pub async fn videos_list_handler(
     session: Session,
     State(state): State<Arc<VideoManagerState>>,
@@ -161,6 +165,12 @@ pub async fn videos_list_handler(
     let videos = get_videos(&state.pool, user_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    info!(
+        count = videos.len(),
+        authenticated = authenticated,
+        "Videos loaded"
+    );
 
     let page_title = if authenticated {
         "🎥 All Videos".to_string()
@@ -197,6 +207,7 @@ pub struct AccessCodeQuery {
 // Video Player Page Handler
 // -------------------------------
 
+#[tracing::instrument(skip(query, session, state))]
 pub async fn video_player_handler(
     Path(slug): Path<String>,
     Query(query): Query<AccessCodeQuery>,
@@ -229,6 +240,7 @@ pub async fn video_player_handler(
         // Check if access code is provided and valid
         if let Some(code) = &query.access_code {
             if !check_access_code(&state.pool, code, "video", &slug).await {
+                info!(access_code = %code, media_type = "video", media_slug = %slug, error = "Invalid or expired access code", "Failed to process request");
                 return Err((
                     StatusCode::UNAUTHORIZED,
                     UnauthorizedTemplate {
@@ -238,6 +250,7 @@ pub async fn video_player_handler(
                     .into_response());
             }
         } else {
+            info!(media_type = "video", media_slug = %slug, error = "No access code provided for private video", "Failed to process request");
             return Err((
                 StatusCode::UNAUTHORIZED,
                 UnauthorizedTemplate {
@@ -260,6 +273,7 @@ pub async fn video_player_handler(
 // Live Stream Test Handler
 // -------------------------------
 
+#[tracing::instrument(skip(session))]
 pub async fn live_test_handler(session: Session) -> Result<LiveTestTemplate, StatusCode> {
     let authenticated: bool = session
         .get("authenticated")
@@ -275,6 +289,7 @@ pub async fn live_test_handler(session: Session) -> Result<LiveTestTemplate, Sta
 // HLS Proxy Handler for Live Streams and VOD
 // -------------------------------
 
+#[tracing::instrument(skip(query, session, state))]
 pub async fn hls_proxy_handler(
     Path(path): Path<String>,
     Query(query): Query<AccessCodeQuery>,
@@ -384,9 +399,11 @@ pub async fn hls_proxy_handler(
             // Check if access code is provided and valid
             if let Some(code) = &query.access_code {
                 if !check_access_code(&state.pool, code, "video", slug).await {
+                    info!(access_code = %code, media_type = "video", media_slug = %slug, error = "Invalid access code for HLS stream", "Failed to process request");
                     return Err(StatusCode::UNAUTHORIZED);
                 }
             } else {
+                info!(media_type = "video", media_slug = %slug, error = "No access code for private HLS stream", "Failed to process request");
                 return Err(StatusCode::UNAUTHORIZED);
             }
         }
@@ -436,6 +453,7 @@ pub async fn hls_proxy_handler(
 // MediaMTX Status Endpoint
 // -------------------------------
 
+#[tracing::instrument(skip(state))]
 pub async fn mediamtx_status(
     State(state): State<Arc<VideoManagerState>>,
 ) -> Result<String, StatusCode> {
@@ -502,7 +520,11 @@ pub async fn check_access_code(
         .await
         .unwrap_or(None);
 
-        permission.is_some()
+        let has_access = permission.is_some();
+        if has_access {
+            info!(access_code = %code, media_type = %media_type, media_slug = %media_slug, "Resources access by code");
+        }
+        has_access
     } else {
         false
     }

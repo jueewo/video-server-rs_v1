@@ -3,6 +3,7 @@ members = [
     "crates/video-manager",
     "crates/image-manager",
     "crates/user-auth",
+    "crates/access-codes",
 ]
 resolver = "2"
 
@@ -21,6 +22,7 @@ path = "scripts/generate_thumbnails.rs"
 video-manager = { path = "crates/video-manager" }
 image-manager = { path = "crates/image-manager" }
 user-auth = { path = "crates/user-auth" }
+access-codes = { path = "crates/access-codes" }
 
 # Web framework
 axum = { version = "0.7", features = ["multipart"] }
@@ -38,9 +40,22 @@ serde = { version = "1.0", features = ["derive"] }
 # Error handling
 anyhow = "1.0"
 
-# Logging
+# # Logging
+# tracing = "0.1"
+# tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# OpenTelemetry dependencies & Logging
+opentelemetry = { version = "0.21", features = ["logs"] }
+opentelemetry_sdk = { version = "0.21", features = ["rt-tokio", "logs"] }
+opentelemetry-otlp = { version = "0.14", features = ["grpc-tonic", "logs"] }
+# opentelemetry-otlp = { version = "0.14", features = ["http-proto", "reqwest"] }
+
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-opentelemetry = "0.22"
+
+# Add logs support
+opentelemetry-appender-tracing = "0.3"
 
 # Utilities
 time = "0.3"

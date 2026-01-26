@@ -12,6 +12,7 @@ use sqlx::{Pool, Sqlite};
 use std::{path::PathBuf, sync::Arc};
 use time::OffsetDateTime;
 use tower_sessions::Session;
+use tracing::{self, info};
 
 // -------------------------------
 // Template Structs
@@ -89,6 +90,7 @@ pub fn image_routes() -> Router<Arc<ImageManagerState>> {
 // -------------------------------
 // Image Upload Page Handler
 // -------------------------------
+#[tracing::instrument(skip(session))]
 pub async fn upload_page_handler(
     session: Session,
 ) -> Result<UploadTemplate, (StatusCode, UnauthorizedTemplate)> {
@@ -114,6 +116,7 @@ pub async fn upload_page_handler(
 // -------------------------------
 // Image Upload Handler (with form processing)
 // -------------------------------
+#[tracing::instrument(skip(session, state, multipart))]
 pub async fn upload_image_handler(
     session: Session,
     State(state): State<Arc<ImageManagerState>>,
@@ -534,6 +537,7 @@ pub async fn upload_image_handler(
 // -------------------------------
 // Image Gallery Handler
 // -------------------------------
+#[tracing::instrument(skip(session, state))]
 pub async fn images_gallery_handler(
     session: Session,
     State(state): State<Arc<ImageManagerState>>,
@@ -556,6 +560,12 @@ pub async fn images_gallery_handler(
     let images = get_images(&state.pool, user_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    info!(
+        count = images.len(),
+        authenticated = authenticated,
+        "Images loaded"
+    );
 
     let page_title = if authenticated {
         "🖼️ All Images".to_string()
@@ -586,6 +596,7 @@ pub async fn images_gallery_handler(
 // -------------------------------
 // Serve Image Handler
 // -------------------------------
+#[tracing::instrument(skip(query, session, state))]
 pub async fn serve_image_handler(
     Path(slug): Path<String>,
     Query(query): Query<AccessCodeQuery>,
@@ -641,6 +652,7 @@ pub async fn serve_image_handler(
             if let Some(code) = &query.access_code {
                 if !check_access_code(&state.pool, code, "image", &lookup_slug).await {
                     println!("❌ Unauthorized access attempt to private image: {}", slug);
+                    info!(access_code = %code, media_type = "image", media_slug = %lookup_slug, error = "Invalid or expired access code", "Failed to process request");
                     return (
                         StatusCode::UNAUTHORIZED,
                         UnauthorizedTemplate {
@@ -651,6 +663,7 @@ pub async fn serve_image_handler(
                 }
             } else {
                 println!("❌ Unauthorized access attempt to private image: {}", slug);
+                info!(media_type = "image", media_slug = %lookup_slug, error = "No access code provided for private image", "Failed to process request");
                 return (
                     StatusCode::UNAUTHORIZED,
                     UnauthorizedTemplate {
@@ -748,7 +761,11 @@ pub async fn check_access_code(
         .await
         .unwrap_or(None);
 
-        permission.is_some()
+        let has_access = permission.is_some();
+        if has_access {
+            info!(access_code = %code, media_type = %media_type, media_slug = %media_slug, "Resources access by code");
+        }
+        has_access
     } else {
         false
     }

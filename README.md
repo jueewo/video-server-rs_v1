@@ -507,11 +507,22 @@ video-server-rs_v1/
 
 ## Documentation
 
+### Getting Started
 - **[QUICKSTART.md](QUICKSTART.md)** - Get started in 5 minutes
 - **[PROJECT_STATUS.md](PROJECT_STATUS.md)** - Current project status
 - **[docs/README.md](docs/README.md)** - Documentation index
 - **[docs/LIVE_STREAMING_GUIDE.md](docs/LIVE_STREAMING_GUIDE.md)** - Streaming guide
 - **[docs/MEDIAMTX_MIGRATION.md](docs/MEDIAMTX_MIGRATION.md)** - Architecture details
+
+### Observability & Monitoring
+- **[OBSERVABILITY_QUICKSTART.md](OBSERVABILITY_QUICKSTART.md)** - Quick setup with Vector + SigNoz
+- **[VECTOR_SIGNOZ_SETUP.md](VECTOR_SIGNOZ_SETUP.md)** - Detailed Vector + SigNoz configuration
+- **[INSTRUMENTATION.md](INSTRUMENTATION.md)** - Complete instrumentation reference
+
+All handlers are instrumented with OpenTelemetry for distributed tracing. Traces can be exported to:
+- **SigNoz** (recommended) - Complete observability platform
+- **Jaeger** - Trace visualization
+- **Grafana Tempo** - Trace backend for Grafana
 
 ## Why MediaMTX?
 

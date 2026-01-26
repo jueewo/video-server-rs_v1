@@ -1,21 +1,40 @@
 use askama::Template;
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Query, State},
     http::{header::HeaderValue, Method, StatusCode},
-    response::{Html, Json},
-    routing::{delete, get, post},
+    response::Html,
+    routing::{get, post},
     Router,
 };
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+
 use sqlx::sqlite::SqlitePoolOptions;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use time::{Duration, OffsetDateTime};
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, services::ServeDir};
 use tower_sessions::{cookie::SameSite, Expiry, MemoryStore, Session, SessionManagerLayer};
+use tracing;
+
+//.. opentelemetry
+// use axum::{routing::get, Router};
+
+// use opentelemetry_otlp::WithExportConfig;
+// use opentelemetry_sdk::{runtime, trace as sdktrace};
+// use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+// use opentelemetry::global;
+// use opentelemetry_otlp::WithExportConfig;
+// use opentelemetry_sdk::{runtime, trace as sdktrace, Resource};
+// use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+use opentelemetry::global;
+use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_sdk::{logs as sdklogs, runtime, trace as sdktrace, Resource};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 // Import the crates
+use access_codes::{access_code_routes, AccessCodeState, MediaResource};
 use image_manager::{image_routes, ImageManagerState};
 use user_auth::{auth_routes, AuthState, OidcConfig};
 use video_manager::{video_routes, VideoManagerState, RTMP_PUBLISH_TOKEN};
@@ -29,6 +48,7 @@ struct AppState {
     video_state: Arc<VideoManagerState>,
     image_state: Arc<ImageManagerState>,
     auth_state: Arc<AuthState>,
+    access_state: Arc<AccessCodeState>,
 }
 
 // -------------------------------
@@ -46,308 +66,22 @@ struct IndexTemplate {
 struct DemoTemplate {
     code: String,
     error: String,
-    resources: Vec<Resource>,
+    resources: Vec<MediaResource>,
 }
 
 // -------------------------------
-// Access Code API Types
+// Access Code API Types (moved to access-codes crate)
 // -------------------------------
 
-#[derive(Deserialize)]
-struct CreateAccessCodeRequest {
-    code: String,
-    description: Option<String>,
-    expires_at: Option<String>, // ISO 8601 datetime string
-    media_items: Vec<MediaItem>,
-}
-
-#[derive(Deserialize, Serialize)]
-struct MediaItem {
-    media_type: String, // "video" or "image"
-    media_slug: String,
-}
-
-#[derive(Serialize)]
-struct AccessCodeResponse {
-    id: i32,
-    code: String,
-    description: Option<String>,
-    expires_at: Option<String>,
-    created_at: String,
-    media_items: Vec<MediaItem>,
-}
-
-#[derive(Serialize)]
-struct AccessCodeListResponse {
-    access_codes: Vec<AccessCodeResponse>,
-}
-
-#[derive(Serialize)]
-struct Resource {
-    media_type: String,
-    slug: String,
-    title: String,
-}
-
 // -------------------------------
-// Access Code Management Handlers
+// Access Code Management Handlers (moved to access-codes crate)
 // -------------------------------
-
-async fn create_access_code(
-    session: Session,
-    State(state): State<Arc<AppState>>,
-    Json(request): Json<CreateAccessCodeRequest>,
-) -> Result<Json<AccessCodeResponse>, StatusCode> {
-    // Check authentication
-    let authenticated: bool = session
-        .get("authenticated")
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or(false);
-
-    if !authenticated {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
-
-    // Get user_id from session for ownership validation
-    let user_id: String = session
-        .get("user_id")
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| "unknown".to_string());
-
-    // Validate code format
-    if request.code.is_empty() || request.code.len() > 50 {
-        return Err(StatusCode::BAD_REQUEST);
-    }
-
-    // Check if code already exists
-    let existing: Option<i32> = sqlx::query_scalar("SELECT id FROM access_codes WHERE code = ?")
-        .bind(&request.code)
-        .fetch_optional(&state.video_state.pool)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    if existing.is_some() {
-        return Err(StatusCode::CONFLICT);
-    }
-
-    // Parse expiration date
-    let expires_at = if let Some(ref expiry_str) = request.expires_at {
-        Some(
-            OffsetDateTime::parse(
-                expiry_str,
-                &time::format_description::well_known::Iso8601::DEFAULT,
-            )
-            .map_err(|_| StatusCode::BAD_REQUEST)?,
-        )
-    } else {
-        None
-    };
-
-    // Insert access code
-    let code_id: i32 = sqlx::query_scalar(
-        "INSERT INTO access_codes (code, description, expires_at, created_by) VALUES (?, ?, ?, ?) RETURNING id",
-    )
-    .bind(&request.code)
-    .bind(&request.description)
-    .bind(expires_at.map(|dt| {
-        dt.format(&time::format_description::well_known::Iso8601::DEFAULT)
-            .unwrap()
-    }))
-    .bind(&user_id)
-    .fetch_one(&state.video_state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    // Insert permissions (only for owned media)
-    for item in &request.media_items {
-        if item.media_type != "video" && item.media_type != "image" {
-            return Err(StatusCode::BAD_REQUEST);
-        }
-
-        // Validate ownership
-        let is_owner = match item.media_type.as_str() {
-            "video" => {
-                let owner: Option<String> =
-                    sqlx::query_scalar("SELECT user_id FROM videos WHERE slug = ?")
-                        .bind(&item.media_slug)
-                        .fetch_optional(&state.video_state.pool)
-                        .await
-                        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-                println!(
-                    "🔍 Ownership check: video '{}' owner={:?}, user='{}', is_owner={}",
-                    item.media_slug,
-                    owner,
-                    user_id,
-                    owner.as_ref() == Some(&user_id)
-                );
-                owner.as_ref() == Some(&user_id)
-            }
-            "image" => {
-                let owner: Option<String> =
-                    sqlx::query_scalar("SELECT user_id FROM images WHERE slug = ?")
-                        .bind(&item.media_slug)
-                        .fetch_optional(&state.video_state.pool)
-                        .await
-                        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-                println!(
-                    "🔍 Ownership check: image '{}' owner={:?}, user='{}', is_owner={}",
-                    item.media_slug,
-                    owner,
-                    user_id,
-                    owner.as_ref() == Some(&user_id)
-                );
-                owner.as_ref() == Some(&user_id)
-            }
-            _ => false,
-        };
-
-        if !is_owner {
-            println!(
-                "❌ Ownership validation failed for {}/{}",
-                item.media_type, item.media_slug
-            );
-            return Err(StatusCode::FORBIDDEN); // User doesn't own this media
-        }
-
-        sqlx::query(
-            "INSERT INTO access_code_permissions (access_code_id, media_type, media_slug) VALUES (?, ?, ?)"
-        )
-        .bind(code_id)
-        .bind(&item.media_type)
-        .bind(&item.media_slug)
-        .execute(&state.video_state.pool)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    }
-
-    // Return created access code
-    Ok(Json(AccessCodeResponse {
-        id: code_id,
-        code: request.code,
-        description: request.description,
-        expires_at: request.expires_at,
-        created_at: OffsetDateTime::now_utc().to_string(),
-        media_items: request.media_items,
-    }))
-}
-
-async fn list_access_codes(
-    session: Session,
-    State(state): State<Arc<AppState>>,
-) -> Result<Json<AccessCodeListResponse>, StatusCode> {
-    // Check authentication
-    let authenticated: bool = session
-        .get("authenticated")
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or(false);
-
-    if !authenticated {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
-
-    // Get user_id from session
-    let user_id: String = session
-        .get("user_id")
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| "unknown".to_string());
-
-    // Get access codes created by this user
-    let codes = sqlx::query_as::<_, (i32, String, Option<String>, Option<String>, String)>(
-        "SELECT id, code, description, expires_at, created_at FROM access_codes WHERE created_by = ? ORDER BY created_at DESC"
-    )
-    .bind(&user_id)
-    .fetch_all(&state.video_state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let mut access_codes = Vec::new();
-
-    for (id, code, description, expires_at, created_at) in codes {
-        // Get permissions for this code
-        let permissions = sqlx::query_as::<_, (String, String)>(
-            "SELECT media_type, media_slug FROM access_code_permissions WHERE access_code_id = ?",
-        )
-        .bind(id)
-        .fetch_all(&state.video_state.pool)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-        let media_items = permissions
-            .into_iter()
-            .map(|(media_type, media_slug)| MediaItem {
-                media_type,
-                media_slug,
-            })
-            .collect();
-
-        access_codes.push(AccessCodeResponse {
-            id,
-            code,
-            description,
-            expires_at,
-            created_at,
-            media_items,
-        });
-    }
-
-    Ok(Json(AccessCodeListResponse { access_codes }))
-}
-
-async fn delete_access_code(
-    Path(code): Path<String>,
-    session: Session,
-    State(state): State<Arc<AppState>>,
-) -> Result<StatusCode, StatusCode> {
-    // Check authentication
-    let authenticated: bool = session
-        .get("authenticated")
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or(false);
-
-    if !authenticated {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
-
-    // Get user_id from session
-    let user_id: String = session
-        .get("user_id")
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| "unknown".to_string());
-
-    // Delete access code (only if owned by current user)
-    let rows_affected = sqlx::query("DELETE FROM access_codes WHERE code = ? AND created_by = ?")
-        .bind(&code)
-        .bind(&user_id)
-        .execute(&state.video_state.pool)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .rows_affected();
-
-    if rows_affected == 0 {
-        Err(StatusCode::NOT_FOUND)
-    } else {
-        Ok(StatusCode::NO_CONTENT)
-    }
-}
 
 // -------------------------------
 // Main Page Handler
 // -------------------------------
 
+#[tracing::instrument(skip(session))]
 async fn index_handler(session: Session) -> Result<Html<String>, StatusCode> {
     // Check if user is authenticated
     let authenticated: bool = session
@@ -361,6 +95,7 @@ async fn index_handler(session: Session) -> Result<Html<String>, StatusCode> {
     Ok(Html(template.render().unwrap()))
 }
 
+#[tracing::instrument(skip(params, state))]
 async fn demo_handler(
     Query(params): Query<HashMap<String, String>>,
     State(state): State<Arc<AppState>>,
@@ -417,7 +152,7 @@ async fn demo_handler(
                             .unwrap_or_else(|| "Unknown Image".to_string()),
                         _ => "Unknown".to_string(),
                     };
-                    resources.push(Resource {
+                    resources.push(MediaResource {
                         media_type,
                         slug,
                         title,
@@ -441,6 +176,7 @@ async fn demo_handler(
 // Health Check Endpoint
 // -------------------------------
 
+#[tracing::instrument]
 async fn health_check() -> &'static str {
     "OK"
 }
@@ -449,14 +185,334 @@ async fn health_check() -> &'static str {
 // Webhook Handlers (Optional)
 // -------------------------------
 
+#[tracing::instrument]
 async fn webhook_stream_ready() -> StatusCode {
     println!("📡 Stream is now live!");
     StatusCode::OK
 }
 
+#[tracing::instrument]
 async fn webhook_stream_ended() -> StatusCode {
     println!("📡 Stream has ended");
     StatusCode::OK
+}
+
+// -------------------------------
+// OpenTelemetry Setup
+// -------------------------------
+
+// async fn setup_opentelemetry() -> Result<(), Box<dyn std::error::Error>> {
+//     let tracer = opentelemetry_otlp::new_pipeline()
+//         .tracing()
+//         .with_endpoint("http://localhost:4317")
+//         .with_http_client(reqwest::Client::new())
+//         .install_batch(opentelemetry_sdk::runtime::Tokio)?;
+
+//     tracing_opentelemetry::init_global_tracer(tracer);
+
+//     Ok(())
+// }
+
+// async fn init_tracer() -> anyhow::Result<()> {
+//     // Configure OTLP exporter to send to Vector
+//     let otlp_exporter = opentelemetry_otlp::new_exporter()
+//         .tonic()
+//         .with_endpoint("http://localhost:4317"); // Vector's OTLP receiver
+
+//     let tracer = opentelemetry_otlp::new_pipeline()
+//         .tracing()
+//         .with_exporter(otlp_exporter)
+//         .with_trace_config(
+//             sdktrace::config().with_resource(opentelemetry_sdk::Resource::new(vec![
+//                 opentelemetry::KeyValue::new("service.name", "axum-server"),
+//             ])),
+//         )
+//         .install_batch(runtime::Tokio)
+//         .map_err(|e| anyhow::anyhow!("Failed to install OpenTelemetry tracer: {}", e))?;
+
+//     // Setup tracing subscriber
+//     tracing_subscriber::registry()
+//         .with(tracing_subscriber::EnvFilter::new(
+//             std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
+//         ))
+//         .with(tracing_subscriber::fmt::layer())
+//         .with(tracing_opentelemetry::layer().with_tracer(tracer))
+//         .init();
+
+//     Ok(())
+// }
+
+// async fn init_tracer() -> Result<(), Box<dyn std::error::Error>> {
+//     println!("Initializing OpenTelemetry tracer...");
+
+//     let endpoint = "http://localhost:4317";
+//     println!("Connecting to OTLP endpoint: {}", endpoint);
+
+//     let otlp_exporter = opentelemetry_otlp::new_exporter()
+//         .tonic()
+//         .with_endpoint(endpoint)
+//         .with_timeout(std::time::Duration::from_secs(5));
+
+//     let tracer = opentelemetry_otlp::new_pipeline()
+//         .tracing()
+//         .with_exporter(otlp_exporter)
+//         .with_trace_config(sdktrace::config().with_resource(Resource::new(vec![
+//             opentelemetry::KeyValue::new("service.name", "axum-server"),
+//         ])))
+//         .install_batch(runtime::Tokio)?;
+
+//     tracing_subscriber::registry()
+//         .with(tracing_subscriber::EnvFilter::new(
+//             std::env::var("RUST_LOG")
+//                 .unwrap_or_else(|_| "info,opentelemetry_otlp=debug,tonic=debug".into()),
+//         ))
+//         .with(tracing_subscriber::fmt::layer())
+//         .with(tracing_opentelemetry::layer().with_tracer(tracer))
+//         .init();
+
+//     println!("OpenTelemetry tracer initialized successfully");
+//     Ok(())
+// }
+
+// fn init_tracer() -> Result<(), Box<dyn std::error::Error>> {
+//     // let endpoint = "http://localhost:4317"; //grpc
+//     let endpoint = "http://localhost:4318/v1/traces"; //http
+//                                                       // let endpoint = "http://localhost:4318"; //http
+
+//     match opentelemetry_otlp::new_exporter()
+//         .tonic()
+//         .with_endpoint(endpoint)
+//         .with_timeout(std::time::Duration::from_secs(5))
+//         .build_span_exporter()
+//     {
+//         Ok(_) => {
+//             println!("\n\n ✅ Connected to OTLP endpoint: {}", endpoint);
+
+//             // let otlp_exporter = opentelemetry_otlp::new_exporter()
+//             //     .tonic()
+//             //     .with_endpoint(endpoint)
+//             //     .with_timeout(std::time::Duration::from_secs(5));
+
+//             let otlp_exporter = opentelemetry_otlp::new_exporter()
+//                 .http() // ← CHANGE THIS: was .tonic(), now .http()
+//                 .with_endpoint(endpoint)
+//                 .with_timeout(std::time::Duration::from_secs(5));
+
+//             let tracer = opentelemetry_otlp::new_pipeline()
+//                 .tracing()
+//                 .with_exporter(otlp_exporter)
+//                 .with_trace_config(sdktrace::config().with_resource(
+//                     opentelemetry_sdk::Resource::new(vec![opentelemetry::KeyValue::new(
+//                         "service.name",
+//                         "video-server",
+//                     )]),
+//                 ))
+//                 .install_batch(runtime::Tokio)?;
+
+//             tracing_subscriber::registry()
+//                 .with(tracing_subscriber::EnvFilter::new(
+//                     std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
+//                 ))
+//                 .with(tracing_subscriber::fmt::layer())
+//                 .with(tracing_opentelemetry::layer().with_tracer(tracer))
+//                 .init();
+//         }
+//         Err(e) => {
+//             println!("⚠ Could not connect to OTLP endpoint: {}", e);
+//             println!("⚠ Running without telemetry export");
+
+//             // Just use regular tracing without OTLP
+//             tracing_subscriber::registry()
+//                 .with(tracing_subscriber::EnvFilter::new(
+//                     std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
+//                 ))
+//                 .with(tracing_subscriber::fmt::layer())
+//                 .init();
+//         }
+//     }
+
+//     Ok(())
+// }
+
+// fn init_tracer() -> Result<(), Box<dyn std::error::Error>> {
+//     println!("🔧 Initializing OpenTelemetry...");
+
+//     // Create the OTLP exporter
+//     let otlp_exporter = opentelemetry_otlp::new_exporter()
+//         .http()
+//         .with_endpoint("http://localhost:4318/v1/traces")
+//         .with_timeout(std::time::Duration::from_secs(10));
+
+//     println!("📡 Connecting to http://localhost:4318/v1/traces");
+
+//     // Build and install the tracer
+//     let tracer = match opentelemetry_otlp::new_pipeline()
+//         .tracing()
+//         .with_exporter(otlp_exporter)
+//         .with_trace_config(sdktrace::config().with_resource(Resource::new(vec![
+//             opentelemetry::KeyValue::new("service.name", "video-server"),
+//         ])))
+//         .install_batch(runtime::Tokio)
+//     {
+//         Ok(t) => {
+//             println!("✅ Tracer installed successfully");
+//             t
+//         }
+//         Err(e) => {
+//             println!("❌ Failed to install tracer: {}", e);
+//             return Err(e.into());
+//         }
+//     };
+
+//     // Initialize tracing subscriber
+//     let telemetry_layer = tracing_opentelemetry::layer().with_tracer(tracer);
+
+//     match tracing_subscriber::registry()
+//         .with(telemetry_layer)
+//         .with(tracing_subscriber::EnvFilter::new(
+//             std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
+//         ))
+//         .with(tracing_subscriber::fmt::layer())
+//         .try_init()
+//     {
+//         Ok(_) => println!("✅ Tracing subscriber initialized"),
+//         Err(e) => {
+//             println!("❌ Failed to initialize subscriber: {}", e);
+//             return Err(e.into());
+//         }
+//     }
+
+//     println!("✅ OpenTelemetry initialized successfully");
+//     Ok(())
+// }
+//
+
+// fn init_tracer() -> Result<(), Box<dyn std::error::Error>> {
+//     println!("🔧 Initializing OpenTelemetry...");
+
+//     // Use gRPC endpoint (port 4317, not 4318)
+//     let otlp_exporter = opentelemetry_otlp::new_exporter()
+//         .tonic() // gRPC instead of http()
+//         .with_endpoint("http://localhost:4317")
+//         .with_timeout(std::time::Duration::from_secs(10));
+
+//     println!("📡 Connecting to gRPC endpoint: http://localhost:4317");
+
+//     let tracer = match opentelemetry_otlp::new_pipeline()
+//         .tracing()
+//         .with_exporter(otlp_exporter)
+//         .with_trace_config(sdktrace::config().with_resource(Resource::new(vec![
+//             opentelemetry::KeyValue::new("service.name", "video-server"),
+//         ])))
+//         .install_batch(runtime::Tokio)
+//     {
+//         Ok(t) => {
+//             println!("✅ Tracer installed successfully");
+//             t
+//         }
+//         Err(e) => {
+//             println!("❌ Failed to install tracer: {}", e);
+//             return Err(e.into());
+//         }
+//     };
+
+//     let telemetry_layer = tracing_opentelemetry::layer().with_tracer(tracer);
+
+//     match tracing_subscriber::registry()
+//         .with(telemetry_layer)
+//         .with(tracing_subscriber::EnvFilter::new(
+//             std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
+//         ))
+//         .with(tracing_subscriber::fmt::layer())
+//         .try_init()
+//     {
+//         Ok(_) => println!("✅ Tracing subscriber initialized"),
+//         Err(e) => {
+//             println!("❌ Failed to initialize subscriber: {}", e);
+//             return Err(e.into());
+//         }
+//     }
+
+//     println!("✅ OpenTelemetry initialized successfully");
+//     Ok(())
+// }
+//
+
+fn init_tracer() -> Result<(), Box<dyn std::error::Error>> {
+    println!("🔧 Initializing OpenTelemetry...");
+
+    // Create shared resource
+    let resource = opentelemetry_sdk::Resource::new(vec![opentelemetry::KeyValue::new(
+        "service.name",
+        "video-server",
+    )]);
+
+    // Setup traces
+    println!("📡 Connecting to gRPC endpoint: http://localhost:4317");
+
+    let trace_exporter = opentelemetry_otlp::new_exporter()
+        .tonic()
+        .with_endpoint("http://localhost:4317")
+        .with_timeout(std::time::Duration::from_secs(10));
+
+    let tracer = match opentelemetry_otlp::new_pipeline()
+        .tracing()
+        .with_exporter(trace_exporter)
+        .with_trace_config(sdktrace::config().with_resource(resource.clone()))
+        .install_batch(runtime::Tokio)
+    {
+        Ok(t) => {
+            println!("✅ Tracer installed successfully");
+            t
+        }
+        Err(e) => {
+            println!("❌ Failed to install tracer: {}", e);
+            return Err(Box::new(e));
+        }
+    };
+
+    // Setup logs
+    let log_exporter = opentelemetry_otlp::new_exporter()
+        .tonic()
+        .with_endpoint("http://localhost:4317")
+        .with_timeout(std::time::Duration::from_secs(10));
+
+    let _logger = match opentelemetry_otlp::new_pipeline()
+        .logging()
+        .with_exporter(log_exporter)
+        .install_batch(runtime::Tokio)
+    {
+        Ok(logger) => {
+            println!("✅ Logger installed successfully");
+            logger
+        }
+        Err(e) => {
+            println!("❌ Failed to install logger: {}", e);
+            return Err(Box::new(e));
+        }
+    };
+
+    // Create OpenTelemetry tracing layer
+    let telemetry_layer = tracing_opentelemetry::layer().with_tracer(tracer);
+
+    // Initialize tracing subscriber with all layers
+    match tracing_subscriber::registry()
+        .with(telemetry_layer)
+        .with(tracing_subscriber::EnvFilter::new(
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
+        ))
+        .with(tracing_subscriber::fmt::layer())
+        .try_init()
+    {
+        Ok(_) => println!("✅ Tracing subscriber initialized"),
+        Err(e) => {
+            println!("❌ Failed to initialize subscriber: {}", e);
+            return Err(Box::new(e));
+        }
+    }
+
+    println!("✅ OpenTelemetry initialized successfully (traces + logs)");
+    Ok(())
 }
 
 // -------------------------------
@@ -468,7 +524,17 @@ async fn main() -> anyhow::Result<()> {
     // Load environment variables from .env file (if it exists)
     let _ = dotenvy::dotenv();
 
-    tracing_subscriber::fmt::init();
+    // Initialize tracer with error handling
+    match init_tracer() {
+        Ok(_) => println!("📊 Telemetry enabled"),
+        Err(e) => {
+            println!("⚠️  Failed to initialize telemetry: {}", e);
+            println!("   Continuing without telemetry...");
+
+            // Fallback to basic tracing
+            tracing_subscriber::fmt::init();
+        }
+    }
 
     println!("\n🚀 Initializing Modular Video Server...");
 
@@ -532,10 +598,13 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
+    let access_state = Arc::new(AccessCodeState { pool: pool.clone() });
+
     let app_state = Arc::new(AppState {
         video_state: video_state.clone(),
         image_state: image_state.clone(),
         auth_state: auth_state.clone(),
+        access_state: access_state.clone(),
     });
 
     // Session layer with explicit configuration
@@ -560,10 +629,6 @@ async fn main() -> anyhow::Result<()> {
         .route("/", get(index_handler))
         .route("/demo", get(demo_handler))
         .route("/health", get(health_check))
-        // Access code management (authenticated)
-        .route("/api/access-codes", post(create_access_code))
-        .route("/api/access-codes", get(list_access_codes))
-        .route("/api/access-codes/:code", delete(delete_access_code))
         // Webhook endpoints (optional)
         .route("/api/webhooks/stream-ready", post(webhook_stream_ready))
         .route("/api/webhooks/stream-ended", post(webhook_stream_ended))
@@ -572,6 +637,7 @@ async fn main() -> anyhow::Result<()> {
         .merge(auth_routes(auth_state.clone()))
         .merge(video_routes().with_state(video_state))
         .merge(image_routes().with_state(image_state))
+        .merge(access_code_routes(access_state))
         // Serve static files from storage directory
         .nest_service("/storage", ServeDir::new(&storage_dir))
         // Apply middleware

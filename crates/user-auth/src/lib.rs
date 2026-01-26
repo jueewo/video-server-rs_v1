@@ -15,6 +15,7 @@ use openidconnect::{
 use serde::Deserialize;
 use std::sync::Arc;
 use tower_sessions::Session;
+use tracing::{self, info};
 
 // -------------------------------
 // Configuration
@@ -201,6 +202,7 @@ struct UserProfileTemplate {
 // -------------------------------
 // User Profile Handler
 // -------------------------------
+#[tracing::instrument(skip(state, session))]
 pub async fn user_profile_handler(
     State(state): State<Arc<AuthState>>,
     session: Session,
@@ -289,6 +291,7 @@ pub async fn user_profile_handler(
 // Page Handlers
 // -------------------------------
 
+#[tracing::instrument(skip(state, session))]
 pub async fn login_page_handler(
     State(state): State<Arc<AuthState>>,
     session: Session,
@@ -318,6 +321,7 @@ pub struct OidcAuthQuery {
     pub return_to: Option<String>,
 }
 
+#[tracing::instrument(skip(state, query, session))]
 pub async fn oidc_authorize_handler(
     State(state): State<Arc<AuthState>>,
     Query(query): Query<OidcAuthQuery>,
@@ -386,6 +390,7 @@ pub struct OidcCallbackQuery {
     pub state: String,
 }
 
+#[tracing::instrument(skip(state, query, session))]
 pub async fn oidc_callback_handler(
     State(state): State<Arc<AuthState>>,
     Query(query): Query<OidcCallbackQuery>,
@@ -413,6 +418,7 @@ pub async fn oidc_callback_handler(
 
     if stored_csrf.as_ref() != Some(&query.state) {
         println!("❌ CSRF token mismatch");
+        info!(error = "CSRF token mismatch", "Failed to process request");
         return Ok(Redirect::to(&format!(
             "/auth/error?reason=csrf_mismatch&detail={}",
             urlencoding::encode("Session expired or invalid. Please try logging in again.")
@@ -429,6 +435,10 @@ pub async fn oidc_callback_handler(
         }
         None => {
             println!("❌ PKCE verifier not found in session");
+            info!(
+                error = "PKCE verifier not found in session",
+                "Failed to process request"
+            );
             return Ok(Redirect::to(&format!(
                 "/auth/error?reason=session_lost&detail={}",
                 urlencoding::encode("Session data lost. Please enable cookies and try again.")
@@ -447,6 +457,10 @@ pub async fn oidc_callback_handler(
         }
         None => {
             println!("❌ Nonce not found in session");
+            info!(
+                error = "Nonce not found in session",
+                "Failed to process request"
+            );
             return Ok(Redirect::to(&format!(
                 "/auth/error?reason=session_lost&detail={}",
                 urlencoding::encode("Session data lost. Please try logging in again.")
@@ -476,6 +490,7 @@ pub async fn oidc_callback_handler(
             println!("   Error details: {:?}", e);
 
             let error_msg = format!("{}", e);
+            info!(error = %error_msg, "Failed to process request");
             return Ok(Redirect::to(&format!(
                 "/auth/error?reason=token_exchange&detail={}",
                 urlencoding::encode(&format!(
@@ -489,6 +504,10 @@ pub async fn oidc_callback_handler(
     // Get ID token and verify
     let id_token = token_response.id_token().ok_or_else(|| {
         println!("❌ No ID token in response");
+        info!(
+            error = "No ID token in response",
+            "Failed to process request"
+        );
         StatusCode::UNAUTHORIZED
     })?;
 
@@ -500,6 +519,7 @@ pub async fn oidc_callback_handler(
         }
         Err(e) => {
             println!("❌ ID token verification failed: {}", e);
+            info!(error = %e, "Failed to process request");
             return Ok(Redirect::to(&format!(
                 "/auth/error?reason=token_verification&detail={}",
                 urlencoding::encode(&format!("ID token verification failed: {}", e))
@@ -523,6 +543,8 @@ pub async fn oidc_callback_handler(
     println!("   - Subject: {}", user_id);
     println!("   - Email: {}", email);
     println!("   - Name: {}", name);
+
+    info!(user_id = %user_id, email = %email, name = %name, "User logged in");
 
     // Store user information in session
     session
@@ -570,6 +592,7 @@ pub struct AuthErrorQuery {
     pub detail: Option<String>,
 }
 
+#[tracing::instrument(skip(query))]
 pub async fn auth_error_handler(Query(query): Query<AuthErrorQuery>) -> Html<String> {
     let template = AuthErrorTemplate {
         reason: query.reason,
@@ -583,6 +606,7 @@ pub async fn auth_error_handler(Query(query): Query<AuthErrorQuery>) -> Html<Str
 // -------------------------------
 
 /// Emergency login form display
+#[tracing::instrument(skip(_state, session))]
 pub async fn emergency_login_form_handler(
     State(_state): State<Arc<AuthState>>,
     session: Session,
@@ -604,6 +628,7 @@ pub struct EmergencyLoginForm {
 }
 
 /// Emergency login authentication handler
+#[tracing::instrument(skip(state, session, form))]
 pub async fn emergency_login_auth_handler(
     State(state): State<Arc<AuthState>>,
     session: Session,
@@ -631,6 +656,7 @@ pub async fn emergency_login_auth_handler(
             .unwrap();
 
         println!("⚠️  Emergency login successful for user: {}", form.username);
+        info!(user_id = %format!("emergency-{}", form.username), username = %form.username, "User logged in");
 
         let template = EmergencySuccessTemplate;
         Ok(Html(template.render().unwrap()))
@@ -640,6 +666,7 @@ pub async fn emergency_login_auth_handler(
             "🚨 Failed emergency login attempt for user: {}",
             form.username
         );
+        info!(username = %form.username, error = "Invalid credentials", "Failed to process request");
 
         let template = EmergencyFailedTemplate;
         Ok(Html(template.render().unwrap()))
@@ -649,6 +676,7 @@ pub async fn emergency_login_auth_handler(
 // -------------------------------
 // Logout Handler
 // -------------------------------
+#[tracing::instrument(skip(session))]
 pub async fn logout_handler(session: Session) -> Result<Redirect, StatusCode> {
     let _ = session.remove::<bool>("authenticated").await;
     let _ = session.remove::<String>("user_id").await;

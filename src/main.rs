@@ -535,16 +535,27 @@ async fn main() -> anyhow::Result<()> {
     // Load environment variables from .env file (if it exists)
     let _ = dotenvy::dotenv();
 
-    // Initialize tracer with error handling
-    match init_tracer() {
-        Ok(_) => println!("📊 Telemetry enabled"),
-        Err(e) => {
-            println!("⚠️  Failed to initialize telemetry: {}", e);
-            println!("   Continuing without telemetry...");
+    // Check if OTLP is enabled
+    let enable_otlp = std::env::var("ENABLE_OTLP")
+        .map(|v| v.to_lowercase() == "true" || v == "1")
+        .unwrap_or(false);
 
-            // Fallback to basic tracing
-            tracing_subscriber::fmt::init();
+    if enable_otlp {
+        // Initialize tracer with error handling
+        match init_tracer() {
+            Ok(_) => println!("📊 OTLP telemetry enabled"),
+            Err(e) => {
+                println!("⚠️  Failed to initialize OTLP telemetry: {}", e);
+                println!("   Continuing with console-only logging...");
+
+                // Fallback to basic tracing
+                tracing_subscriber::fmt::init();
+            }
         }
+    } else {
+        println!("📊 OTLP telemetry disabled (set ENABLE_OTLP=true to enable)");
+        // Use console-only tracing
+        tracing_subscriber::fmt::init();
     }
 
     println!("\n🚀 Initializing Modular Video Server...");

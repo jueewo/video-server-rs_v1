@@ -69,15 +69,22 @@ docker run -d --name vector \
 
 > **Note**: If not using Vector, your app will connect directly to SigNoz on ports 4317/4318.
 
-### Step 3: Configure Logging Level (Optional)
+### Step 3: Configure Environment Variables
 
-Set the logging level to see trace details:
+Create or update your `.env` file with OTLP settings:
 
 ```bash
-export RUST_LOG=info
+# Enable OTLP telemetry
+ENABLE_OTLP=true
+
+# OTLP endpoint (Vector/Jaeger/SigNoz gRPC port)
+OTLP_ENDPOINT=http://localhost:4317
+
+# Log level
+RUST_LOG=info
 ```
 
-Available levels: `trace`, `debug`, `info`, `warn`, `error`
+Available log levels: `trace`, `debug`, `info`, `warn`, `error`
 
 ### Step 4: Start Your Application
 
@@ -88,13 +95,15 @@ cargo run --release
 
 Look for the startup message:
 ```
-✓ Connected to OTLP endpoint: http://localhost:4318
+📊 OTLP telemetry enabled
+📡 Connecting to OTLP endpoint: http://localhost:4317
+✅ Tracer installed successfully
+✅ Logger provider installed successfully
 ```
 
-If you see this warning instead, Jaeger isn't reachable:
+If OTLP is disabled, you'll see:
 ```
-⚠ Could not connect to OTLP endpoint: ...
-⚠ Running without telemetry export
+📊 OTLP telemetry disabled (set ENABLE_OTLP=true to enable)
 ```
 
 ### Step 5: Generate Traffic
@@ -285,10 +294,17 @@ service:
 
 ### 1. Use Environment Variables
 
+Configure via `.env` file or environment:
+
 ```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://collector:4318
-export OTEL_SERVICE_NAME=video-server-production
-export RUST_LOG=warn
+# Enable OTLP
+ENABLE_OTLP=true
+
+# OTLP endpoint
+OTLP_ENDPOINT=http://collector:4317
+
+# Log level (use warn or error in production)
+RUST_LOG=warn
 ```
 
 ### 2. Enable Trace Sampling

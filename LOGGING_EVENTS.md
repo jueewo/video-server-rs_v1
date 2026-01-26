@@ -1,23 +1,64 @@
 # Logging Events Documentation
 
-This document describes all the structured logging events added using `tracing::info!` throughout the video server application.
+This document describes all the structured logging events added using `tracing` macros throughout the video server application.
 
 ## Overview
 
-All logging uses the `tracing` crate with structured fields for better observability and integration with OpenTelemetry. Each log entry includes relevant context fields that can be used for filtering, searching, and alerting.
+All logging uses the `tracing` crate with structured fields for better observability and integration with OpenTelemetry. Each log entry includes:
+- An `event` field for categorization
+- Relevant context fields for filtering and searching
+- A human-readable message
+
+## Configuration
+
+Enable OTLP telemetry in your `.env` file:
+
+```bash
+ENABLE_OTLP=true
+OTLP_ENDPOINT=http://localhost:4317
+RUST_LOG=info
+```
 
 ## Event Categories
 
-### 1. User Authentication Events
+### 1. Authentication Events
 
-#### User Login (OIDC)
-**Location:** `crates/user-auth/src/lib.rs` - `oidc_callback_handler()`
+All authentication events include an `event` field and `auth_type` field for easy filtering.
+
+#### Auth Flow Started
+**Location:** `crates/user-auth/src/lib.rs` - `oidc_authorize_handler()`
+**Level:** INFO
 
 ```rust
-info!(user_id = %user_id, email = %email, name = %name, "User logged in");
+info!(
+    event = "auth_flow_started",
+    auth_type = "oidc",
+    "OIDC authorization flow initiated"
+);
+```
+
+**Triggered when:** User initiates OIDC login flow
+
+---
+
+#### Auth Success (OIDC)
+**Location:** `crates/user-auth/src/lib.rs` - `oidc_callback_handler()`
+**Level:** INFO
+
+```rust
+info!(
+    event = "auth_success",
+    auth_type = "oidc",
+    user_id = %user_id,
+    email = %email,
+    name = %name,
+    "User authenticated successfully via OIDC"
+);
 ```
 
 **Fields:**
+- `event`: "auth_success"
+- `auth_type`: "oidc"
 - `user_id`: The unique user identifier from OIDC provider
 - `email`: User's email address
 - `name`: User's display name
@@ -26,18 +67,77 @@ info!(user_id = %user_id, email = %email, name = %name, "User logged in");
 
 ---
 
-#### User Login (Emergency)
+#### Auth Success (Emergency)
 **Location:** `crates/user-auth/src/lib.rs` - `emergency_login_auth_handler()`
+**Level:** INFO
 
 ```rust
-info!(user_id = %format!("emergency-{}", form.username), username = %form.username, "User logged in");
+info!(
+    event = "auth_success",
+    auth_type = "emergency",
+    user_id = %format!("emergency-{}", form.username),
+    username = %form.username,
+    "User authenticated via emergency login"
+);
 ```
 
 **Fields:**
+- `event`: "auth_success"
+- `auth_type`: "emergency"
 - `user_id`: Emergency user ID (prefixed with "emergency-")
 - `username`: Emergency login username
 
 **Triggered when:** User successfully logs in using emergency credentials
+
+---
+
+#### Auth Failed
+**Location:** `crates/user-auth/src/lib.rs` - various handlers
+**Level:** WARN or ERROR
+
+```rust
+warn!(
+    event = "auth_failed",
+    auth_type = "oidc",
+    reason = "csrf_mismatch",
+    "CSRF token mismatch - possible CSRF attack or session expired"
+);
+```
+
+**Fields:**
+- `event`: "auth_failed"
+- `auth_type`: "oidc" or "emergency"
+- `reason`: One of:
+  - `csrf_mismatch` - CSRF token validation failed
+  - `pkce_verifier_missing` - PKCE verifier not in session
+  - `nonce_missing` - Nonce not in session
+  - `token_exchange_failed` - OAuth2 token exchange failed
+  - `no_id_token` - No ID token in OIDC response
+  - `id_token_verification_failed` - ID token verification failed
+  - `invalid_credentials` - Emergency login credentials invalid
+- `error`: (optional) Error details
+
+**Triggered when:** Authentication fails for any reason
+
+---
+
+#### Logout
+**Location:** `crates/user-auth/src/lib.rs` - `logout_handler()`
+**Level:** INFO
+
+```rust
+info!(
+    event = "logout",
+    user_id = user_id.as_deref().unwrap_or("unknown"),
+    "User logged out"
+);
+```
+
+**Fields:**
+- `event`: "logout"
+- `user_id`: ID of user who logged out
+
+**Triggered when:** User logs out
 
 ---
 
@@ -83,46 +183,24 @@ info!(
 
 ### 3. Access Code Events
 
-#### Resources Access by Code (Videos)
-**Location:** `crates/video-manager/src/lib.rs` - `check_access_code()`
-
-```rust
-info!(access_code = %code, media_type = %media_type, media_slug = %media_slug, "Resources access by code");
-```
-
-**Fields:**
-- `access_code`: The access code used
-- `media_type`: Type of media ("video" or "image")
-- `media_slug`: Unique identifier of the media
-
-**Triggered when:** Private media is successfully accessed using a valid access code
-
----
-
-#### Resources Access by Code (Images)
-**Location:** `crates/image-manager/src/lib.rs` - `check_access_code()`
-
-```rust
-info!(access_code = %code, media_type = %media_type, media_slug = %media_slug, "Resources access by code");
-```
-
-**Fields:**
-- `access_code`: The access code used
-- `media_type`: Type of media ("video" or "image")
-- `media_slug`: Unique identifier of the media
-
-**Triggered when:** Private media is successfully accessed using a valid access code
-
----
+All access code events include an `event` field for easy filtering.
 
 #### Access Code Created
 **Location:** `crates/access-codes/src/lib.rs` - `create_access_code()`
+**Level:** INFO
 
 ```rust
-info!(code = %request.code, user_id = %user_id, media_count = request.media_items.len(), "Access code created");
+info!(
+    event = "access_code_created",
+    code = %request.code,
+    user_id = %user_id,
+    media_count = request.media_items.len(),
+    "Access code created successfully"
+);
 ```
 
 **Fields:**
+- `event`: "access_code_created"
 - `code`: The new access code
 - `user_id`: ID of user who created the code
 - `media_count`: Number of media items linked to this code
@@ -133,6 +211,7 @@ info!(code = %request.code, user_id = %user_id, media_count = request.media_item
 
 #### Access Codes Listed
 **Location:** `crates/access-codes/src/lib.rs` - `list_access_codes()`
+**Level:** INFO
 
 ```rust
 info!(count = access_codes.len(), user_id = %user_id, "Access codes listed");
@@ -148,12 +227,19 @@ info!(count = access_codes.len(), user_id = %user_id, "Access codes listed");
 
 #### Access Code Deleted
 **Location:** `crates/access-codes/src/lib.rs` - `delete_access_code()`
+**Level:** INFO
 
 ```rust
-info!(code = %code, user_id = %user_id, "Access code deleted");
+info!(
+    event = "access_code_deleted",
+    code = %code,
+    user_id = %user_id,
+    "Access code deleted successfully"
+);
 ```
 
 **Fields:**
+- `event`: "access_code_deleted"
 - `code`: The access code that was deleted
 - `user_id`: ID of user who deleted the code
 
@@ -161,200 +247,145 @@ info!(code = %code, user_id = %user_id, "Access code deleted");
 
 ---
 
-### 4. Error Events
-
-All error events use the format: `"Failed to process request"` with an `error` field describing the issue.
-
-#### Authentication Errors
-
-##### CSRF Token Mismatch
-**Location:** `crates/user-auth/src/lib.rs` - `oidc_callback_handler()`
+#### Resources Access by Code
+**Location:** `crates/video-manager/src/lib.rs` and `crates/image-manager/src/lib.rs`
+**Level:** INFO
 
 ```rust
-info!(error = "CSRF token mismatch", "Failed to process request");
+info!(access_code = %code, media_type = %media_type, media_slug = %media_slug, "Resources access by code");
 ```
 
-**Triggered when:** CSRF token validation fails during OIDC callback
+**Fields:**
+- `access_code`: The access code used
+- `media_type`: Type of media ("video" or "image")
+- `media_slug`: Unique identifier of the media
+
+**Triggered when:** Private media is successfully accessed using a valid access code
 
 ---
 
-##### PKCE Verifier Not Found
-**Location:** `crates/user-auth/src/lib.rs` - `oidc_callback_handler()`
+### 4. Access Denied Events
+
+All access denial events use the `event = "access_denied"` field for security monitoring.
+
+#### Unauthenticated Access Attempt
+**Location:** Various handlers in `access-codes`, `video-manager`, `image-manager`
+**Level:** WARN
 
 ```rust
-info!(error = "PKCE verifier not found in session", "Failed to process request");
+warn!(
+    event = "access_denied",
+    resource = "access_codes",
+    action = "create",
+    reason = "unauthenticated",
+    "Unauthenticated attempt to create access code"
+);
 ```
 
-**Triggered when:** PKCE verifier is missing from session during OIDC callback
+**Fields:**
+- `event`: "access_denied"
+- `resource`: The resource being accessed ("access_codes", "media", etc.)
+- `action`: The action attempted ("create", "list", "delete", "share")
+- `reason`: "unauthenticated"
 
 ---
 
-##### Nonce Not Found
-**Location:** `crates/user-auth/src/lib.rs` - `oidc_callback_handler()`
+#### Ownership Violation
+**Location:** `crates/access-codes/src/lib.rs` - `create_access_code()`
+**Level:** WARN
 
 ```rust
-info!(error = "Nonce not found in session", "Failed to process request");
+warn!(
+    event = "access_denied",
+    resource = "media",
+    action = "share",
+    user_id = %user_id,
+    media_type = %item.media_type,
+    media_slug = %item.media_slug,
+    reason = "not_owner",
+    "User attempted to share media they don't own"
+);
 ```
 
-**Triggered when:** Nonce is missing from session during OIDC callback
+**Fields:**
+- `event`: "access_denied"
+- `resource`: "media"
+- `action`: "share"
+- `user_id`: ID of user attempting the action
+- `media_type`: Type of media
+- `media_slug`: Slug of media
+- `reason`: "not_owner"
+
+**Triggered when:** User tries to share media they don't own
 
 ---
 
-##### Token Exchange Failed
-**Location:** `crates/user-auth/src/lib.rs` - `oidc_callback_handler()`
+#### Access Code Conflict
+**Location:** `crates/access-codes/src/lib.rs` - `create_access_code()`
+**Level:** WARN
 
 ```rust
-info!(error = %error_msg, "Failed to process request");
+warn!(
+    event = "access_code_conflict",
+    code = %request.code,
+    user_id = %user_id,
+    "Attempted to create duplicate access code"
+);
 ```
 
-**Triggered when:** OAuth2 token exchange fails
+**Fields:**
+- `event`: "access_code_conflict"
+- `code`: The duplicate code
+- `user_id`: ID of user attempting creation
+
+**Triggered when:** User tries to create an access code that already exists
 
 ---
 
-##### No ID Token in Response
-**Location:** `crates/user-auth/src/lib.rs` - `oidc_callback_handler()`
+### 5. HTTP Request Lifecycle Events
 
-```rust
-info!(error = "No ID token in response", "Failed to process request");
-```
+HTTP request tracing is automatically added via `TraceLayer` middleware.
 
-**Triggered when:** OIDC response doesn't include an ID token
+#### Request Started
+**Level:** INFO
 
----
+Each HTTP request creates a span with:
+- `method`: HTTP method (GET, POST, etc.)
+- `path`: Request path
+- `query`: Query string (if any)
 
-##### ID Token Verification Failed
-**Location:** `crates/user-auth/src/lib.rs` - `oidc_callback_handler()`
+#### Response Completed
+**Level:** INFO
 
-```rust
-info!(error = %e, "Failed to process request");
-```
-
-**Triggered when:** ID token signature or claims verification fails
-
----
-
-##### Emergency Login Failed
-**Location:** `crates/user-auth/src/lib.rs` - `emergency_login_auth_handler()`
-
-```rust
-info!(username = %form.username, error = "Invalid credentials", "Failed to process request");
-```
-
-**Triggered when:** Emergency login credentials are invalid
+Response logging includes:
+- `status`: HTTP status code
+- `latency_ms`: Request duration in milliseconds
 
 ---
 
-#### Access Control Errors
+### 6. Media Access Errors
 
-##### Invalid Access Code (Video Player)
-**Location:** `crates/video-manager/src/lib.rs` - `video_player_handler()`
+#### Invalid Access Code
+**Location:** `crates/video-manager/src/lib.rs`, `crates/image-manager/src/lib.rs`
+**Level:** INFO
 
 ```rust
 info!(access_code = %code, media_type = "video", media_slug = %slug, error = "Invalid or expired access code", "Failed to process request");
 ```
 
-**Triggered when:** Access code validation fails for video player
+**Triggered when:** Access code validation fails
 
 ---
 
-##### No Access Code for Private Video
-**Location:** `crates/video-manager/src/lib.rs` - `video_player_handler()`
+#### No Access Code for Private Media
+**Location:** Various handlers
+**Level:** INFO
 
 ```rust
 info!(media_type = "video", media_slug = %slug, error = "No access code provided for private video", "Failed to process request");
 ```
 
-**Triggered when:** Unauthenticated user tries to access private video without code
-
----
-
-##### Invalid Access Code (HLS Stream)
-**Location:** `crates/video-manager/src/lib.rs` - `hls_proxy_handler()`
-
-```rust
-info!(access_code = %code, media_type = "video", media_slug = %slug, error = "Invalid access code for HLS stream", "Failed to process request");
-```
-
-**Triggered when:** Access code validation fails for HLS stream
-
----
-
-##### No Access Code for Private HLS Stream
-**Location:** `crates/video-manager/src/lib.rs` - `hls_proxy_handler()`
-
-```rust
-info!(media_type = "video", media_slug = %slug, error = "No access code for private HLS stream", "Failed to process request");
-```
-
-**Triggered when:** Unauthenticated user tries to access private HLS stream without code
-
----
-
-##### Invalid Access Code (Image)
-**Location:** `crates/image-manager/src/lib.rs` - `serve_image_handler()`
-
-```rust
-info!(access_code = %code, media_type = "image", media_slug = %lookup_slug, error = "Invalid or expired access code", "Failed to process request");
-```
-
-**Triggered when:** Access code validation fails for image
-
----
-
-##### No Access Code for Private Image
-**Location:** `crates/image-manager/src/lib.rs` - `serve_image_handler()`
-
-```rust
-info!(media_type = "image", media_slug = %lookup_slug, error = "No access code provided for private image", "Failed to process request");
-```
-
-**Triggered when:** Unauthenticated user tries to access private image without code
-
----
-
-#### Access Code Management Errors
-
-##### Access Code Already Exists
-**Location:** `crates/access-codes/src/lib.rs` - `create_access_code()`
-
-```rust
-info!(code = %request.code, user_id = %user_id, error = "Access code already exists", "Failed to process request");
-```
-
-**Triggered when:** Attempting to create an access code that already exists
-
----
-
-##### Invalid Media Type
-**Location:** `crates/access-codes/src/lib.rs` - `create_access_code()`
-
-```rust
-info!(media_type = %item.media_type, error = "Invalid media type", "Failed to process request");
-```
-
-**Triggered when:** Media type is not "video" or "image"
-
----
-
-##### User Does Not Own Media
-**Location:** `crates/access-codes/src/lib.rs` - `create_access_code()`
-
-```rust
-info!(user_id = %user_id, media_type = %item.media_type, media_slug = %item.media_slug, error = "User does not own this media", "Failed to process request");
-```
-
-**Triggered when:** User tries to create access code for media they don't own
-
----
-
-##### Access Code Not Found
-**Location:** `crates/access-codes/src/lib.rs` - `delete_access_code()`
-
-```rust
-info!(code = %code, user_id = %user_id, error = "Access code not found or not owned by user", "Failed to process request");
-```
-
-**Triggered when:** User tries to delete non-existent or non-owned access code
+**Triggered when:** Unauthenticated user tries to access private media without code
 
 ---
 
@@ -362,29 +393,36 @@ info!(code = %code, user_id = %user_id, error = "Access code not found or not ow
 
 ### Example Queries (using OpenTelemetry or log aggregation tools)
 
-**Find all user logins:**
+**Find all successful logins:**
 ```
-message:"User logged in"
-```
-
-**Find all failed requests:**
-```
-message:"Failed to process request"
+event:"auth_success"
 ```
 
-**Find access code usage:**
+**Find all failed authentication attempts:**
 ```
-message:"Resources access by code"
-```
-
-**Find all unauthorized access attempts:**
-```
-error:*access* AND message:"Failed to process request"
+event:"auth_failed"
 ```
 
-**Find videos loaded by authenticated users:**
+**Find all access denied events (security monitoring):**
 ```
-message:"Videos loaded" AND authenticated:true
+event:"access_denied"
+```
+
+**Find specific auth failure reasons:**
+```
+event:"auth_failed" AND reason:"invalid_credentials"
+event:"auth_failed" AND reason:"csrf_mismatch"
+```
+
+**Find all logout events:**
+```
+event:"logout"
+```
+
+**Find access code operations:**
+```
+event:"access_code_created"
+event:"access_code_deleted"
 ```
 
 **Track specific user activity:**
@@ -392,17 +430,41 @@ message:"Videos loaded" AND authenticated:true
 user_id:"abc123"
 ```
 
-**Find failed authentication attempts:**
+**Find all OIDC-related events:**
 ```
-error:*credentials* OR error:*token* OR error:*CSRF*
+auth_type:"oidc"
 ```
+
+**Find emergency login attempts:**
+```
+auth_type:"emergency"
+```
+
+**Monitor unauthorized sharing attempts:**
+```
+event:"access_denied" AND action:"share" AND reason:"not_owner"
+```
+
+## Event Summary Table
+
+| Event | Level | Category | Description |
+|-------|-------|----------|-------------|
+| `auth_flow_started` | INFO | Auth | OIDC login flow initiated |
+| `auth_success` | INFO | Auth | User authenticated successfully |
+| `auth_failed` | WARN/ERROR | Auth | Authentication failed |
+| `logout` | INFO | Auth | User logged out |
+| `access_code_created` | INFO | Access Codes | New access code created |
+| `access_code_deleted` | INFO | Access Codes | Access code deleted |
+| `access_code_conflict` | WARN | Access Codes | Duplicate code attempted |
+| `access_denied` | WARN | Security | Access control violation |
+| `invalid_request` | WARN | Validation | Invalid request data |
 
 ## Integration with OpenTelemetry
 
-All these log events are automatically captured by the OpenTelemetry instrumentation and can be:
-- Exported to log aggregation systems (Loki, Elasticsearch, etc.)
+All these log events are automatically captured by the OpenTelemetry instrumentation when `ENABLE_OTLP=true` and can be:
+- Exported to log aggregation systems (Vector, Loki, Elasticsearch, etc.)
 - Correlated with traces and metrics
 - Used for alerting and monitoring
 - Analyzed for security and compliance
 
-The structured fields make it easy to create dashboards, alerts, and reports based on specific event types and context.
+The structured `event` field makes it easy to create dashboards, alerts, and reports based on specific event types.

@@ -9,7 +9,44 @@ use axum::{
 use reqwest::Client;
 
 use sqlx::sqlite::SqlitePoolOptions;
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::{collections::HashMap, fs, net::SocketAddr, sync::Arc};
+
+// -------------------------------
+// Application Configuration
+// -------------------------------
+
+#[derive(serde::Deserialize, Clone)]
+pub struct AppConfig {
+    pub title: String,
+    pub icon: String,
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            title: "Video Server".to_string(),
+            icon: "/storage/icon.png".to_string(),
+            description: None,
+        }
+    }
+}
+
+impl AppConfig {
+    pub fn load() -> Self {
+        match fs::read_to_string("app.yml") {
+            Ok(content) => serde_yaml::from_str(&content).unwrap_or_else(|e| {
+                println!("⚠️  Failed to parse app.yml: {}", e);
+                Self::default()
+            }),
+            Err(_) => {
+                println!("ℹ️  No app.yml found, using defaults");
+                Self::default()
+            }
+        }
+    }
+}
 use time::{Duration, OffsetDateTime};
 use tower::ServiceBuilder;
 use tower_http::{
@@ -56,6 +93,7 @@ struct AppState {
     image_state: Arc<ImageManagerState>,
     auth_state: Arc<AuthState>,
     access_state: Arc<AccessCodeState>,
+    config: AppConfig,
 }
 
 // -------------------------------
@@ -66,6 +104,8 @@ struct AppState {
 #[template(path = "index.html")]
 struct IndexTemplate {
     authenticated: bool,
+    app_title: String,
+    app_icon: String,
 }
 
 #[derive(Template)]
@@ -74,6 +114,8 @@ struct DemoTemplate {
     code: String,
     error: String,
     resources: Vec<MediaResource>,
+    app_title: String,
+    app_icon: String,
 }
 
 // -------------------------------
@@ -88,8 +130,11 @@ struct DemoTemplate {
 // Main Page Handler
 // -------------------------------
 
-#[tracing::instrument(skip(session))]
-async fn index_handler(session: Session) -> Result<Html<String>, StatusCode> {
+#[tracing::instrument(skip(session, state))]
+async fn index_handler(
+    session: Session,
+    State(state): State<Arc<AppState>>,
+) -> Result<Html<String>, StatusCode> {
     // Check if user is authenticated
     let authenticated: bool = session
         .get("authenticated")
@@ -98,7 +143,11 @@ async fn index_handler(session: Session) -> Result<Html<String>, StatusCode> {
         .flatten()
         .unwrap_or(false);
 
-    let template = IndexTemplate { authenticated };
+    let template = IndexTemplate {
+        authenticated,
+        app_title: state.config.title.clone(),
+        app_icon: state.config.icon.clone(),
+    };
     Ok(Html(template.render().unwrap()))
 }
 
@@ -175,6 +224,8 @@ async fn demo_handler(
         code: code.unwrap_or_default(),
         error,
         resources,
+        app_title: state.config.title.clone(),
+        app_icon: state.config.icon.clone(),
     };
     Ok(Html(template.render().unwrap()))
 }
@@ -622,11 +673,18 @@ async fn main() -> anyhow::Result<()> {
 
     let access_state = Arc::new(AccessCodeState { pool: pool.clone() });
 
+    // Load application configuration
+    let app_config = AppConfig::load();
+    println!("📋 Application Configuration:");
+    println!("   - Title: {}", app_config.title);
+    println!("   - Icon: {}", app_config.icon);
+
     let app_state = Arc::new(AppState {
         video_state: video_state.clone(),
         image_state: image_state.clone(),
         auth_state: auth_state.clone(),
         access_state: access_state.clone(),
+        config: app_config,
     });
 
     // Session layer with explicit configuration

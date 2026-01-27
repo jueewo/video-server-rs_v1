@@ -70,8 +70,8 @@ use tracing::{self, Level};
 // use opentelemetry_sdk::{runtime, trace as sdktrace, Resource};
 // use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+use opentelemetry::trace::TracerProvider;
 use opentelemetry_otlp::WithExportConfig;
-use opentelemetry_sdk::{runtime, trace as sdktrace};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 // For OTLP logs bridge
@@ -500,52 +500,45 @@ fn init_tracer() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔧 Initializing OpenTelemetry...");
 
     // Get OTLP endpoint from environment
-    let otlp_endpoint = std::env::var("OTLP_ENDPOINT")
-        .unwrap_or_else(|_| "http://localhost:4317".to_string());
+    let otlp_endpoint =
+        std::env::var("OTLP_ENDPOINT").unwrap_or_else(|_| "http://localhost:4317".to_string());
 
-    // Create shared resource
-    let resource = opentelemetry_sdk::Resource::new(vec![opentelemetry::KeyValue::new(
-        "service.name",
-        "video-server",
-    )]);
-
-    // Setup traces
     println!("📡 Connecting to OTLP endpoint: {}", otlp_endpoint);
 
-    let trace_exporter = opentelemetry_otlp::new_exporter()
-        .tonic()
-        .with_endpoint(&otlp_endpoint)
-        .with_timeout(std::time::Duration::from_secs(10));
+    // Create shared resource - OpenTelemetry 0.31 API
+    let resource = opentelemetry_sdk::Resource::builder()
+        .with_service_name("video-server")
+        .build();
 
-    let tracer = match opentelemetry_otlp::new_pipeline()
-        .tracing()
-        .with_exporter(trace_exporter)
-        .with_trace_config(sdktrace::config().with_resource(resource.clone()))
-        .install_batch(runtime::Tokio)
-    {
-        Ok(t) => {
-            println!("✅ Tracer installed successfully");
-            t
-        }
-        Err(e) => {
-            println!("❌ Failed to install tracer: {}", e);
-            return Err(Box::new(e));
-        }
-    };
-
-    // Setup logs exporter using LoggerProvider builder
-    let log_exporter = opentelemetry_otlp::new_exporter()
-        .tonic()
+    // Build trace exporter using OpenTelemetry 0.31 API
+    let trace_exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
         .with_endpoint(&otlp_endpoint)
         .with_timeout(std::time::Duration::from_secs(10))
-        .build_log_exporter()
-        .expect("Failed to build log exporter");
+        .build()?;
 
-    let logger_provider = opentelemetry_sdk::logs::LoggerProvider::builder()
-        .with_config(
-            opentelemetry_sdk::logs::Config::default().with_resource(resource.clone()),
-        )
-        .with_batch_exporter(log_exporter, runtime::Tokio)
+    // Build tracer provider
+    let tracer_provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
+        .with_batch_exporter(trace_exporter)
+        .with_resource(resource.clone())
+        .build();
+
+    // Get tracer from provider
+    let tracer = tracer_provider.tracer("video-server");
+
+    println!("✅ Tracer installed successfully");
+
+    // Build log exporter using OpenTelemetry 0.31 API
+    let log_exporter = opentelemetry_otlp::LogExporter::builder()
+        .with_tonic()
+        .with_endpoint(&otlp_endpoint)
+        .with_timeout(std::time::Duration::from_secs(10))
+        .build()?;
+
+    // Build logger provider
+    let logger_provider = opentelemetry_sdk::logs::SdkLoggerProvider::builder()
+        .with_resource(resource.clone())
+        .with_batch_exporter(log_exporter)
         .build();
 
     println!("✅ Logger provider installed successfully");
@@ -558,12 +551,12 @@ fn init_tracer() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize tracing subscriber with all layers
     match tracing_subscriber::registry()
-        .with(telemetry_layer)           // For traces/spans
-        .with(otel_log_layer)            // For logs via OTLP
+        .with(telemetry_layer) // For traces/spans
+        .with(otel_log_layer) // For logs via OTLP
         .with(tracing_subscriber::EnvFilter::new(
             std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
         ))
-        .with(tracing_subscriber::fmt::layer())  // Console output
+        .with(tracing_subscriber::fmt::layer()) // Console output
         .try_init()
     {
         Ok(_) => println!("✅ Tracing subscriber initialized"),

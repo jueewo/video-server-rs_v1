@@ -41,17 +41,16 @@ serde_yaml = "0.9"
 # Error handling
 anyhow = "1.0"
 
-# OpenTelemetry dependencies & Logging
-opentelemetry = { version = "0.22", features = ["logs"] }
-opentelemetry_sdk = { version = "0.22", features = ["rt-tokio", "logs"] }
-opentelemetry-otlp = { version = "0.15", features = ["grpc-tonic", "logs"] }
-
+# OpenTelemetry dependencies & Logging - Latest versions (0.31/0.32)
+# Compatible with SigNoz and all modern OTLP collectors
+opentelemetry = "0.31"
+opentelemetry_sdk = { version = "0.31", features = ["rt-tokio", "logs", "trace"] }
+opentelemetry-otlp = { version = "0.31", features = ["grpc-tonic", "logs", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tracing-opentelemetry = "0.23"
+tracing-opentelemetry = "0.32"
+opentelemetry-appender-tracing = "0.31"
 
-# Add logs support - bridges tracing events to OTLP logs
-opentelemetry-appender-tracing = "0.3"
 
 # Utilities
 time = "0.3"

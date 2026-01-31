@@ -35,13 +35,13 @@ impl Default for AppConfig {
 
 impl AppConfig {
     pub fn load() -> Self {
-        match fs::read_to_string("app.yml") {
+        match fs::read_to_string("app.yaml") {
             Ok(content) => serde_yaml::from_str(&content).unwrap_or_else(|e| {
-                println!("⚠️  Failed to parse app.yml: {}", e);
+                println!("⚠️  Failed to parse app.yaml: {}", e);
                 Self::default()
             }),
             Err(_) => {
-                println!("ℹ️  No app.yml found, using defaults");
+                println!("ℹ️  No app.yaml found, using defaults");
                 Self::default()
             }
         }
@@ -506,8 +506,11 @@ fn init_tracer() -> Result<(), Box<dyn std::error::Error>> {
     println!("📡 Connecting to OTLP endpoint: {}", otlp_endpoint);
 
     // Create shared resource - OpenTelemetry 0.31 API
+    // let resource = opentelemetry_sdk::Resource::builder()
+    //     .with_service_name("media-server")
+    //     .build();
     let resource = opentelemetry_sdk::Resource::builder()
-        .with_service_name("video-server")
+        .with_service_name(std::env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "video-server".to_string()))
         .build();
 
     // Build trace exporter using OpenTelemetry 0.31 API

@@ -2,6 +2,8 @@
 
 This guide provides detailed setup instructions for integrating your video-server-rs application with Vector and SigNoz for comprehensive observability.
 
+> **Note**: Vector's `opentelemetry` source converts OTLP data to Vector's internal format, which loses the native OTLP structure. The configuration below includes transforms to rebuild the OTLP structure for forwarding to SigNoz.
+
 ## Architecture Overview
 
 ```
@@ -24,16 +26,16 @@ This guide provides detailed setup instructions for integrating your video-serve
                     │  (Data Router)  │
                     │                 │
                     │ • Buffering     │
-                    │ • Sampling      │
                     │ • Transform     │
+                    │ • Rebuild OTLP  │
                     │ • Routing       │
                     └────────┬────────┘
                              │
         ┌────────────────────┼────────────────────┐
         ▼                    ▼                    ▼
 ┌───────────────┐    ┌──────────────┐    ┌─────────────┐
-│    SigNoz     │    │   File Log   │    │   Backup    │
-│               │    │   (Debug)    │    │  (Archive)  │
+│    SigNoz     │    │   File Log   │    │   Console   │
+│               │    │   (Debug)    │    │   (Debug)   │
 │ • Traces      │    └──────────────┘    └─────────────┘
 │ • Metrics     │
 │ • Logs        │

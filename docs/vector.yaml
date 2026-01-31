@@ -1,0 +1,477 @@
+data_dir: /var/lib/vector
+
+
+api:
+  enabled: true
+  address: "0.0.0.0:8686"
+  playground: true
+
+
+# Enrichment table for service mappings
+enrichment_tables:
+  service_mappings:
+    type: file
+    file:
+      path: /etc/vector/service_mappings.csv
+      encoding:
+        type: csv
+    schema:
+      host: string
+      service: string
+
+
+sources:
+  caddy_logs:
+    type: file
+    include:
+      - /var/log/caddy/caddy.log*
+      - /var/log/caddy/caddy-*.log.gz
+    read_from: end
+    ignore_older_secs: 604800
+
+
+  otlp:
+    type: opentelemetry
+    grpc:
+      address: "0.0.0.0:4317"
+    http:
+      address: "0.0.0.0:4318"
+
+
+
+transforms:
+  parse_and_enrich:
+    type: remap
+    inputs:
+      - caddy_logs
+    source: |
+      . = parse_json!(.message)
+
+
+      .timestamp = from_unix_timestamp!(to_int!(.ts), unit: "seconds")
+
+
+      .http.method = .request.method
+      .http.status_code = .status
+      .http.target = to_string!(.request.uri)
+      .http.host = .request.host
+      .http.duration_ms = to_float!(.duration) * 1000.0
+      .client.address = .request.remote_ip
+      .user_agent.original = to_string!(get!(.request.headers, ["User-Agent", 0]))
+
+      # Efficient service lookup from enrichment table
+      service_data, err = get_enrichment_table_record("service_mappings", {
+        "host": .http.host
+      })
+
+      if err == null {
+        .service = service_data.service
+      } else {
+        .service = "unknown"
+      }
+
+
+      if .http.status_code == 200 &&
+         (starts_with(.http.target, "/health") || starts_with(.http.target, "/metrics")) {
+        del(.)
+      }
+
+  prepare_otlp:
+    type: remap
+    inputs:
+      - parse_and_enrich
+    source: |
+      .resourceLogs = [{
+        "resource": {
+          "attributes": [
+            {"key": "service.name", "value": {"stringValue": to_string!(.service)}},
+            {"key": "host.name", "value": {"stringValue": get_hostname!()}}
+          ]
+        },
+        "scopeLogs": [{
+          "scope": {},
+          "logRecords": [{
+            "timeUnixNano": to_string(to_unix_timestamp!(.timestamp, unit: "nanoseconds")),
+            "severityText": "INFO",
+            "body": {"stringValue": encode_json(.)},
+            "attributes": [
+              {"key": "http.method", "value": {"stringValue": to_string!(.http.method)}},
+              {"key": "http.status_code", "value": {"intValue": to_int!(.http.status_code)}},
+              {"key": "http.target", "value": {"stringValue": to_string!(.http.target)}},
+              {"key": "http.host", "value": {"stringValue": to_string!(.http.host)}},
+              {"key": "client.address", "value": {"stringValue": to_string!(.client.address)}}
+            ]
+          }]
+        }]
+      }]
+      . = {"resourceLogs": .resourceLogs}
+
+
+  filter_traces:
+    type: filter
+    inputs:
+      - otlp.traces
+    condition: 'exists(.trace_id) && !exists(.severity_text)'
+
+  filter_logs:
+    type: filter
+    inputs:
+      - otlp.logs
+    condition: 'exists(.severity_text) || exists(.body)'
+
+
+  filter_metrics:
+    type: filter
+    inputs:
+      - otlp.metrics
+    condition: 'exists(.name) || exists(.gauge) || exists(.counter) || exists(.histogram)'
+
+
+  rebuild_otlp_traces:
+    type: remap
+    inputs:
+      - otlp.traces
+    source: |
+      # Rebuild OTLP resourceSpans structure from Vector's flattened format
+
+      # Store original values before transformation
+      trace_id = .trace_id
+      span_id = .span_id
+      parent_span_id = .parent_span_id
+      span_name = .name
+      span_kind = .kind
+      span_status = .status
+      span_trace_state = .trace_state
+
+      # Convert resource attributes to OTLP format
+      resource_attrs = []
+      for_each(object!(.resources)) -> |key, value| {
+        resource_attrs = push(resource_attrs, {
+          "key": key,
+          "value": {"stringValue": to_string!(value)}
+        })
+      }
+
+      # Convert span attributes to OTLP format
+      span_attrs = []
+      for_each(object!(.attributes)) -> |key, value| {
+        attr_value = if is_integer(value) {
+          {"intValue": to_string!(value)}
+        } else if is_float(value) {
+          {"doubleValue": value}
+        } else if is_boolean(value) {
+          {"boolValue": value}
+        } else {
+          {"stringValue": to_string!(value)}
+        }
+        span_attrs = push(span_attrs, {"key": key, "value": attr_value})
+      }
+
+      # Convert events to OTLP format
+      span_events = []
+      for_each(array!(.events)) -> |_index, evt| {
+        evt_attrs = []
+        for_each(object!(evt.attributes)) -> |key, value| {
+          evt_attrs = push(evt_attrs, {
+            "key": key,
+            "value": {"stringValue": to_string!(value)}
+          })
+        }
+        evt_ts = parse_timestamp!(evt.time_unix_nano, format: "%+")
+        span_events = push(span_events, {
+          "name": evt.name,
+          "timeUnixNano": to_string!(to_unix_timestamp(evt_ts, unit: "nanoseconds")),
+          "attributes": evt_attrs,
+          "droppedAttributesCount": evt.dropped_attributes_count
+        })
+      }
+
+      # Convert ISO timestamps to nanoseconds (%+ is ISO 8601)
+      start_ts = parse_timestamp!(.start_time_unix_nano, format: "%+")
+      end_ts = parse_timestamp!(.end_time_unix_nano, format: "%+")
+      start_ns = to_string!(to_unix_timestamp(start_ts, unit: "nanoseconds"))
+      end_ns = to_string!(to_unix_timestamp(end_ts, unit: "nanoseconds"))
+
+      # Build the full OTLP structure
+      . = {
+        "resourceSpans": [{
+          "resource": {
+            "attributes": resource_attrs
+          },
+          "scopeSpans": [{
+            "scope": {},
+            "spans": [{
+              "traceId": trace_id,
+              "spanId": span_id,
+              "parentSpanId": parent_span_id,
+              "name": span_name,
+              "kind": span_kind,
+              "startTimeUnixNano": start_ns,
+              "endTimeUnixNano": end_ns,
+              "attributes": span_attrs,
+              "events": span_events,
+              "status": span_status,
+              "traceState": span_trace_state
+            }]
+          }]
+        }]
+      }
+
+
+  rebuild_otlp_logs:
+    type: remap
+    inputs:
+      - otlp.logs
+    source: |
+      # Rebuild OTLP resourceLogs structure from Vector's flattened format
+
+      # Store original values before transformation
+      log_severity_number = .severity_number
+      log_severity_text = .severity_text
+      log_body = .body
+      log_dropped_attrs = .dropped_attributes_count
+      log_trace_id = .trace_id
+      log_span_id = .span_id
+
+      # Convert resource attributes to OTLP format
+      resource_attrs = []
+      for_each(object!(.resources)) -> |key, value| {
+        resource_attrs = push(resource_attrs, {
+          "key": key,
+          "value": {"stringValue": to_string!(value)}
+        })
+      }
+
+      # Convert log attributes to OTLP format
+      log_attrs = []
+      for_each(object!(.attributes)) -> |key, value| {
+        attr_value = if is_integer(value) {
+          {"intValue": to_string!(value)}
+        } else if is_float(value) {
+          {"doubleValue": value}
+        } else if is_boolean(value) {
+          {"boolValue": value}
+        } else {
+          {"stringValue": to_string!(value)}
+        }
+        log_attrs = push(log_attrs, {"key": key, "value": attr_value})
+      }
+
+      # Convert timestamp
+      observed_ts = parse_timestamp!(.observed_time_unix_nano, format: "%+")
+      observed_ns = to_string!(to_unix_timestamp(observed_ts, unit: "nanoseconds"))
+
+      time_ns = observed_ns
+      if exists(.time_unix_nano) {
+        ts = parse_timestamp!(.time_unix_nano, format: "%+")
+        time_ns = to_string!(to_unix_timestamp(ts, unit: "nanoseconds"))
+      }
+
+      # Build the full OTLP structure
+      . = {
+        "resourceLogs": [{
+          "resource": {
+            "attributes": resource_attrs
+          },
+          "scopeLogs": [{
+            "scope": {},
+            "logRecords": [{
+              "timeUnixNano": time_ns,
+              "observedTimeUnixNano": observed_ns,
+              "severityNumber": log_severity_number,
+              "severityText": log_severity_text,
+              "body": {"stringValue": to_string!(log_body)},
+              "attributes": log_attrs,
+              "droppedAttributesCount": log_dropped_attrs,
+              "traceId": log_trace_id,
+              "spanId": log_span_id
+            }]
+          }]
+        }]
+      }
+
+
+  rebuild_otlp_metrics:
+    type: remap
+    inputs:
+      - otlp.metrics
+    source: |
+      # Rebuild OTLP resourceMetrics structure from Vector's flattened format
+
+      # Store original values before transformation
+      metric_name = .name
+      metric_description = .description
+      metric_unit = .unit
+      metric_gauge = .gauge
+      metric_sum = .sum
+      metric_histogram = .histogram
+      metric_summary = .summary
+
+      # Convert resource attributes to OTLP format
+      resource_attrs = []
+      for_each(object!(.resources)) -> |key, value| {
+        resource_attrs = push(resource_attrs, {
+          "key": key,
+          "value": {"stringValue": to_string!(value)}
+        })
+      }
+
+      # Convert metric attributes to OTLP format
+      metric_attrs = []
+      if exists(.attributes) {
+        for_each(object!(.attributes)) -> |key, value| {
+          attr_value = if is_integer(value) {
+            {"intValue": to_string!(value)}
+          } else if is_float(value) {
+            {"doubleValue": value}
+          } else if is_boolean(value) {
+            {"boolValue": value}
+          } else {
+            {"stringValue": to_string!(value)}
+          }
+          metric_attrs = push(metric_attrs, {"key": key, "value": attr_value})
+        }
+      }
+
+      # Build metric data based on type
+      metric_data = {}
+      if exists(metric_gauge) {
+        metric_data.gauge = metric_gauge
+      } else if exists(metric_sum) {
+        metric_data.sum = metric_sum
+      } else if exists(metric_histogram) {
+        metric_data.histogram = metric_histogram
+      } else if exists(metric_summary) {
+        metric_data.summary = metric_summary
+      }
+
+      # Build the full OTLP structure
+      . = {
+        "resourceMetrics": [{
+          "resource": {
+            "attributes": resource_attrs
+          },
+          "scopeMetrics": [{
+            "scope": {},
+            "metrics": [{
+              "name": metric_name,
+              "description": metric_description,
+              "unit": metric_unit,
+              "metadata": metric_data
+            }]
+          }]
+        }]
+      }
+
+
+sinks:
+
+
+  # == Console Debug ==
+
+  # Add debug console output
+  console_all:
+    type: console
+    inputs:
+      - otlp.traces
+      - otlp.logs
+      - otlp.metrics
+    encoding:
+      codec: json
+
+  # == Caddy logs ==
+
+  signoz_caddy_logs:
+    type: http
+    inputs:
+      - prepare_otlp
+    uri: http://10.0.0.4:4318/v1/logs
+    method: post
+    encoding:
+      codec: json
+    request:
+      headers:
+        content-type: application/json
+    buffer:
+      type: memory
+      max_events: 5000
+      when_full: block
+
+
+
+  # == OTLP ==
+
+  #.. for opentelemetry using the transforms (debug file outputs)
+  traces_file:
+    type: file
+    inputs:
+      - filter_traces
+    path: /var/log/vector/traces-%Y-%m-%d.log
+    encoding:
+      codec: json
+
+  logs_file:
+    type: file
+    inputs:
+      - filter_logs
+    path: /var/log/vector/logs-%Y-%m-%d.log
+    encoding:
+      codec: json
+
+  metrics_file:
+    type: file
+    inputs:
+      - filter_metrics
+    path: /var/log/vector/metrics-%Y-%m-%d.log
+    encoding:
+      codec: json
+
+
+  # SigNoz outputs
+  signoz_traces:
+    type: http
+    inputs:
+      - rebuild_otlp_traces
+    uri: http://10.0.0.4:4318/v1/traces
+    method: post
+    encoding:
+      codec: json
+    request:
+      headers:
+        content-type: application/json
+    buffer:
+      type: memory
+      max_events: 5000
+      when_full: block
+
+  signoz_logs:
+    type: http
+    inputs:
+      - rebuild_otlp_logs
+    uri: http://10.0.0.4:4318/v1/logs
+    method: post
+    encoding:
+      codec: json
+    request:
+      headers:
+        content-type: application/json
+    buffer:
+      type: memory
+      max_events: 5000
+      when_full: block
+
+  signoz_metrics:
+    type: http
+    inputs:
+      - rebuild_otlp_metrics
+    uri: http://10.0.0.4:4318/v1/metrics
+    method: post
+    encoding:
+      codec: json
+    request:
+      headers:
+        content-type: application/json
+    buffer:
+      type: memory
+      max_events: 5000
+      when_full: block

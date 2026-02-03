@@ -20,3 +20,10 @@ storage/
 video.db
 video.db_
 migrations/
+
+# Node.js dependencies
+node_modules/
+package-lock.json
+
+# Generated CSS
+static/css/tailwind.css

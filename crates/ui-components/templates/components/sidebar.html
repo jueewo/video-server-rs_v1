@@ -1,0 +1,17 @@
+<aside class="w-64 bg-base-200 border-r border-base-300 min-h-screen p-4">
+  <ul class="menu menu-lg">
+    {% for item in menu_items %}
+    <li>
+      <a href="{{ item.url }}" class="{% if item.active %}active{% endif %}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ item.icon }}" />
+        </svg>
+        {{ item.label }}
+        {% if item.badge %}
+        <span class="badge badge-sm badge-primary">{{ item.badge }}</span>
+        {% endif %}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</aside>

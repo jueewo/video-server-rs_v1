@@ -1,0 +1,17 @@
+{
+  "name": "video-server-ui",
+  "version": "1.0.0",
+  "description": "UI assets for video-server-rs",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./static/css/input.css -o ./static/css/tailwind.css --minify",
+    "watch:css": "tailwindcss -i ./static/css/input.css -o ./static/css/tailwind.css --watch",
+    "dev": "npm run watch:css"
+  },
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.9",
+    "@tailwindcss/typography": "^0.5.15",
+    "tailwindcss": "^3.4.17",
+    "daisyui": "^4.12.14"
+  }
+}

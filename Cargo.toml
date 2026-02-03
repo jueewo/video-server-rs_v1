@@ -1,5 +1,8 @@
 [workspace]
 members = [
+    "crates/common",
+    "crates/ui-components",
+    "crates/access-groups",
     "crates/video-manager",
     "crates/image-manager",
     "crates/user-auth",
@@ -19,6 +22,9 @@ path = "scripts/generate_thumbnails.rs"
 
 [dependencies]
 # Local crates
+common = { path = "crates/common" }
+ui-components = { path = "crates/ui-components" }
+access-groups = { path = "crates/access-groups" }
 video-manager = { path = "crates/video-manager" }
 image-manager = { path = "crates/image-manager" }
 user-auth = { path = "crates/user-auth" }
@@ -75,11 +81,12 @@ sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "migrate
 serde = { version = "1.0", features = ["derive"] }
 anyhow = "1.0"
 tracing = "0.1"
-time = "0.3"
+time = { version = "0.3", features = ["formatting", "parsing"] }
 tokio-util = { version = "0.7.17", features = ["io"] }
 reqwest = { version = "0.12.28", features = ["json"] }
 openidconnect = "3.5"
 async-trait = "0.1"
+thiserror = "1.0"
 dotenvy = "0.15"
 askama = "0.12"
 askama_axum = "0.4"

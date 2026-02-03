@@ -2,11 +2,11 @@
 # This file configures the appearance and branding of the video server
 
 # Application title displayed in browser tabs and headers
-title: "Video Server | appkask"
+title: "Media Server | appkask"
 
 # Path to the favicon/icon file (relative to storage directory)
 # Supported formats: .ico, .png, .svg, .webp
 icon: "/storage/icon.webp"
 
 # Optional: Application description for meta tags
-description: "A video streaming server with image gallery"
+description: "A media & video streaming server"

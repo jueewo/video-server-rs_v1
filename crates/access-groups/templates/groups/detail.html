@@ -1,0 +1,331 @@
+{% extends "base-tailwind.html" %}
+
+{% block title %}{{ group.name }} - Video Server{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+    <!-- Breadcrumb -->
+    <div class="text-sm breadcrumbs mb-6">
+        <ul>
+            <li><a href="/" class="text-primary hover:underline">Home</a></li>
+            <li><a href="/groups" class="text-primary hover:underline">Groups</a></li>
+            <li>{{ group.name }}</li>
+        </ul>
+    </div>
+
+    <!-- Group Header -->
+    <div class="card bg-base-100 shadow-xl mb-6">
+        <div class="card-body">
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-2">
+                        <h1 class="text-3xl font-bold text-base-content">{{ group.name }}</h1>
+                        <div class="badge badge-lg {% if user_role == "owner" %}badge-primary{% else %}badge-secondary{% endif %} gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                            </svg>
+                            {{ user_role }}
+                        </div>
+                    </div>
+
+
+                    <div class="flex items-center gap-4 mt-4 text-sm text-base-content/60">
+                        <div class="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                            </svg>
+                            <span>{{ member_count }} {% if member_count == 1 %}member{% else %}members{% endif %}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                            </svg>
+                            <span>Created {{ group.created_at }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex flex-wrap gap-2">
+                    {% if can_admin %}
+                    <button class="btn btn-primary gap-2" onclick="inviteMemberModal.showModal()">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
+                        </svg>
+                        Invite Member
+                    </button>
+                    {% endif %}
+
+                    {% if can_admin %}
+                    <a href="/groups/{{ group.slug }}/settings" class="btn btn-ghost gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                        </svg>
+                        Settings
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div role="tablist" class="tabs tabs-lifted tabs-lg mb-6">
+        <input type="radio" name="group_tabs" role="tab" class="tab" aria-label="Resources" checked />
+        <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-6">
+            <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                </svg>
+                Shared Resources
+            </h2>
+
+            <!-- Upload Button -->
+            {% if can_write %}
+            <div class="flex gap-2 mb-4">
+                <a href="/videos/upload?group={{ group.slug }}" class="btn btn-sm btn-primary gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                    </svg>
+                    Upload Video
+                </a>
+                <a href="/images/upload?group={{ group.slug }}" class="btn btn-sm btn-primary gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                    </svg>
+                    Upload Image
+                </a>
+            </div>
+            {% endif %}
+
+            <!-- Resources List -->
+            {% if resources.is_empty() %}
+            <div class="text-center py-12">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto text-base-content/20 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                <p class="text-base-content/60">No resources shared in this group yet</p>
+                {% if can_write %}
+                <p class="text-sm text-base-content/40 mt-2">Upload videos or images to get started</p>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for resource in resources %}
+                <div class="card card-compact bg-base-200 shadow-md hover:shadow-lg transition-shadow">
+                    <figure class="aspect-video bg-base-300">
+                        <img src="{{ resource.thumbnail }}" alt="{{ resource.title }}" class="object-cover w-full h-full" />
+                    </figure>
+                    <div class="card-body">
+                        <h3 class="card-title text-sm">{{ resource.title }}</h3>
+                        <div class="card-actions justify-end">
+                            <a href="{{ resource.url }}" class="btn btn-xs btn-primary">View</a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <input type="radio" name="group_tabs" role="tab" class="tab" aria-label="Members" />
+        <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-6">
+            <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                </svg>
+                Members ({{ members.len() }})
+            </h2>
+
+            <div class="overflow-x-auto">
+                <table class="table table-zebra">
+                    <thead>
+                        <tr>
+                            <th>Member</th>
+                            <th>Role</th>
+                            <th>Joined</th>
+                            {% if can_admin %}
+                            <th>Actions</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for member in members %}
+                        <tr>
+                            <td>
+                                <div class="flex items-center gap-3">
+                                    <div class="avatar placeholder">
+                                        <div class="bg-primary text-primary-content rounded-full w-10">
+                                            <span class="text-sm">{{ member.username.chars().nth(0).unwrap().to_uppercase() }}</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="font-bold">{{ member.username }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="badge {% if member.member.role == "owner" %}badge-primary{% else if member.member.role == "admin" %}badge-accent{% else %}badge-secondary{% endif %} gap-1">
+                                    {{ member.member.role }}
+                                </div>
+                            </td>
+                            <td>{{ member.member.joined_at }}</td>
+                            {% if can_admin %}
+                            <td>
+                                <div class="flex gap-2">
+                                    {% if member.member.role != "owner" %}
+                                    <button class="btn btn-xs btn-ghost" onclick="changeRoleModal_{{ member.member.user_id }}.showModal()">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                        </svg>
+                                    </button>
+                                    <button class="btn btn-xs btn-error btn-ghost" onclick="removeMemberModal_{{ member.member.user_id }}.showModal()">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pending Invitations -->
+            {% if can_admin && !pending_invitations.is_empty() %}
+            <div class="mt-8">
+                <h3 class="text-xl font-bold mb-4">Pending Invitations</h3>
+                <div class="overflow-x-auto">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Expires</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for invitation in pending_invitations %}
+                            <tr>
+                                <td>{{ invitation.email }}</td>
+                                <td><div class="badge badge-ghost">{{ invitation.role }}</div></td>
+                                <td>{{ invitation.expires_at }}</td>
+                                <td>
+                                    <button class="btn btn-xs btn-error" onclick="cancelInvitation({{ invitation.id }})">Cancel</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <input type="radio" name="group_tabs" role="tab" class="tab" aria-label="Activity" />
+        <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-6">
+            <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
+                </svg>
+                Recent Activity
+            </h2>
+
+            <div class="text-center py-12">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto text-base-content/20 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <p class="text-base-content/60">Activity feed coming soon</p>
+                <p class="text-sm text-base-content/40 mt-2">Track uploads, member changes, and more</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Invite Member Modal -->
+{% if can_admin %}
+<dialog id="inviteMemberModal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">Invite Member to {{ group.name }}</h3>
+        <form id="inviteForm" class="space-y-4">
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Email Address</span>
+                </label>
+                <input type="email" name="email" placeholder="member@example.com" class="input input-bordered" required />
+            </div>
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Role</span>
+                </label>
+                <select name="role" class="select select-bordered" required>
+                    <option value="viewer">Viewer - Read only</option>
+                    <option value="contributor">Contributor - Can upload</option>
+                    <option value="editor" selected>Editor - Can upload and edit</option>
+                    <option value="admin">Admin - Can manage members</option>
+                </select>
+            </div>
+            <div class="modal-action">
+                <button type="button" class="btn" onclick="inviteMemberModal.close()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Send Invitation</button>
+            </div>
+        </form>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+{% endif %}
+
+<script>
+// Invite member
+document.getElementById('inviteForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = {
+        email: formData.get('email'),
+        role: formData.get('role')
+    };
+
+    try {
+        const response = await fetch('/groups/{{ group.slug }}/invitations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            inviteMemberModal.close();
+            window.location.reload();
+        } else {
+            const error = await response.json();
+            alert('Error: ' + (error.error || 'Failed to send invitation'));
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+});
+
+// Cancel invitation
+async function cancelInvitation(id) {
+    if (!confirm('Are you sure you want to cancel this invitation?')) return;
+
+    try {
+        const response = await fetch(`/groups/{{ group.slug }}/invitations/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            alert('Failed to cancel invitation');
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+</script>
+{% endblock %}

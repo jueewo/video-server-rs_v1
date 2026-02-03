@@ -79,6 +79,7 @@ use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 
 // Import the crates
 use access_codes::{access_code_routes, AccessCodeState, MediaResource};
+use access_groups;
 use image_manager::{image_routes, ImageManagerState};
 use user_auth::{auth_routes, AuthState, OidcConfig};
 use video_manager::{video_routes, VideoManagerState, RTMP_PUBLISH_TOKEN};
@@ -510,7 +511,9 @@ fn init_tracer() -> Result<(), Box<dyn std::error::Error>> {
     //     .with_service_name("media-server")
     //     .build();
     let resource = opentelemetry_sdk::Resource::builder()
-        .with_service_name(std::env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "video-server".to_string()))
+        .with_service_name(
+            std::env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "video-server".to_string()),
+        )
         .build();
 
     // Build trace exporter using OpenTelemetry 0.31 API
@@ -714,6 +717,8 @@ async fn main() -> anyhow::Result<()> {
         .merge(video_routes().with_state(video_state))
         .merge(image_routes().with_state(image_state))
         .merge(access_code_routes(access_state))
+        .merge(access_groups::routes::create_routes(pool.clone()))
+        .merge(access_groups::routes::create_api_routes(pool.clone()))
         // Serve static files from storage directory
         .nest_service("/storage", ServeDir::new(&storage_dir))
         // Apply middleware

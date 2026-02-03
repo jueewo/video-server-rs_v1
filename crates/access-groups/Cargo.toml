@@ -8,6 +8,7 @@ edition = "2021"
 axum = "0.7"
 tower = "0.4"
 tower-http = { version = "0.5", features = ["fs", "trace"] }
+tower-sessions = "0.13"
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }

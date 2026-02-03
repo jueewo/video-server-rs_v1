@@ -47,14 +47,6 @@ pub use db::{
 // Module declarations
 pub mod db;
 pub mod error;
-pub mod models;
-
-// Optional modules (to be implemented)
-#[cfg(feature = "handlers")]
 pub mod handlers;
-
-#[cfg(feature = "service")]
-pub mod service;
-
-#[cfg(feature = "validation")]
-pub mod validation;
+pub mod models;
+pub mod routes;

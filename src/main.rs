@@ -718,7 +718,6 @@ async fn main() -> anyhow::Result<()> {
         .merge(image_routes().with_state(image_state))
         .merge(access_code_routes(access_state))
         .merge(access_groups::routes::create_routes(pool.clone()))
-        .merge(access_groups::routes::create_api_routes(pool.clone()))
         // Serve static files from storage directory
         .nest_service("/storage", ServeDir::new(&storage_dir))
         // Apply middleware

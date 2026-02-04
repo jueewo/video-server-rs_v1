@@ -2,6 +2,7 @@
 // Phase 3: Tag models and future shared models
 // Created: January 2025
 
+pub mod image;
 pub mod tag;
 pub mod video;
 
@@ -19,4 +20,10 @@ pub use video::{
     CreateVideoRequest, ExtractedVideoMetadata, UpdateVideoMetadataRequest, UploadProgress, Video,
     VideoAnalytics, VideoListResponse, VideoQueryParams, VideoResponse, VideoSummary,
     VideoUploadResponse, ViewsByDate,
+};
+
+pub use image::{
+    CategoryStats as ImageCategoryStats, CollectionStats, Image, ImageAnalytics, ImageBulkTagDTO,
+    ImageBulkUpdateDTO, ImageCreateDTO, ImageFilterOptions, ImageListDTO, ImageSummary,
+    ImageTagStats, ImageUpdateDTO, RelatedImagesDTO,
 };

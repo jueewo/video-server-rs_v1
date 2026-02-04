@@ -13,3 +13,5 @@ time = { version = "0.3", features = ["formatting", "parsing"] }
 tracing = "0.1"
 axum = "0.7"
 tower-sessions = "0.12"
+image = { version = "0.24", features = ["jpeg", "png", "gif", "webp", "bmp"] }
+kamadak-exif = "0.5"

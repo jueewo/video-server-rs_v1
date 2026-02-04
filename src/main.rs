@@ -80,7 +80,7 @@ use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 // Import the crates
 use access_codes::{access_code_routes, AccessCodeState, MediaResource};
 use access_groups;
-use common::create_tag_routes;
+use common::{create_search_routes, create_tag_routes};
 use image_manager::{image_routes, ImageManagerState};
 use user_auth::{auth_routes, AuthState, OidcConfig};
 use video_manager::{video_routes, VideoManagerState, RTMP_PUBLISH_TOKEN};
@@ -729,6 +729,7 @@ async fn main() -> anyhow::Result<()> {
         .merge(access_code_routes(access_state))
         .merge(access_groups::routes::create_routes(pool.clone()))
         .merge(create_tag_routes(pool.clone()))
+        .merge(create_search_routes(pool.clone()))
         // Serve static files from storage directory
         .nest_service("/storage", ServeDir::new(&storage_dir))
         // Serve static CSS and assets

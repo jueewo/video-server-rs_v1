@@ -33,8 +33,8 @@ ALTER TABLE videos ADD COLUMN mime_type TEXT;          -- MIME type (e.g., "vide
 ALTER TABLE videos ADD COLUMN format TEXT;             -- Container format (e.g., "mp4", "webm")
 
 -- Timestamps
-ALTER TABLE videos ADD COLUMN upload_date DATETIME DEFAULT CURRENT_TIMESTAMP;
-ALTER TABLE videos ADD COLUMN last_modified DATETIME DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE videos ADD COLUMN upload_date DATETIME;
+ALTER TABLE videos ADD COLUMN last_modified DATETIME;
 ALTER TABLE videos ADD COLUMN published_at DATETIME;   -- When made public (if applicable)
 
 -- Analytics and engagement
@@ -63,15 +63,7 @@ ALTER TABLE videos ADD COLUMN seo_keywords TEXT;       -- Comma-separated keywor
 -- Additional metadata (JSON for flexibility)
 ALTER TABLE videos ADD COLUMN extra_metadata TEXT;     -- JSON object for custom fields
 
--- Create indexes for frequently queried columns
-CREATE INDEX IF NOT EXISTS idx_videos_status ON videos(status);
-CREATE INDEX IF NOT EXISTS idx_videos_featured ON videos(featured);
-CREATE INDEX IF NOT EXISTS idx_videos_category ON videos(category);
-CREATE INDEX IF NOT EXISTS idx_videos_language ON videos(language);
-CREATE INDEX IF NOT EXISTS idx_videos_upload_date ON videos(upload_date DESC);
-CREATE INDEX IF NOT EXISTS idx_videos_published_at ON videos(published_at DESC);
-CREATE INDEX IF NOT EXISTS idx_videos_view_count ON videos(view_count DESC);
-CREATE INDEX IF NOT EXISTS idx_videos_duration ON videos(duration);
+
 
 -- ============================================================================
 -- IMAGES TABLE ENHANCEMENTS
@@ -114,8 +106,8 @@ ALTER TABLE images ADD COLUMN original_filename TEXT;  -- Original uploaded file
 ALTER TABLE images ADD COLUMN alt_text TEXT;           -- Accessibility alt text
 
 -- Timestamps
-ALTER TABLE images ADD COLUMN upload_date DATETIME DEFAULT CURRENT_TIMESTAMP;
-ALTER TABLE images ADD COLUMN last_modified DATETIME DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE images ADD COLUMN upload_date DATETIME;
+ALTER TABLE images ADD COLUMN last_modified DATETIME;
 ALTER TABLE images ADD COLUMN published_at DATETIME;   -- When made public
 
 -- Analytics and engagement
@@ -152,16 +144,7 @@ ALTER TABLE images ADD COLUMN seo_keywords TEXT;
 ALTER TABLE images ADD COLUMN exif_data TEXT;          -- Full EXIF data as JSON
 ALTER TABLE images ADD COLUMN extra_metadata TEXT;     -- JSON object for custom fields
 
--- Create indexes for frequently queried columns
-CREATE INDEX IF NOT EXISTS idx_images_status ON images(status);
-CREATE INDEX IF NOT EXISTS idx_images_featured ON images(featured);
-CREATE INDEX IF NOT EXISTS idx_images_category ON images(category);
-CREATE INDEX IF NOT EXISTS idx_images_collection ON images(collection);
-CREATE INDEX IF NOT EXISTS idx_images_upload_date ON images(upload_date DESC);
-CREATE INDEX IF NOT EXISTS idx_images_published_at ON images(published_at DESC);
-CREATE INDEX IF NOT EXISTS idx_images_view_count ON images(view_count DESC);
-CREATE INDEX IF NOT EXISTS idx_images_taken_at ON images(taken_at DESC);
-CREATE INDEX IF NOT EXISTS idx_images_dimensions ON images(width, height);
+
 
 -- ============================================================================
 -- TRIGGERS: Auto-update last_modified timestamp
@@ -263,7 +246,7 @@ ORDER BY view_count DESC;
 -- DATA MIGRATION: Set defaults for existing records
 -- ============================================================================
 
--- Set upload_date for existing videos (use created_at equivalent if exists)
+-- Set upload_date for existing videos
 UPDATE videos SET upload_date = CURRENT_TIMESTAMP WHERE upload_date IS NULL;
 
 -- Set upload_date for existing images (use created_at)
@@ -287,6 +270,26 @@ UPDATE images SET view_count = 0 WHERE view_count IS NULL;
 UPDATE images SET like_count = 0 WHERE like_count IS NULL;
 UPDATE images SET download_count = 0 WHERE download_count IS NULL;
 UPDATE images SET share_count = 0 WHERE share_count IS NULL;
+
+-- Create indexes after data migration (more efficient)
+CREATE INDEX IF NOT EXISTS idx_videos_status ON videos(status);
+CREATE INDEX IF NOT EXISTS idx_videos_featured ON videos(featured);
+CREATE INDEX IF NOT EXISTS idx_videos_category ON videos(category);
+CREATE INDEX IF NOT EXISTS idx_videos_language ON videos(language);
+CREATE INDEX IF NOT EXISTS idx_videos_upload_date ON videos(upload_date DESC);
+CREATE INDEX IF NOT EXISTS idx_videos_published_at ON videos(published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_videos_view_count ON videos(view_count DESC);
+CREATE INDEX IF NOT EXISTS idx_videos_duration ON videos(duration);
+
+CREATE INDEX IF NOT EXISTS idx_images_status ON images(status);
+CREATE INDEX IF NOT EXISTS idx_images_featured ON images(featured);
+CREATE INDEX IF NOT EXISTS idx_images_category ON images(category);
+CREATE INDEX IF NOT EXISTS idx_images_collection ON images(collection);
+CREATE INDEX IF NOT EXISTS idx_images_upload_date ON images(upload_date DESC);
+CREATE INDEX IF NOT EXISTS idx_images_published_at ON images(published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_images_view_count ON images(view_count DESC);
+CREATE INDEX IF NOT EXISTS idx_images_taken_at ON images(taken_at DESC);
+CREATE INDEX IF NOT EXISTS idx_images_dimensions ON images(width, height);
 
 -- ============================================================================
 -- MIGRATION VERIFICATION

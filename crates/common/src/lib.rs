@@ -9,6 +9,7 @@ pub mod routes;
 pub mod services;
 pub mod traits;
 pub mod types;
+pub mod utils;
 
 // Re-export commonly used types
 pub use access_control::{check_resource_access, log_access_key_usage};
@@ -20,3 +21,4 @@ pub use routes::*;
 pub use services::*;
 pub use traits::AccessControl;
 pub use types::{GroupRole, Permission, ResourceMetadata, ResourceType};
+pub use utils::*;

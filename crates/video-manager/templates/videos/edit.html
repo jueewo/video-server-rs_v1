@@ -1,0 +1,664 @@
+{% extends "base-tailwind.html" %}
+{% block title %}Edit Video - {{ video.title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .tag-input-wrapper {
+        position: relative;
+    }
+
+    .tag-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 10;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .thumbnail-preview {
+        max-height: 300px;
+        object-fit: cover;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-5xl" x-data="videoEdit()">
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center gap-4 mb-4">
+            <a href="/watch/{{ video.slug }}" class="btn btn-ghost btn-sm gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+                </svg>
+                Back to Video
+            </a>
+            <a href="/videos" class="btn btn-ghost btn-sm gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                </svg>
+                All Videos
+            </a>
+        </div>
+        <h1 class="text-4xl font-bold text-base-content mb-2">✏️ Edit Video</h1>
+        <p class="text-lg text-base-content/70">Update your video details and settings</p>
+    </div>
+
+    <!-- Alert Messages -->
+    <div x-show="saveSuccess" class="alert alert-success mb-6" x-cloak>
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div>
+            <h3 class="</div>font-bold">Changes Saved!</h3>
+            <div class="text-xs">Your video has been updated successfully.</div>
+        </div>
+    </div>
+
+    <div x-show="saveError" class="alert alert-error mb-6" x-cloak>
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div>
+            <h3 class="font-bold">Save Failed</h3>
+            <div class="text-xs" x-text="errorMessage"></div>
+        </div>
+    </div>
+
+    <form @submit.prevent="handleSubmit" class="space-y-6">
+        <!-- Video Preview -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title text-2xl mb-4">🎬 Video Preview</h2>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Current Thumbnail -->
+                    <div>
+                        <h3 class="font-bold mb-2">Current Thumbnail</h3>
+                        <div class="bg-base-300 rounded-xl overflow-hidden aspect-video">
+                            <img
+                                :src="formData.thumbnailUrl || '/storage/videos/{{ video.is_public ? "public" : "private" }}/{{ video.slug }}/poster.webp'"
+                                alt="Video thumbnail"
+                                class="w-full h-full thumbnail-preview"
+                                onerror="this.src='/static/placeholder-video.png'"
+                            >
+                        </div>
+                        <label class="btn btn-sm btn-outline mt-2 w-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                            </svg>
+                            Upload New Thumbnail
+                            <input type="file" class="hidden" accept="image/*" @change="handleThumbnailUpload">
+                        </label>
+                    </div>
+
+                    <!-- Video Info -->
+                    <div class="space-y-4">
+                        <div class="stats stats-vertical shadow w-full">
+                            <div class="stat">
+                                <div class="stat-title">Duration</div>
+                                <div class="stat-value text-2xl" x-text="formatDuration({{ video.duration || 0 }})"></div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-title">Resolution</div>
+                                <div class="stat-value text-2xl">{{ video.resolution || "N/A" }}</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-title">File Size</div>
+                                <div class="stat-value text-2xl" x-text="formatFileSize({{ video.file_size || 0 }})"></div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-title">Views</div>
+                                <div class="stat-value text-2xl">{{ video.view_count || 0 }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Basic Information -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title text-2xl mb-4">📝 Basic Information</h2>
+
+                <!-- Title -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">Title *</span>
+                        <span class="label-text-alt" x-text="formData.title.length + '/100'"></span>
+                    </label>
+                    <input
+                        type="text"
+                        x-model="formData.title"
+                        placeholder="Enter video title"
+                        class="input input-bordered w-full"
+                        maxlength="100"
+                        required
+                    >
+                </div>
+
+                <!-- Slug (read-only) -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">URL Slug</span>
+                        <span class="label-text-alt text-warning">Cannot be changed</span>
+                    </label>
+                    <input
+                        type="text"
+                        value="{{ video.slug }}"
+                        class="input input-bordered w-full"
+                        disabled
+                    >
+                    <label class="label">
+                        <span class="label-text-alt">Accessible at: /watch/{{ video.slug }}</span>
+                    </label>
+                </div>
+
+                <!-- Short Description -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">Short Description</span>
+                        <span class="label-text-alt" x-text="formData.shortDescription.length + '/200'"></span>
+                    </label>
+                    <input
+                        type="text"
+                        x-model="formData.shortDescription"
+                        placeholder="Brief description for preview cards"
+                        class="input input-bordered w-full"
+                        maxlength="200"
+                    >
+                </div>
+
+                <!-- Full Description -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">Full Description</span>
+                        <span class="label-text-alt" x-text="formData.description.length + '/2000'"></span>
+                    </label>
+                    <textarea
+                        x-model="formData.description"
+                        class="textarea textarea-bordered h-32"
+                        placeholder="Detailed description..."
+                        maxlength="2000"
+                    ></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tags -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title text-2xl mb-4">🏷️ Tags</h2>
+
+                <div class="form-control tag-input-wrapper">
+                    <label class="label">
+                        <span class="label-text font-semibold">Manage Tags</span>
+                        <span class="label-text-alt">Help others discover your video</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <input
+                            type="text"
+                            x-model="tagInput"
+                            @input="searchTags"
+                            @keydown.enter.prevent="addTag"
+                            placeholder="Type to search or create tags..."
+                            class="input input-bordered flex-1"
+                        >
+                        <button type="button" @click="addTag" class="btn btn-primary">Add</button>
+                    </div>
+
+                    <!-- Tag Suggestions -->
+                    <div
+                        x-show="tagSuggestions.length > 0"
+                        class="tag-suggestions mt-2 menu bg-base-200 rounded-box shadow-lg"
+                        x-cloak
+                    >
+                        <template x-for="tag in tagSuggestions" :key="tag">
+                            <li><a @click="addTagFromSugg</li>estion(tag)" x-text="tag"></a></li>
+                        </template>
+                    </div>
+
+                    <!-- Selected Tags -->
+                    <div class="flex flex-wrap gap-2 mt-4" x-show="formData.tags.length > 0">
+                        <template x-for="(tag, index) in formData.tags" :key="index">
+                            <div class="badge badge-primary badge-lg gap-2">
+                                <span x-text="tag"></span>
+                                <button type="button" @click="removeTag(index)" class="btn btn-ghost btn-xs btn-circle">✕</button>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div x-show="formData.tags.length === 0" class="text-center py-4 text-base-content/60">
+                        No tags added yet. Add some tags to improve discoverability!
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category & Settings -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title text-2xl mb-4">⚙️ Settings</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Category -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Category</span>
+                        </label>
+                        <select x-model="formData.category" class="select select-bordered">
+                            <option value="">Select category...</option>
+                            <option value="education">📚 Education</option>
+                            <option value="entertainment">🎭 Entertainment</option>
+                            <option value="music">🎵 Music</option>
+                            <option value="gaming">🎮 Gaming</option>
+                            <option value="sports">⚽ Sports</option>
+                            <option value="news">📰 News</option>
+                            <option value="technology">💻 Technology</option>
+                            <option value="tutorial">🎓 Tutorial</option>
+                            <option value="vlog">📹 Vlog</option>
+                            <option value="other">📦 Other</option>
+                        </select>
+                    </div>
+
+                    <!-- Language -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Language</span>
+                        </label>
+                        <select x-model="formData.language" class="select select-bordered">
+                            <option value="en">🇬🇧 English</option>
+                            <option value="es">🇪🇸 Spanish</option>
+                            <option value="fr">🇫🇷 French</option>
+                            <option value="de">🇩🇪 German</option>
+                            <option value="it">🇮🇹 Italian</option>
+                            <option value="pt">🇵🇹 Portuguese</option>
+                            <option value="ru">🇷🇺 Russian</option>
+                            <option value="ja">🇯🇵 Japanese</option>
+                            <option value="zh">🇨🇳 Chinese</option>
+                            <option value="ko">🇰🇷 Korean</option>
+                            <option value="other">🌍 Other</option>
+                        </select>
+                    </div>
+
+                    <!-- Status -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Status</span>
+                        </label>
+                        <select x-model="formData.status" class="select select-bordered">
+                            <option value="draft">📝 Draft</option>
+                            <option value="active">✅ Active</option>
+                            <option value="processing">⚙️ Processing</option>
+                            <option value="archived">🗄️ Archived</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Checkboxes -->
+                <div class="divider"></div>
+                <div class="space-y-3">
+                    <div class="form-control">
+                        <label class="label cursor-pointer justify-start gap-4">
+                            <input type="checkbox" x-model="formData.isPublic" class="checkbox checkbox-primary">
+                            <div></div>
+                                <span class="label-text font-semibold">Make Public</span>
+                                <p class="text-xs text-base-content/60">Anyone can view this video</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label cursor-pointer justify-start gap-4">
+                            <input type="checkbox" x-model="formData.featured" class="checkbox checkbox-secondary">
+                            <div>
+                                <span class="label-text font-semibold">Featured Video</span>
+                                <p class="text-xs text-base-content/60">Highlight this video on the homepage</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label cursor-pointer justify-start gap-4">
+                            <input type="checkbox" x-model="formData.allowComments" class="checkbox checkbox-accent">
+                            <div>
+                                <span class="label-text font-semibold">Allow Comments</span>
+                                <p class="text-xs text-base-content/60">Users can comment on this video</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label cursor-pointer justify-start gap-4">
+                            <input type="checkbox" x-model="formData.allowDownload" class="checkbox">
+                            <div>
+                                <span class="label-text font-semibold">Allow Download</span>
+                                <p class="text-xs text-base-content/60">Users can download this video</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label cursor-pointer justify-start gap-4">
+                            <input type="checkbox" x-model="formData.matureContent" class="checkbox checkbox-warning">
+                            <div>
+                                <span class="label-text font-semibold">Mature Content</span>
+                                <p class="text-xs text-base-content/60">This video contains mature content</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEO Settings (Optional) -->
+        <div class="collapse collapse-arrow bg-base-100 shadow-xl">
+            <input type="checkbox">
+            <div class="collapse-title text-xl font-bold">
+                🔍 SEO Settings (Optional)
+            </div>
+            <div class="collapse-content space-y-4">
+                <!-- SEO Title -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">SEO Title</span>
+                        <span class="label-text-alt" x-text="formData.seoTitle.length + '/60'"></span>
+                    </label>
+                    <input
+                        type="text"
+                        x-model="formData.seoTitle"
+                        placeholder="Custom title for search engines"
+                        class="input input-bordered w-full"
+                        maxlength="60"
+                    >
+                </div>
+
+                <!-- SEO Description -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">SEO Description</span>
+                        <span class="label-text-alt" x-text="formData.seoDescription.length + '/160'"></span>
+                    </label>
+                    <textarea
+                        x-model="formData.seoDescription"
+                        class="textarea textarea-bordered h-24"
+                        placeholder="Description for search engines (160 chars max)"
+                        maxlength="160"
+                    ></textarea>
+                </div>
+
+                <!-- SEO Keywords -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">SEO Keywords</span>
+                    </label>
+                    <input
+                        type="text"
+                        x-model="formData.seoKeywords"
+                        placeholder="Comma-separated keywords"
+                        class="input input-bordered w-full"
+                    >
+                    <label class="label">
+                        <span class="label-text-alt">Separate multiple keywords with commas</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <button
+                        type="submit"
+                        class="btn btn-primary flex-1 gap-2"
+                        :disabled="saving"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h5a2 2 0 012 2v7a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2h5v5.586l-1.293-1.293zM9 4a1 1 0 012 0v2H9V4z" />
+                        </svg>
+                        <span x-text="saving ? 'Saving...' : 'Save Changes'"></span>
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="resetForm"
+                        class="btn btn-outline gap-2"
+                        :disabled="saving"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                        </svg>
+                        Reset
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="confirmDelete"
+                        class="btn btn-error gap-2"
+                        :disabled="saving"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                        Delete Video
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- Delete Confirmation Modal -->
+    <div x-show="showDeleteModal" class="modal modal-open" x-cloak>
+        <div class="modal-box">
+            <h3 class="font-bold text-lg mb-4">⚠️ Confirm Deletion</h3>
+            <p class="py-4">
+                Are you sure you want to delete this video? This action cannot be undone.
+            </p>
+            <p class="text-error font-bold mb-4">
+                Video: {{ video.title }}
+            </p>
+            <div class="modal-action">
+                <button @click="showDeleteModal = false" class="btn btn-ghost">Cancel</button>
+                <button @click="deleteVideo" class="btn btn-error gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    Delete Permanently
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function videoEdit() {
+    return {
+        saving: false,
+        saveSuccess: false,
+        saveError: false,
+        errorMessage: '',
+        showDeleteModal: false,
+        formData: {
+            title: '{{ video.title }}',
+            description: '{{ video.description | default(value="") }}',
+            shortDescription: '{{ video.short_description | default(value="") }}',
+            category: '{{ video.category | default(value="") }}',
+            language: '{{ video.language | default(value="en") }}',
+            status: '{{ video.status | default(value="active") }}',
+            tags: [], // Will be loaded from API
+            isPublic: {{ video.is_public | default(value=0) }} === 1,
+            featured: {{ video.featured | default(value=0) }} === 1,
+            allowComments: {{ video.allow_comments | default(value=1) }} === 1,
+            allowDownload: {{ video.allow_download | default(value=0) }} === 1,
+            matureContent: {{ video.mature_content | default(value=0) }} === 1,
+            thumbnailUrl: '',
+            seoTitle: '{{ video.seo_title | default(value="") }}',
+            seoDescription: '{{ video.seo_description | default(value="") }}',
+            seoKeywords: '{{ video.seo_keywords | default(value="") }}'
+        },
+        originalData: {},
+        tagInput: '',
+        tagSuggestions: [],
+
+        async init() {
+            // Store original data for reset
+            this.originalData = JSON.parse(JSON.stringify(this.formData));
+
+            // Load existing tags
+            await this.loadTags();
+        },
+
+        async loadTags() {
+            try {
+                const response = await fetch('/api/videos/{{ video.id }}/tags');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.formData.tags = data.tags || [];
+                }
+            } catch (error) {
+                console.error('Failed to load tags:', error);
+            }
+        },
+
+        searchTags() {
+            const query = this.tagInput.toLowerCase();
+            if (query.length < 2) {
+                this.tagSuggestions = [];
+                return;
+            }
+
+            // Mock suggestions (replace with API call in production)
+            const allTags = ['tutorial', 'education', 'entertainment', 'music', 'gaming',
+                           'technology', 'programming', 'rust', 'web-development', 'coding',
+                           'vlog', 'comedy', 'review', 'documentary', 'animation'];
+
+            this.tagSuggestions = allTags
+                .filter(tag => tag.includes(query) && !this.formData.tags.includes(tag))
+                .slice(0, 5);
+        },
+
+        addTag() {
+            const tag = this.tagInput.trim().toLowerCase();
+            if (tag && !this.formData.tags.includes(tag)) {
+                this.formData.tags.push(tag);
+                this.tagInput = '';
+                this.tagSuggestions = [];
+                showToast(`Tag "${tag}" added`, 'success');
+            }
+        },
+
+        addTagFromSuggestion(tag) {
+            this.tagInput = tag;
+            this.addTag();
+        },
+
+        removeTag(index) {
+            const tag = this.formData.tags[index];
+            this.formData.tags.splice(index, 1);
+            showToast(`Tag "${tag}" removed`, 'info');
+        },
+
+        handleThumbnailUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                // In production, upload to server
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.formData.thumbnailUrl = e.target.result;
+                    showToast('Thumbnail updated (not saved yet)', 'info');
+                };
+                reader.readAsDataURL(file);
+            }
+        },
+
+        async handleSubmit() {
+            this.saving = true;
+            this.saveSuccess = false;
+            this.saveError = false;
+
+            try {
+                const response = await fetch('/api/videos/{{ video.id }}', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(this.formData)
+                });
+
+                if (response.ok) {
+                    this.saveSuccess = true;
+                    this.originalData = JSON.parse(JSON.stringify(this.formData));
+                    showToast('Video updated successfully!', 'success');
+
+                    // Scroll to top to show success message
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                    throw new Error('Failed to save changes');
+                }
+            } catch (error) {
+                this.saveError = true;
+                this.errorMessage = error.message || 'An error occurred while saving';
+                showToast('Failed to save changes', 'error');
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        resetForm() {
+            if (confirm('Are you sure you want to discard all changes?')) {
+                this.formData = JSON.parse(JSON.stringify(this.originalData));
+                showToast('Changes discarded', 'info');
+            }
+        },
+
+        confirmDelete() {
+            this.showDeleteModal = true;
+        },
+
+        async deleteVideo() {
+            try {
+                const response = await fetch('/api/videos/{{ video.id }}', {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showToast('Video deleted successfully', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/videos';
+                    }, 1500);
+                } else {
+                    throw new Error('Failed to delete video');
+                }
+            } catch (error) {
+                showToast('Failed to delete video: ' + error.message, 'error');
+                this.showDeleteModal = false;
+            }
+        },
+
+        formatDuration(seconds) {
+            if (!seconds) return '0:00';
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            return h > 0
+                ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+                : `${m}:${s.toString().padStart(2, '0')}`;
+        },
+
+        formatFileSize(bytes) {
+            if (!bytes) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+    }
+}
+</script>
+{% endblock %}

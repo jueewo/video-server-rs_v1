@@ -20,7 +20,7 @@ use tracing::{self, info};
 // -------------------------------
 
 #[derive(Template)]
-#[template(path = "videos/list.html")]
+#[template(path = "videos/list-tailwind.html")]
 pub struct VideoListTemplate {
     authenticated: bool,
     page_title: String,

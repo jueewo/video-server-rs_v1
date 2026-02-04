@@ -18,7 +18,7 @@ use tracing::{self, info};
 // Template Structs
 // -------------------------------
 #[derive(Template)]
-#[template(path = "images/gallery.html")]
+#[template(path = "images/gallery-tailwind.html")]
 pub struct GalleryTemplate {
     authenticated: bool,
     page_title: String,

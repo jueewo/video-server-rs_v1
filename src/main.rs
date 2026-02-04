@@ -102,7 +102,7 @@ struct AppState {
 // -------------------------------
 
 #[derive(Template)]
-#[template(path = "index.html")]
+#[template(path = "index-tailwind.html")]
 struct IndexTemplate {
     authenticated: bool,
     app_title: String,

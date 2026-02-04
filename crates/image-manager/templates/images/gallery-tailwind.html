@@ -1,0 +1,365 @@
+{% extends "base-tailwind.html" %} {% block title %}{{ page_title }} - Image
+Gallery{% endblock %} {% block content %}
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+    <!-- Page Header -->
+    <div
+        class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4"
+    >
+        <div>
+            <h1 class="text-4xl font-bold text-base-content mb-2">
+                🖼️ {{ page_title }}
+            </h1>
+            <p class="text-lg text-base-content/70">
+                {% if authenticated %} Your personal image gallery {% else %}
+                Browse our public image collection {% endif %}
+            </p>
+        </div>
+        <div class="flex items-center gap-3">
+            {% if authenticated %}
+            <a href="/upload" class="btn btn-primary gap-2">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                >
+                    <path
+                        fill-rule="evenodd"
+                        d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
+                        clip-rule="evenodd"
+                    />
+                </svg>
+                Upload Image
+            </a>
+            <div class="badge badge-success gap-2">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-4 w-4"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                >
+                    <path
+                        fill-rule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clip-rule="evenodd"
+                    />
+                </svg>
+                Authenticated
+            </div>
+            {% else %}
+            <a href="/login" class="btn btn-primary">Login</a>
+            <div class="badge badge-info gap-2">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-4 w-4"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                >
+                    <path
+                        fill-rule="evenodd"
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                        clip-rule="evenodd"
+                    />
+                </svg>
+                Guest Mode
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Info Alert for Guests -->
+    {% if !authenticated %}
+    <div class="alert alert-info shadow-lg mb-8">
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            class="stroke-current shrink-0 w-6 h-6"
+        >
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            ></path>
+        </svg>
+        <div>
+            <h3 class="font-bold">Limited Access</h3>
+            <div class="text-xs">
+                You're viewing public images only.
+                <a href="/login" class="link link-hover font-semibold">Login</a>
+                to access private images and upload functionality.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Public Images Section -->
+    <div class="mb-12">
+        <div class="flex items-center justify-between mb-6">
+            <h2
+                class="text-2xl font-bold text-base-content flex items-center gap-2"
+            >
+                <span>📸</span>
+                <span>Public Images</span>
+            </h2>
+            {% if !public_images.is_empty() %}
+            <div class="badge badge-neutral">
+                {{ public_images.len() }} images
+            </div>
+            {% endif %}
+        </div>
+
+        {% if !public_images.is_empty() %}
+        <div
+            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+        >
+            {% for image in public_images %}
+            <a
+                href="/images/{{ image.0 }}"
+                class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group"
+            >
+                <figure
+                    class="relative aspect-video bg-base-300 overflow-hidden"
+                >
+                    <img
+                        src="/images/{{ image.0 }}_thumb"
+                        alt="{{ image.1 }}"
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                        onerror="this.onerror=null; this.src='/images/{{ image.0 }}';"
+                    />
+                </figure>
+                <div class="card-body p-4">
+                    <h3 class="card-title text-base line-clamp-2">
+                        {{ image.1 }}
+                    </h3>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="btn btn-circle btn-primary btn-sm">
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="h-4 w-4"
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                >
+                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                    <path
+                                        fill-rule="evenodd"
+                                        d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
+                                        clip-rule="evenodd"
+                                    />
+                                </svg>
+                            </div>
+                            <p class="text-xs text-base-content/60">
+                                Click to view
+                            </p>
+                        </div>
+                        <div class="badge badge-success badge-sm">PUBLIC</div>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-16 bg-base-200 rounded-lg">
+            <div class="text-6xl mb-4">📭</div>
+            <p class="text-lg text-base-content/60">
+                No public images available at the moment.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Private Images Section (Only if authenticated) -->
+    {% if authenticated %}
+    <div class="mb-12">
+        <div class="flex items-center justify-between mb-6">
+            <h2
+                class="text-2xl font-bold text-base-content flex items-center gap-2"
+            >
+                <span>🔒</span>
+                <span>Private Images</span>
+            </h2>
+            {% if !private_images.is_empty() %}
+            <div class="badge badge-neutral">
+                {{ private_images.len() }} images
+            </div>
+            {% endif %}
+        </div>
+
+        {% if !private_images.is_empty() %}
+        <div
+            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+        >
+            {% for image in private_images %}
+            <a
+                href="/images/{{ image.0 }}"
+                class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group border-2 border-primary/20"
+            >
+                <figure
+                    class="relative aspect-video bg-base-300 overflow-hidden"
+                >
+                    <img
+                        src="/images/{{ image.0 }}_thumb"
+                        alt="{{ image.1 }}"
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                        onerror="this.onerror=null; this.src='/images/{{ image.0 }}';"
+                    />
+                </figure>
+                <div class="card-body p-4">
+                    <h3 class="card-title text-base line-clamp-2">
+                        {{ image.1 }}
+                    </h3>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="btn btn-circle btn-primary btn-sm">
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="h-4 w-4"
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                >
+                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                    <path
+                                        fill-rule="evenodd"
+                                        d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
+                                        clip-rule="evenodd"
+                                    />
+                                </svg>
+                            </div>
+                            <p
+                                class="text-xs text-base-content/60 flex items-center gap-1"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="h-3 w-3"
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                >
+                                    <path
+                                        fill-rule="evenodd"
+                                        d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                                        clip-rule="evenodd"
+                                    />
+                                </svg>
+                                Members only
+                            </p>
+                        </div>
+                        <div class="badge badge-error badge-sm">PRIVATE</div>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-16 bg-base-200 rounded-lg">
+            <div class="text-6xl mb-4">🔓</div>
+            <p class="text-lg text-base-content/60">
+                No private images available.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Call to Action / Quick Actions -->
+    {% if !authenticated %}
+    <div
+        class="hero bg-gradient-to-br from-primary to-secondary rounded-2xl shadow-2xl overflow-hidden"
+    >
+        <div class="hero-content text-center py-12">
+            <div class="max-w-md">
+                <h3 class="text-3xl font-bold text-white mb-4">
+                    🌟 Want to See More?
+                </h3>
+                <p class="text-white/90 mb-6 text-lg">
+                    Login to access private images and upload your own content.
+                </p>
+                <a
+                    href="/login"
+                    class="btn btn-lg bg-white text-primary hover:bg-base-100 border-0 gap-2"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-6 w-6"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                    >
+                        <path
+                            fill-rule="evenodd"
+                            d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                            clip-rule="evenodd"
+                        />
+                    </svg>
+                    Login Now
+                </a>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card bg-base-200 shadow-xl">
+        <div class="card-body">
+            <h3 class="card-title text-2xl mb-4">🎯 Quick Actions</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <a href="/upload" class="btn btn-primary gap-2 justify-start">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                    >
+                        <path
+                            fill-rule="evenodd"
+                            d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
+                            clip-rule="evenodd"
+                        />
+                    </svg>
+                    Upload New Image
+                </a>
+                <a href="/videos" class="btn btn-secondary gap-2 justify-start">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                    >
+                        <path
+                            d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z"
+                        />
+                    </svg>
+                    Browse Videos
+                </a>
+                <a href="/groups" class="btn btn-accent gap-2 justify-start">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                    >
+                        <path
+                            d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"
+                        />
+                    </svg>
+                    My Groups
+                </a>
+                <a href="/test" class="btn btn-outline gap-2 justify-start">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                    >
+                        <path
+                            d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z"
+                        />
+                    </svg>
+                    Watch Live Stream
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

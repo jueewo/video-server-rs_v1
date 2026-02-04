@@ -1,5 +1,5 @@
-{% extends "base.html" %} {% block title %}{{ app_title }} - Home{% endblock %} {%
-block content %}
+{% extends "base.html" %} {% block title %}{{ app_title }} - Home{% endblock %}
+{% block content %}
 <div class="container">
     <h1>🎬 {{ app_title }}</h1>
     <p class="subtitle">Your personal media hub</p>
@@ -18,6 +18,13 @@ block content %}
             <span class="emoji">🖼️</span>
             View Image Gallery
         </a>
+
+        {% if authenticated %}
+        <a href="/groups" class="btn btn-primary">
+            <span class="emoji">👥</span>
+            My Groups
+        </a>
+        {% endif %}
 
         <a href="/test" class="btn btn-outline">
             <span class="emoji">📡</span>

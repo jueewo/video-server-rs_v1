@@ -15,3 +15,6 @@ axum = "0.7"
 tower-sessions = "0.12"
 image = { version = "0.24", features = ["jpeg", "png", "gif", "webp", "bmp"] }
 kamadak-exif = "0.5"
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["full"] }

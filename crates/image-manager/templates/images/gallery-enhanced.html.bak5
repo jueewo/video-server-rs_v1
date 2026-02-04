@@ -732,7 +732,7 @@
 function imageGallery() {
     return {
         // State
-        images: {{ images_json }},
+        images: {{ images | safe }},
         searchQuery: '',
         searchSuggestions: [],
         viewMode: 'grid',

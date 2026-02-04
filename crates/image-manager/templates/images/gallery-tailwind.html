@@ -116,7 +116,7 @@ Gallery{% endblock %} {% block content %}
         >
             {% for image in public_images %}
             <a
-                href="/images/{{ image.0 }}"
+                href="/images/view/{{ image.0 }}"
                 class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group"
             >
                 <figure
@@ -194,7 +194,7 @@ Gallery{% endblock %} {% block content %}
         >
             {% for image in private_images %}
             <a
-                href="/images/{{ image.0 }}"
+                href="/images/view/{{ image.0 }}"
                 class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group border-2 border-primary/20"
             >
                 <figure

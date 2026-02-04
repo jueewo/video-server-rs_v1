@@ -247,7 +247,7 @@
                         <img
                             id="mainImage"
                             :src="'/images/{{ image.slug }}' + (showFullRes ? '?full=true' : '')"
-                            alt="{{ image.title }}"
+                            alt="{{ image.alt_text.unwrap_or(image.title.clone()) }}"
                             @click="handleImageClick"
                             @mousedown="startPan"
                             @mousemove="pan"

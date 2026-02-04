@@ -278,3 +278,40 @@ pub async fn accept_invitation_page_handler(
         }
     }
 }
+
+/// Group settings page template
+#[derive(Template)]
+#[template(path = "groups/settings.html")]
+struct GroupSettingsTemplate {
+    group: crate::models::AccessGroup,
+    can_admin: bool,
+}
+
+/// Group settings page handler
+pub async fn group_settings_page_handler(
+    State(pool): State<SqlitePool>,
+    Path(slug): Path<String>,
+    session: Session,
+) -> Result<Response> {
+    let user_id = get_user_id(&session).await?;
+    let group = get_group_by_slug(&pool, &slug).await?;
+
+    // Check if user is admin
+    let user_role = crate::db::get_user_role(&pool, group.id, &user_id).await?;
+    let can_admin = user_role.as_ref().map(|r| r.can_admin()).unwrap_or(false);
+
+    if !can_admin {
+        return Err(AccessGroupError::Forbidden(
+            "Only administrators can access settings".to_string(),
+        ));
+    }
+
+    let template = GroupSettingsTemplate { group, can_admin };
+
+    Ok(Html(
+        template
+            .render()
+            .map_err(|e| AccessGroupError::Internal(format!("Template error: {}", e)))?,
+    )
+    .into_response())
+}

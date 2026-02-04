@@ -1,14 +1,14 @@
 use askama::Template;
+use axum::response::{Html, IntoResponse, Response};
 use axum::{
     extract::{Multipart, Path, Query, State},
     http::{header, StatusCode},
-    response::{IntoResponse, Response},
     routing::{delete, get, post, put},
     Json, Router,
 };
 use image::{imageops, GenericImageView};
 use serde::{Deserialize, Serialize};
-use sqlx::{Pool, Sqlite};
+use sqlx::{Pool, Row, Sqlite};
 use std::{path::PathBuf, sync::Arc};
 use time::OffsetDateTime;
 use tower_sessions::Session;
@@ -28,8 +28,98 @@ use common::{
 pub struct GalleryTemplate {
     authenticated: bool,
     page_title: String,
-    public_images: Vec<(String, String, String, i32)>, // (slug, title, description, is_public)
+    public_images: Vec<(String, String, String, i32)>,
     private_images: Vec<(String, String, String, i32)>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GalleryImage {
+    pub id: i64,
+    pub slug: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub thumbnail_url: Option<String>,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub category: Option<String>,
+    pub is_public: bool,
+    pub view_count: i64,
+    pub like_count: i64,
+    pub download_count: i64,
+    pub tags: Vec<String>,
+}
+
+#[derive(Template)]
+#[template(path = "images/detail.html")]
+pub struct ImageDetailTemplate {
+    authenticated: bool,
+    image: ImageDetail,
+}
+
+#[derive(Template)]
+#[template(path = "images/edit.html")]
+pub struct EditImageTemplate {
+    authenticated: bool,
+    image: ImageDetail,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ImageDetail {
+    pub id: i64,
+    pub slug: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub alt_text: Option<String>,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub file_size: Option<i64>,
+    pub format: Option<String>,
+    pub category: Option<String>,
+    pub collection: Option<String>,
+    pub is_public: bool,
+    pub featured: bool,
+    pub status: String,
+    pub view_count: i64,
+    pub like_count: i64,
+    pub download_count: i64,
+    pub share_count: i64,
+    pub tags: Vec<String>,
+    pub upload_date: String,
+    pub dominant_color: Option<String>,
+    pub exif_data: Option<String>,
+    pub copyright_holder: Option<String>,
+    pub license: Option<String>,
+    pub attribution: Option<String>,
+}
+
+impl ImageDetail {
+    pub fn width_display(&self) -> String {
+        self.width
+            .map(|w| w.to_string())
+            .unwrap_or_else(|| "?".to_string())
+    }
+
+    pub fn height_display(&self) -> String {
+        self.height
+            .map(|h| h.to_string())
+            .unwrap_or_else(|| "?".to_string())
+    }
+
+    pub fn file_size_or_zero(&self) -> i64 {
+        self.file_size.unwrap_or(0)
+    }
+
+    pub fn format_display(&self) -> String {
+        self.format.clone().unwrap_or_else(|| "JPEG".to_string())
+    }
+
+    pub fn upload_date_display(&self) -> String {
+        if self.upload_date.is_empty() {
+            "Unknown date".to_string()
+        } else {
+            self.upload_date.clone()
+        }
+    }
 }
 
 #[derive(Template)]
@@ -88,9 +178,14 @@ impl ImageManagerState {
 pub fn image_routes() -> Router<Arc<ImageManagerState>> {
     Router::new()
         .route("/images", get(images_gallery_handler))
+        .route("/images/view/:slug", get(image_detail_handler))
+        .route("/images/:slug/edit", get(edit_image_handler))
         .route("/images/:slug", get(serve_image_handler))
         .route("/upload", get(upload_page_handler))
         .route("/api/images/upload", post(upload_image_handler))
+        // Image CRUD API endpoints
+        .route("/api/images/:id", put(update_image_handler))
+        .route("/api/images/:id", delete(delete_image_handler))
         // Image tag endpoints
         .route("/api/images/:id/tags", get(get_image_tags_handler))
         .route("/api/images/:id/tags", post(add_image_tags_handler))
@@ -563,52 +658,473 @@ pub async fn images_gallery_handler(
         .flatten()
         .unwrap_or(false);
 
-    // Get user_id from session
-    let user_id: Option<String> = if authenticated {
-        session.get("user_id").await.ok().flatten()
-    } else {
-        None
-    };
+    // Get images from database - simplified for working version
+    let rows = sqlx::query(
+        r#"
+        SELECT slug, title, description, is_public
+        FROM images
+        WHERE is_public = 1 OR ? = 1
+        ORDER BY upload_date DESC
+        "#,
+    )
+    .bind(authenticated)
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|e| {
+        tracing::error!("Database error: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
-    // Get images from database (filtered by ownership)
-    let images = get_images(&state.pool, user_id)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    info!(
-        count = images.len(),
-        authenticated = authenticated,
-        "Images loaded"
-    );
-
-    let page_title = if authenticated {
-        "🖼️ All Images".to_string()
-    } else {
-        "🖼️ Public Images".to_string()
-    };
-
-    // Separate images into public and private
     let mut public_images = Vec::new();
     let mut private_images = Vec::new();
 
-    for image in images {
-        if image.3 == 1 {
-            public_images.push(image);
+    for row in rows {
+        let slug: String = row.try_get("slug").unwrap_or_default();
+        let title: String = row.try_get("title").unwrap_or_default();
+        let description: String = row.try_get("description").unwrap_or_default();
+        let is_public: i32 = row.try_get("is_public").unwrap_or(1);
+
+        let image_tuple = (slug, title, description, is_public);
+
+        if is_public == 1 {
+            public_images.push(image_tuple);
         } else {
-            private_images.push(image);
+            private_images.push(image_tuple);
         }
     }
 
     Ok(GalleryTemplate {
         authenticated,
-        page_title,
+        page_title: "Image Gallery".to_string(),
         public_images,
         private_images,
     })
 }
 
 // -------------------------------
-// Serve Image Handler
+// Image Detail Page Handler
+// -------------------------------
+#[tracing::instrument(skip(session, state))]
+pub async fn image_detail_handler(
+    session: Session,
+    State(state): State<Arc<ImageManagerState>>,
+    Path(slug): Path<String>,
+) -> Result<Html<String>, (StatusCode, String)> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    // Get image from database - simplified for now
+    let row = match sqlx::query(
+        r#"
+        SELECT
+            id, slug, title, description, alt_text, width, height, file_size, format,
+            category, collection, is_public, featured, status, view_count, like_count,
+            download_count, upload_date, taken_at, dominant_color,
+            camera_make, camera_model, lens_model, focal_length, aperture, shutter_speed,
+            iso, exposure_bias, flash, white_balance, gps_latitude, gps_longitude
+        FROM images
+        WHERE slug = ?
+        "#,
+    )
+    .bind(&slug)
+    .fetch_optional(&state.pool)
+    .await
+    {
+        Ok(Some(row)) => row,
+        Ok(None) => {
+            return Err((StatusCode::NOT_FOUND, "Image not found".to_string()));
+        }
+        Err(e) => {
+            tracing::error!("Database error fetching image: {}", e);
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Database error: {}", e),
+            ));
+        }
+    };
+
+    let image = ImageDetail {
+        id: row.try_get("id").unwrap_or(0),
+        slug: row.try_get("slug").unwrap_or_default(),
+        title: row.try_get("title").unwrap_or_default(),
+        description: row.try_get("description").ok(),
+        alt_text: row.try_get("alt_text").ok(),
+        width: row.try_get("width").ok(),
+        height: row.try_get("height").ok(),
+        file_size: row.try_get("file_size").ok(),
+        format: row.try_get("format").ok(),
+        category: row.try_get("category").ok(),
+        collection: row.try_get("collection").ok(),
+        is_public: row.try_get("is_public").unwrap_or(false),
+        featured: row.try_get("featured").unwrap_or(false),
+        status: row
+            .try_get("status")
+            .unwrap_or_else(|_| "active".to_string()),
+        view_count: row.try_get("view_count").unwrap_or(0),
+        like_count: row.try_get("like_count").unwrap_or(0),
+        download_count: row.try_get("download_count").unwrap_or(0),
+        share_count: row.try_get("share_count").unwrap_or(0),
+        upload_date: row.try_get("upload_date").unwrap_or_default(),
+        dominant_color: row.try_get("dominant_color").ok(),
+        exif_data: row.try_get("exif_data").ok(),
+        copyright_holder: row.try_get("copyright_holder").ok(),
+        license: row.try_get("license").ok(),
+        attribution: row.try_get("attribution").ok(),
+        tags: Vec::new(),
+    };
+
+    // Check if user can view this image
+    if !image.is_public && !authenticated {
+        return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()));
+    }
+
+    // Get tags for this image
+    let tag_service = TagService::new(&state.pool);
+    let tags = match tag_service.get_image_tags(image.id as i32).await {
+        Ok(tags) => tags.into_iter().map(|t| t.name).collect(),
+        Err(e) => {
+            tracing::error!("Error fetching tags: {}", e);
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Error fetching tags: {}", e),
+            ));
+        }
+    };
+
+    let mut image_with_tags = image;
+    image_with_tags.tags = tags;
+
+    let template = ImageDetailTemplate {
+        authenticated,
+        image: image_with_tags,
+    };
+
+    match template.render() {
+        Ok(html) => Ok(Html(html)),
+        Err(e) => {
+            tracing::error!("Template render error: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Template error: {}", e),
+            ))
+        }
+    }
+}
+
+// -------------------------------
+// Image Edit Handler
+// -------------------------------
+#[tracing::instrument(skip(session, state))]
+pub async fn edit_image_handler(
+    session: Session,
+    State(state): State<Arc<ImageManagerState>>,
+    Path(slug): Path<String>,
+) -> Result<Html<String>, (StatusCode, String)> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()));
+    }
+
+    // Fetch image from database
+    let row = match sqlx::query("SELECT * FROM images WHERE slug = ?")
+        .bind(&slug)
+        .fetch_one(&state.pool)
+        .await
+    {
+        Ok(row) => row,
+        Err(e) => {
+            tracing::error!("Error fetching image: {}", e);
+            return Err((StatusCode::NOT_FOUND, format!("Image not found: {}", e)));
+        }
+    };
+
+    let image = ImageDetail {
+        id: row.try_get("id").unwrap_or(0),
+        slug: row.try_get("slug").unwrap_or_default(),
+        title: row.try_get("title").unwrap_or_default(),
+        description: row.try_get("description").ok(),
+        alt_text: row.try_get("alt_text").ok(),
+        width: row.try_get("width").ok(),
+        height: row.try_get("height").ok(),
+        file_size: row.try_get("file_size").ok(),
+        format: row.try_get("format").ok(),
+        category: row.try_get("category").ok(),
+        collection: row.try_get("collection").ok(),
+        is_public: row.try_get("is_public").unwrap_or(false),
+        featured: row.try_get("featured").unwrap_or(false),
+        status: row
+            .try_get("status")
+            .unwrap_or_else(|_| "active".to_string()),
+        view_count: row.try_get("view_count").unwrap_or(0),
+        like_count: row.try_get("like_count").unwrap_or(0),
+        download_count: row.try_get("download_count").unwrap_or(0),
+        share_count: row.try_get("share_count").unwrap_or(0),
+        upload_date: row.try_get("upload_date").unwrap_or_default(),
+        dominant_color: row.try_get("dominant_color").ok(),
+        exif_data: row.try_get("exif_data").ok(),
+        copyright_holder: row.try_get("copyright_holder").ok(),
+        license: row.try_get("license").ok(),
+        attribution: row.try_get("attribution").ok(),
+        tags: Vec::new(),
+    };
+
+    // Get tags for this image
+    let tag_service = TagService::new(&state.pool);
+    let mut image_with_tags = image;
+    image_with_tags.tags = match tag_service.get_image_tags(image_with_tags.id as i32).await {
+        Ok(tags) => tags.into_iter().map(|t| t.name).collect(),
+        Err(e) => {
+            tracing::error!("Error fetching tags: {}", e);
+            Vec::new()
+        }
+    };
+
+    let template = EditImageTemplate {
+        authenticated,
+        image: image_with_tags,
+    };
+
+    match template.render() {
+        Ok(html) => Ok(Html(html)),
+        Err(e) => {
+            tracing::error!("Template render error: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Template error: {}", e),
+            ))
+        }
+    }
+}
+
+// -------------------------------
+// Update Image Handler (API)
+// -------------------------------
+#[derive(Debug, Deserialize)]
+pub struct UpdateImageRequest {
+    title: Option<String>,
+    description: Option<String>,
+    #[serde(rename = "altText")]
+    alt_text: Option<String>,
+    #[serde(rename = "isPublic")]
+    is_public: Option<String>,
+    status: Option<String>,
+    category: Option<String>,
+    subcategory: Option<String>,
+    collection: Option<String>,
+    series: Option<String>,
+    #[serde(rename = "copyrightHolder")]
+    copyright_holder: Option<String>,
+    license: Option<String>,
+    #[serde(rename = "allowDownload")]
+    allow_download: Option<bool>,
+    #[serde(rename = "matureContent")]
+    mature_content: Option<bool>,
+    featured: Option<bool>,
+    watermarked: Option<bool>,
+    tags: Option<Vec<String>>,
+}
+
+#[tracing::instrument(skip(session, state))]
+pub async fn update_image_handler(
+    session: Session,
+    State(state): State<Arc<ImageManagerState>>,
+    Path(id): Path<i64>,
+    Json(update_req): Json<UpdateImageRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()));
+    }
+
+    // Build dynamic UPDATE query
+    let mut updates = Vec::new();
+    let mut params: Vec<String> = Vec::new();
+
+    if let Some(title) = &update_req.title {
+        updates.push("title = ?");
+        params.push(title.clone());
+    }
+    if let Some(description) = &update_req.description {
+        updates.push("description = ?");
+        params.push(description.clone());
+    }
+    if let Some(alt_text) = &update_req.alt_text {
+        updates.push("alt_text = ?");
+        params.push(alt_text.clone());
+    }
+    if let Some(is_public) = &update_req.is_public {
+        updates.push("is_public = ?");
+        params.push((is_public == "true").to_string());
+    }
+    if let Some(status) = &update_req.status {
+        updates.push("status = ?");
+        params.push(status.clone());
+    }
+    if let Some(category) = &update_req.category {
+        updates.push("category = ?");
+        params.push(category.clone());
+    }
+    if let Some(subcategory) = &update_req.subcategory {
+        updates.push("subcategory = ?");
+        params.push(subcategory.clone());
+    }
+    if let Some(collection) = &update_req.collection {
+        updates.push("collection = ?");
+        params.push(collection.clone());
+    }
+    if let Some(series) = &update_req.series {
+        updates.push("series = ?");
+        params.push(series.clone());
+    }
+    if let Some(copyright_holder) = &update_req.copyright_holder {
+        updates.push("copyright_holder = ?");
+        params.push(copyright_holder.clone());
+    }
+    if let Some(license) = &update_req.license {
+        updates.push("license = ?");
+        params.push(license.clone());
+    }
+    if let Some(allow_download) = update_req.allow_download {
+        updates.push("allow_download = ?");
+        params.push(allow_download.to_string());
+    }
+    if let Some(mature_content) = update_req.mature_content {
+        updates.push("mature_content = ?");
+        params.push(mature_content.to_string());
+    }
+    if let Some(featured) = update_req.featured {
+        updates.push("featured = ?");
+        params.push(featured.to_string());
+    }
+    if let Some(watermarked) = update_req.watermarked {
+        updates.push("watermarked = ?");
+        params.push(watermarked.to_string());
+    }
+
+    if updates.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "No fields to update".to_string()));
+    }
+
+    let sql = format!(
+        "UPDATE images SET {}, last_modified = CURRENT_TIMESTAMP WHERE id = ?",
+        updates.join(", ")
+    );
+
+    let mut query = sqlx::query(&sql);
+    for param in params {
+        query = query.bind(param);
+    }
+    query = query.bind(id);
+
+    match query.execute(&state.pool).await {
+        Ok(_) => {
+            // Handle tags if provided
+            if let Some(tags) = update_req.tags {
+                let tag_service = TagService::new(&state.pool);
+                if let Err(e) = tag_service.replace_image_tags(id as i32, tags, None).await {
+                    tracing::error!("Error updating tags: {}", e);
+                }
+            }
+
+            Ok(Json(serde_json::json!({
+                "success": true,
+                "message": "Image updated successfully"
+            })))
+        }
+        Err(e) => {
+            tracing::error!("Error updating image: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Database error: {}", e),
+            ))
+        }
+    }
+}
+
+// -------------------------------
+// Delete Image Handler (API)
+// -------------------------------
+#[tracing::instrument(skip(session, state))]
+pub async fn delete_image_handler(
+    session: Session,
+    State(state): State<Arc<ImageManagerState>>,
+    Path(id): Path<i64>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()));
+    }
+
+    // Get image slug for file deletion
+    let row = match sqlx::query("SELECT slug, filename FROM images WHERE id = ?")
+        .bind(id)
+        .fetch_one(&state.pool)
+        .await
+    {
+        Ok(row) => row,
+        Err(e) => {
+            tracing::error!("Error fetching image: {}", e);
+            return Err((StatusCode::NOT_FOUND, format!("Image not found: {}", e)));
+        }
+    };
+
+    let slug: String = row.try_get("slug").unwrap_or_default();
+
+    // Delete from database (tags will be deleted via foreign key cascade if configured)
+    match sqlx::query("DELETE FROM images WHERE id = ?")
+        .bind(id)
+        .execute(&state.pool)
+        .await
+    {
+        Ok(_) => {
+            // Try to delete image files
+            let image_path = state.storage_dir.join(&slug);
+            let thumb_path = state.storage_dir.join(format!("{}_thumb", &slug));
+            let medium_path = state.storage_dir.join(format!("{}_medium", &slug));
+
+            let _ = tokio::fs::remove_file(image_path).await;
+            let _ = tokio::fs::remove_file(thumb_path).await;
+            let _ = tokio::fs::remove_file(medium_path).await;
+
+            Ok(Json(serde_json::json!({
+                "success": true,
+                "message": "Image deleted successfully"
+            })))
+        }
+        Err(e) => {
+            tracing::error!("Error deleting image: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Database error: {}", e),
+            ))
+        }
+    }
+}
+
+// -------------------------------
+// Image Serving Handler
 // -------------------------------
 #[tracing::instrument(skip(query, session, state))]
 pub async fn serve_image_handler(

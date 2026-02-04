@@ -15,7 +15,7 @@ use crate::handlers::{
 };
 use crate::pages::{
     accept_invitation_page_handler, create_group_page_handler, group_detail_page_handler,
-    groups_list_page_handler,
+    group_settings_page_handler, groups_list_page_handler,
 };
 
 /// Create the access groups router with all endpoints
@@ -25,6 +25,7 @@ pub fn create_routes(pool: SqlitePool) -> Router {
         .route("/groups", get(groups_list_page_handler))
         .route("/groups/create", get(create_group_page_handler))
         .route("/groups/:slug", get(group_detail_page_handler))
+        .route("/groups/:slug/settings", get(group_settings_page_handler))
         // Group API (JSON)
         .route("/api/groups", get(list_groups_handler))
         .route("/api/groups", post(create_group_handler))

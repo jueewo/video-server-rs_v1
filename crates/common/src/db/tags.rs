@@ -2,7 +2,7 @@
 // Phase 3: Database layer for tag CRUD and operations
 // Created: January 2025
 
-use crate::models::tag::{CategoryStats, PopularTags, Tag, TagStats, TagSuggestion, TagWithCount};
+use crate::models::tag::{CategoryStats, Tag, TagStats, TagWithCount};
 use sqlx::{Pool, Sqlite};
 
 // ============================================================================

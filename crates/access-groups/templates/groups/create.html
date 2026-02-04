@@ -1,37 +1,59 @@
-{% extends "base-tailwind.html" %}
-
-{% block title %}Create New Group - Video Server{% endblock %}
-
-{% block content %}
+{% extends "base-tailwind.html" %} {% block title %}Create New Group - Video
+Server{% endblock %} {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-2xl">
     <!-- Breadcrumb -->
     <div class="text-sm breadcrumbs mb-6">
         <ul>
             <li><a href="/" class="text-primary hover:underline">Home</a></li>
-            <li><a href="/groups" class="text-primary hover:underline">Groups</a></li>
+            <li>
+                <a href="/groups" class="text-primary hover:underline"
+                    >Groups</a
+                >
+            </li>
             <li>Create</li>
         </ul>
     </div>
 
     <!-- Page Header -->
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-base-content mb-2">Create New Group</h1>
-        <p class="text-base-content/70">Set up a new collaborative workspace for your team</p>
+        <h1 class="text-3xl font-bold text-base-content mb-2">
+            Create New Group
+        </h1>
+        <p class="text-base-content/70">
+            Set up a new collaborative workspace for your team
+        </p>
     </div>
 
     <!-- Info Alert -->
     <div class="alert alert-info mb-6">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            class="stroke-current shrink-0 w-6 h-6"
+        >
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            ></path>
         </svg>
         <div>
             <p class="font-semibold">You'll be the group owner</p>
-            <p class="text-sm">As the owner, you can manage members, settings, and resources.</p>
+            <p class="text-sm">
+                As the owner, you can manage members, settings, and resources.
+            </p>
         </div>
     </div>
 
     <!-- Create Group Form -->
-    <form id="createGroupForm" action="/groups" method="POST" class="card bg-base-100 shadow-xl">
+    <form
+        id="createGroupForm"
+        action="/groups"
+        method="POST"
+        class="card bg-base-100 shadow-xl"
+    >
         <div class="card-body">
             <!-- Group Name -->
             <div class="form-control mb-4">
@@ -69,7 +91,9 @@
             <div class="form-control mb-6">
                 <label class="label">
                     <span class="label-text font-semibold">Description</span>
-                    <span class="label-text-alt text-base-content/60">(Optional)</span>
+                    <span class="label-text-alt text-base-content/60"
+                        >(Optional)</span
+                    >
                 </label>
                 <textarea
                     name="description"
@@ -90,34 +114,84 @@
 
             <!-- Features Info -->
             <div class="bg-base-200 rounded-lg p-4 mb-6">
-                <h3 class="font-semibold text-base-content mb-3 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                <h3
+                    class="font-semibold text-base-content mb-3 flex items-center gap-2"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5 text-primary"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                    >
+                        <path
+                            fill-rule="evenodd"
+                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                            clip-rule="evenodd"
+                        />
                     </svg>
                     What you'll get with this group:
                 </h3>
                 <ul class="space-y-2 text-sm text-base-content/70">
                     <li class="flex items-start gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5 text-success shrink-0 mt-0.5"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                        >
+                            <path
+                                fill-rule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                clip-rule="evenodd"
+                            />
                         </svg>
                         <span>Invite team members with different roles</span>
                     </li>
                     <li class="flex items-start gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5 text-success shrink-0 mt-0.5"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                        >
+                            <path
+                                fill-rule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                clip-rule="evenodd"
+                            />
                         </svg>
-                        <span>Share videos, images, and files with your team</span>
+                        <span
+                            >Share videos, images, and files with your
+                            team</span
+                        >
                     </li>
                     <li class="flex items-start gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5 text-success shrink-0 mt-0.5"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                        >
+                            <path
+                                fill-rule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                clip-rule="evenodd"
+                            />
                         </svg>
                         <span>Control access with role-based permissions</span>
                     </li>
                     <li class="flex items-start gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5 text-success shrink-0 mt-0.5"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                        >
+                            <path
+                                fill-rule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                clip-rule="evenodd"
+                            />
                         </svg>
                         <span>Collaborate on shared resources</span>
                     </li>
@@ -126,8 +200,18 @@
 
             <!-- Error Display -->
             <div id="errorAlert" class="alert alert-error hidden mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="stroke-current shrink-0 h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                 </svg>
                 <span id="errorMessage"></span>
             </div>
@@ -136,8 +220,17 @@
             <div class="card-actions justify-end gap-3 pt-4 border-t">
                 <a href="/groups" class="btn btn-ghost">Cancel</a>
                 <button type="submit" class="btn btn-primary" id="submitBtn">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                    >
+                        <path
+                            fill-rule="evenodd"
+                            d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                            clip-rule="evenodd"
+                        />
                     </svg>
                     Create Group
                 </button>
@@ -147,119 +240,139 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('createGroupForm');
-    const nameInput = document.getElementById('groupName');
-    const descInput = document.getElementById('groupDescription');
-    const nameLength = document.getElementById('nameLength');
-    const descLength = document.getElementById('descLength');
-    const nameError = document.getElementById('nameError');
-    const errorAlert = document.getElementById('errorAlert');
-    const errorMessage = document.getElementById('errorMessage');
-    const submitBtn = document.getElementById('submitBtn');
+    document.addEventListener("DOMContentLoaded", function () {
+        const form = document.getElementById("createGroupForm");
+        const nameInput = document.getElementById("groupName");
+        const descInput = document.getElementById("groupDescription");
+        const nameLength = document.getElementById("nameLength");
+        const descLength = document.getElementById("descLength");
+        const nameError = document.getElementById("nameError");
+        const errorAlert = document.getElementById("errorAlert");
+        const errorMessage = document.getElementById("errorMessage");
+        const submitBtn = document.getElementById("submitBtn");
 
-    // Character counters
-    nameInput.addEventListener('input', function() {
-        nameLength.textContent = this.value.length;
-        validateName();
-    });
+        // Character counters
+        nameInput.addEventListener("input", function () {
+            nameLength.textContent = this.value.length;
+            validateName();
+        });
 
-    descInput.addEventListener('input', function() {
-        descLength.textContent = this.value.length;
-    });
+        descInput.addEventListener("input", function () {
+            descLength.textContent = this.value.length;
+        });
 
-    // Name validation
-    function validateName() {
-        const value = nameInput.value.trim();
-        if (value.length < 3 && value.length > 0) {
-            showNameError('Group name must be at least 3 characters');
-            return false;
-        } else if (value.length > 100) {
-            showNameError('Group name must be less than 100 characters');
-            return false;
-        } else {
-            hideNameError();
-            return true;
-        }
-    }
-
-    function showNameError(message) {
-        nameError.classList.remove('hidden');
-        nameError.querySelector('.label-text-alt').textContent = message;
-        nameInput.classList.add('input-error');
-    }
-
-    function hideNameError() {
-        nameError.classList.add('hidden');
-        nameInput.classList.remove('input-error');
-    }
-
-    // Form submission
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-
-        // Validate
-        if (!validateName()) {
-            return;
-        }
-
-        if (nameInput.value.trim().length === 0) {
-            showNameError('Group name is required');
-            return;
-        }
-
-        // Show loading state
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="loading loading-spinner"></span> Creating...';
-        errorAlert.classList.add('hidden');
-
-        // Prepare data
-        const formData = {
-            name: nameInput.value.trim(),
-            description: descInput.value.trim() || null
-        };
-
-        try {
-            const response = await fetch('/groups', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData)
-            });
-
-            if (response.ok) {
-                const group = await response.json();
-                // Redirect to new group
-                window.location.href = `/groups/${group.slug}`;
+        // Name validation
+        function validateName() {
+            const value = nameInput.value.trim();
+            if (value.length < 3 && value.length > 0) {
+                showNameError("Group name must be at least 3 characters");
+                return false;
+            } else if (value.length > 100) {
+                showNameError("Group name must be less than 100 characters");
+                return false;
             } else {
-                const error = await response.json();
-                showError(error.error || 'Failed to create group');
+                hideNameError();
+                return true;
+            }
+        }
+
+        function showNameError(message) {
+            nameError.classList.remove("hidden");
+            nameError.querySelector(".label-text-alt").textContent = message;
+            nameInput.classList.add("input-error");
+        }
+
+        function hideNameError() {
+            nameError.classList.add("hidden");
+            nameInput.classList.remove("input-error");
+        }
+
+        // Form submission
+        form.addEventListener("submit", async function (e) {
+            e.preventDefault();
+
+            // Validate
+            if (!validateName()) {
+                return;
+            }
+
+            if (nameInput.value.trim().length === 0) {
+                showNameError("Group name is required");
+                return;
+            }
+
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML =
+                '<span class="loading loading-spinner"></span> Creating...';
+            errorAlert.classList.add("hidden");
+
+            // Prepare data
+            const formData = {
+                name: nameInput.value.trim(),
+                description: descInput.value.trim() || null,
+            };
+
+            try {
+                const response = await fetch("/api/groups", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(formData),
+                });
+
+                if (response.ok) {
+                    const group = await response.json();
+                    // Redirect to new group
+                    window.location.href = `/groups/${group.slug}`;
+                } else {
+                    let errorMessage = "Failed to create group";
+                    try {
+                        const error = await response.json();
+                        errorMessage =
+                            error.error ||
+                            error.details ||
+                            error.message ||
+                            errorMessage;
+                        console.error("API Error:", error);
+                    } catch (e) {
+                        // If response is not JSON
+                        const text = await response.text();
+                        console.error("Response status:", response.status);
+                        console.error("Response text:", text);
+                        errorMessage = `Server error (${response.status}): ${text.substring(0, 100)}`;
+                    }
+                    showError(errorMessage);
+                    resetSubmitButton();
+                }
+            } catch (error) {
+                console.error("Network/Fetch Error:", error);
+                showError(
+                    "Network error: " +
+                        error.message +
+                        ". Please check your connection and try again.",
+                );
                 resetSubmitButton();
             }
-        } catch (error) {
-            console.error('Error:', error);
-            showError('An unexpected error occurred. Please try again.');
-            resetSubmitButton();
+        });
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorAlert.classList.remove("hidden");
+            // Scroll to error
+            errorAlert.scrollIntoView({ behavior: "smooth", block: "center" });
         }
-    });
 
-    function showError(message) {
-        errorMessage.textContent = message;
-        errorAlert.classList.remove('hidden');
-        // Scroll to error
-        errorAlert.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-
-    function resetSubmitButton() {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = `
+        function resetSubmitButton() {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
             </svg>
             Create Group
         `;
-    }
-});
+        }
+    });
 </script>
 {% endblock %}

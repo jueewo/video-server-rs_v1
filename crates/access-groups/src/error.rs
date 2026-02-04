@@ -64,7 +64,8 @@ impl IntoResponse for AccessGroupError {
     fn into_response(self) -> Response {
         let (status, error_message) = match self {
             AccessGroupError::Database(ref e) => {
-                tracing::error!("Database error: {:?}", e);
+                let error_details = format!("Database error: {}", e);
+                tracing::error!("{}", error_details);
                 (StatusCode::INTERNAL_SERVER_ERROR, "Database error occurred")
             }
             AccessGroupError::GroupNotFound(_) => (StatusCode::NOT_FOUND, "Group not found"),
@@ -105,9 +106,14 @@ impl IntoResponse for AccessGroupError {
             AccessGroupError::Validation(ref msg) => (StatusCode::BAD_REQUEST, msg.as_str()),
         };
 
+        let details = match &self {
+            AccessGroupError::Database(e) => format!("Database error: {}", e),
+            _ => self.to_string(),
+        };
+
         let body = Json(json!({
             "error": error_message,
-            "details": self.to_string(),
+            "details": details,
         }));
 
         (status, body).into_response()

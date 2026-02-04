@@ -28,6 +28,8 @@ pub async fn create_group(
     owner_id: &str,
     request: CreateGroupRequest,
 ) -> Result<AccessGroup> {
+    tracing::info!("Creating group: name={}, owner={}", request.name, owner_id);
+
     // Validate input
     if request.name.trim().is_empty() {
         return Err(AccessGroupError::InvalidInput(
@@ -37,6 +39,7 @@ pub async fn create_group(
 
     // Generate slug
     let slug = generate_slug(&request.name);
+    tracing::debug!("Generated slug: {}", slug);
 
     // Check if slug already exists
     let existing =
@@ -46,10 +49,12 @@ pub async fn create_group(
             .await?;
 
     if existing > 0 {
+        tracing::warn!("Slug already exists: {}", slug);
         return Err(AccessGroupError::SlugExists(slug));
     }
 
     // Create group
+    tracing::debug!("Inserting group into database");
     let result = sqlx::query(
         r#"
         INSERT INTO access_groups (name, slug, description, owner_id)
@@ -61,11 +66,17 @@ pub async fn create_group(
     .bind(&request.description)
     .bind(owner_id)
     .execute(pool)
-    .await?;
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to insert group: {:?}", e);
+        e
+    })?;
 
     let group_id = result.last_insert_rowid() as i32;
+    tracing::info!("Group created with id: {}", group_id);
 
     // Add owner as member with owner role
+    tracing::debug!("Adding owner as member");
     sqlx::query(
         r#"
         INSERT INTO group_members (group_id, user_id, role)
@@ -75,10 +86,18 @@ pub async fn create_group(
     .bind(group_id)
     .bind(owner_id)
     .execute(pool)
-    .await?;
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to add owner as member: {:?}", e);
+        e
+    })?;
 
     // Fetch and return the created group
-    get_group_by_id(pool, group_id).await
+    tracing::debug!("Fetching created group");
+    get_group_by_id(pool, group_id).await.map_err(|e| {
+        tracing::error!("Failed to fetch created group: {:?}", e);
+        e
+    })
 }
 
 /// Get group by ID
@@ -285,7 +304,7 @@ pub async fn get_group_members(pool: &SqlitePool, group_id: i32) -> Result<Vec<M
         r#"
         SELECT
             gm.id, gm.group_id, gm.user_id, gm.role, gm.joined_at, gm.invited_by,
-            u.username, u.email
+            u.name, u.email
         FROM group_members gm
         INNER JOIN users u ON gm.user_id = u.id
         WHERE gm.group_id = ?
@@ -317,7 +336,7 @@ pub async fn get_group_members(pool: &SqlitePool, group_id: i32) -> Result<Vec<M
             };
             MemberWithUser {
                 member,
-                username: row.get("username"),
+                name: row.get("name"),
                 email: row.get("email"),
             }
         })

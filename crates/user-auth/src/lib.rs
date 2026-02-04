@@ -536,6 +536,46 @@ pub async fn oidc_callback_handler(
         "User authenticated successfully via OIDC"
     );
 
+    // Create or update user in database
+    let avatar_url = claims
+        .picture()
+        .and_then(|p| p.get(None))
+        .map(|p| p.to_string());
+
+    let upsert_result = sqlx::query(
+        r#"
+        INSERT INTO users (id, email, name, avatar_url, provider, last_login_at)
+        VALUES (?, ?, ?, ?, 'oidc', CURRENT_TIMESTAMP)
+        ON CONFLICT(id) DO UPDATE SET
+            email = excluded.email,
+            name = excluded.name,
+            avatar_url = excluded.avatar_url,
+            last_login_at = CURRENT_TIMESTAMP
+        "#,
+    )
+    .bind(&user_id)
+    .bind(&email)
+    .bind(&name)
+    .bind(&avatar_url)
+    .execute(&state.pool)
+    .await;
+
+    if let Err(e) = upsert_result {
+        error!(
+            event = "user_upsert_failed",
+            user_id = %user_id,
+            error = %e,
+            "Failed to create/update user in database"
+        );
+        // Continue anyway - session-based auth still works
+    } else {
+        info!(
+            event = "user_upserted",
+            user_id = %user_id,
+            "User record created/updated in database"
+        );
+    }
+
     // Store user information in session
     session
         .insert("authenticated", true)
@@ -628,18 +668,46 @@ pub async fn emergency_login_auth_handler(
     let credentials_valid = form.username == config.su_user && form.password == config.su_pwd;
 
     if credentials_valid {
+        let emergency_user_id = format!("emergency-{}", form.username);
+        let emergency_email = format!("{}@emergency.localhost", form.username);
+        let emergency_name = format!("Emergency: {}", form.username);
+
+        // Create or update emergency user in database
+        let upsert_result = sqlx::query(
+            r#"
+            INSERT INTO users (id, email, name, avatar_url, provider, last_login_at)
+            VALUES (?, ?, ?, NULL, 'emergency', CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET
+                last_login_at = CURRENT_TIMESTAMP
+            "#,
+        )
+        .bind(&emergency_user_id)
+        .bind(&emergency_email)
+        .bind(&emergency_name)
+        .execute(&state.pool)
+        .await;
+
+        if let Err(e) = upsert_result {
+            error!(
+                event = "emergency_user_upsert_failed",
+                user_id = %emergency_user_id,
+                error = %e,
+                "Failed to create/update emergency user in database"
+            );
+        }
+
         // Set session values for emergency access
         session.insert("authenticated", true).await.unwrap();
         session
-            .insert("user_id", format!("emergency-{}", form.username))
+            .insert("user_id", emergency_user_id.clone())
             .await
             .unwrap();
         session
-            .insert("email", format!("{}@emergency.localhost", form.username))
+            .insert("email", emergency_email.clone())
             .await
             .unwrap();
         session
-            .insert("name", format!("Emergency User ({})", form.username))
+            .insert("name", emergency_name.clone())
             .await
             .unwrap();
 

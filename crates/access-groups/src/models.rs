@@ -15,8 +15,15 @@ pub struct AccessGroup {
     pub owner_id: String,
     pub created_at: String,
     pub updated_at: String,
-    pub is_active: bool,
+    pub is_active: i32,           // SQLite stores BOOLEAN as INTEGER (0 or 1)
     pub settings: Option<String>, // JSON
+}
+
+impl AccessGroup {
+    /// Check if group is active (helper method)
+    pub fn is_active(&self) -> bool {
+        self.is_active != 0
+    }
 }
 
 impl AccessGroup {
@@ -165,7 +172,7 @@ pub struct GroupWithMetadata {
 pub struct MemberWithUser {
     #[serde(flatten)]
     pub member: GroupMember,
-    pub username: String,
+    pub name: String,
     pub email: Option<String>,
 }
 

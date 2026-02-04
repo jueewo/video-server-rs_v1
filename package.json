@@ -3,15 +3,17 @@
   "version": "1.0.0",
   "description": "UI assets for video-server-rs",
   "private": true,
+  "type": "module",
   "scripts": {
-    "build:css": "tailwindcss -i ./static/css/input.css -o ./static/css/tailwind.css --minify",
-    "watch:css": "tailwindcss -i ./static/css/input.css -o ./static/css/tailwind.css --watch",
+    "build:css": "tailwindcss --input ./static/css/input.css --output ./static/css/tailwind.css --minify",
+    "watch:css": "tailwindcss --input ./static/css/input.css --output ./static/css/tailwind.css --watch",
     "dev": "npm run watch:css"
   },
   "devDependencies": {
-    "@tailwindcss/forms": "^0.5.9",
-    "@tailwindcss/typography": "^0.5.15",
-    "tailwindcss": "^3.4.17",
-    "daisyui": "^4.12.14"
+    "@tailwindcss/cli": "^4.1.18",
+    "@tailwindcss/postcss": "^4.1.18",
+    "daisyui": "^5.5.17",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18"
   }
 }

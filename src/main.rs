@@ -613,6 +613,15 @@ async fn main() -> anyhow::Result<()> {
     // DB setup
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
+        .after_connect(|conn, _meta| {
+            Box::pin(async move {
+                // Enable foreign key constraints
+                sqlx::query("PRAGMA foreign_keys = ON")
+                    .execute(&mut *conn)
+                    .await?;
+                Ok(())
+            })
+        })
         .connect("sqlite:video.db?mode=rwc")
         .await?;
 
@@ -720,6 +729,8 @@ async fn main() -> anyhow::Result<()> {
         .merge(access_groups::routes::create_routes(pool.clone()))
         // Serve static files from storage directory
         .nest_service("/storage", ServeDir::new(&storage_dir))
+        // Serve static CSS and assets
+        .nest_service("/static", ServeDir::new("static"))
         // Apply middleware
         .layer(
             ServiceBuilder::new()

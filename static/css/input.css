@@ -1,25 +1,65 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@plugin "daisyui";
+
+/* DaisyUI theme configuration
+   Using built-in DaisyUI themes that work with v5
+*/
 
 /* Custom component classes */
 @layer components {
     .btn-gradient {
-        @apply bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90 transition-opacity;
+        background: linear-gradient(to right, #667eea, #764ba2);
+        color: white;
+        transition: opacity 0.2s;
+    }
+
+    .btn-gradient:hover {
+        opacity: 0.9;
     }
 
     .card-hover {
-        @apply transition-all duration-200 hover:shadow-2xl hover:-translate-y-1;
+        transition: all 0.2s;
+    }
+
+    .card-hover:hover {
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        transform: translateY(-0.25rem);
     }
 
     .file-item {
-        @apply bg-base-200 rounded-lg p-4 hover:bg-base-300 transition-colors cursor-pointer;
+        background-color: oklch(var(--b2) / 1);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        transition: background-color 0.2s;
+        cursor: pointer;
+    }
+
+    .file-item:hover {
+        background-color: oklch(var(--b3) / 1);
+    }
+
+    /* Fix for line-clamp utility */
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
     }
 }
 
 /* Custom utilities */
 @layer utilities {
     .text-gradient {
-        @apply bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent;
+        background: linear-gradient(to right, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
     }
 }

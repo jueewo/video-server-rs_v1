@@ -26,11 +26,21 @@ use crate::{
 
 /// Helper to get authenticated user ID from session
 async fn get_user_id(session: &Session) -> Result<String> {
-    session
+    tracing::debug!("Getting user_id from session");
+    let user_id = session
         .get::<String>("user_id")
         .await
-        .map_err(|e| AccessGroupError::Internal(format!("Session error: {}", e)))?
-        .ok_or_else(|| AccessGroupError::Unauthorized("Not authenticated".to_string()))
+        .map_err(|e| {
+            tracing::error!("Session get error: {:?}", e);
+            AccessGroupError::Internal(format!("Session error: {}", e))
+        })?
+        .ok_or_else(|| {
+            tracing::warn!("No user_id found in session");
+            AccessGroupError::Unauthorized("Not authenticated".to_string())
+        })?;
+
+    tracing::debug!("Found user_id in session: {}", user_id);
+    Ok(user_id)
 }
 
 /// List all groups for the current user
@@ -98,9 +108,21 @@ pub async fn create_group_handler(
     session: Session,
     Json(request): Json<CreateGroupRequest>,
 ) -> Result<Response> {
-    let user_id = get_user_id(&session).await?;
-    let group = create_group(&pool, &user_id, request).await?;
+    tracing::info!("create_group_handler called");
 
+    let user_id = get_user_id(&session).await.map_err(|e| {
+        tracing::error!("Failed to get user_id from session: {:?}", e);
+        e
+    })?;
+
+    tracing::info!("Got user_id from session: {}", user_id);
+
+    let group = create_group(&pool, &user_id, request).await.map_err(|e| {
+        tracing::error!("create_group failed: {:?}", e);
+        e
+    })?;
+
+    tracing::info!("Group created successfully: {}", group.slug);
     Ok((StatusCode::CREATED, Json(group)).into_response())
 }
 

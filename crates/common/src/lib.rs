@@ -4,6 +4,7 @@ pub mod access_control;
 pub mod db;
 pub mod error;
 pub mod models;
+pub mod services;
 pub mod traits;
 pub mod types;
 
@@ -12,5 +13,6 @@ pub use access_control::{check_resource_access, log_access_key_usage};
 pub use db::*;
 pub use error::Error;
 pub use models::*;
+pub use services::*;
 pub use traits::AccessControl;
 pub use types::{GroupRole, Permission, ResourceMetadata, ResourceType};

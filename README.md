@@ -1,6 +1,6 @@
-# Video Server (Rust + MediaMTX)
+# Media Server (Rust + MediaMTX)
 
-A production-ready HLS live streaming server built with Rust (Axum) and MediaMTX.
+A production-ready media management and HLS live streaming server built with Rust (Axum) and MediaMTX.
 
 ## ✅ Status: PRODUCTION READY
 
@@ -581,4 +581,4 @@ When making changes:
 
 **Built with:** Rust 🦀 + MediaMTX 📡 + Axum ⚡  
 **Status:** Production Ready ✅  
-**Last Updated:** January 9, 2026
+**Last Updated:** January 2025

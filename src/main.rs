@@ -26,7 +26,7 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            title: "Video Server".to_string(),
+            title: "Media Server".to_string(),
             icon: "/storage/icon.png".to_string(),
             description: None,
         }
@@ -609,7 +609,7 @@ async fn main() -> anyhow::Result<()> {
         tracing_subscriber::fmt::init();
     }
 
-    println!("\n🚀 Initializing Modular Video Server...");
+    println!("\n🚀 Initializing Modular Media Server...");
 
     // DB setup
     let pool = SqlitePoolOptions::new()
@@ -779,7 +779,7 @@ async fn main() -> anyhow::Result<()> {
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
 
     println!("\n╔════════════════════════════════════════════════════════════════╗");
-    println!("║   🎥  MODULAR VIDEO SERVER - READY!                           ║");
+    println!("║   🎥  MODULAR MEDIA SERVER - READY!                           ║");
     println!("╚════════════════════════════════════════════════════════════════╝\n");
 
     println!("📦 MODULES LOADED:");

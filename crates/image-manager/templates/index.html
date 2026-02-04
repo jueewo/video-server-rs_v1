@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Video Server - Home{% endblock %}
+{% block title %}Media Server - Home{% endblock %}
 
 {% block extra_styles %}
 @media (max-width: 600px) {
@@ -19,7 +19,7 @@
 
 {% block content %}
 <div class="container">
-    <h1>🎬 Video Server</h1>
+    <h1>🎬 Media Server</h1>
     <p class="subtitle">Your personal media hub</p>
 
     <div class="status{% if !authenticated %} guest{% endif %}">
@@ -57,7 +57,7 @@
     {% endif %}
 
     <div class="footer">
-        <p>Modular Video Server v1.0</p>
+        <p>Modular Media Server v1.0</p>
         <p>Powered by Rust 🦀 + Axum</p>
     </div>
 </div>

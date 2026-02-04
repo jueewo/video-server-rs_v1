@@ -3,16 +3,22 @@ use axum::{
     extract::{Multipart, Path, Query, State},
     http::{header, StatusCode},
     response::{IntoResponse, Response},
-    routing::{get, post},
-    Router,
+    routing::{delete, get, post, put},
+    Json, Router,
 };
 use image::{imageops, GenericImageView};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
 use std::{path::PathBuf, sync::Arc};
 use time::OffsetDateTime;
 use tower_sessions::Session;
 use tracing::{self, info};
+
+// Import tag functionality from common crate
+use common::{
+    models::tag::{AddTagsRequest, Tag},
+    services::tag_service::TagService,
+};
 
 // -------------------------------
 // Template Structs
@@ -85,6 +91,14 @@ pub fn image_routes() -> Router<Arc<ImageManagerState>> {
         .route("/images/:slug", get(serve_image_handler))
         .route("/upload", get(upload_page_handler))
         .route("/api/images/upload", post(upload_image_handler))
+        // Image tag endpoints
+        .route("/api/images/:id/tags", get(get_image_tags_handler))
+        .route("/api/images/:id/tags", post(add_image_tags_handler))
+        .route("/api/images/:id/tags", put(replace_image_tags_handler))
+        .route(
+            "/api/images/:id/tags/:tag_slug",
+            delete(remove_image_tag_handler),
+        )
 }
 
 // -------------------------------
@@ -782,9 +796,9 @@ pub async fn get_images(
         Some(uid) => {
             // Show public images + user's private images
             sqlx::query_as(
-                "SELECT slug, title, COALESCE(description, '') as description, is_public FROM images
+                "SELECT slug, title, description, is_public FROM images
                  WHERE is_public = 1 OR user_id = ?
-                 ORDER BY created_at DESC",
+                 ORDER BY is_public DESC, title",
             )
             .bind(uid)
             .fetch_all(pool)
@@ -793,12 +807,315 @@ pub async fn get_images(
         None => {
             // Show only public images for unauthenticated users
             sqlx::query_as(
-                "SELECT slug, title, COALESCE(description, '') as description, is_public FROM images
+                "SELECT slug, title, description, is_public FROM images
                  WHERE is_public = 1
-                 ORDER BY created_at DESC"
+                 ORDER BY title",
             )
             .fetch_all(pool)
             .await
         }
     }
+}
+
+// -------------------------------
+// Image Tag Handlers
+// -------------------------------
+
+#[derive(Debug, Serialize)]
+struct ImageTagsResponse {
+    image_id: i32,
+    tags: Vec<Tag>,
+}
+
+#[derive(Debug, Serialize)]
+struct ErrorResponse {
+    error: String,
+}
+
+#[derive(sqlx::FromRow)]
+struct ImageRecord {
+    id: i32,
+    user_id: Option<String>,
+    is_public: i32,
+}
+
+/// Helper function to check if user can modify image tags
+async fn can_modify_image(
+    pool: &Pool<Sqlite>,
+    image_id: i32,
+    user_sub: &str,
+) -> Result<bool, sqlx::Error> {
+    let image: Option<ImageRecord> =
+        sqlx::query_as("SELECT id, user_id, is_public FROM images WHERE id = ?")
+            .bind(image_id)
+            .fetch_optional(pool)
+            .await?;
+
+    match image {
+        Some(img) => {
+            // User can modify if they own the image
+            Ok(img.user_id.as_ref() == Some(&user_sub.to_string()))
+        }
+        None => Ok(false),
+    }
+}
+
+/// Helper to get user from session
+async fn get_user_from_session(session: &Session, pool: &Pool<Sqlite>) -> Option<String> {
+    let user_sub: Option<String> = session.get("user_sub").await.ok().flatten();
+
+    if let Some(sub) = user_sub {
+        // Verify user exists
+        let exists: Option<(String,)> = sqlx::query_as("SELECT sub FROM users WHERE sub = ?")
+            .bind(&sub)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
+
+        exists.map(|(s,)| s)
+    } else {
+        None
+    }
+}
+
+/// GET /api/images/:id/tags - Get all tags for an image
+#[tracing::instrument(skip(state, _session))]
+pub async fn get_image_tags_handler(
+    State(state): State<Arc<ImageManagerState>>,
+    _session: Session,
+    Path(image_id): Path<i32>,
+) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
+    // Check if image exists
+    let image_exists: Option<(i32,)> = sqlx::query_as("SELECT id FROM images WHERE id = ?")
+        .bind(image_id)
+        .fetch_optional(&state.pool)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            )
+        })?;
+
+    if image_exists.is_none() {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "Image not found".to_string(),
+            }),
+        ));
+    }
+
+    // Get tags for this image
+    let service = TagService::new(&state.pool);
+    let tags = service
+        .get_image_tags(image_id)
+        .await
+        .map_err(|e: String| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse { error: e }),
+            )
+        })?;
+
+    Ok(Json(ImageTagsResponse { image_id, tags }))
+}
+
+/// POST /api/images/:id/tags - Add tags to an image
+#[tracing::instrument(skip(state, session))]
+pub async fn add_image_tags_handler(
+    State(state): State<Arc<ImageManagerState>>,
+    session: Session,
+    Path(image_id): Path<i32>,
+    Json(request): Json<AddTagsRequest>,
+) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
+    // Get authenticated user
+    let user_sub = get_user_from_session(&session, &state.pool).await.ok_or((
+        StatusCode::UNAUTHORIZED,
+        Json(ErrorResponse {
+            error: "Authentication required".to_string(),
+        }),
+    ))?;
+
+    // Check if user can modify this image
+    let can_modify = can_modify_image(&state.pool, image_id, &user_sub)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            )
+        })?;
+
+    if !can_modify {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "You don't have permission to modify this image".to_string(),
+            }),
+        ));
+    }
+
+    // Add tags to image
+    let service = TagService::new(&state.pool);
+    service
+        .add_tags_to_image(image_id, request.tag_names, Some(&user_sub))
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e })))?;
+
+    // Get updated tag list
+    let tags = service
+        .get_image_tags(image_id)
+        .await
+        .map_err(|e: String| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse { error: e }),
+            )
+        })?;
+
+    info!("Added {} tags to image {}", tags.len(), image_id);
+    Ok(Json(ImageTagsResponse { image_id, tags }))
+}
+
+/// PUT /api/images/:id/tags - Replace all tags on an image
+#[tracing::instrument(skip(state, session))]
+pub async fn replace_image_tags_handler(
+    State(state): State<Arc<ImageManagerState>>,
+    session: Session,
+    Path(image_id): Path<i32>,
+    Json(request): Json<AddTagsRequest>,
+) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
+    // Get authenticated user
+    let user_sub = get_user_from_session(&session, &state.pool).await.ok_or((
+        StatusCode::UNAUTHORIZED,
+        Json(ErrorResponse {
+            error: "Authentication required".to_string(),
+        }),
+    ))?;
+
+    // Check if user can modify this image
+    let can_modify = can_modify_image(&state.pool, image_id, &user_sub)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            )
+        })?;
+
+    if !can_modify {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "You don't have permission to modify this image".to_string(),
+            }),
+        ));
+    }
+
+    // Replace all tags
+    let service = TagService::new(&state.pool);
+    service
+        .replace_image_tags(image_id, request.tag_names, Some(&user_sub))
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e })))?;
+
+    // Get updated tag list
+    let tags = service
+        .get_image_tags(image_id)
+        .await
+        .map_err(|e: String| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse { error: e }),
+            )
+        })?;
+
+    info!(
+        "Replaced tags on image {} with {} tags",
+        image_id,
+        tags.len()
+    );
+    Ok(Json(ImageTagsResponse { image_id, tags }))
+}
+
+/// DELETE /api/images/:id/tags/:tag_slug - Remove a tag from an image
+#[tracing::instrument(skip(state, session))]
+pub async fn remove_image_tag_handler(
+    State(state): State<Arc<ImageManagerState>>,
+    session: Session,
+    Path((image_id, tag_slug)): Path<(i32, String)>,
+) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
+    // Get authenticated user
+    let user_sub = get_user_from_session(&session, &state.pool).await.ok_or((
+        StatusCode::UNAUTHORIZED,
+        Json(ErrorResponse {
+            error: "Authentication required".to_string(),
+        }),
+    ))?;
+
+    // Check if user can modify this image
+    let can_modify = can_modify_image(&state.pool, image_id, &user_sub)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            )
+        })?;
+
+    if !can_modify {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "You don't have permission to modify this image".to_string(),
+            }),
+        ));
+    }
+
+    // Remove tag from image
+    let service = TagService::new(&state.pool);
+    let removed = service
+        .remove_tag_from_image(image_id, &tag_slug)
+        .await
+        .map_err(|e: String| {
+            let status = if e.contains("not found") {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::BAD_REQUEST
+            };
+            (status, Json(ErrorResponse { error: e }))
+        })?;
+
+    if !removed {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: format!("Tag '{}' not associated with image {}", tag_slug, image_id),
+            }),
+        ));
+    }
+
+    // Get updated tag list
+    let tags = service
+        .get_image_tags(image_id)
+        .await
+        .map_err(|e: String| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse { error: e }),
+            )
+        })?;
+
+    info!("Removed tag '{}' from image {}", tag_slug, image_id);
+    Ok(Json(ImageTagsResponse { image_id, tags }))
 }

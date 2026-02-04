@@ -3,17 +3,23 @@ use axum::{
     extract::{Path, Query, State},
     http::{header, StatusCode},
     response::{IntoResponse, Response},
-    routing::get,
-    Router,
+    routing::{delete, get, post, put},
+    Json, Router,
 };
 use reqwest::Client;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
 use std::{path::PathBuf, sync::Arc};
 use time::OffsetDateTime;
 use tokio_util::io::ReaderStream;
 use tower_sessions::Session;
 use tracing::{self, info};
+
+// Import tag functionality from common crate
+use common::{
+    models::tag::{AddTagsRequest, Tag},
+    services::tag_service::TagService,
+};
 
 // -------------------------------
 // Template Structs
@@ -95,6 +101,14 @@ pub fn video_routes() -> Router<Arc<VideoManagerState>> {
         .route("/api/stream/validate", get(validate_stream_handler))
         .route("/api/stream/authorize", get(authorize_stream_handler))
         .route("/api/mediamtx/status", get(mediamtx_status))
+        // Video tag endpoints
+        .route("/api/videos/:id/tags", get(get_video_tags_handler))
+        .route("/api/videos/:id/tags", post(add_video_tags_handler))
+        .route("/api/videos/:id/tags", put(replace_video_tags_handler))
+        .route(
+            "/api/videos/:id/tags/:tag_slug",
+            delete(remove_video_tag_handler),
+        )
 }
 
 // -------------------------------
@@ -557,4 +571,307 @@ pub async fn get_videos(
             .await
         }
     }
+}
+
+// -------------------------------
+// Video Tag Handlers
+// -------------------------------
+
+#[derive(Debug, Serialize)]
+struct VideoTagsResponse {
+    video_id: i32,
+    tags: Vec<Tag>,
+}
+
+#[derive(Debug, Serialize)]
+struct ErrorResponse {
+    error: String,
+}
+
+#[derive(sqlx::FromRow)]
+struct VideoRecord {
+    id: i32,
+    user_id: Option<String>,
+    is_public: i32,
+}
+
+/// Helper function to check if user can modify video tags
+async fn can_modify_video(
+    pool: &Pool<Sqlite>,
+    video_id: i32,
+    user_sub: &str,
+) -> Result<bool, sqlx::Error> {
+    let video: Option<VideoRecord> =
+        sqlx::query_as("SELECT id, user_id, is_public FROM videos WHERE id = ?")
+            .bind(video_id)
+            .fetch_optional(pool)
+            .await?;
+
+    match video {
+        Some(v) => {
+            // User can modify if they own the video
+            Ok(v.user_id.as_ref() == Some(&user_sub.to_string()))
+        }
+        None => Ok(false),
+    }
+}
+
+/// Helper to get user from session
+async fn get_user_from_session(session: &Session, pool: &Pool<Sqlite>) -> Option<String> {
+    let user_sub: Option<String> = session.get("user_sub").await.ok().flatten();
+
+    if let Some(sub) = user_sub {
+        // Verify user exists
+        let exists: Option<(String,)> = sqlx::query_as("SELECT sub FROM users WHERE sub = ?")
+            .bind(&sub)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
+
+        exists.map(|(s,)| s)
+    } else {
+        None
+    }
+}
+
+/// GET /api/videos/:id/tags - Get all tags for a video
+#[tracing::instrument(skip(state, _session))]
+pub async fn get_video_tags_handler(
+    State(state): State<Arc<VideoManagerState>>,
+    _session: Session,
+    Path(video_id): Path<i32>,
+) -> Result<Json<VideoTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
+    // Check if video exists
+    let video_exists: Option<(i32,)> = sqlx::query_as("SELECT id FROM videos WHERE id = ?")
+        .bind(video_id)
+        .fetch_optional(&state.pool)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            )
+        })?;
+
+    if video_exists.is_none() {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "Video not found".to_string(),
+            }),
+        ));
+    }
+
+    // Get tags for this video
+    let service = TagService::new(&state.pool);
+    let tags = service
+        .get_video_tags(video_id)
+        .await
+        .map_err(|e: String| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse { error: e }),
+            )
+        })?;
+
+    Ok(Json(VideoTagsResponse { video_id, tags }))
+}
+
+/// POST /api/videos/:id/tags - Add tags to a video
+#[tracing::instrument(skip(state, session))]
+pub async fn add_video_tags_handler(
+    State(state): State<Arc<VideoManagerState>>,
+    session: Session,
+    Path(video_id): Path<i32>,
+    Json(request): Json<AddTagsRequest>,
+) -> Result<Json<VideoTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
+    // Get authenticated user
+    let user_sub = get_user_from_session(&session, &state.pool).await.ok_or((
+        StatusCode::UNAUTHORIZED,
+        Json(ErrorResponse {
+            error: "Authentication required".to_string(),
+        }),
+    ))?;
+
+    // Check if user can modify this video
+    let can_modify = can_modify_video(&state.pool, video_id, &user_sub)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            )
+        })?;
+
+    if !can_modify {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "You don't have permission to modify this video".to_string(),
+            }),
+        ));
+    }
+
+    // Add tags to video
+    let service = TagService::new(&state.pool);
+    service
+        .add_tags_to_video(video_id, request.tag_names, Some(&user_sub))
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e })))?;
+
+    // Get updated tag list
+    let tags = service
+        .get_video_tags(video_id)
+        .await
+        .map_err(|e: String| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse { error: e }),
+            )
+        })?;
+
+    info!("Added {} tags to video {}", tags.len(), video_id);
+    Ok(Json(VideoTagsResponse { video_id, tags }))
+}
+
+/// PUT /api/videos/:id/tags - Replace all tags on a video
+#[tracing::instrument(skip(state, session))]
+pub async fn replace_video_tags_handler(
+    State(state): State<Arc<VideoManagerState>>,
+    session: Session,
+    Path(video_id): Path<i32>,
+    Json(request): Json<AddTagsRequest>,
+) -> Result<Json<VideoTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
+    // Get authenticated user
+    let user_sub = get_user_from_session(&session, &state.pool).await.ok_or((
+        StatusCode::UNAUTHORIZED,
+        Json(ErrorResponse {
+            error: "Authentication required".to_string(),
+        }),
+    ))?;
+
+    // Check if user can modify this video
+    let can_modify = can_modify_video(&state.pool, video_id, &user_sub)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            )
+        })?;
+
+    if !can_modify {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "You don't have permission to modify this video".to_string(),
+            }),
+        ));
+    }
+
+    // Replace all tags
+    let service = TagService::new(&state.pool);
+    service
+        .replace_video_tags(video_id, request.tag_names, Some(&user_sub))
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e })))?;
+
+    // Get updated tag list
+    let tags = service
+        .get_video_tags(video_id)
+        .await
+        .map_err(|e: String| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse { error: e }),
+            )
+        })?;
+
+    info!(
+        "Replaced tags on video {} with {} tags",
+        video_id,
+        tags.len()
+    );
+    Ok(Json(VideoTagsResponse { video_id, tags }))
+}
+
+/// DELETE /api/videos/:id/tags/:tag_slug - Remove a tag from a video
+#[tracing::instrument(skip(state, session))]
+pub async fn remove_video_tag_handler(
+    State(state): State<Arc<VideoManagerState>>,
+    session: Session,
+    Path((video_id, tag_slug)): Path<(i32, String)>,
+) -> Result<Json<VideoTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
+    // Get authenticated user
+    let user_sub = get_user_from_session(&session, &state.pool).await.ok_or((
+        StatusCode::UNAUTHORIZED,
+        Json(ErrorResponse {
+            error: "Authentication required".to_string(),
+        }),
+    ))?;
+
+    // Check if user can modify this video
+    let can_modify = can_modify_video(&state.pool, video_id, &user_sub)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Database error: {}", e),
+                }),
+            )
+        })?;
+
+    if !can_modify {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "You don't have permission to modify this video".to_string(),
+            }),
+        ));
+    }
+
+    // Remove tag from video
+    let service = TagService::new(&state.pool);
+    let removed = service
+        .remove_tag_from_video(video_id, &tag_slug)
+        .await
+        .map_err(|e: String| {
+            let status = if e.contains("not found") {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::BAD_REQUEST
+            };
+            (status, Json(ErrorResponse { error: e }))
+        })?;
+
+    if !removed {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: format!("Tag '{}' not associated with video {}", tag_slug, video_id),
+            }),
+        ));
+    }
+
+    // Get updated tag list
+    let tags = service
+        .get_video_tags(video_id)
+        .await
+        .map_err(|e: String| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse { error: e }),
+            )
+        })?;
+
+    info!("Removed tag '{}' from video {}", tag_slug, video_id);
+    Ok(Json(VideoTagsResponse { video_id, tags }))
 }

@@ -354,6 +354,74 @@
             </div>
         </div>
 
+
+        <!-- Access & Sharing -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title text-2xl mb-4">🔐 Access & Sharing</h2>
+
+                <!-- Group Assignment -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">Assign to Group</span>
+                        <span class="label-text-alt text-base-content/60">Optional - Share with a team</span>
+                    </label>
+                    <select 
+                        x-model="formData.groupId" 
+                        class="select select-bordered"
+                        :disabled="loadingGroups"
+                    >
+                        <option value="">No group (Private)</option>
+                        <template x-for="group in availableGroups" :key="group.id">
+                            <option :value="group.id" x-text="'📚 ' + group.name"></option>
+                        </template>
+                    </select>
+                    <label class="label">
+                        <span class="label-text-alt text-base-content/60">
+                            <template x-if="formData.groupId">
+                                <span class="text-success">✓ Video will be shared with group members</span>
+                            </template>
+                            <template x-if="!formData.groupId">
+                                <span>Select a group to share this video with your team</span>
+                            </template>
+                        </span>
+                    </label>
+                </div>
+
+                <!-- Current Group Info -->
+                <template x-if="formData.groupId && currentGroup">
+                    <div class="alert alert-info mt-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                            <h3 class="font-bold">Shared with Group</h3>
+                            <div class="text-xs">
+                                <span x-text="currentGroup.name"></span> - 
+                                <span x-text="currentGroup.member_count || '0'"></span> members
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Help Text -->
+                <div class="mt-4 p-4 bg-base-200 rounded-lg">
+                    <h4 class="font-semibold mb-2 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                        </svg>
+                        About Groups
+                    </h4>
+                    <ul class="text-sm space-y-1 list-disc list-inside text-base-content/70">
+                        <li>Groups let you collaborate with team members</li>
+                        <li>All group members can view videos assigned to their group</li>
+                        <li>You can create and manage groups in the <a href="/groups" class="link link-primary">Groups section</a></li>
+                        <li>Videos without a group remain private (only you can see them)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
         <!-- SEO Settings (Optional) -->
         <div class="collapse collapse-arrow bg-base-100 shadow-xl">
             <input type="checkbox">
@@ -500,11 +568,15 @@ function videoEdit() {
             thumbnailUrl: '',
             seoTitle: '{{ video.seo_title | default(value="") }}',
             seoDescription: '{{ video.seo_description | default(value="") }}',
-            seoKeywords: '{{ video.seo_keywords | default(value="") }}'
+            seoKeywords: '{{ video.seo_keywords | default(value="") }}',
+            groupId: {% if video.group_id %}{{ video.group_id }}{% else %}''{% endif %}
         },
         originalData: {},
         tagInput: '',
         tagSuggestions: [],
+        availableGroups: [],
+        currentGroup: null,
+        loadingGroups: false,
 
         async init() {
             // Store original data for reset
@@ -512,6 +584,9 @@ function videoEdit() {
 
             // Load existing tags
             await this.loadTags();
+            
+            // Load available groups
+            await this.loadGroups();
         },
 
         async loadTags() {
@@ -523,6 +598,26 @@ function videoEdit() {
                 }
             } catch (error) {
                 console.error('Failed to load tags:', error);
+            }
+        },
+
+        async loadGroups() {
+            this.loadingGroups = true;
+            try {
+                const response = await fetch('/api/groups');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.availableGroups = data || [];
+                    
+                    // Find current group if set
+                    if (this.formData.groupId) {
+                        this.currentGroup = this.availableGroups.find(g => g.id == this.formData.groupId);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load groups:', error);
+            } finally {
+                this.loadingGroups = false;
             }
         },
 

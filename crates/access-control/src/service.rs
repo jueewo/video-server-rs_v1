@@ -453,10 +453,23 @@ impl AccessControlService {
         &self,
         context: AccessContext,
     ) -> Result<Option<Permission>, AccessError> {
-        // Check with highest permission to see what we can get
-        let decision = self.check_access(context, Permission::Admin).await?;
+        // Try permissions from highest to lowest to find what's actually granted
+        let permissions = vec![
+            Permission::Admin,
+            Permission::Delete,
+            Permission::Edit,
+            Permission::Download,
+            Permission::Read,
+        ];
 
-        Ok(decision.permission_granted)
+        for permission in permissions {
+            let decision = self.check_access(context.clone(), permission).await?;
+            if decision.granted {
+                return Ok(decision.permission_granted);
+            }
+        }
+
+        Ok(None)
     }
 }
 

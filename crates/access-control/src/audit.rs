@@ -206,9 +206,10 @@ impl AuditLogger {
         &self,
         since: time::OffsetDateTime,
     ) -> Result<Vec<AuditLogEntry>, AccessError> {
+        // Use SQLite datetime function for proper comparison
         let entries = sqlx::query_as(
             "SELECT * FROM access_audit_log
-             WHERE access_granted = 0 AND created_at >= ?
+             WHERE access_granted = 0 AND datetime(created_at) >= datetime(?)
              ORDER BY created_at DESC",
         )
         .bind(
@@ -230,11 +231,12 @@ impl AuditLogger {
         ip_address: &str,
         since: time::OffsetDateTime,
     ) -> Result<Vec<AuditLogEntry>, AccessError> {
+        // Use SQLite datetime function for proper comparison
         let entries = sqlx::query_as(
             "SELECT * FROM access_audit_log
              WHERE access_granted = 0
                AND ip_address = ?
-               AND created_at >= ?
+               AND datetime(created_at) >= datetime(?)
              ORDER BY created_at DESC",
         )
         .bind(ip_address)
@@ -464,6 +466,9 @@ mod tests {
         let pool = setup_test_db().await;
         let logger = AuditLogger::new(pool.clone());
 
+        // Use a timestamp well in the past to ensure it's before any logs
+        let since = time::OffsetDateTime::now_utc() - time::Duration::hours(1);
+
         // Log granted access
         let context = AccessContext::new(ResourceType::Video, 1).with_user("user123");
         let granted = AccessDecision::granted(
@@ -483,7 +488,6 @@ mod tests {
         .with_context(context);
         logger.log_decision(&denied).await.unwrap();
 
-        let since = time::OffsetDateTime::now_utc() - time::Duration::hours(1);
         let denied_entries = logger.get_denied_attempts(since).await.unwrap();
 
         assert_eq!(denied_entries.len(), 1);
@@ -494,6 +498,9 @@ mod tests {
     async fn test_get_denied_by_ip() {
         let pool = setup_test_db().await;
         let logger = AuditLogger::new(pool.clone());
+
+        // Use a timestamp well in the past to ensure it's before any logs
+        let since = time::OffsetDateTime::now_utc() - time::Duration::hours(1);
 
         // Log denied access from specific IP
         let context = AccessContext::new(ResourceType::Video, 1)
@@ -517,7 +524,6 @@ mod tests {
         .with_context(context);
         logger.log_decision(&denied).await.unwrap();
 
-        let since = time::OffsetDateTime::now_utc() - time::Duration::hours(1);
         let entries = logger
             .get_denied_by_ip("192.168.1.100", since)
             .await

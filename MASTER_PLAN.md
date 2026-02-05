@@ -2330,6 +2330,7 @@ This master plan is supported by detailed implementation guides:
 
 ### Core Workflow & Access Control
 - **`RESOURCE_WORKFLOW_GUIDE.md`** - Complete Upload → Organize → Share workflow
+- **`ACCESS_MANAGEMENT_UI_PLAN.md`** - Comprehensive UI plan for access system (1,042 lines) 🆕
 - **`GROUP_ACCESS_CODES.md`** - Group-level access codes implementation (1,597 lines)
 - **`ACCESS_CODE_DECISION_GUIDE.md`** - When to use individual vs group codes (487 lines)
 - **`GROUP_OWNERSHIP_EXPLAINED.md`** - Multi-user group collaboration (535 lines)

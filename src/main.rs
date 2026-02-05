@@ -637,13 +637,9 @@ async fn main() -> anyhow::Result<()> {
     let storage_dir = std::env::current_dir()?.join("storage");
     std::fs::create_dir_all(&storage_dir)?;
 
-    // Create video storage directories
-    std::fs::create_dir_all(storage_dir.join("videos/public"))?;
-    std::fs::create_dir_all(storage_dir.join("videos/private"))?;
-
-    // Create image storage directories
-    std::fs::create_dir_all(storage_dir.join("images/public"))?;
-    std::fs::create_dir_all(storage_dir.join("images/private"))?;
+    // Create storage directories (single folder structure)
+    std::fs::create_dir_all(storage_dir.join("videos"))?;
+    std::fs::create_dir_all(storage_dir.join("images"))?;
 
     // Create HTTP client for MediaMTX communication
     let http_client = Client::builder()

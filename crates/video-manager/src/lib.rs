@@ -483,17 +483,8 @@ pub async fn hls_proxy_handler(
         "Access granted to HLS stream"
     );
 
-    // Serve VOD file from storage
-    let base_folder = if is_public {
-        "videos/public"
-    } else {
-        "videos/private"
-    };
-    let full_path = state
-        .storage_dir
-        .join(base_folder)
-        .join(slug)
-        .join(file_path);
+    // Serve VOD file from storage (single folder structure)
+    let full_path = state.storage_dir.join("videos").join(slug).join(file_path);
 
     // Check if file exists and read it
     let file = tokio::fs::File::open(&full_path)

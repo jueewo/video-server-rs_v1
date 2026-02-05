@@ -515,13 +515,8 @@ pub async fn upload_image_handler(
         ));
     }
 
-    // Determine storage location
-    let base_folder = if is_public == 1 {
-        "images/public"
-    } else {
-        "images/private"
-    };
-    let file_path = state.storage_dir.join(base_folder).join(&stored_filename);
+    // Determine storage location (single folder structure)
+    let file_path = state.storage_dir.join("images").join(&stored_filename);
 
     //... old
     // Save file to disk
@@ -593,7 +588,7 @@ pub async fn upload_image_handler(
         })?;
 
         let thumb_filename = format!("{}_thumb.webp", slug);
-        let thumb_path = state.storage_dir.join(base_folder).join(&thumb_filename);
+        let thumb_path = state.storage_dir.join("images").join(&thumb_filename);
 
         if let Err(e) = tokio::fs::write(&thumb_path, &thumb_data).await {
             println!("❌ Error saving thumbnail: {}", e);
@@ -1308,13 +1303,8 @@ pub async fn serve_image_handler(
         "Access granted to image download"
     );
 
-    // Determine storage location
-    let base_folder = if is_public {
-        "images/public"
-    } else {
-        "images/private"
-    };
-    let full_path = state.storage_dir.join(base_folder).join(&filename);
+    // Determine storage location (single folder structure)
+    let full_path = state.storage_dir.join("images").join(&filename);
 
     println!("📷 Serving image: {} from {:?}", slug, full_path);
 

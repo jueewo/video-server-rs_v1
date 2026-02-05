@@ -165,7 +165,7 @@ pub struct UnauthorizedTemplate {
     authenticated: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct AccessCodeQuery {
     access_code: Option<String>,
 }
@@ -725,6 +725,7 @@ pub async fn image_detail_handler(
     session: Session,
     State(state): State<Arc<ImageManagerState>>,
     Path(slug): Path<String>,
+    Query(query): Query<AccessCodeQuery>,
 ) -> Result<Html<String>, (StatusCode, String)> {
     let authenticated: bool = session
         .get("authenticated")
@@ -812,6 +813,9 @@ pub async fn image_detail_handler(
     let mut context = AccessContext::new(ResourceType::Image, image_id as i32);
     if let Some(uid) = user_id {
         context = context.with_user(uid);
+    }
+    if let Some(key) = query.access_code {
+        context = context.with_key(key);
     }
 
     // Check access using the 4-layer access control system
@@ -1790,4 +1794,3 @@ pub async fn list_images_api_handler(
 
     Ok(Json(result))
 }
-

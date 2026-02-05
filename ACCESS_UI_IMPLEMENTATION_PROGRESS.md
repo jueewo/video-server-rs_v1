@@ -2,7 +2,7 @@
 
 **Created:** February 5, 2024  
 **Branch:** `feature/access-management-ui`  
-**Status:** ✅ Phase 1 Complete - Ready for Phase 2
+**Status:** 🚧 Phase 2 In Progress (50% Complete)
 
 ---
 
@@ -16,9 +16,16 @@
 - ✅ Task 4: Delete Functionality (0.5 days)
 - ✅ Task 5: Compilation & Bug Fixes (0.5 days)
 
-**Total Estimated Time:** 5 days  
-**Time Spent:** ~3 days  
-**Status:** Complete and ready for integration testing
+**Phase 2: Resource Assignment UI** - 🚧 50% Complete (2/4 tasks done)
+
+- ✅ Task 1: Enhance video edit form (1 day)
+- ✅ Task 2: Enhance image edit form (1.5 days)
+- ⏳ Task 3: Add to upload forms (1 day) - **NEXT**
+- ⏳ Task 4: Test group assignments (0.5 days)
+
+**Total Time Phase 1:** 5 days (Complete)  
+**Total Time Phase 2:** 4 days estimated, ~2 days spent  
+**Overall Status:** Phase 2 in progress - forms enhanced, uploads next
 
 ---
 
@@ -135,6 +142,78 @@
 **API Integration:**
 - Fetches code details: Database query via handler
 - Delete via: `DELETE /api/access-codes/:code`
+
+---
+
+## 🚀 Phase 2 Progress
+
+### 1. Video Edit Form Enhancement (`/videos/:id/edit`)
+
+**File:** `crates/video-manager/templates/videos/edit.html`  
+**Status:** ✅ Complete
+
+**Features Implemented:**
+- ✅ Added "Access & Sharing" section after Settings
+- ✅ Group selector dropdown (loads from `/api/groups`)
+- ✅ Display current group info with member count
+- ✅ Help text explaining group functionality
+- ✅ Links to groups management page
+- ✅ Integrated with existing form data structure
+- ✅ Added `groupId` to formData
+- ✅ `loadGroups()` function fetches available groups
+- ✅ `currentGroup` displays selected group details
+- ✅ Loading state while fetching groups
+
+**Technical Details:**
+- Added 71 lines of HTML for Access & Sharing section
+- Added JavaScript properties: `availableGroups`, `currentGroup`, `loadingGroups`
+- Integrated with Alpine.js data binding
+- Uses same styling as other sections (DaisyUI cards)
+- Form saves groupId along with other video metadata
+
+**Location in Form:** Between "Settings" and "SEO Settings" sections
+
+---
+
+### 2. Image Edit Form - Complete Rebuild
+
+**File:** `crates/image-manager/templates/images/edit.html`  
+**Status:** ✅ Complete (replaced placeholder with full form)
+
+**Features Implemented:**
+- ✅ Replaced placeholder page with full-featured edit form
+- ✅ Image preview with dimensions, format, size, upload date
+- ✅ Basic information: title, description, alt text (accessibility)
+- ✅ Tag management with search suggestions
+- ✅ Settings: category, status, visibility toggles
+- ✅ **Access & Sharing section with group assignment** (built-in from start)
+- ✅ SEO fields (collapsible section)
+- ✅ Save, reset, and delete functionality
+- ✅ Confirmation modal for deletion
+- ✅ Success/error alerts
+
+**Technical Details:**
+- Complete rewrite: 664 lines (was 47 lines placeholder)
+- Full Alpine.js integration with `imageEdit()` function
+- Loads groups via `/api/groups` on init
+- Displays current group information
+- Matches video edit form design and functionality
+- Responsive layout with DaisyUI components
+
+**JavaScript Functions:**
+- `init()` - Initialize form, load tags and groups
+- `loadTags()` - Fetch existing tags
+- `loadGroups()` - Fetch available groups
+- `handleSubmit()` - Save changes via PUT request
+- `deleteImage()` - Delete image with confirmation
+- Tag management functions (add, remove, search, suggest)
+- Utility functions (formatDate, formatFileSize)
+
+**Group Integration:**
+- `groupId` in formData (from `image.group_id`)
+- `availableGroups` array populated from API
+- `currentGroup` object shows selected group details
+- `loadingGroups` state prevents interaction during load
 
 ---
 
@@ -354,18 +433,24 @@ pub struct AccessCodeDisplay {
 
 ## 📊 Code Statistics
 
-**Files Created:** 4
+**Files Created (Phase 1):** 4
 - `templates/base.html` (170 lines - copied)
 - `templates/codes/list.html` (354 lines)
 - `templates/codes/new.html` (719 lines)
 - `templates/codes/detail.html` (490 lines)
 
-**Files Modified:** 2
+**Files Modified (Phase 1):** 2
 - `Cargo.toml` (added askama dependencies)
 - `src/lib.rs` (added handlers and routes)
 
-**Total Lines Added:** ~1,800 lines
-**Total Lines of Code in Phase 1:** ~2,000 lines (including handlers)
+**Files Modified (Phase 2):** 2
+- `crates/video-manager/templates/videos/edit.html` (+96 lines)
+- `crates/image-manager/templates/images/edit.html` (+617 lines, full rebuild)
+
+**Total Lines Added:**
+- Phase 1: ~1,800 lines
+- Phase 2 (so far): ~713 lines
+- **Grand Total: ~2,513 lines**
 
 ---
 
@@ -393,9 +478,29 @@ pub struct AccessCodeDisplay {
 
 ---
 
+## 📋 Next Steps
+
+### Immediate (Current Session)
+- [ ] Add group selector to video upload form
+- [ ] Add group selector to image upload form
+- [ ] Test end-to-end group assignment flow
+- [ ] Verify groups are saved and displayed correctly
+
+### Short Term (Next Session)
+- [ ] Phase 3: Add "Access" tab to video/image detail pages
+- [ ] Phase 3: Add "Resources" tab to group detail pages
+- [ ] Phase 3: Create access overview dashboard
+
+### Future
+- [ ] Phase 4: Group-level access codes (requires backend implementation)
+- [ ] Phase 5: Analytics, bulk operations, UI polish
+
+---
+
 **Last Updated:** February 5, 2024  
 **Phase 1 Completed:** February 5, 2024  
-**Next Phase:** Phase 2 - Resource Assignment UI  
+**Phase 2 Started:** February 5, 2024  
+**Phase 2 Status:** 50% complete - Edit forms done, upload forms next  
 **Maintainer:** Development Team
 
 ---

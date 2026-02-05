@@ -167,7 +167,7 @@ pub struct UnauthorizedTemplate {
 
 #[derive(Debug, Deserialize)]
 pub struct AccessCodeQuery {
-    access_code: Option<String>,
+    code: Option<String>,
 }
 
 // -------------------------------
@@ -814,7 +814,7 @@ pub async fn image_detail_handler(
     if let Some(uid) = user_id {
         context = context.with_user(uid);
     }
-    if let Some(key) = query.access_code {
+    if let Some(key) = query.code {
         context = context.with_key(key);
     }
 
@@ -1294,7 +1294,7 @@ pub async fn serve_image_handler(
     if let Some(uid) = user_id {
         context = context.with_user(uid);
     }
-    if let Some(key) = query.access_code.clone() {
+    if let Some(key) = query.code.clone() {
         context = context.with_key(key);
     }
 

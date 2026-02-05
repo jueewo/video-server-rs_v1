@@ -209,7 +209,7 @@ impl AccessRepository {
         )> = sqlx::query_as(
             "SELECT
                 id,
-                key,
+                code as key,
                 description,
                 permission_level,
                 access_group_id,

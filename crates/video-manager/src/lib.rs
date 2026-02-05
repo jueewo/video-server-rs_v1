@@ -7,8 +7,8 @@ use axum::{
     Json, Router,
 };
 use reqwest::Client;
-use serde_json;
 use serde::{Deserialize, Serialize};
+use serde_json;
 use sqlx::{Pool, Sqlite};
 use std::{path::PathBuf, sync::Arc};
 use time::OffsetDateTime;
@@ -224,7 +224,7 @@ pub async fn videos_list_handler(
 
 #[derive(Deserialize)]
 pub struct AccessCodeQuery {
-    access_code: Option<String>,
+    code: Option<String>,
 }
 
 // -------------------------------
@@ -271,7 +271,7 @@ pub async fn video_player_handler(
     if let Some(uid) = user_id {
         context = context.with_user(uid);
     }
-    if let Some(key) = query.access_code.clone() {
+    if let Some(key) = query.code.clone() {
         context = context.with_key(key);
     }
 
@@ -456,7 +456,7 @@ pub async fn hls_proxy_handler(
     if let Some(uid) = user_id {
         context = context.with_user(uid);
     }
-    if let Some(key) = query.access_code.clone() {
+    if let Some(key) = query.code.clone() {
         context = context.with_key(key);
     }
 

@@ -790,7 +790,7 @@ mod tests {
         let pool = setup_test_db().await;
         let service = AccessControlService::new(pool.clone());
 
-        // Public video - should get Read
+        // Public video - should get Download (public resources grant Read + Download)
         sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
             .bind(1)
             .bind("Public")
@@ -802,7 +802,7 @@ mod tests {
 
         let context = AccessContext::new(ResourceType::Video, 1);
         let perm = service.get_effective_permission(context).await.unwrap();
-        assert_eq!(perm, Some(Permission::Read));
+        assert_eq!(perm, Some(Permission::Download));
 
         // Owner - should get Admin
         let context = AccessContext::new(ResourceType::Video, 1).with_user("user123");

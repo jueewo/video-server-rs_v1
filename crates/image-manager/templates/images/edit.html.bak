@@ -1,0 +1,664 @@
+{% extends "base-tailwind.html" %}
+{% block title %}Edit Image - {{ image.title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .tag-input-wrapper {
+        position: relative;
+    }
+
+    .tag-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 10;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .image-preview {
+        max-height: 400px;
+        object-fit: contain;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-5xl" x-data="imageEdit()">
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center gap-4 mb-4">
+            <a href="/images/view/{{ image.slug }}" class="btn btn-ghost btn-sm gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+                </svg>
+                Back to Image
+            </a>
+            <a href="/images" class="btn btn-ghost btn-sm gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                </svg>
+                All Images
+            </a>
+        </div>
+        <h1 class="text-4xl font-bold text-base-content mb-2">✏️ Edit Image</h1>
+        <p class="text-lg text-base-content/70">Update your image details and settings</p>
+    </div>
+
+    <!-- Alert Messages -->
+    <div x-show="saveSuccess" class="alert alert-success mb-6" x-cloak>
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div>
+            <h3 class="font-bold">Changes Saved!</h3>
+            <div class="text-xs">Your image has been updated successfully.</div>
+        </div>
+    </div>
+
+    <div x-show="saveError" class="alert alert-error mb-6" x-cloak>
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div>
+            <h3 class="font-bold">Save Failed</h3>
+            <div class="text-xs" x-text="errorMessage"></div>
+        </div>
+    </div>
+
+    <form @submit.prevent="handleSubmit" class="space-y-6">
+        <!-- Image Preview -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title text-2xl mb-4">🖼️ Image Preview</h2>
+
+                <div class="flex justify-center bg-base-200 rounded-lg p-4">
+                    <img
+                        src="/images/{{ image.slug }}"
+                        alt="{{ image.title }}"
+                        class="image-preview rounded-lg shadow-lg"
+                    >
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                    <div class="stat bg-base-200 rounded-lg">
+                        <div class="stat-title">Dimensions</div>
+                        <div class="stat-value text-2xl">{{ image.width }}×{{ image.height }}</div>
+                    </div>
+                    <div class="stat bg-base-200 rounded-lg">
+                        <div class="stat-title">Format</div>
+                        <div class="stat-value text-2xl">{{ image.format | upper }}</div>
+                    </div>
+                    <div class="stat bg-base-200 rounded-lg">
+                        <div class="stat-title">Size</div>
+                        <div class="stat-value text-2xl" x-text="formatFileSize({{ image.file_size }})"></div>
+                    </div>
+                    <div class="stat bg-base-200 rounded-lg">
+                        <div class="stat-title">Uploaded</div>
+                        <div class="stat-value text-lg" x-text="formatDate('{{ image.created_at }}')"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Basic Information -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title text-2xl mb-4">📝 Basic Information</h2>
+
+                <!-- Title -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">Title *</span>
+                        <span class="label-text-alt" x-text="formData.title.length + '/100'"></span>
+                    </label>
+                    <input
+                        type="text"
+                        x-model="formData.title"
+                        class="input input-bordered"
+                        placeholder="Enter image title..."
+                        maxlength="100"
+                        required
+                    >
+                </div>
+
+                <!-- Description -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">Description</span>
+                        <span class="label-text-alt" x-text="formData.description.length + '/500'"></span>
+                    </label>
+                    <textarea
+                        x-model="formData.description"
+                        class="textarea textarea-bordered h-32"
+                        placeholder="Add a description for this image..."
+                        maxlength="500"
+                    ></textarea>
+                </div>
+
+                <!-- Alt Text (for accessibility) -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">Alt Text (for accessibility)</span>
+                        <span class="label-text-alt" x-text="formData.altText.length + '/200'"></span>
+                    </label>
+                    <input
+                        type="text"
+                        x-model="formData.altText"
+                        class="input input-bordered"
+                        placeholder="Describe the image for screen readers..."
+                        maxlength="200"
+                    >
+                    <label class="label">
+                        <span class="label-text-alt text-base-content/60">Helps with accessibility and SEO</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tags -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title text-2xl mb-4">🏷️ Tags</h2>
+
+                <div class="form-control tag-input-wrapper">
+                    <label class="label">
+                        <span class="label-text font-semibold">Add Tags</span>
+                        <span class="label-text-alt">Press Enter or click to add</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <input
+                            type="text"
+                            x-model="tagInput"
+                            @keydown.enter.prevent="addTag"
+                            @input="searchTags"
+                            class="input input-bordered flex-1"
+                            placeholder="Type a tag..."
+                        >
+                        <button type="button" @click="addTag" class="btn btn-primary">Add</button>
+                    </div>
+
+                    <!-- Tag Suggestions -->
+                    <div x-show="tagSuggestions.length > 0" class="tag-suggestions bg-base-100 shadow-lg rounded-lg mt-1 border border-base-300">
+                        <ul class="menu">
+                            <template x-for="suggestion in tagSuggestions" :key="suggestion">
+                                <li><a @click="selectSuggestion(suggestion)" x-text="suggestion"></a></li>
+                            </template>
+                        </ul>
+                    </div>
+
+                    <!-- Current Tags -->
+                    <div class="flex flex-wrap gap-2 mt-4">
+                        <template x-for="(tag, index) in formData.tags" :key="index">
+                            <div class="badge badge-primary gap-2 p-3">
+                                <span x-text="tag"></span>
+                                <button type="button" @click="removeTag(index)" class="btn btn-ghost btn-xs">✕</button>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div x-show="formData.tags.length === 0" class="text-sm text-base-content/60 mt-2">
+                        No tags added yet. Tags help organize and search your images.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title text-2xl mb-4">⚙️ Settings</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Category -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Category</span>
+                        </label>
+                        <select x-model="formData.category" class="select select-bordered">
+                            <option value="">Select category...</option>
+                            <option value="photography">📷 Photography</option>
+                            <option value="illustration">🎨 Illustration</option>
+                            <option value="graphic-design">🖌️ Graphic Design</option>
+                            <option value="artwork">🖼️ Artwork</option>
+                            <option value="screenshot">📸 Screenshot</option>
+                            <option value="diagram">📊 Diagram</option>
+                            <option value="logo">🎯 Logo</option>
+                            <option value="icon">✨ Icon</option>
+                            <option value="banner">🚩 Banner</option>
+                            <option value="other">📦 Other</option>
+                        </select>
+                    </div>
+
+                    <!-- Status -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Status</span>
+                        </label>
+                        <select x-model="formData.status" class="select select-bordered">
+                            <option value="draft">📝 Draft</option>
+                            <option value="active">✅ Active</option>
+                            <option value="archived">🗄️ Archived</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Checkboxes -->
+                <div class="divider"></div>
+                <div class="space-y-3">
+                    <div class="form-control">
+                        <label class="label cursor-pointer justify-start gap-4">
+                            <input type="checkbox" x-model="formData.isPublic" class="checkbox checkbox-primary">
+                            <div>
+                                <span class="label</div>-text font-semibold">Make Public</span>
+                                <p class="text-xs text-base-content/60">Anyone can view this image</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label cursor-pointer justify-start gap-4">
+                            <input type="checkbox" x-model="formData.featured" class="checkbox checkbox-secondary">
+                            <div>
+                                <span class="label-text font-semibold">Featured Image</span>
+                                <p class="text-xs text-base-content/60">Highlight this image in the gallery</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label cursor-pointer justify-start gap-4">
+                            <input type="checkbox" x-model="formData.allowDownload" class="checkbox">
+                            <div>
+                                <span class="label-text font-semibold">Allow Download</span>
+                                <p class="text-xs text-base-content/60">Users can download this image</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label cursor-pointer justify-start gap-4">
+                            <input type="checkbox" x-model="formData.matureContent" class="checkbox checkbox-warning">
+                            <div>
+                                <span class="label-text font-semibold">Mature Content</span>
+                                <p class="text-xs text-base-content/60">This image contains mature content</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Access & Sharing -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title text-2xl mb-4">🔐 Access & Sharing</h2>
+
+                <!-- Group Assignment -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">Assign to Group</span>
+                        <span class="label-text-alt text-base-content/60">Optional - Share with a team</span>
+                    </label>
+                    <select
+                        x-model="formData.groupId"
+                        class="select select-bordered"
+                        :disabled="loadingGroups"
+                    >
+                        <option value="">No group (Private)</option>
+                        <template x-for="group in availableGroups" :key="group.id">
+                            <option :value="group.id" x-text="'📚 ' + group.name"></option>
+                        </template>
+                    </select>
+                    <label class="label">
+                        <span class="label-text-alt text-base-content/60">
+                            <template x-if="formData.groupId">
+                                <span class="text-success">✓ Image will be shared with group members</span>
+                            </template>
+                            <template x-if="!formData.groupId">
+                                <span></span>Select a group to share this image with your team</span>
+                            </template>
+                        </span>
+                    </label>
+                </div>
+
+                <!-- Current Group Info -->
+                <template x-if="formData.groupId && currentGroup">
+                    <div class="alert alert-info mt-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                            <h3 class="font-bold">Shared with Group</h3>
+                            <div class="text-xs">
+                                <span x-text="currentGroup.name"></span> -
+                                <span x-text="currentGroup.member_count || '0'"></span> members
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Help Text -->
+                <div class="mt-4 p-4 bg-base-200 rounded-lg">
+                    <h4 class="font-semibold mb-2 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                        </svg>
+                        About Groups
+                    </h4>
+                    <ul class="text-sm space-y-1 list-disc list-inside text-base-content/70">
+                        <li>Groups let you collaborate with team members</li>
+                        <li>All group members can view images assigned to their group</li>
+                        <li>You can create and manage groups in the <a href="/groups" class="link link-primary">Groups section</a></li>
+                        <li>Images without a group remain private (only you can see them)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEO Settings (Optional) -->
+        <div class="collapse collapse-arrow bg-base-100 shadow-xl">
+            <input type="checkbox">
+            <div class="collapse-title text-xl font-bold">
+                🔍 SEO Settings (Optional)
+            </div>
+            <div class="collapse-content space-y-4">
+                <!-- SEO Title -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">SEO Title</span>
+                        <span class="label-text-alt" x-text="formData.seoTitle.length + '/60'"></span>
+                    </label>
+                    <input
+                        type="text"
+                        x-model="formData.seoTitle"
+                        class="input input-bordered"
+                        placeholder="Custom title for search engines..."
+                        maxlength="60"
+                    >
+                </div>
+
+                <!-- SEO Description -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">SEO Description</span>
+                        <span class="label-text-alt" x-text="formData.seoDescription.length + '/160'"></span>
+                    </label>
+                    <textarea
+                        x-model="formData.seoDescription"
+                        class="textarea textarea-bordered"
+                        placeholder="Custom description for search engines..."
+                        maxlength="160"
+                    ></textarea>
+                </div>
+
+                <!-- SEO Keywords -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">SEO Keywords</span>
+                    </label>
+                    <input
+                        type="text"
+                        x-model="formData.seoKeywords"
+                        class="input input-bordered"
+                        placeholder="keyword1, keyword2, keyword3"
+                    >
+                    <label class="label">
+                        <span class="label-text-alt">Comma-separated keywords</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <button
+                        type="submit"
+                        class="btn btn-primary flex-1 gap-2"
+                        :disabled="saving"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h5a2 2 0 012 2v7a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2h5v5.586l-1.293-1.293zM9 4a1 1 0 012 0v2H9V4z" />
+                        </svg>
+                        <span x-text="saving ? 'Saving...' : 'Save Changes'"></span>
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="resetForm"
+                        class="btn btn-outline gap-2"
+                        :disabled="saving"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                        </svg>
+                        Reset
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="confirmDelete"
+                        class="btn btn-error gap-2"
+                        :disabled="saving"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                        Delete Image
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- Delete Confirmation Modal -->
+    <div x-show="showDeleteModal" class="modal modal-open" x-cloak>
+        <div class="modal-box">
+            <h3 class="font-bold text-lg mb-4">⚠️ Confirm Deletion</h3>
+            <p class="py-4">
+                Are you sure you want to delete this image? This action cannot be undone.
+            </p>
+            <p class="text-error font-bold mb-4">
+                Image: {{ image.title }}
+            </p>
+            <div class="modal-action">
+                <button @click="showDeleteModal = false" class="btn btn-ghost">Cancel</button>
+                <button @click="deleteImage" class="btn btn-error gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    Delete Permanently
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function imageEdit() {
+    return {
+        saving: false,
+        saveSuccess: false,
+        saveError: false,
+        errorMessage: '',
+        showDeleteModal: false,
+        formData: {
+            title: '{{ image.title }}',
+            description: '{{ image.description | default(value="") }}',
+            altText: '{{ image.alt_text | default(value="") }}',
+            category: '{{ image.category | default(value="") }}',
+            status: '{{ image.status | default(value="active") }}',
+            tags: [],
+            isPublic: image.is_public,
+            featured: image.featured,
+            allowDownload: image.allow_download,
+            matureContent: image.mature_content,
+            seoTitle: '{{ image.seo_title | default(value="") }}',
+            seoDescription: '{{ image.seo_description | default(value="") }}',
+            seoKeywords: '{{ image.seo_keywords | default(value="") }}',
+            groupId: {% if image.group_id %}{{ image.group_id }}{% else %}''{% endif %}
+        },
+        originalData: {},
+        tagInput: '',
+        tagSuggestions: [],
+        availableGroups: [],
+        currentGroup: null,
+        loadingGroups: false,
+
+        async init() {
+            this.originalData = JSON.parse(JSON.stringify(this.formData));
+            await this.loadTags();
+            await this.loadGroups();
+        },
+
+        async loadTags() {
+            try {
+                const response = await fetch('/api/images/{{ image.id }}/tags');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.formData.tags = data.tags || [];
+                }
+            } catch (error) {
+                console.error('Failed to load tags:', error);
+            }
+        },
+
+        async loadGroups() {
+            this.loadingGroups = true;
+            try {
+                const response = await fetch('/api/groups');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.availableGroups = data || [];
+
+                    if (this.formData.groupId) {
+                        this.currentGroup = this.availableGroups.find(g => g.id == this.formData.groupId);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load groups:', error);
+            } finally {
+                this.loadingGroups = false;
+            }
+        },
+
+        searchTags() {
+            const query = this.tagInput.toLowerCase();
+            if (query.length < 2) {
+                this.tagSuggestions = [];
+                return;
+            }
+
+            const allTags = [
+                'photography', 'portrait', 'landscape', 'nature', 'architecture',
+                'travel', 'food', 'art', 'design', 'illustration'
+            ];
+
+            this.tagSuggestions = allTags.filter(tag =>
+                tag.toLowerCase().includes(query) &&
+                !this.formData.tags.includes(tag)
+            );
+        },
+
+        addTag() {
+            const tag = this.tagInput.trim().toLowerCase();
+            if (tag && !this.formData.tags.includes(tag)) {
+                this.formData.tags.push(tag);
+                this.tagInput = '';
+                this.tagSuggestions = [];
+            }
+        },
+
+        selectSuggestion(tag) {
+            if (!this.formData.tags.includes(tag)) {
+                this.formData.tags.push(tag);
+            }
+            this.tagInput = '';
+            this.tagSuggestions = [];
+        },
+
+        removeTag(index) {
+            this.formData.tags.splice(index, 1);
+        },
+
+        async handleSubmit() {
+            this.saving = true;
+            this.saveSuccess = false;
+            this.saveError = false;
+
+            try {
+                const response = await fetch('/api/images/{{ image.id }}', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.formData)
+                });
+
+                if (response.ok) {
+                    this.saveSuccess = true;
+                    this.originalData = JSON.parse(JSON.stringify(this.formData));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+                    setTimeout(() => {
+                        this.saveSuccess = false;
+                    }, 5000);
+                } else {
+                    throw new Error('Failed to save changes');
+                }
+            } catch (error) {
+                this.saveError = true;
+                this.errorMessage = error.message || 'An error occurred while saving';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        resetForm() {
+            this.formData = JSON.parse(JSON.stringify(this.originalData));
+        },
+
+        confirmDelete() {
+            this.showDeleteModal = true;
+        },
+
+        async deleteImage() {
+            try {
+                const response = await fetch('/api/images/{{ image.id }}', {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    window.location.href = '/images';
+                } else {
+                    throw new Error('Failed to delete image');
+                }
+            } catch (error) {
+                this.saveError = true;
+                this.errorMessage = error.message;
+                this.showDeleteModal = false;
+            }
+        },
+
+        formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString();
+        },
+
+        formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+    };
+}
+</script>
+{% endblock %}

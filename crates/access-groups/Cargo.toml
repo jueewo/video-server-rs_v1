@@ -5,31 +5,31 @@ edition = "2021"
 
 [dependencies]
 # Web framework
-axum = "0.7"
-tower = "0.4"
-tower-http = { version = "0.5", features = ["fs", "trace"] }
-tower-sessions = "0.13"
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+tower-sessions = { workspace = true }
 
 # Async runtime
-tokio = { version = "1", features = ["full"] }
+tokio = { workspace = true }
 
 # Database
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
+sqlx = { workspace = true }
 
 # Serialization
-serde = { version = "1.0", features = ["derive"] }
+serde = { workspace = true }
 serde_json = "1.0"
 
 # Templating
-askama = { version = "0.12", features = ["with-axum"] }
-askama_axum = "0.4"
+askama = { workspace = true }
+askama_axum = { workspace = true }
 
 # Error handling
-thiserror = "1.0"
-anyhow = "1.0"
+thiserror = { workspace = true }
+anyhow = { workspace = true }
 
 # Logging
-tracing = "0.1"
+tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Utilities

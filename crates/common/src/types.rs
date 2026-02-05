@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Resource types supported by the system
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ResourceType {
     Video,
@@ -148,10 +148,10 @@ impl<'q> sqlx::Encode<'q, sqlx::Sqlite> for GroupRole {
     fn encode_by_ref(
         &self,
         args: &mut Vec<sqlx::sqlite::SqliteArgumentValue<'q>>,
-    ) -> sqlx::encode::IsNull {
+    ) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Send + Sync>> {
         args.push(sqlx::sqlite::SqliteArgumentValue::Text(
             std::borrow::Cow::Owned(self.to_string()),
         ));
-        sqlx::encode::IsNull::No
+        Ok(sqlx::encode::IsNull::No)
     }
 }

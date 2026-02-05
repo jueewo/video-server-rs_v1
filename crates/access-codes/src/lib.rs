@@ -1,6 +1,6 @@
 use askama::Template;
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{Html, Json},
     routing::{delete, get, post},
@@ -69,7 +69,25 @@ pub struct MediaResource {
     pub title: String,
 }
 
+#[derive(Clone)]
+pub struct ResourcePreview {
+    pub media_type: String,
+    pub slug: String,
+    pub title: String,
+}
+
 // Template structs
+#[derive(Template, Clone)]
+#[template(path = "codes/preview.html")]
+pub struct PreviewTemplate {
+    pub code: String,
+    pub description: String,
+    pub has_description: bool,
+    pub resource_count: usize,
+    pub resources: Vec<ResourcePreview>,
+    pub base_url: String,
+}
+
 #[derive(Template)]
 #[template(path = "codes/list.html")]
 pub struct AccessCodesListTemplate {
@@ -170,7 +188,7 @@ pub async fn view_access_code_page(
 
     // Get permissions for this code
     let permissions = sqlx::query_as::<_, (String, String)>(
-        "SELECT 
+        "SELECT
             akp.resource_type as media_type,
             COALESCE(v.slug, i.slug) as media_slug
         FROM access_key_permissions akp
@@ -243,6 +261,85 @@ pub async fn view_access_code_page(
 
     let template = AccessCodeDetailTemplate {
         code: code_display,
+        base_url: "http://localhost:3000".to_string(), // TODO: Get from config
+    };
+
+    let html = template
+        .render()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Html(html))
+}
+
+/// Public preview page for access code - shows all resources available with this code
+/// This is the page users land on when they click the shared access code URL
+pub async fn preview_access_code_page(
+    Query(params): Query<std::collections::HashMap<String, String>>,
+    State(state): State<Arc<AccessCodeState>>,
+) -> Result<Html<String>, StatusCode> {
+    let code = params
+        .get("code")
+        .ok_or(StatusCode::BAD_REQUEST)?
+        .to_string();
+
+    // Get access code details (no auth required - this is public)
+    let code_record = sqlx::query_as::<_, (i32, String, Option<String>, Option<String>, String)>(
+        "SELECT id, code, description, expires_at, created_at FROM access_codes WHERE code = ? AND is_active = 1"
+    )
+    .bind(&code)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let (id, code_name, description, expires_at, _created_at) =
+        code_record.ok_or(StatusCode::NOT_FOUND)?;
+
+    // Check if expired
+    if let Some(ref exp) = expires_at {
+        if let Ok(exp_dt) =
+            OffsetDateTime::parse(exp, &time::format_description::well_known::Iso8601::DEFAULT)
+        {
+            if exp_dt < OffsetDateTime::now_utc() {
+                return Err(StatusCode::GONE); // 410 Gone for expired codes
+            }
+            false
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
+    // Get permissions for this code with full resource details
+    let permissions = sqlx::query_as::<_, (String, String, String)>(
+        "SELECT
+            akp.resource_type as media_type,
+            COALESCE(v.slug, i.slug) as media_slug,
+            COALESCE(v.title, i.title) as media_title
+        FROM access_key_permissions akp
+        LEFT JOIN videos v ON akp.resource_type = 'video' AND akp.resource_id = v.id
+        LEFT JOIN images i ON akp.resource_type = 'image' AND akp.resource_id = i.id
+        WHERE akp.access_key_id = ?",
+    )
+    .bind(id)
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let resources: Vec<ResourcePreview> = permissions
+        .into_iter()
+        .map(|(media_type, slug, title)| ResourcePreview {
+            media_type,
+            slug,
+            title,
+        })
+        .collect();
+
+    let template = PreviewTemplate {
+        code: code_name,
+        description: description.clone().unwrap_or_default(),
+        has_description: description.is_some(),
+        resource_count: resources.len(),
+        resources,
         base_url: "http://localhost:3000".to_string(), // TODO: Get from config
     };
 
@@ -505,7 +602,7 @@ pub async fn list_access_codes(
     for (id, code, description, expires_at, created_at) in codes {
         // Get permissions for this code
         let permissions = sqlx::query_as::<_, (String, String)>(
-            "SELECT 
+            "SELECT
             akp.resource_type as media_type,
             COALESCE(v.slug, i.slug) as media_slug
         FROM access_key_permissions akp
@@ -646,7 +743,7 @@ pub async fn list_access_codes_page(
     for (id, code, description, expires_at, created_at) in codes {
         // Get permissions for this code
         let permissions = sqlx::query_as::<_, (String, String)>(
-            "SELECT 
+            "SELECT
             akp.resource_type as media_type,
             COALESCE(v.slug, i.slug) as media_slug
         FROM access_key_permissions akp
@@ -796,5 +893,6 @@ pub fn access_code_routes(state: Arc<AccessCodeState>) -> Router {
         .route("/access/codes", get(list_access_codes_page))
         .route("/access/codes/new", get(new_access_code_page))
         .route("/access/codes/:code", get(view_access_code_page))
+        .route("/access/preview", get(preview_access_code_page)) // Public preview page
         .with_state(state)
 }

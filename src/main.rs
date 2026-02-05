@@ -118,6 +118,7 @@ struct DemoTemplate {
     code: String,
     error: String,
     resources: Vec<MediaResource>,
+    resource_count: usize,
     app_title: String,
     app_icon: String,
 }
@@ -224,10 +225,12 @@ async fn demo_handler(
         }
     }
 
+    let resource_count = resources.len();
     let template = DemoTemplate {
         code: code.unwrap_or_default(),
         error,
         resources,
+        resource_count,
         app_title: state.config.title.clone(),
         app_icon: state.config.icon.clone(),
     };

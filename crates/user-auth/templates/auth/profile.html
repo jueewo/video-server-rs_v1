@@ -1,66 +1,270 @@
-{% extends "base.html" %} {% block title %}User Profile - Media Server{%
+{% extends "base-tailwind.html" %} {% block title %}Profile - Media Server{%
 endblock %} {% block content %}
-<div class="container">
-    <h1>User Profile</h1>
-
-    <div
-        style="
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-        "
-    >
-        <h2>{{ name }}</h2>
-        <p><strong>Email:</strong> {{ email }}</p>
-        <p><strong>User ID:</strong> {{ user_id }}</p>
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-4xl font-bold mb-2">👤 My Profile</h1>
+        <p class="text-base-content/70">Manage your account and preferences</p>
     </div>
 
-    <div
-        style="
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-        "
-    >
-        <h3>Access Codes</h3>
-        {% if has_access_codes %} {% for access_code in access_codes %}
-        <div
-            style="
-                border: 1px solid #ddd;
-                padding: 10px;
-                margin: 10px 0;
-                border-radius: 4px;
-            "
-        >
-            <h4>{{ access_code.code }}</h4>
-            <p><strong>Description:</strong> {{ access_code.description }}</p>
-            <p><strong>Created:</strong> {{ access_code.created_at }}</p>
-            {% if access_code.has_expires %}
-            <p><strong>Expires:</strong> {{ access_code.expires_at }}</p>
-            {% endif %}
+    <!-- Profile Card -->
+    <div class="card bg-base-200 shadow-xl mb-6">
+        <div class="card-body">
+            <div class="flex items-center gap-4 mb-6">
+                <div class="avatar placeholder">
+                    <div
+                        class="bg-primary text-primary-content rounded-full w-20 h-20"
+                    >
+                        <span class="text-3xl">U</span>
+                    </div>
+                </div>
+                <div>
+                    <h2 class="card-title text-2xl">{{ name }}</h2>
+                    <p class="text-base-content/70">{{ email }}</p>
+                </div>
+            </div>
 
-            <h5>Resources:</h5>
-            {% if access_code.has_resources %}
-            <ul>
-                {% for resource in access_code.resources %}
-                <li>{{ resource.media_type }}: {{ resource.media_slug }}</li>
-                {% endfor %}
-            </ul>
-            {% else %}
-            <p>No resources linked.</p>
-            {% endif %}
+            <div class="divider"></div>
+
+            <!-- User Details -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">Full Name</span>
+                    </label>
+                    <input
+                        type="text"
+                        value="{{ name }}"
+                        class="input input-bordered"
+                        readonly
+                    />
+                </div>
+
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold"
+                            >Email Address</span
+                        >
+                    </label>
+                    <input
+                        type="email"
+                        value="{{ email }}"
+                        class="input input-bordered"
+                        readonly
+                    />
+                </div>
+
+                <div class="form-control md:col-span-2">
+                    <label class="label">
+                        <span class="label-text font-semibold">User ID</span>
+                    </label>
+                    <input
+                        type="text"
+                        value="{{ user_id }}"
+                        class="input input-bordered font-mono text-sm"
+                        readonly
+                    />
+                </div>
+            </div>
         </div>
-        {% endfor %} {% else %}
-        <p>No access codes created.</p>
-        {% endif %}
     </div>
 
-    <div style="text-align: center; margin-top: 30px">
-        <a href="/" class="btn btn-primary">Back to Home</a>
-        <a href="/images" class="btn btn-secondary">My Images</a>
-        <a href="/videos" class="btn btn-outline">My Videos</a>
+    <!-- Quick Actions -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <a
+            href="/videos"
+            class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+        >
+            <div class="card-body items-center text-center">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-12 w-12 text-primary mb-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
+                </svg>
+                <h3 class="card-title text-lg">My Videos</h3>
+                <p class="text-sm text-base-content/70">
+                    View and manage videos
+                </p>
+            </div>
+        </a>
+
+        <a
+            href="/images"
+            class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+        >
+            <div class="card-body items-center text-center">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-12 w-12 text-secondary mb-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                </svg>
+                <h3 class="card-title text-lg">My Images</h3>
+                <p class="text-sm text-base-content/70">Browse your images</p>
+            </div>
+        </a>
+
+        <a
+            href="/groups"
+            class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+        >
+            <div class="card-body items-center text-center">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-12 w-12 text-accent mb-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                    />
+                </svg>
+                <h3 class="card-title text-lg">My Groups</h3>
+                <p class="text-sm text-base-content/70">Manage access groups</p>
+            </div>
+        </a>
+
+        <a
+            href="/access/codes"
+            class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+        >
+            <div class="card-body items-center text-center">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-12 w-12 text-warning mb-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                    />
+                </svg>
+                <h3 class="card-title text-lg">Access Codes</h3>
+                <p class="text-sm text-base-content/70">Manage sharing codes</p>
+            </div>
+        </a>
+
+        <a
+            href="/videos/upload"
+            class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+        >
+            <div class="card-body items-center text-center">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-12 w-12 text-success mb-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                    />
+                </svg>
+                <h3 class="card-title text-lg">Upload Video</h3>
+                <p class="text-sm text-base-content/70">
+                    Add new video content
+                </p>
+            </div>
+        </a>
+
+        <a
+            href="/images/upload"
+            class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+        >
+            <div class="card-body items-center text-center">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-12 w-12 text-info mb-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                    />
+                </svg>
+                <h3 class="card-title text-lg">Upload Image</h3>
+                <p class="text-sm text-base-content/70">Add new images</p>
+            </div>
+        </a>
+    </div>
+
+    <!-- Account Actions -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h3 class="card-title mb-4">Account Actions</h3>
+            <div class="flex flex-wrap gap-3">
+                <a href="/" class="btn btn-primary gap-2">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                        />
+                    </svg>
+                    Back to Home
+                </a>
+                <a href="/logout" class="btn btn-error gap-2">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                        />
+                    </svg>
+                    Logout
+                </a>
+            </div>
+        </div>
     </div>
 </div>
+{% endblock %} {% block extra_scripts %}
+<script>
+    console.log("Profile page loaded");
+</script>
 {% endblock %}

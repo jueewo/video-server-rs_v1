@@ -1,8 +1,5 @@
-{% extends "base.html" %}
-
-{% block title %}{{ app_title }} - Access Code Demo{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}{{ app_title }} - Access Code Demo{%
+endblock %} {% block content %}
 <div class="container">
     <h1>🔑 Access Code Demo</h1>
     <p class="subtitle">Enter an access code to see assigned resources</p>
@@ -10,49 +7,54 @@
     <form method="GET" action="/demo">
         <div class="form-group">
             <label for="code">Access Code:</label>
-            <input type="text" id="code" name="code" value="{{ code }}" required>
+            <input
+                type="text"
+                id="code"
+                name="code"
+                value="{{ code }}"
+                required
+            />
         </div>
         <button type="submit" class="btn btn-primary">View Resources</button>
     </form>
 
-    {% if !error.is_empty() %}
-        <div class="error">
-            {{ error }}
-        </div>
-    {% endif %}
-
-    {% if !resources.is_empty() %}
-        <h2>Assigned Resources</h2>
-        <div class="resources">
-            {% for resource in resources %}
-                <div class="resource-item">
-                    <strong>{{ resource.media_type }}:</strong> {{ resource.title }} ({{ resource.slug }})
-                    {% if resource.media_type == "video" %}
-                        <a href="/watch/{{ resource.slug }}" class="btn btn-outline">Watch Video</a>
-                    {% else if resource.media_type == "image" %}
-                        <a href="/images/{{ resource.slug }}" class="btn btn-outline">View Image</a>
-                    {% endif %}
-                </div>
-            {% endfor %}
-        </div>
+    {% if !code.is_empty() && error.is_empty() %}
+    <div
+        class="alert alert-success"
+        style="
+            margin-top: 20px;
+            padding: 20px;
+            background: #e8f5e9;
+            border: 2px solid #4caf50;
+            border-radius: 8px;
+        "
+    >
+        <h3 style="margin-top: 0; color: #2e7d32">✅ Valid Access Code!</h3>
+        <p style="margin-bottom: 15px">
+            This access code grants access to
+            <strong>{{ resource_count }}</strong> resource{% if resource_count
+            != 1 %}s{% endif %}.
+        </p>
+        <a
+            href="/access/preview?code={{ code }}"
+            class="btn btn-primary"
+            style="font-size: 16px; padding: 12px 24px"
+        >
+            🎬 View Full Preview Page →
+        </a>
+        <p style="margin-top: 15px; font-size: 14px; color: #666">
+            The preview page shows all resources in a beautiful card layout with
+            direct access links.
+        </p>
+    </div>
+    {% endif %} {% if !error.is_empty() %}
+    <div class="error">{{ error }}</div>
     {% endif %}
 
     <div class="footer">
         <p><a href="/">← Back to Home</a></p>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_styles %}
-.resource-item {
-    background: #f8f9fa;
-    padding: 15px;
-    margin: 10px 0;
-    border-radius: 8px;
-    border-left: 4px solid #667eea;
-}
-
-.resources {
-    margin-top: 20px;
-}
-{% endblock %}
+{% endblock %} {% block extra_styles %} .resource-item { background: #f8f9fa;
+padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid
+#667eea; } .resources { margin-top: 20px; } {% endblock %}

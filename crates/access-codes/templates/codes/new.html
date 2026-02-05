@@ -1,20 +1,31 @@
-{% extends "base.html" %}
-{% block title %}Create Access Code{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}Create Access Code{% endblock %} {%
+block content %}
 <div class="container mx-auto px-4 py-8 max-w-4xl">
     <!-- Header -->
     <div class="mb-8">
         <div class="flex items-center gap-2 mb-4">
             <a href="/access/codes" class="btn btn-ghost btn-sm gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M15 19l-7-7 7-7"
+                    />
                 </svg>
                 Back to Access Codes
             </a>
         </div>
         <h1 class="text-4xl font-bold mb-2">🔑 Create Access Code</h1>
-        <p class="text-base-content/70">Share resources with others using a simple access code</p>
+        <p class="text-base-content/70">
+            Share resources with others using a simple access code
+        </p>
     </div>
 
     <!-- Progress Indicators -->
@@ -27,15 +38,35 @@
 
     <!-- Alert Messages -->
     <div id="errorAlert" class="alert alert-error mb-6 hidden">
-        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="stroke-current shrink-0 h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+        >
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
         </svg>
         <span id="errorMessage"></span>
     </div>
 
     <div id="successAlert" class="alert alert-success mb-6 hidden">
-        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="stroke-current shrink-0 h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+        >
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
         </svg>
         <span id="successMessage"></span>
     </div>
@@ -50,8 +81,12 @@
                 <!-- Code Name -->
                 <div class="form-control">
                     <label class="label">
-                        <span class="label-text font-semibold">Code Name *</span>
-                        <span class="label-text-alt text-base-content/60">Required</span>
+                        <span class="label-text font-semibold"
+                            >Code Name *</span
+                        >
+                        <span class="label-text-alt text-base-content/60"
+                            >Required</span
+                        >
                     </label>
                     <input
                         type="text"
@@ -65,17 +100,24 @@
                     />
                     <label class="label">
                         <span class="label-text-alt text-base-content/60">
-                            Letters, numbers, hyphens, and underscores only. Max 50 characters.
+                            Letters, numbers, hyphens, and underscores only. Max
+                            50 characters.
                         </span>
-                        <span class="label-text-alt" id="codeNameCount">0/50</span>
+                        <span class="label-text-alt" id="codeNameCount"
+                            >0/50</span
+                        >
                     </label>
                 </div>
 
                 <!-- Description -->
                 <div class="form-control">
                     <label class="label">
-                        <span class="label-text font-semibold">Description</span>
-                        <span class="label-text-alt text-base-content/60">Optional</span>
+                        <span class="label-text font-semibold"
+                            >Description</span
+                        >
+                        <span class="label-text-alt text-base-content/60"
+                            >Optional</span
+                        >
                     </label>
                     <textarea
                         id="description"
@@ -85,8 +127,12 @@
                         maxlength="500"
                     ></textarea>
                     <label class="label">
-                        <span class="label-text-alt text-base-content/60">Help you remember the purpose of this code.</span>
-                        <span class="label-text-alt" id="descriptionCount">0/500</span>
+                        <span class="label-text-alt text-base-content/60"
+                            >Help you remember the purpose of this code.</span
+                        >
+                        <span class="label-text-alt" id="descriptionCount"
+                            >0/500</span
+                        >
                     </label>
                 </div>
 
@@ -97,11 +143,22 @@
                     </label>
                     <div class="flex flex-col md:flex-row gap-4">
                         <label class="label cursor-pointer gap-2 flex-1">
-                            <input type="radio" name="expirationType" value="never" class="radio radio-primary" checked />
+                            <input
+                                type="radio"
+                                name="expirationType"
+                                value="never"
+                                class="radio radio-primary"
+                                checked
+                            />
                             <span class="label-text">Never expires</span>
                         </label>
                         <label class="label cursor-pointer gap-2 flex-1">
-                            <input type="radio" name="expirationType" value="date" class="radio radio-primary" />
+                            <input
+                                type="radio"
+                                name="expirationType"
+                                value="date"
+                                class="radio radio-primary"
+                            />
                             <span class="label-text">Set expiration date</span>
                         </label>
                     </div>
@@ -110,7 +167,9 @@
                 <!-- Expiration Date (conditional) -->
                 <div id="expirationDateSection" class="form-control hidden">
                     <label class="label">
-                        <span class="label-text font-semibold">Expiration Date & Time</span>
+                        <span class="label-text font-semibold"
+                            >Expiration Date & Time</span
+                        >
                     </label>
                     <div class="flex gap-2">
                         <input
@@ -129,16 +188,32 @@
                     </div>
                     <label class="label">
                         <span class="label-text-alt text-base-content/60">
-                            After this date, the access code will no longer work.
+                            After this date, the access code will no longer
+                            work.
                         </span>
                     </label>
                 </div>
 
                 <div class="card-actions justify-end mt-4">
-                    <button type="button" class="btn btn-primary" onclick="goToStep(2)">
+                    <button
+                        type="button"
+                        class="btn btn-primary"
+                        onclick="goToStep(2)"
+                    >
                         Next: Access Type
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M9 5l7 7-7 7"
+                            />
                         </svg>
                     </button>
                 </div>
@@ -152,33 +227,88 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <!-- Individual Resources -->
-                    <label class="card bg-base-200 cursor-pointer hover:bg-base-300 transition-colors">
+                    <label
+                        class="card bg-base-200 cursor-pointer hover:bg-base-300 transition-colors"
+                    >
                         <div class="card-body">
                             <div class="flex items-start gap-3">
-                                <input type="radio" name="accessType" value="individual" class="radio radio-primary mt-1" checked />
+                                <input
+                                    type="radio"
+                                    name="accessType"
+                                    value="individual"
+                                    class="radio radio-primary mt-1"
+                                    checked
+                                />
                                 <div class="flex-1">
-                                    <h3 class="font-bold text-lg mb-2">📋 Individual Resources</h3>
-                                    <p class="text-sm text-base-content/70 mb-3">
-                                        Hand-pick specific videos and images to share.
+                                    <h3 class="font-bold text-lg mb-2">
+                                        📋 Individual Resources
+                                    </h3>
+                                    <p
+                                        class="text-sm text-base-content/70 mb-3"
+                                    >
+                                        Hand-pick specific videos and images to
+                                        share.
                                     </p>
                                     <div class="text-xs space-y-1">
                                         <div class="flex items-center gap-1">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                class="h-3 w-3 text-success"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke="currentColor"
+                                            >
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M5 13l4 4L19 7"
+                                                />
                                             </svg>
-                                            <span>Select 1-10 specific resources</span>
+                                            <span
+                                                >Select 1-10 specific
+                                                resources</span
+                                            >
                                         </div>
                                         <div class="flex items-center gap-1">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                class="h-3 w-3 text-success"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke="currentColor"
+                                            >
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M5 13l4 4L19 7"
+                                                />
                                             </svg>
-                                            <span>Perfect for one-off shares</span>
+                                            <span
+                                                >Perfect for one-off
+                                                shares</span
+                                            >
                                         </div>
                                         <div class="flex items-center gap-1">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                class="h-3 w-3 text-success"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke="currentColor"
+                                            >
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M5 13l4 4L19 7"
+                                                />
                                             </svg>
-                                            <span>Resources from different groups</span>
+                                            <span
+                                                >Resources from different
+                                                groups</span
+                                            >
                                         </div>
                                     </div>
                                 </div>
@@ -187,31 +317,86 @@
                     </label>
 
                     <!-- Group Access (Future) -->
-                    <label class="card bg-base-200 cursor-not-allowed opacity-60">
+                    <label
+                        class="card bg-base-200 cursor-not-allowed opacity-60"
+                    >
                         <div class="card-body">
                             <div class="flex items-start gap-3">
-                                <input type="radio" name="accessType" value="group" class="radio radio-primary mt-1" disabled />
+                                <input
+                                    type="radio"
+                                    name="accessType"
+                                    value="group"
+                                    class="radio radio-primary mt-1"
+                                    disabled
+                                />
                                 <div class="flex-1">
-                                    <h3 class="font-bold text-lg mb-2">📚 Group Access <span class="badge badge-sm">Soon™</span></h3>
-                                    <p class="text-sm text-base-content/70 mb-3">
-                                        Share all resources in a group with one code.
+                                    <h3 class="font-bold text-lg mb-2">
+                                        📚 Group Access
+                                        <span class="badge badge-sm"
+                                            >Soon™</span
+                                        >
+                                    </h3>
+                                    <p
+                                        class="text-sm text-base-content/70 mb-3"
+                                    >
+                                        Share all resources in a group with one
+                                        code.
                                     </p>
                                     <div class="text-xs space-y-1">
                                         <div class="flex items-center gap-1">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                class="h-3 w-3"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke="currentColor"
+                                            >
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                                />
                                             </svg>
-                                            <span>All current & future resources</span>
+                                            <span
+                                                >All current & future
+                                                resources</span
+                                            >
                                         </div>
                                         <div class="flex items-center gap-1">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                class="h-3 w-3"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke="currentColor"
+                                            >
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                                />
                                             </svg>
-                                            <span>Perfect for courses & projects</span>
+                                            <span
+                                                >Perfect for courses &
+                                                projects</span
+                                            >
                                         </div>
                                         <div class="flex items-center gap-1">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                class="h-3 w-3"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke="currentColor"
+                                            >
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                                />
                                             </svg>
                                             <span>Content added over time</span>
                                         </div>
@@ -223,16 +408,46 @@
                 </div>
 
                 <div class="card-actions justify-between mt-4">
-                    <button type="button" class="btn btn-ghost" onclick="goToStep(1)">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    <button
+                        type="button"
+                        class="btn btn-ghost"
+                        onclick="goToStep(1)"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M15 19l-7-7 7-7"
+                            />
                         </svg>
                         Back
                     </button>
-                    <button type="button" class="btn btn-primary" onclick="goToStep(3)">
+                    <button
+                        type="button"
+                        class="btn btn-primary"
+                        onclick="goToStep(3)"
+                    >
                         Next: Select Resources
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M9 5l7 7-7 7"
+                            />
                         </svg>
                     </button>
                 </div>
@@ -254,7 +469,10 @@
                             class="input input-bordered w-full"
                         />
                     </div>
-                    <select id="resourceTypeFilter" class="select select-bordered w-full md:w-48">
+                    <select
+                        id="resourceTypeFilter"
+                        class="select select-bordered w-full md:w-48"
+                    >
                         <option value="all">All Types</option>
                         <option value="video">Videos Only</option>
                         <option value="image">Images Only</option>
@@ -262,17 +480,34 @@
                 </div>
 
                 <!-- Loading State -->
-                <div id="resourcesLoading" class="flex justify-center items-center py-12">
+                <div
+                    id="resourcesLoading"
+                    class="flex justify-center items-center py-12"
+                >
                     <span class="loading loading-spinner loading-lg"></span>
                 </div>
 
                 <!-- Resources List -->
                 <div id="resourcesList" class="hidden">
                     <div class="alert alert-info mb-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="stroke-current shrink-0 h-6 w-6"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
                         </svg>
-                        <span>Select the resources you want to share with this access code. You can only share resources you own.</span>
+                        <span
+                            >Select the resources you want to share with this
+                            access code. You can only share resources you
+                            own.</span
+                        >
                     </div>
 
                     <div class="mb-4 text-sm text-base-content/70">
@@ -280,31 +515,80 @@
                     </div>
 
                     <!-- Resources Grid -->
-                    <div id="resourcesGrid" class="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto">
+                    <div
+                        id="resourcesGrid"
+                        class="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto"
+                    >
                         <!-- Resources will be loaded here via JavaScript -->
                     </div>
                 </div>
 
                 <!-- Empty State -->
                 <div id="noResources" class="hidden text-center py-12">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 mx-auto text-base-content/30 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-24 w-24 mx-auto text-base-content/30 mb-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="1"
+                            d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                        />
                     </svg>
                     <h3 class="text-xl font-bold mb-2">No Resources Found</h3>
-                    <p class="text-base-content/70">Upload some videos or images first to share them with access codes.</p>
+                    <p class="text-base-content/70">
+                        Upload some videos or images first to share them with
+                        access codes.
+                    </p>
                 </div>
 
                 <div class="card-actions justify-between mt-4">
-                    <button type="button" class="btn btn-ghost" onclick="goToStep(2)">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    <button
+                        type="button"
+                        class="btn btn-ghost"
+                        onclick="goToStep(2)"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M15 19l-7-7 7-7"
+                            />
                         </svg>
                         Back
                     </button>
-                    <button type="button" class="btn btn-primary" onclick="goToStep(4)" id="nextToReview" disabled>
+                    <button
+                        type="button"
+                        class="btn btn-primary"
+                        onclick="goToStep(4)"
+                        id="nextToReview"
+                        disabled
+                    >
                         Next: Review & Create
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M9 5l7 7-7 7"
+                            />
                         </svg>
                     </button>
                 </div>
@@ -320,23 +604,46 @@
                     <!-- Code Details -->
                     <div class="card bg-base-200">
                         <div class="card-body">
-                            <h3 class="font-bold text-lg mb-3">Access Code Details</h3>
+                            <h3 class="font-bold text-lg mb-3">
+                                Access Code Details
+                            </h3>
                             <div class="space-y-2 text-sm">
                                 <div class="flex justify-between">
-                                    <span class="text-base-content/70">Code Name:</span>
-                                    <span class="font-semibold" id="reviewCodeName"></span>
+                                    <span class="text-base-content/70"
+                                        >Code Name:</span
+                                    >
+                                    <span
+                                        class="font-semibold"
+                                        id="reviewCodeName"
+                                    ></span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-base-content/70">Description:</span>
-                                    <span class="font-semibold" id="reviewDescription">None</span>
+                                    <span class="text-base-content/70"
+                                        >Description:</span
+                                    >
+                                    <span
+                                        class="font-semibold"
+                                        id="reviewDescription"
+                                        >None</span
+                                    >
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-base-content/70">Expiration:</span>
-                                    <span class="font-semibold" id="reviewExpiration">Never</span>
+                                    <span class="text-base-content/70"
+                                        >Expiration:</span
+                                    >
+                                    <span
+                                        class="font-semibold"
+                                        id="reviewExpiration"
+                                        >Never</span
+                                    >
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-base-content/70">Access Type:</span>
-                                    <span class="font-semibold">Individual Resources</span>
+                                    <span class="text-base-content/70"
+                                        >Access Type:</span
+                                    >
+                                    <span class="font-semibold"
+                                        >Individual Resources</span
+                                    >
                                 </div>
                             </div>
                         </div>
@@ -346,9 +653,15 @@
                     <div class="card bg-base-200">
                         <div class="card-body">
                             <h3 class="font-bold text-lg mb-3">
-                                Selected Resources (<span id="reviewResourceCount">0</span>)
+                                Selected Resources (<span
+                                    id="reviewResourceCount"
+                                    >0</span
+                                >)
                             </h3>
-                            <div id="reviewResourcesList" class="space-y-2 max-h-64 overflow-y-auto">
+                            <div
+                                id="reviewResourcesList"
+                                class="space-y-2 max-h-64 overflow-y-auto"
+                            >
                                 <!-- Resources will be listed here -->
                             </div>
                         </div>
@@ -357,9 +670,12 @@
                     <!-- Generated URL Preview -->
                     <div class="card bg-primary/10 border-2 border-primary">
                         <div class="card-body">
-                            <h3 class="font-bold text-lg mb-3">🔗 Generated URLs</h3>
+                            <h3 class="font-bold text-lg mb-3">
+                                🔗 Generated URLs
+                            </h3>
                             <p class="text-sm text-base-content/70 mb-3">
-                                Share these URLs to grant access to your selected resources:
+                                Share these URLs to grant access to your
+                                selected resources:
                             </p>
                             <div id="previewUrls" class="space-y-2">
                                 <!-- URLs will be generated here -->
@@ -369,15 +685,45 @@
                 </div>
 
                 <div class="card-actions justify-between mt-6">
-                    <button type="button" class="btn btn-ghost" onclick="goToStep(3)">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    <button
+                        type="button"
+                        class="btn btn-ghost"
+                        onclick="goToStep(3)"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M15 19l-7-7 7-7"
+                            />
                         </svg>
                         Back
                     </button>
-                    <button type="submit" class="btn btn-primary btn-lg gap-2" id="createButton">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    <button
+                        type="submit"
+                        class="btn btn-primary btn-lg gap-2"
+                        id="createButton"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-6 w-6"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                            />
                         </svg>
                         Create Access Code
                     </button>
@@ -394,29 +740,37 @@
     let allResources = [];
 
     // Character counters
-    document.getElementById('codeName').addEventListener('input', (e) => {
-        document.getElementById('codeNameCount').textContent = `${e.target.value.length}/50`;
+    document.getElementById("codeName").addEventListener("input", (e) => {
+        document.getElementById("codeNameCount").textContent =
+            `${e.target.value.length}/50`;
     });
 
-    document.getElementById('description').addEventListener('input', (e) => {
-        document.getElementById('descriptionCount').textContent = `${e.target.value.length}/500`;
+    document.getElementById("description").addEventListener("input", (e) => {
+        document.getElementById("descriptionCount").textContent =
+            `${e.target.value.length}/500`;
     });
 
     // Expiration type toggle
-    document.querySelectorAll('input[name="expirationType"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            const dateSection = document.getElementById('expirationDateSection');
-            if (e.target.value === 'date') {
-                dateSection.classList.remove('hidden');
-                // Set default to tomorrow
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                document.getElementById('expirationDate').value = tomorrow.toISOString().split('T')[0];
-            } else {
-                dateSection.classList.add('hidden');
-            }
+    document
+        .querySelectorAll('input[name="expirationType"]')
+        .forEach((radio) => {
+            radio.addEventListener("change", (e) => {
+                const dateSection = document.getElementById(
+                    "expirationDateSection",
+                );
+                if (e.target.value === "date") {
+                    dateSection.classList.remove("hidden");
+                    // Set default to tomorrow
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    document.getElementById("expirationDate").value = tomorrow
+                        .toISOString()
+                        .split("T")[0];
+                } else {
+                    dateSection.classList.add("hidden");
+                }
+            });
         });
-    });
 
     // Step navigation
     function goToStep(step) {
@@ -426,20 +780,22 @@
         }
 
         // Hide all steps
-        document.querySelectorAll('[data-step-content]').forEach(el => {
-            el.classList.add('hidden');
+        document.querySelectorAll("[data-step-content]").forEach((el) => {
+            el.classList.add("hidden");
         });
 
         // Show current step
-        document.querySelector(`[data-step-content="${step}"]`).classList.remove('hidden');
+        document
+            .querySelector(`[data-step-content="${step}"]`)
+            .classList.remove("hidden");
 
         // Update progress indicators
-        document.querySelectorAll('.step').forEach(el => {
+        document.querySelectorAll(".step").forEach((el) => {
             const stepNum = parseInt(el.dataset.step);
             if (stepNum <= step) {
-                el.classList.add('step-primary');
+                el.classList.add("step-primary");
             } else {
-                el.classList.remove('step-primary');
+                el.classList.remove("step-primary");
             }
         });
 
@@ -456,18 +812,20 @@
         }
 
         // Scroll to top
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
     function validateStep(step) {
         if (step === 1) {
-            const codeName = document.getElementById('codeName').value.trim();
+            const codeName = document.getElementById("codeName").value.trim();
             if (!codeName) {
-                showError('Please enter a code name');
+                showError("Please enter a code name");
                 return false;
             }
             if (!/^[a-zA-Z0-9_-]+$/.test(codeName)) {
-                showError('Code name can only contain letters, numbers, hyphens, and underscores');
+                showError(
+                    "Code name can only contain letters, numbers, hyphens, and underscores",
+                );
                 return false;
             }
         }
@@ -477,58 +835,82 @@
     // Load user's resources
     async function loadResources() {
         try {
-            document.getElementById('resourcesLoading').classList.remove('hidden');
-            document.getElementById('resourcesList').classList.add('hidden');
+            document
+                .getElementById("resourcesLoading")
+                .classList.remove("hidden");
+            document.getElementById("resourcesList").classList.add("hidden");
 
             // Fetch videos
-            const videosResponse = await fetch('/api/videos');
+            const videosResponse = await fetch("/api/videos");
             const videos = videosResponse.ok ? await videosResponse.json() : [];
 
             // Fetch images
-            const imagesResponse = await fetch('/api/images');
+            const imagesResponse = await fetch("/api/images");
             const images = imagesResponse.ok ? await imagesResponse.json() : [];
 
             allResources = [
-                ...videos.map(v => ({ type: 'video', slug: v.slug, title: v.title || v.slug })),
-                ...images.map(i => ({ type: 'image', slug: i.slug, title: i.title || i.slug }))
+                ...videos.map((v) => ({
+                    type: "video",
+                    slug: v.slug,
+                    title: v.title || v.slug,
+                })),
+                ...images.map((i) => ({
+                    type: "image",
+                    slug: i.slug,
+                    title: i.title || i.slug,
+                })),
             ];
 
             if (allResources.length === 0) {
-                document.getElementById('resourcesLoading').classList.add('hidden');
-                document.getElementById('noResources').classList.remove('hidden');
+                document
+                    .getElementById("resourcesLoading")
+                    .classList.add("hidden");
+                document
+                    .getElementById("noResources")
+                    .classList.remove("hidden");
             } else {
-                document.getElementById('resourcesLoading').classList.add('hidden');
-                document.getElementById('resourcesList').classList.remove('hidden');
+                document
+                    .getElementById("resourcesLoading")
+                    .classList.add("hidden");
+                document
+                    .getElementById("resourcesList")
+                    .classList.remove("hidden");
                 renderResources();
             }
         } catch (error) {
-            console.error('Error loading resources:', error);
-            showError('Failed to load resources');
+            console.error("Error loading resources:", error);
+            showError("Failed to load resources");
         }
     }
 
     function renderResources() {
-        const container = document.getElementById('resourcesGrid');
-        const searchTerm = document.getElementById('resourceSearch').value.toLowerCase();
-        const typeFilter = document.getElementById('resourceTypeFilter').value;
+        const container = document.getElementById("resourcesGrid");
+        const searchTerm = document
+            .getElementById("resourceSearch")
+            .value.toLowerCase();
+        const typeFilter = document.getElementById("resourceTypeFilter").value;
 
-        const filtered = allResources.filter(r => {
-            const matchesSearch = r.title.toLowerCase().includes(searchTerm) ||
-                                  r.slug.toLowerCase().includes(searchTerm);
-            const matchesType = typeFilter === 'all' || r.type === typeFilter;
+        const filtered = allResources.filter((r) => {
+            const matchesSearch =
+                r.title.toLowerCase().includes(searchTerm) ||
+                r.slug.toLowerCase().includes(searchTerm);
+            const matchesType = typeFilter === "all" || r.type === typeFilter;
             return matchesSearch && matchesType;
         });
 
-        container.innerHTML = filtered.map(resource => {
-            const isSelected = selectedResources.some(r => r.type === resource.type && r.slug === resource.slug);
-            const icon = resource.type === 'video' ? '🎥' : '🖼️';
+        container.innerHTML = filtered
+            .map((resource) => {
+                const isSelected = selectedResources.some(
+                    (r) => r.type === resource.type && r.slug === resource.slug,
+                );
+                const icon = resource.type === "video" ? "🎥" : "🖼️";
 
-            return `
-                <label class="flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer hover:bg-base-200 transition-colors ${isSelected ? 'border-primary bg-primary/10' : 'border-base-300'}">
+                return `
+                <label class="flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer hover:bg-base-200 transition-colors ${isSelected ? "border-primary bg-primary/10" : "border-base-300"}">
                     <input
                         type="checkbox"
                         class="checkbox checkbox-primary"
-                        ${isSelected ? 'checked' : ''}
+                        ${isSelected ? "checked" : ""}
                         onchange="toggleResource('${resource.type}', '${resource.slug}', '${resource.title.replace(/'/g, "\\'")}')"
                     />
                     <div class="flex-1 min-w-0">
@@ -541,15 +923,19 @@
                     <span class="badge badge-sm">${resource.type}</span>
                 </label>
             `;
-        }).join('');
+            })
+            .join("");
 
         if (filtered.length === 0) {
-            container.innerHTML = '<div class="text-center py-8 text-base-content/60">No resources match your search</div>';
+            container.innerHTML =
+                '<div class="text-center py-8 text-base-content/60">No resources match your search</div>';
         }
     }
 
     function toggleResource(type, slug, title) {
-        const index = selectedResources.findIndex(r => r.type === type && r.slug === slug);
+        const index = selectedResources.findIndex(
+            (r) => r.type === type && r.slug === slug,
+        );
         if (index > -1) {
             selectedResources.splice(index, 1);
         } else {
@@ -560,53 +946,65 @@
 
     function updateSelectedCount() {
         const count = selectedResources.length;
-        document.getElementById('selectedCount').textContent = count;
-        document.getElementById('nextToReview').disabled = count === 0;
+        document.getElementById("selectedCount").textContent = count;
+        document.getElementById("nextToReview").disabled = count === 0;
     }
 
     // Search and filter
-    document.getElementById('resourceSearch').addEventListener('input', renderResources);
-    document.getElementById('resourceTypeFilter').addEventListener('change', renderResources);
+    document
+        .getElementById("resourceSearch")
+        .addEventListener("input", renderResources);
+    document
+        .getElementById("resourceTypeFilter")
+        .addEventListener("change", renderResources);
 
     // Update review step
     function updateReview() {
-        const codeName = document.getElementById('codeName').value;
-        const description = document.getElementById('description').value.trim();
-        const expirationType = document.querySelector('input[name="expirationType"]:checked').value;
+        const codeName = document.getElementById("codeName").value;
+        const description = document.getElementById("description").value.trim();
+        const expirationType = document.querySelector(
+            'input[name="expirationType"]:checked',
+        ).value;
 
-        document.getElementById('reviewCodeName').textContent = codeName;
-        document.getElementById('reviewDescription').textContent = description || 'None';
+        document.getElementById("reviewCodeName").textContent = codeName;
+        document.getElementById("reviewDescription").textContent =
+            description || "None";
 
-        if (expirationType === 'date') {
-            const date = document.getElementById('expirationDate').value;
-            const time = document.getElementById('expirationTime').value;
-            document.getElementById('reviewExpiration').textContent = `${date} at ${time}`;
+        if (expirationType === "date") {
+            const date = document.getElementById("expirationDate").value;
+            const time = document.getElementById("expirationTime").value;
+            document.getElementById("reviewExpiration").textContent =
+                `${date} at ${time}`;
         } else {
-            document.getElementById('reviewExpiration').textContent = 'Never';
+            document.getElementById("reviewExpiration").textContent = "Never";
         }
 
         // Resources list
-        document.getElementById('reviewResourceCount').textContent = selectedResources.length;
-        const resourcesList = document.getElementById('reviewResourcesList');
-        resourcesList.innerHTML = selectedResources.map(r => {
-            const icon = r.type === 'video' ? '🎥' : '🖼️';
-            return `
+        document.getElementById("reviewResourceCount").textContent =
+            selectedResources.length;
+        const resourcesList = document.getElementById("reviewResourcesList");
+        resourcesList.innerHTML = selectedResources
+            .map((r) => {
+                const icon = r.type === "video" ? "🎥" : "🖼️";
+                return `
                 <div class="flex items-center gap-2 text-sm">
                     <span>${icon}</span>
                     <span class="font-semibold">${r.title}</span>
                     <span class="text-base-content/60">(${r.slug})</span>
                 </div>
             `;
-        }).join('');
+            })
+            .join("");
 
         // Generate preview URLs
         const baseUrl = window.location.origin;
-        const previewUrls = document.getElementById('previewUrls');
-        previewUrls.innerHTML = selectedResources.slice(0, 3).map(r => {
-            const url = r.type === 'video'
-                ? `${baseUrl}/watch/${r.slug}?code=${codeName}`
-                : `${baseUrl}/images/${r.slug}?code=${codeName}`;
-            return `
+        const previewUrls = document.getElementById("previewUrls");
+        previewUrls.innerHTML =
+            selectedResources
+                .slice(0, 3)
+                .map((r) => {
+                    const url = `${baseUrl}/access/preview?code=${codeName}`;
+                    return `
                 <div class="flex gap-2 items-center">
                     <input
                         type="text"
@@ -626,7 +1024,15 @@
                     </button>
                 </div>
             `;
-        }).join('');
+                })
+                .join("") +
+            (selectedResources.length > 3
+                ? `
+            <div class="text-xs text-base-content/60 mt-2">
+                ... and ${selectedResources.length - 3} more resources
+            </div>
+        `
+                : "");
 
         if (selectedResources.length > 3) {
             previewUrls.innerHTML += `<div class="text-xs text-base-content/60">+ ${selectedResources.length - 3} more resources...</div>`;
@@ -634,86 +1040,98 @@
     }
 
     // Form submission
-    document.getElementById('createCodeForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
+    document
+        .getElementById("createCodeForm")
+        .addEventListener("submit", async (e) => {
+            e.preventDefault();
 
-        const codeName = document.getElementById('codeName').value.trim();
-        const description = document.getElementById('description').value.trim();
-        const expirationType = document.querySelector('input[name="expirationType"]:checked').value;
+            const codeName = document.getElementById("codeName").value.trim();
+            const description = document
+                .getElementById("description")
+                .value.trim();
+            const expirationType = document.querySelector(
+                'input[name="expirationType"]:checked',
+            ).value;
 
-        let expiresAt = null;
-        if (expirationType === 'date') {
-            const date = document.getElementById('expirationDate').value;
-            const time = document.getElementById('expirationTime').value;
-            expiresAt = `${date}T${time}:00Z`;
-        }
-
-        const requestBody = {
-            code: codeName,
-            description: description || null,
-            expires_at: expiresAt,
-            media_items: selectedResources.map(r => ({
-                media_type: r.type,
-                media_slug: r.slug
-            }))
-        };
-
-        const createButton = document.getElementById('createButton');
-        createButton.disabled = true;
-        createButton.innerHTML = '<span class="loading loading-spinner"></span> Creating...';
-
-        try {
-            const response = await fetch('/api/access-codes', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            });
-
-            if (response.ok) {
-                showSuccess('Access code created successfully!');
-                setTimeout(() => {
-                    window.location.href = '/access/codes';
-                }, 1500);
-            } else if (response.status === 409) {
-                showError('This code name is already taken. Please choose a different name.');
-                createButton.disabled = false;
-                createButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg> Create Access Code';
-            } else {
-                const error = await response.text();
-                showError(`Failed to create access code: ${error}`);
-                createButton.disabled = false;
-                createButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg> Create Access Code';
+            let expiresAt = null;
+            if (expirationType === "date") {
+                const date = document.getElementById("expirationDate").value;
+                const time = document.getElementById("expirationTime").value;
+                expiresAt = `${date}T${time}:00Z`;
             }
-        } catch (error) {
-            console.error('Error creating access code:', error);
-            showError('Network error. Please try again.');
-            createButton.disabled = false;
-            createButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg> Create Access Code';
-        }
-    });
+
+            const requestBody = {
+                code: codeName,
+                description: description || null,
+                expires_at: expiresAt,
+                media_items: selectedResources.map((r) => ({
+                    media_type: r.type,
+                    media_slug: r.slug,
+                })),
+            };
+
+            const createButton = document.getElementById("createButton");
+            createButton.disabled = true;
+            createButton.innerHTML =
+                '<span class="loading loading-spinner"></span> Creating...';
+
+            try {
+                const response = await fetch("/api/access-codes", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(requestBody),
+                });
+
+                if (response.ok) {
+                    showSuccess("Access code created successfully!");
+                    setTimeout(() => {
+                        window.location.href = "/access/codes";
+                    }, 1500);
+                } else if (response.status === 409) {
+                    showError(
+                        "This code name is already taken. Please choose a different name.",
+                    );
+                    createButton.disabled = false;
+                    createButton.innerHTML =
+                        '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg> Create Access Code';
+                } else {
+                    const error = await response.text();
+                    showError(`Failed to create access code: ${error}`);
+                    createButton.disabled = false;
+                    createButton.innerHTML =
+                        '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg> Create Access Code';
+                }
+            } catch (error) {
+                console.error("Error creating access code:", error);
+                showError("Network error. Please try again.");
+                createButton.disabled = false;
+                createButton.innerHTML =
+                    '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg> Create Access Code';
+            }
+        });
 
     function copyToClipboard(text) {
         navigator.clipboard.writeText(text).then(() => {
-            showSuccess('URL copied to clipboard!');
+            showSuccess("URL copied to clipboard!");
         });
     }
 
     function showError(message) {
-        const alert = document.getElementById('errorAlert');
-        const messageEl = document.getElementById('errorMessage');
+        const alert = document.getElementById("errorAlert");
+        const messageEl = document.getElementById("errorMessage");
         messageEl.textContent = message;
-        alert.classList.remove('hidden');
-        setTimeout(() => alert.classList.add('hidden'), 5000);
+        alert.classList.remove("hidden");
+        setTimeout(() => alert.classList.add("hidden"), 5000);
     }
 
     function showSuccess(message) {
-        const alert = document.getElementById('successAlert');
-        const messageEl = document.getElementById('successMessage');
+        const alert = document.getElementById("successAlert");
+        const messageEl = document.getElementById("successMessage");
         messageEl.textContent = message;
-        alert.classList.remove('hidden');
-        setTimeout(() => alert.classList.add('hidden'), 3000);
+        alert.classList.remove("hidden");
+        setTimeout(() => alert.classList.add("hidden"), 3000);
     }
 </script>
 {% endblock %}

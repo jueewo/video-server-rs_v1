@@ -121,19 +121,30 @@ endblock %} {% block content %}
                     </div>
                 </a>
 
-                <!-- Access Code Demo -->
+                <!-- Access Codes -->
+                {% if authenticated %}
+                <a
+                    href="/access/codes"
+                    class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border-2 border-warning"
+                >
+                    <div class="card-body items-center text-center">
+                        <div class="text-4xl mb-2">🔑</div>
+                        <h2 class="card-title text-warning">Access Codes</h2>
+                        <p class="text-base-content/70">Manage sharing codes</p>
+                    </div>
+                </a>
+                {% else %}
                 <a
                     href="/demo"
                     class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
                 >
                     <div class="card-body items-center text-center">
                         <div class="text-4xl mb-2">🔑</div>
-                        <h2 class="card-title">Access Codes</h2>
-                        <p class="text-base-content/70">
-                            Share media with codes
-                        </p>
+                        <h2 class="card-title">Access Code Demo</h2>
+                        <p class="text-base-content/70">Test access codes</p>
                     </div>
                 </a>
+                {% endif %}
 
                 <!-- Profile (only if authenticated) -->
                 {% if authenticated %}

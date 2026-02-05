@@ -85,8 +85,8 @@ struct GroupDetailTemplate {
 
 #[derive(Debug, Clone)]
 struct ResourceItem {
-    thumbnail: String,
     title: String,
+    thumbnail: String,
     url: String,
 }
 
@@ -133,9 +133,40 @@ pub async fn group_detail_page_handler(
         Vec::new()
     };
 
-    // TODO: Get actual resources from videos/images tables
-    // For now, return empty list
-    let resources = Vec::new();
+    // Get resources assigned to this group
+    let videos: Vec<(String, String, String)> = sqlx::query_as(
+        "SELECT slug, title, 'video' as type FROM videos WHERE group_id = ? ORDER BY created_at DESC"
+    )
+    .bind(group.id)
+    .fetch_all(&pool)
+    .await
+    .unwrap_or_default();
+
+    let images: Vec<(String, String, String)> = sqlx::query_as(
+        "SELECT slug, title, 'image' as type FROM images WHERE group_id = ? ORDER BY created_at DESC"
+    )
+    .bind(group.id)
+    .fetch_all(&pool)
+    .await
+    .unwrap_or_default();
+
+    let mut resources: Vec<ResourceItem> = Vec::new();
+
+    for (slug, title, _resource_type) in videos {
+        resources.push(ResourceItem {
+            title,
+            thumbnail: format!("/storage/videos/{}_thumb.jpg", slug),
+            url: format!("/watch/{}", slug),
+        });
+    }
+
+    for (slug, title, _resource_type) in images {
+        resources.push(ResourceItem {
+            title,
+            thumbnail: format!("/storage/images/{}_thumb.webp", slug),
+            url: format!("/images/{}", slug),
+        });
+    }
 
     let template = GroupDetailTemplate {
         group,

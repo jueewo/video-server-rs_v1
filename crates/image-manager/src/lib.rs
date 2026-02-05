@@ -14,6 +14,10 @@ use time::OffsetDateTime;
 use tower_sessions::Session;
 use tracing::{self, info};
 
+// Import access control functionality
+use access_control::{AccessContext, AccessControlService, Permission};
+use common::ResourceType;
+
 // Import tag functionality from common crate
 use common::{
     models::tag::{AddTagsRequest, Tag},
@@ -164,11 +168,17 @@ pub struct AccessCodeQuery {
 pub struct ImageManagerState {
     pub pool: Pool<Sqlite>,
     pub storage_dir: PathBuf,
+    pub access_control: Arc<AccessControlService>,
 }
 
 impl ImageManagerState {
     pub fn new(pool: Pool<Sqlite>, storage_dir: PathBuf) -> Self {
-        Self { pool, storage_dir }
+        let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));
+        Self {
+            pool,
+            storage_dir,
+            access_control,
+        }
     }
 }
 
@@ -717,6 +727,13 @@ pub async fn image_detail_handler(
         .flatten()
         .unwrap_or(false);
 
+    // Get user_id from session if authenticated
+    let user_id: Option<String> = if authenticated {
+        session.get::<String>("user_id").await.ok().flatten()
+    } else {
+        None
+    };
+
     // Get image from database - simplified for now
     let row = match sqlx::query(
         r#"
@@ -747,8 +764,9 @@ pub async fn image_detail_handler(
         }
     };
 
+    let image_id: i64 = row.try_get("id").unwrap_or(0);
     let image = ImageDetail {
-        id: row.try_get("id").unwrap_or(0),
+        id: image_id,
         slug: row.try_get("slug").unwrap_or_default(),
         title: row.try_get("title").unwrap_or_default(),
         description: row.try_get("description").ok(),
@@ -777,10 +795,39 @@ pub async fn image_detail_handler(
         tags: Vec::new(),
     };
 
-    // Check if user can view this image
-    if !image.is_public && !authenticated {
+    // Build access context for modern access control
+    let mut context = AccessContext::new(ResourceType::Image, image_id as i32);
+    if let Some(uid) = user_id {
+        context = context.with_user(uid);
+    }
+
+    // Check access using the 4-layer access control system
+    let decision = state
+        .access_control
+        .check_access(context, Permission::Read)
+        .await
+        .map_err(|e| {
+            info!(error = ?e, "Access control error");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Access check failed".to_string(),
+            )
+        })?;
+
+    if !decision.granted {
+        info!(
+            image_slug = %slug,
+            reason = %decision.reason,
+            "Access denied to image"
+        );
         return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()));
     }
+
+    info!(
+        image_slug = %slug,
+        access_layer = ?decision.layer,
+        "Access granted to image"
+    );
 
     // Get tags for this image
     let tag_service = TagService::new(&state.pool);
@@ -1077,6 +1124,42 @@ pub async fn delete_image_handler(
         return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()));
     }
 
+    // Get user_id from session
+    let user_id: Option<String> = session.get::<String>("user_id").await.ok().flatten();
+
+    // Build access context and check Delete permission
+    let mut context = AccessContext::new(ResourceType::Image, id as i32);
+    if let Some(uid) = user_id {
+        context = context.with_user(uid);
+    }
+
+    let decision = match state
+        .access_control
+        .check_access(context, Permission::Delete)
+        .await
+    {
+        Ok(d) => d,
+        Err(e) => {
+            info!(error = ?e, "Access control error for image deletion");
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Access check failed".to_string(),
+            ));
+        }
+    };
+
+    if !decision.granted {
+        info!(
+            image_id = id,
+            reason = %decision.reason,
+            "Access denied to delete image"
+        );
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Cannot delete this image".to_string(),
+        ));
+    }
+
     // Get image slug for file deletion
     let row = match sqlx::query("SELECT slug, filename FROM images WHERE id = ?")
         .bind(id)
@@ -1140,9 +1223,9 @@ pub async fn serve_image_handler(
         (slug.clone(), false)
     };
 
-    // Lookup image in database
-    let image: Result<Option<(String, i32)>, sqlx::Error> =
-        sqlx::query_as("SELECT filename, is_public FROM images WHERE slug = ?")
+    // Lookup image in database - get id, filename, and is_public
+    let image: Result<Option<(i32, String, i32)>, sqlx::Error> =
+        sqlx::query_as("SELECT id, filename, is_public FROM images WHERE slug = ?")
             .bind(&lookup_slug)
             .fetch_optional(&state.pool)
             .await;
@@ -1159,51 +1242,71 @@ pub async fn serve_image_handler(
         }
     };
 
-    let (mut filename, is_public) = image;
-
-    let is_public = is_public == 1;
+    let (image_id, mut filename, is_public_int) = image;
+    let is_public = is_public_int == 1;
 
     // Adjust filename for thumbnails
     if is_thumb {
         filename = format!("{}_thumb.webp", lookup_slug);
     }
 
-    // Check authentication or access code for private images
-    if !is_public {
-        let authenticated: bool = session
-            .get("authenticated")
-            .await
-            .ok()
-            .flatten()
-            .unwrap_or(false);
+    // Get user_id from session if authenticated
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
 
-        if !authenticated {
-            // Check if access code is provided and valid
-            if let Some(code) = &query.access_code {
-                if !check_access_code(&state.pool, code, "image", &lookup_slug).await {
-                    println!("❌ Unauthorized access attempt to private image: {}", slug);
-                    info!(access_code = %code, media_type = "image", media_slug = %lookup_slug, error = "Invalid or expired access code", "Failed to process request");
-                    return (
-                        StatusCode::UNAUTHORIZED,
-                        UnauthorizedTemplate {
-                            authenticated: false,
-                        },
-                    )
-                        .into_response();
-                }
-            } else {
-                println!("❌ Unauthorized access attempt to private image: {}", slug);
-                info!(media_type = "image", media_slug = %lookup_slug, error = "No access code provided for private image", "Failed to process request");
-                return (
-                    StatusCode::UNAUTHORIZED,
-                    UnauthorizedTemplate {
-                        authenticated: false,
-                    },
-                )
-                    .into_response();
-            }
-        }
+    let user_id: Option<String> = if authenticated {
+        session.get::<String>("user_id").await.ok().flatten()
+    } else {
+        None
+    };
+
+    // Build access context for modern access control
+    // For image serving (download), we require Download permission
+    let mut context = AccessContext::new(ResourceType::Image, image_id);
+    if let Some(uid) = user_id {
+        context = context.with_user(uid);
     }
+    if let Some(key) = query.access_code.clone() {
+        context = context.with_key(key);
+    }
+
+    // Check access using the 4-layer access control system
+    let decision = match state
+        .access_control
+        .check_access(context, Permission::Download)
+        .await
+    {
+        Ok(d) => d,
+        Err(e) => {
+            info!(error = ?e, "Access control error for image");
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Access check failed").into_response();
+        }
+    };
+
+    if !decision.granted {
+        info!(
+            image_slug = %slug,
+            reason = %decision.reason,
+            "Access denied to image"
+        );
+        return (
+            StatusCode::UNAUTHORIZED,
+            UnauthorizedTemplate {
+                authenticated: false,
+            },
+        )
+            .into_response();
+    }
+
+    info!(
+        image_slug = %slug,
+        access_layer = ?decision.layer,
+        "Access granted to image download"
+    );
 
     // Determine storage location
     let base_folder = if is_public {
@@ -1356,23 +1459,21 @@ struct ImageRecord {
 }
 
 /// Helper function to check if user can modify image tags
+/// Helper function to check if user can modify image tags
+/// Uses modern AccessControlService with Edit permission
 async fn can_modify_image(
     pool: &Pool<Sqlite>,
     image_id: i32,
     user_sub: &str,
 ) -> Result<bool, sqlx::Error> {
-    let image: Option<ImageRecord> =
-        sqlx::query_as("SELECT id, user_id, is_public FROM images WHERE id = ?")
-            .bind(image_id)
-            .fetch_optional(pool)
-            .await?;
+    // Use the new access control service
+    let access_control = AccessControlService::new(pool.clone());
 
-    match image {
-        Some(img) => {
-            // User can modify if they own the image
-            Ok(img.user_id.as_ref() == Some(&user_sub.to_string()))
-        }
-        None => Ok(false),
+    let context = AccessContext::new(ResourceType::Image, image_id).with_user(user_sub.to_string());
+
+    match access_control.check_access(context, Permission::Edit).await {
+        Ok(decision) => Ok(decision.granted),
+        Err(_) => Ok(false),
     }
 }
 

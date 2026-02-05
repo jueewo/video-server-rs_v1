@@ -764,32 +764,61 @@ Server{% endblock %} {% block extra_head %}
             <!-- Access & Sharing -->
             <div class="card bg-base-100 shadow-xl">
                 <div class="card-body">
-                    <h2 class="card-title text-2xl mb-4">🔐 Access & Sharing</h2>
+                    <h2 class="card-title text-2xl mb-4">
+                        🔐 Access & Sharing
+                    </h2>
 
                     <div class="form-control">
                         <label class="label">
-                            <span class="label-text font-semibold">Access Group</span>
-                            <span class="label-text-alt text-base-content/60">Optional</span>
+                            <span class="label-text font-semibold"
+                                >Access Group</span
+                            >
+                            <span class="label-text-alt text-base-content/60"
+                                >Optional</span
+                            >
                         </label>
-                        <select x-model="globalMetadata.groupId" class="select select-bordered">
-                            <option value="">No group (Private to me only)</option>
+                        <select
+                            x-model="globalMetadata.groupId"
+                            class="select select-bordered"
+                        >
+                            <option value="">
+                                No group (Private to me only)
+                            </option>
                             <template x-for="group in groups" :key="group.id">
-                                <option :value="group.id" x-text="`${group.name} (${group.member_count} members)`"></option>
+                                <option
+                                    :value="group.id"
+                                    x-text="`${group.name} (${group.member_count} members)`"
+                                ></option>
                             </template>
                         </select>
                         <label class="label">
-                            <span class="label-text-alt">Assign images to a group for team collaboration</span>
+                            <span class="label-text-alt"
+                                >Assign images to a group for team
+                                collaboration</span
+                            >
                         </label>
                     </div>
 
                     <div class="alert alert-info mt-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="stroke-current shrink-0 h-6 w-6"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
                         </svg>
                         <div>
                             <div class="text-sm">
-                                <strong>Privacy:</strong> Selecting a group allows all group members to view these images.
-                                Leave unselected to keep them private to you only.
+                                <strong>Privacy:</strong> Selecting a group
+                                allows all group members to view these images.
+                                Leave unselected to keep them private to you
+                                only.
                             </div>
                         </div>
                     </div>
@@ -797,7 +826,6 @@ Server{% endblock %} {% block extra_head %}
             </div>
 
             <!-- Navigation -->
-            <div class="flex gap-4">
             <div class="flex justify-between">
                 <button
                     type="button"
@@ -1003,17 +1031,17 @@ Server{% endblock %} {% block extra_head %}
                 isPublic: "true",
             },
             globalMetadata: {
-                category: '',
-                subcategory: '',
-                collection: '',
-                series: '',
+                category: "",
+                subcategory: "",
+                collection: "",
+                series: "",
                 tags: [],
-                copyrightHolder: '',
-                license: '',
+                copyrightHolder: "",
+                license: "",
                 allowDownload: false,
                 matureContent: false,
                 featured: false,
-                groupId: ''
+                groupId: "",
             },
             groups: [],
             tagInput: "",
@@ -1283,7 +1311,10 @@ Server{% endblock %} {% block extra_head %}
 
                         // Add group_id if selected
                         if (this.globalMetadata.groupId) {
-                            formData.append("group_id", this.globalMetadata.groupId);
+                            formData.append(
+                                "group_id",
+                                this.globalMetadata.groupId,
+                            );
                         }
 
                         // Add tags
@@ -1320,12 +1351,12 @@ Server{% endblock %} {% block extra_head %}
 
             async loadGroups() {
                 try {
-                    const response = await fetch('/api/groups');
+                    const response = await fetch("/api/groups");
                     if (response.ok) {
                         this.groups = await response.json();
                     }
                 } catch (error) {
-                    console.error('Failed to load groups:', error);
+                    console.error("Failed to load groups:", error);
                 }
             },
 

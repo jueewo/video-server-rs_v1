@@ -523,7 +523,7 @@ mod tests {
         .unwrap();
 
         sqlx::query(
-            "CREATE TABLE access_keys (
+            "CREATE TABLE access_codes (
                 id INTEGER PRIMARY KEY,
                 key TEXT NOT NULL UNIQUE,
                 description TEXT NOT NULL,

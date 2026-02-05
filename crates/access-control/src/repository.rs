@@ -218,8 +218,8 @@ impl AccessRepository {
                 max_downloads,
                 current_downloads,
                 is_active
-             FROM access_keys
-             WHERE key = ? AND is_active = 1",
+             FROM access_codes
+             WHERE code = ? AND is_active = 1",
         )
         .bind(key)
         .fetch_optional(&self.pool)
@@ -301,10 +301,10 @@ impl AccessRepository {
     /// Used when a download actually occurs.
     pub async fn increment_download_count(&self, key: &str) -> Result<(), AccessError> {
         sqlx::query(
-            "UPDATE access_keys
+            "UPDATE access_codes
              SET current_downloads = current_downloads + 1,
                  last_accessed_at = CURRENT_TIMESTAMP
-             WHERE key = ?",
+             WHERE code = ?",
         )
         .bind(key)
         .execute(&self.pool)
@@ -615,7 +615,7 @@ mod tests {
         .unwrap();
 
         sqlx::query(
-            "CREATE TABLE access_keys (
+            "CREATE TABLE access_codes (
                 id INTEGER PRIMARY KEY,
                 key TEXT NOT NULL UNIQUE,
                 description TEXT NOT NULL,
@@ -736,7 +736,7 @@ mod tests {
         let repo = AccessRepository::new(pool.clone());
 
         sqlx::query(
-            "INSERT INTO access_keys
+            "INSERT INTO access_codes
              (id, key, description, permission_level, is_active)
              VALUES (?, ?, ?, ?, ?)",
         )

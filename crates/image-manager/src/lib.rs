@@ -274,6 +274,7 @@ pub async fn upload_image_handler(
     let mut title: Option<String> = None;
     let mut description: Option<String> = None;
     let mut is_public: Option<i32> = None;
+    let mut group_id: Option<i32> = None;
     let mut file_data: Option<Vec<u8>> = None;
     let mut filename: Option<String> = None;
 
@@ -335,6 +336,20 @@ pub async fn upload_image_handler(
                     )
                 })?;
                 is_public = Some(value.parse().unwrap_or(0));
+            }
+            "group_id" => {
+                let value = field.text().await.map_err(|_| {
+                    (
+                        StatusCode::BAD_REQUEST,
+                        UploadErrorTemplate {
+                            authenticated: true,
+                            error_message: "Invalid group_id field.".to_string(),
+                        },
+                    )
+                })?;
+                if !value.is_empty() {
+                    group_id = value.parse().ok();
+                }
             }
             "file" => {
                 filename = field.file_name().map(|s| s.to_string());
@@ -623,7 +638,7 @@ pub async fn upload_image_handler(
 
     // Insert into database
     sqlx::query(
-        "INSERT INTO images (slug, filename, title, description, is_public, user_id) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO images (slug, filename, title, description, is_public, user_id, group_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&slug)
     .bind(&stored_filename)
@@ -631,6 +646,7 @@ pub async fn upload_image_handler(
     .bind(&description)
     .bind(is_public)
     .bind(&user_id)
+    .bind(group_id)
     .execute(&state.pool)
     .await
     .map_err(|e| {

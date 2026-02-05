@@ -1,6 +1,5 @@
 //! Common types, traits, and utilities shared across all crates
 
-pub mod access_control;
 pub mod db;
 pub mod error;
 pub mod handlers;
@@ -12,7 +11,6 @@ pub mod types;
 pub mod utils;
 
 // Re-export commonly used types
-pub use access_control::{check_resource_access, log_access_key_usage};
 pub use db::*;
 pub use error::Error;
 pub use handlers::*;

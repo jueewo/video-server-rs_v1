@@ -24,6 +24,9 @@ use crate::{
     },
 };
 
+// Import new access control service
+use access_control::{AccessContext, AccessControlService, Permission};
+
 /// Helper to get authenticated user ID from session
 async fn get_user_id(session: &Session) -> Result<String> {
     tracing::debug!("Getting user_id from session");
@@ -428,15 +431,15 @@ pub async fn check_resource_access_handler(
             AccessGroupError::InvalidInput(format!("Invalid resource type: {}", e))
         })?;
 
-    let has_access = common::access_control::check_resource_access(
-        &pool,
-        Some(&user_id),
-        None,
-        resource_type,
-        request.resource_id,
-    )
-    .await
-    .map_err(|e| AccessGroupError::Internal(e.to_string()))?;
+    // Use new AccessControlService to check access
+    let access_control = AccessControlService::new(pool.clone());
+    let context = AccessContext::new(resource_type, request.resource_id).with_user(user_id.clone());
 
-    Ok(Json(has_access))
+    // Check if user has at least Read permission
+    let decision = access_control
+        .check_access(context, Permission::Read)
+        .await
+        .map_err(|e| AccessGroupError::Internal(e.to_string()))?;
+
+    Ok(Json(decision.granted))
 }

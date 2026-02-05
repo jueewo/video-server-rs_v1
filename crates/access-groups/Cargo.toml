@@ -48,6 +48,7 @@ validator = { version = "0.16", features = ["derive"] }
 # Internal dependencies
 common = { path = "../common" }
 user-auth = { path = "../user-auth" }
+access-control = { path = "../access-control" }
 
 [dev-dependencies]
 tokio-test = "0.4"

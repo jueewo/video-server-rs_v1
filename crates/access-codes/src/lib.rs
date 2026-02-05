@@ -86,8 +86,10 @@ pub struct AccessCodeDisplay {
     pub has_description: bool,
     pub created_at: String,
     pub created_at_human: String,
+    pub created_at_formatted: String,
     pub expires_at: String,
     pub expires_at_human: String,
+    pub expires_at_formatted: String,
     pub has_expiration: bool,
     pub is_expired: bool,
     pub status: String,
@@ -102,7 +104,7 @@ pub struct AccessCodeDisplay {
 #[tracing::instrument(skip(session, state))]
 pub async fn new_access_code_page(
     session: Session,
-    State(state): State<Arc<AccessCodeState>>,
+    State(_state): State<Arc<AccessCodeState>>,
 ) -> Result<Html<String>, StatusCode> {
     // Check authentication
     let authenticated: bool = session
@@ -121,6 +123,123 @@ pub async fn new_access_code_page(
     struct NewAccessCodeTemplate {}
 
     let template = NewAccessCodeTemplate {};
+    let html = template
+        .render()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Html(html))
+}
+
+#[tracing::instrument(skip(session, state))]
+pub async fn view_access_code_page(
+    Path(code): Path<String>,
+    session: Session,
+    State(state): State<Arc<AccessCodeState>>,
+) -> Result<Html<String>, StatusCode> {
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    // Get user_id from session
+    let user_id: String = session
+        .get("user_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "unknown".to_string());
+
+    // Get access code details
+    let code_record = sqlx::query_as::<_, (i32, String, Option<String>, Option<String>, String)>(
+        "SELECT id, code, description, expires_at, created_at FROM access_codes WHERE code = ? AND created_by = ?"
+    )
+    .bind(&code)
+    .bind(&user_id)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let (id, code_name, description, expires_at, created_at) =
+        code_record.ok_or(StatusCode::NOT_FOUND)?;
+
+    // Get permissions for this code
+    let permissions = sqlx::query_as::<_, (String, String)>(
+        "SELECT media_type, media_slug FROM access_code_permissions WHERE access_code_id = ?",
+    )
+    .bind(id)
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let media_items: Vec<MediaItem> = permissions
+        .into_iter()
+        .map(|(media_type, media_slug)| MediaItem {
+            media_type,
+            media_slug,
+        })
+        .collect();
+
+    // Check if expired
+    let is_expired = if let Some(ref exp) = expires_at {
+        if let Ok(exp_dt) =
+            OffsetDateTime::parse(exp, &time::format_description::well_known::Iso8601::DEFAULT)
+        {
+            exp_dt < OffsetDateTime::now_utc()
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
+    // Format dates
+    let created_at_human = format_human_date(&created_at);
+    let created_at_formatted = format_full_date(&created_at);
+    let expires_at_human = expires_at.as_ref().map(|exp| format_human_date(exp));
+    let expires_at_formatted = expires_at.as_ref().map(|exp| format_full_date(exp));
+
+    let code_display = AccessCodeDisplay {
+        code: code_name.clone(),
+        description: description.clone().unwrap_or_default(),
+        has_description: description.is_some(),
+        created_at: created_at.clone(),
+        created_at_human,
+        created_at_formatted,
+        expires_at: expires_at.clone().unwrap_or_default(),
+        expires_at_human: expires_at_human.clone().unwrap_or_default(),
+        expires_at_formatted: expires_at_formatted.clone().unwrap_or_default(),
+        has_expiration: expires_at.is_some(),
+        is_expired,
+        status: if is_expired {
+            "expired".to_string()
+        } else {
+            "active".to_string()
+        },
+        is_group_code: false,
+        group_name: String::new(),
+        resource_count: media_items.len(),
+        usage_count: 0,
+        media_items,
+    };
+
+    #[derive(Template)]
+    #[template(path = "codes/detail.html")]
+    struct AccessCodeDetailTemplate {
+        code: AccessCodeDisplay,
+        base_url: String,
+    }
+
+    let template = AccessCodeDetailTemplate {
+        code: code_display,
+        base_url: "http://localhost:3000".to_string(), // TODO: Get from config
+    };
+
     let html = template
         .render()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -519,14 +638,19 @@ pub async fn list_access_codes_page(
         let created_at_human = format_human_date(&created_at);
         let expires_at_human = expires_at.as_ref().map(|exp| format_human_date(exp));
 
+        let created_at_formatted = format_full_date(&created_at);
+        let expires_at_formatted = expires_at.as_ref().map(|exp| format_full_date(exp));
+
         access_codes.push(AccessCodeDisplay {
             code: code.clone(),
             description: description.clone().unwrap_or_default(),
             has_description: description.is_some(),
             created_at: created_at.clone(),
             created_at_human,
+            created_at_formatted,
             expires_at: expires_at.clone().unwrap_or_default(),
             expires_at_human: expires_at_human.clone().unwrap_or_default(),
+            expires_at_formatted: expires_at_formatted.unwrap_or_default(),
             has_expiration: expires_at.is_some(),
             is_expired,
             status: if is_expired {
@@ -583,6 +707,39 @@ fn format_human_date(date_str: &str) -> String {
     }
 }
 
+fn format_full_date(date_str: &str) -> String {
+    // Format as "Jan 15, 2024 at 14:30"
+    if let Ok(dt) = OffsetDateTime::parse(
+        date_str,
+        &time::format_description::well_known::Iso8601::DEFAULT,
+    ) {
+        // Simple formatting - could use time::format_description for more control
+        format!(
+            "{} {}, {} at {:02}:{:02}",
+            match dt.month() {
+                time::Month::January => "Jan",
+                time::Month::February => "Feb",
+                time::Month::March => "Mar",
+                time::Month::April => "Apr",
+                time::Month::May => "May",
+                time::Month::June => "Jun",
+                time::Month::July => "Jul",
+                time::Month::August => "Aug",
+                time::Month::September => "Sep",
+                time::Month::October => "Oct",
+                time::Month::November => "Nov",
+                time::Month::December => "Dec",
+            },
+            dt.day(),
+            dt.year(),
+            dt.hour(),
+            dt.minute()
+        )
+    } else {
+        date_str.to_string()
+    }
+}
+
 pub fn access_code_routes(state: Arc<AccessCodeState>) -> Router {
     Router::new()
         // API routes
@@ -592,5 +749,6 @@ pub fn access_code_routes(state: Arc<AccessCodeState>) -> Router {
         // UI routes
         .route("/access/codes", get(list_access_codes_page))
         .route("/access/codes/new", get(new_access_code_page))
+        .route("/access/codes/:code", get(view_access_code_page))
         .with_state(state)
 }

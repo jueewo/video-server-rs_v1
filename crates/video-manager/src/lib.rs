@@ -7,6 +7,7 @@ use axum::{
     Json, Router,
 };
 use reqwest::Client;
+use serde_json;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
 use std::{path::PathBuf, sync::Arc};
@@ -108,6 +109,8 @@ pub fn video_routes() -> Router<Arc<VideoManagerState>> {
         .route("/api/stream/validate", get(validate_stream_handler))
         .route("/api/stream/authorize", get(authorize_stream_handler))
         .route("/api/mediamtx/status", get(mediamtx_status))
+        // Video list API
+        .route("/api/videos", get(list_videos_api_handler))
         // Video tag endpoints
         .route("/api/videos/:id/tags", get(get_video_tags_handler))
         .route("/api/videos/:id/tags", post(add_video_tags_handler))
@@ -593,6 +596,45 @@ pub async fn check_access_code(
     } else {
         false
     }
+}
+
+/// GET /api/videos - List user's videos for access code selection
+#[tracing::instrument(skip(state, session))]
+pub async fn list_videos_api_handler(
+    State(state): State<Arc<VideoManagerState>>,
+    session: Session,
+) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
+    // Get user_id from session
+    let user_id: Option<String> = session.get("user_id").await.ok().flatten();
+
+    if user_id.is_none() {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    let uid = user_id.unwrap();
+
+    // Fetch user's videos
+    let videos = sqlx::query_as::<_, (i64, String, String)>(
+        "SELECT id, slug, title FROM videos WHERE user_id = ? ORDER BY title",
+    )
+    .bind(&uid)
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let result: Vec<serde_json::Value> = videos
+        .into_iter()
+        .map(|(id, slug, title)| {
+            serde_json::json!({
+                "id": id,
+                "slug": slug,
+                "title": title,
+                "type": "video"
+            })
+        })
+        .collect();
+
+    Ok(Json(result))
 }
 
 pub async fn get_videos(

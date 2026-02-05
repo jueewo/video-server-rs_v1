@@ -1,3 +1,5 @@
+use serde_json;
+
 use askama::Template;
 use axum::response::{Html, IntoResponse, Response};
 use axum::{
@@ -200,6 +202,8 @@ pub fn image_routes() -> Router<Arc<ImageManagerState>> {
         .route("/images/:slug", get(serve_image_handler))
         .route("/upload", get(upload_page_handler))
         .route("/api/images/upload", post(upload_image_handler))
+        // Image list API
+        .route("/api/images", get(list_images_api_handler))
         // Image CRUD API endpoints
         .route("/api/images/:id", put(update_image_handler))
         .route("/api/images/:id", delete(delete_image_handler))
@@ -1747,3 +1751,43 @@ pub async fn remove_image_tag_handler(
     info!("Removed tag '{}' from image {}", tag_slug, image_id);
     Ok(Json(ImageTagsResponse { image_id, tags }))
 }
+
+/// GET /api/images - List user's images for access code selection
+#[tracing::instrument(skip(state, session))]
+pub async fn list_images_api_handler(
+    State(state): State<Arc<ImageManagerState>>,
+    session: Session,
+) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
+    // Get user_id from session
+    let user_id: Option<String> = session.get("user_id").await.ok().flatten();
+
+    if user_id.is_none() {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    let uid = user_id.unwrap();
+
+    // Fetch user's images
+    let images = sqlx::query_as::<_, (i64, String, String)>(
+        "SELECT id, slug, title FROM images WHERE user_id = ? ORDER BY title",
+    )
+    .bind(&uid)
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let result: Vec<serde_json::Value> = images
+        .into_iter()
+        .map(|(id, slug, title)| {
+            serde_json::json!({
+                "id": id,
+                "slug": slug,
+                "title": title,
+                "type": "image"
+            })
+        })
+        .collect();
+
+    Ok(Json(result))
+}
+

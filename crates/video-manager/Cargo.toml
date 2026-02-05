@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 # Internal crates
 common = { path = "../common" }
+access-control = { path = "../access-control" }
 
 # Web framework
 axum = { workspace = true }

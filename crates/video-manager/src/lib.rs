@@ -15,6 +15,10 @@ use tokio_util::io::ReaderStream;
 use tower_sessions::Session;
 use tracing::{self, info};
 
+// Import access control functionality
+use access_control::{AccessContext, AccessControlService, Permission};
+use common::ResourceType;
+
 // Import tag functionality from common crate
 use common::{
     models::tag::{AddTagsRequest, Tag},
@@ -77,14 +81,17 @@ pub struct VideoManagerState {
     pub pool: Pool<Sqlite>,
     pub storage_dir: PathBuf,
     pub http_client: Client,
+    pub access_control: Arc<AccessControlService>,
 }
 
 impl VideoManagerState {
     pub fn new(pool: Pool<Sqlite>, storage_dir: PathBuf, http_client: Client) -> Self {
+        let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));
         Self {
             pool,
             storage_dir,
             http_client,
+            access_control,
         }
     }
 }
@@ -236,44 +243,68 @@ pub async fn video_player_handler(
         .flatten()
         .unwrap_or(false);
 
-    // Lookup video in database
-    let video: Option<(String, i32)> =
-        sqlx::query_as("SELECT title, is_public FROM videos WHERE slug = ?")
+    // Get user_id from session if authenticated
+    let user_id: Option<String> = if authenticated {
+        session.get::<String>("user_id").await.ok().flatten()
+    } else {
+        None
+    };
+
+    // Lookup video in database - get id, title, and is_public
+    let video: Option<(i32, String, i32)> =
+        sqlx::query_as("SELECT id, title, is_public FROM videos WHERE slug = ?")
             .bind(&slug)
             .fetch_optional(&state.pool)
             .await
             .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response())?;
 
-    let (title, is_public) = video.ok_or_else(|| {
+    let (video_id, title, is_public_int) = video.ok_or_else(|| {
         (StatusCode::NOT_FOUND, NotFoundTemplate { authenticated }).into_response()
     })?;
-    let is_public = is_public == 1;
+    let is_public = is_public_int == 1;
 
-    // For private videos, check authentication or access code
-    if !is_public && !authenticated {
-        // Check if access code is provided and valid
-        if let Some(code) = &query.access_code {
-            if !check_access_code(&state.pool, code, "video", &slug).await {
-                info!(access_code = %code, media_type = "video", media_slug = %slug, error = "Invalid or expired access code", "Failed to process request");
-                return Err((
-                    StatusCode::UNAUTHORIZED,
-                    UnauthorizedTemplate {
-                        authenticated: false,
-                    },
-                )
-                    .into_response());
-            }
-        } else {
-            info!(media_type = "video", media_slug = %slug, error = "No access code provided for private video", "Failed to process request");
-            return Err((
-                StatusCode::UNAUTHORIZED,
-                UnauthorizedTemplate {
-                    authenticated: false,
-                },
-            )
-                .into_response());
-        }
+    // Build access context for modern access control
+    let mut context = AccessContext::new(ResourceType::Video, video_id);
+    if let Some(uid) = user_id {
+        context = context.with_user(uid);
     }
+    if let Some(key) = query.access_code.clone() {
+        context = context.with_key(key);
+    }
+
+    // Check access using the 4-layer access control system
+    let decision = state
+        .access_control
+        .check_access(context, Permission::Read)
+        .await
+        .map_err(|e| {
+            info!(error = ?e, "Access control error");
+            (StatusCode::INTERNAL_SERVER_ERROR, "Access check failed").into_response()
+        })?;
+
+    if !decision.granted {
+        info!(
+            video_slug = %slug,
+            reason = %decision.reason,
+            layer_checked = ?decision.layer,
+            "Access denied to video"
+        );
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            UnauthorizedTemplate {
+                authenticated: false,
+            },
+        )
+            .into_response());
+    }
+
+    // Log successful access with layer information
+    info!(
+        video_slug = %slug,
+        access_layer = ?decision.layer,
+        reason = %decision.reason,
+        "Access granted to video"
+    );
 
     Ok(VideoPlayerTemplate {
         authenticated,
@@ -391,37 +422,66 @@ pub async fn hls_proxy_handler(
     }
 
     // Handle VOD - serve from local storage
-    // DB lookup for regular videos
-    let video: Option<(i32,)> = sqlx::query_as("SELECT is_public FROM videos WHERE slug = ?")
-        .bind(slug)
-        .fetch_optional(&state.pool)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let is_public = video.map(|(p,)| p == 1).unwrap_or(false);
-
-    // Authentication required for non-public videos
-    if !is_public {
-        let authenticated: bool = session
-            .get("authenticated")
+    // DB lookup for regular videos - get id and is_public
+    let video: Option<(i32, i32)> =
+        sqlx::query_as("SELECT id, is_public FROM videos WHERE slug = ?")
+            .bind(slug)
+            .fetch_optional(&state.pool)
             .await
-            .ok()
-            .flatten()
-            .unwrap_or(false);
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        if !authenticated {
-            // Check if access code is provided and valid
-            if let Some(code) = &query.access_code {
-                if !check_access_code(&state.pool, code, "video", slug).await {
-                    info!(access_code = %code, media_type = "video", media_slug = %slug, error = "Invalid access code for HLS stream", "Failed to process request");
-                    return Err(StatusCode::UNAUTHORIZED);
-                }
-            } else {
-                info!(media_type = "video", media_slug = %slug, error = "No access code for private HLS stream", "Failed to process request");
-                return Err(StatusCode::UNAUTHORIZED);
-            }
-        }
+    let (video_id, is_public_int) = video.ok_or(StatusCode::NOT_FOUND)?;
+    let is_public = is_public_int == 1;
+
+    // Get user_id from session if authenticated
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    let user_id: Option<String> = if authenticated {
+        session.get::<String>("user_id").await.ok().flatten()
+    } else {
+        None
+    };
+
+    // Build access context for modern access control
+    // For HLS streaming, we require Download permission
+    let mut context = AccessContext::new(ResourceType::Video, video_id);
+    if let Some(uid) = user_id {
+        context = context.with_user(uid);
     }
+    if let Some(key) = query.access_code.clone() {
+        context = context.with_key(key);
+    }
+
+    // Check access using the 4-layer access control system
+    let decision = state
+        .access_control
+        .check_access(context, Permission::Download)
+        .await
+        .map_err(|e| {
+            info!(error = ?e, "Access control error for HLS stream");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    if !decision.granted {
+        info!(
+            video_slug = %slug,
+            file_path = %file_path,
+            reason = %decision.reason,
+            "Access denied to HLS stream"
+        );
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    info!(
+        video_slug = %slug,
+        access_layer = ?decision.layer,
+        "Access granted to HLS stream"
+    );
 
     // Serve VOD file from storage
     let base_folder = if is_public {
@@ -596,23 +656,20 @@ struct VideoRecord {
 }
 
 /// Helper function to check if user can modify video tags
+/// Uses modern AccessControlService with Edit permission
 async fn can_modify_video(
     pool: &Pool<Sqlite>,
     video_id: i32,
     user_sub: &str,
 ) -> Result<bool, sqlx::Error> {
-    let video: Option<VideoRecord> =
-        sqlx::query_as("SELECT id, user_id, is_public FROM videos WHERE id = ?")
-            .bind(video_id)
-            .fetch_optional(pool)
-            .await?;
+    // Use the new access control service
+    let access_control = AccessControlService::new(pool.clone());
 
-    match video {
-        Some(v) => {
-            // User can modify if they own the video
-            Ok(v.user_id.as_ref() == Some(&user_sub.to_string()))
-        }
-        None => Ok(false),
+    let context = AccessContext::new(ResourceType::Video, video_id).with_user(user_sub.to_string());
+
+    match access_control.check_access(context, Permission::Edit).await {
+        Ok(decision) => Ok(decision.granted),
+        Err(_) => Ok(false),
     }
 }
 

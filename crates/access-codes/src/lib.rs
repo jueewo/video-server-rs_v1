@@ -12,9 +12,24 @@ use time::OffsetDateTime;
 use tower_sessions::Session;
 use tracing::{self, info, warn};
 
+// Import access control functionality
+use access_control::{AccessContext, AccessControlService, Permission};
+use common::ResourceType;
+
 #[derive(Clone)]
 pub struct AccessCodeState {
     pub pool: SqlitePool,
+    pub access_control: Arc<AccessControlService>,
+}
+
+impl AccessCodeState {
+    pub fn new(pool: SqlitePool) -> Self {
+        let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));
+        Self {
+            pool,
+            access_control,
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -147,30 +162,40 @@ pub async fn create_access_code(
             return Err(StatusCode::BAD_REQUEST);
         }
 
-        // Validate ownership
-        let is_owner = match item.media_type.as_str() {
-            "video" => {
-                let owner: Option<String> =
-                    sqlx::query_scalar("SELECT user_id FROM videos WHERE slug = ?")
-                        .bind(&item.media_slug)
-                        .fetch_optional(&state.pool)
-                        .await
-                        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-                owner.as_ref() == Some(&user_id)
-            }
-            "image" => {
-                let owner: Option<String> =
-                    sqlx::query_scalar("SELECT user_id FROM images WHERE slug = ?")
-                        .bind(&item.media_slug)
-                        .fetch_optional(&state.pool)
-                        .await
-                        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-                owner.as_ref() == Some(&user_id)
-            }
-            _ => false,
+        // Validate ownership using AccessControlService
+        // First get the resource ID
+        let resource_id: Option<i32> = match item.media_type.as_str() {
+            "video" => sqlx::query_scalar("SELECT id FROM videos WHERE slug = ?")
+                .bind(&item.media_slug)
+                .fetch_optional(&state.pool)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+            "image" => sqlx::query_scalar("SELECT id FROM images WHERE slug = ?")
+                .bind(&item.media_slug)
+                .fetch_optional(&state.pool)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+            _ => None,
         };
 
-        if !is_owner {
+        let resource_id = resource_id.ok_or(StatusCode::NOT_FOUND)?;
+
+        // Use AccessControlService to check Admin permission (ownership)
+        let resource_type = match item.media_type.as_str() {
+            "video" => ResourceType::Video,
+            "image" => ResourceType::Image,
+            _ => return Err(StatusCode::BAD_REQUEST),
+        };
+
+        let context = AccessContext::new(resource_type, resource_id).with_user(user_id.clone());
+
+        let decision = state
+            .access_control
+            .check_access(context, Permission::Admin)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        if !decision.granted {
             warn!(
                 event = "access_denied",
                 resource = "media",
@@ -178,11 +203,19 @@ pub async fn create_access_code(
                 user_id = %user_id,
                 media_type = %item.media_type,
                 media_slug = %item.media_slug,
-                reason = "not_owner",
+                reason = %decision.reason,
                 "User attempted to share media they don't own"
             );
             return Err(StatusCode::FORBIDDEN);
         }
+
+        info!(
+            event = "ownership_validated",
+            user_id = %user_id,
+            media_type = %item.media_type,
+            media_slug = %item.media_slug,
+            "Ownership validated for access code creation"
+        );
 
         sqlx::query(
             "INSERT INTO access_code_permissions (access_code_id, media_type, media_slug) VALUES (?, ?, ?)"

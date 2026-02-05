@@ -682,7 +682,7 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    let access_state = Arc::new(AccessCodeState { pool: pool.clone() });
+    let access_state = Arc::new(AccessCodeState::new(pool.clone()));
 
     // Initialize Access Control Service with audit logging enabled
     let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));

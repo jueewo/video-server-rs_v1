@@ -98,6 +98,35 @@ pub struct AccessCodeDisplay {
     pub media_items: Vec<MediaItem>,
 }
 
+// UI Page Handlers
+#[tracing::instrument(skip(session, state))]
+pub async fn new_access_code_page(
+    session: Session,
+    State(state): State<Arc<AccessCodeState>>,
+) -> Result<Html<String>, StatusCode> {
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    #[derive(Template)]
+    #[template(path = "codes/new.html")]
+    struct NewAccessCodeTemplate {}
+
+    let template = NewAccessCodeTemplate {};
+    let html = template
+        .render()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Html(html))
+}
+
 #[tracing::instrument(skip(session, state, request))]
 pub async fn create_access_code(
     session: Session,
@@ -562,5 +591,6 @@ pub fn access_code_routes(state: Arc<AccessCodeState>) -> Router {
         .route("/api/access-codes/:code", delete(delete_access_code))
         // UI routes
         .route("/access/codes", get(list_access_codes_page))
+        .route("/access/codes/new", get(new_access_code_page))
         .with_state(state)
 }

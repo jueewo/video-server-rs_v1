@@ -170,7 +170,13 @@ pub async fn view_access_code_page(
 
     // Get permissions for this code
     let permissions = sqlx::query_as::<_, (String, String)>(
-        "SELECT media_type, media_slug FROM access_code_permissions WHERE access_code_id = ?",
+        "SELECT 
+            akp.resource_type as media_type,
+            COALESCE(v.slug, i.slug) as media_slug
+        FROM access_key_permissions akp
+        LEFT JOIN videos v ON akp.resource_type = 'video' AND akp.resource_id = v.id
+        LEFT JOIN images i ON akp.resource_type = 'image' AND akp.resource_id = i.id
+        WHERE akp.access_key_id = ?",
     )
     .bind(id)
     .fetch_all(&state.pool)
@@ -395,12 +401,40 @@ pub async fn create_access_code(
             "Ownership validated for access code creation"
         );
 
+        // Look up resource ID from slug
+        let resource_id: Option<i64> = if item.media_type == "video" {
+            sqlx::query_scalar("SELECT id FROM videos WHERE slug = ?")
+                .bind(&item.media_slug)
+                .fetch_optional(&state.pool)
+                .await
+                .ok()
+                .flatten()
+        } else {
+            sqlx::query_scalar("SELECT id FROM images WHERE slug = ?")
+                .bind(&item.media_slug)
+                .fetch_optional(&state.pool)
+                .await
+                .ok()
+                .flatten()
+        };
+
+        let resource_id = resource_id.ok_or_else(|| {
+            warn!(
+                event = "resource_not_found",
+                media_type = %item.media_type,
+                media_slug = %item.media_slug,
+                "Resource not found for access code"
+            );
+            StatusCode::NOT_FOUND
+        })?;
+
+        // Insert into access_key_permissions (used by access control system)
         sqlx::query(
-            "INSERT INTO access_code_permissions (access_code_id, media_type, media_slug) VALUES (?, ?, ?)"
+            "INSERT INTO access_key_permissions (access_key_id, resource_type, resource_id) VALUES (?, ?, ?)"
         )
         .bind(code_id)
         .bind(&item.media_type)
-        .bind(&item.media_slug)
+        .bind(resource_id)
         .execute(&state.pool)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -471,7 +505,13 @@ pub async fn list_access_codes(
     for (id, code, description, expires_at, created_at) in codes {
         // Get permissions for this code
         let permissions = sqlx::query_as::<_, (String, String)>(
-            "SELECT media_type, media_slug FROM access_code_permissions WHERE access_code_id = ?",
+            "SELECT 
+            akp.resource_type as media_type,
+            COALESCE(v.slug, i.slug) as media_slug
+        FROM access_key_permissions akp
+        LEFT JOIN videos v ON akp.resource_type = 'video' AND akp.resource_id = v.id
+        LEFT JOIN images i ON akp.resource_type = 'image' AND akp.resource_id = i.id
+        WHERE akp.access_key_id = ?",
         )
         .bind(id)
         .fetch_all(&state.pool)
@@ -606,7 +646,13 @@ pub async fn list_access_codes_page(
     for (id, code, description, expires_at, created_at) in codes {
         // Get permissions for this code
         let permissions = sqlx::query_as::<_, (String, String)>(
-            "SELECT media_type, media_slug FROM access_code_permissions WHERE access_code_id = ?",
+            "SELECT 
+            akp.resource_type as media_type,
+            COALESCE(v.slug, i.slug) as media_slug
+        FROM access_key_permissions akp
+        LEFT JOIN videos v ON akp.resource_type = 'video' AND akp.resource_id = v.id
+        LEFT JOIN images i ON akp.resource_type = 'image' AND akp.resource_id = i.id
+        WHERE akp.access_key_id = ?",
         )
         .bind(id)
         .fetch_all(&state.pool)

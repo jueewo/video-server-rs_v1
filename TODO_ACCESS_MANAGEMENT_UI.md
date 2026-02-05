@@ -108,19 +108,19 @@
 
 ## 📋 TODO: Phase 2 - Complete Resource Assignment UI
 
-### Priority 1: Upload Forms (1.5 days)
+### Priority 1: Upload Forms ✅ COMPLETE
 
-#### Task 2.1: Add Group Selector to Video Upload Form
-**File:** `crates/video-manager/templates/videos/upload.html` (if exists)  
-**Status:** ⏳ Not Started
+#### Task 2.1: Add Group Selector to Video Upload Form ✅
+**File:** `crates/video-manager/templates/videos/upload.html`  
+**Status:** ✅ Complete
 
-**Requirements:**
-- [ ] Add "Access & Sharing" section to upload form
-- [ ] Group selector dropdown (loads from `/api/groups`)
-- [ ] Default to "No group (Private)"
-- [ ] Include `groupId` in upload request
-- [ ] Update upload handler to save `group_id` to database
-- [ ] Show success message with group info
+**Completed:**
+- ✅ Added "Access & Sharing" section to upload form
+- ✅ Group selector dropdown (loads from `/api/groups`)
+- ✅ Default to "No group (Private to me only)"
+- ✅ Included `groupId` in formData
+- ✅ Upload request includes `group_id` parameter
+- ✅ Info alert explaining privacy implications
 
 **Implementation Notes:**
 - Copy the "Access & Sharing" section from video edit form
@@ -130,15 +130,18 @@
 
 ---
 
-#### Task 2.2: Add Group Selector to Image Upload Form
+#### Task 2.2: Add Group Selector to Image Upload Form ✅
 **File:** `crates/image-manager/templates/images/upload.html`  
-**Status:** ⏳ Not Started
+**Status:** ✅ Complete
 
-**Requirements:**
-- [ ] Add "Access & Sharing" section to upload form
-- [ ] Group selector dropdown (loads from `/api/groups`)
-- [ ] Include `groupId` in upload request
-- [ ] Update upload handler to save `group_id` to database
+**Completed:**
+- ✅ Added "Access & Sharing" section to upload form
+- ✅ Group selector dropdown (loads from `/api/groups`)
+- ✅ Default to "No group (Private to me only)"
+- ✅ Included `groupId` in globalMetadata
+- ✅ Supports batch uploads (applies group to all images)
+- ✅ Upload request includes `group_id` parameter
+- ✅ Info alert explaining privacy implications
 - [ ] Match design of video upload form
 
 **Implementation Notes:**
@@ -651,13 +654,13 @@ INSERT INTO images (slug, title, user_id, group_id, ...) VALUES (?, ?, ?, ?, ...
 - ✅ Access code preview page implementation
 - ✅ Demo page simplification and integration
 - ✅ Complete documentation suite
-- ✅ Testing guides and quick references
 - ✅ Profile page redesign with modern UI
 - ✅ Homepage navigation updated for access codes
+- ✅ **Phase 2 Upload Forms** - Added group selectors to video and image upload forms
 
-**Estimated Time to Phase 2 Complete:** 1-2 days  
-**Estimated Time to Phase 3 Complete:** 3-4 additional days  
-**Estimated Time to Full MVP:** 2-3 weeks
+**Estimated Time to Phase 2 Complete:** 0.5 days (just backend handlers remaining)  
+**Estimated Time to Phase 3 Complete:** 2-3 days  
+**Estimated Time to Full MVP:** 1-2 weeks
 
 ---
 

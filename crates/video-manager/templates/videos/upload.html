@@ -356,6 +356,41 @@
                 </div>
             </div>
 
+            <!-- Access & Sharing -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title text-2xl mb-4">🔐 Access & Sharing</h2>
+
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Access Group</span>
+                            <span class="label-text-alt text-base-content/60">Optional</span>
+                        </label>
+                        <select x-model="formData.groupId" class="select select-bordered">
+                            <option value="">No group (Private to me only)</option>
+                            <template x-for="group in groups" :key="group.id">
+                                <option :value="group.id" x-text="`${group.name} (${group.member_count} members)`"></option>
+                            </template>
+                        </select>
+                        <label class="label">
+                            <span class="label-text-alt">Assign this video to a group for team collaboration</span>
+                        </label>
+                    </div>
+
+                    <div class="alert alert-info mt-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                            <div class="text-sm">
+                                <strong>Privacy:</strong> Selecting a group allows all group members to view this video.
+                                Leave unselected to keep it private to you only.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Navigation Buttons -->
             <div class="flex gap-4">
                 <button type="button" @click="step = 1" class="btn btn-outline gap-2">
@@ -541,8 +576,10 @@ function videoUpload() {
             isPublic: true,
             featured: false,
             allowComments: true,
-            allowDownload: false
+            allowDownload: false,
+            groupId: ''
         },
+        groups: [],
         tagInput: '',
         tagSuggestions: [],
         uploading: false,
@@ -559,6 +596,20 @@ function videoUpload() {
                     this.formData.slug = this.slugify(value);
                 }
             });
+
+            // Load groups
+            this.loadGroups();
+        },
+
+        async loadGroups() {
+            try {
+                const response = await fetch('/api/groups');
+                if (response.ok) {
+                    this.groups = await response.json();
+                }
+            } catch (error) {
+                console.error('Failed to load groups:', error);
+            }
         },
 
         handleFileSelect(event) {
@@ -702,10 +753,14 @@ function videoUpload() {
                 formData.append('short_description', this.formData.shortDescription);
                 formData.append('category', this.formData.category);
                 formData.append('language', this.formData.language);
+                formData.append('tags', JSON.stringify(this.formData.tags));
                 formData.append('is_public', this.formData.isPublic);
                 formData.append('featured', this.formData.featured);
                 formData.append('allow_comments', this.formData.allowComments);
                 formData.append('allow_download', this.formData.allowDownload);
+                if (this.formData.groupId) {
+                    formData.append('group_id', this.formData.groupId);
+                }
                 formData.append('tags', JSON.stringify(this.formData.tags));
 
                 // Simulate upload progress

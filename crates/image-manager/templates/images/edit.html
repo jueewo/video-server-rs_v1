@@ -1,14 +1,16 @@
-{% extends "base-tailwind.html" %}
-{% block title %}Edit Image{% endblock %}
-
-{% block content %}
+{% extends "base-tailwind.html" %} {% block title %}Edit Image{% endblock %} {%
+block content %}
 <div class="container mx-auto px-4 py-8 max-w-4xl" x-data="imageEdit()">
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
             <h1 class="card-title text-3xl mb-4">✏️ Edit Image</h1>
 
             <div class="mb-4">
-                <img src="/images/{{ image.slug }}" alt="{{ image.title }}" class="max-w-md rounded-lg shadow-lg">
+                <img
+                    src="/images/{{ image.slug }}"
+                    alt="{{ image.title }}"
+                    class="max-w-md rounded-lg shadow-lg"
+                />
             </div>
 
             <div class="space-y-4">
@@ -16,90 +18,116 @@
                     <label class="label">
                         <span class="label-text font-semibold">Title</span>
                     </label>
-                    <input type="text" x-model="formData.title" class="input input-bordered">
+                    <input
+                        type="text"
+                        x-model="formData.title"
+                        class="input input-bordered"
+                    />
                 </div>
 
                 <div class="form-control">
                     <label class="label">
-                        <span class="label-text font-semibold">Assign to Group</span>
+                        <span class="label-text font-semibold"
+                            >Assign to Group</span
+                        >
                     </label>
-                    <select x-model="formData.groupId" class="select select-bordered" :disabled="loadingGroups">
+                    <select
+                        x-model="formData.groupId"
+                        class="select select-bordered"
+                        :disabled="loadingGroups"
+                    >
                         <option value="">No group (Private)</option>
-                        <template x-for="group in availableGroups" :key="group.id">
-                            <option :value="group.id" x-text="'📚 ' + group.name"></option>
+                        <template
+                            x-for="group in availableGroups"
+                            :key="group.id"
+                        >
+                            <option
+                                :value="group.id"
+                                x-text="'📚 ' + group.name"
+                            ></option>
                         </template>
                     </select>
                 </div>
 
                 <div class="form-control">
                     <label class="label cursor-pointer justify-start gap-4">
-                        <input type="checkbox" x-model="formData.isPublic" class="checkbox checkbox-primary">
-                        <span class="label-text font-semibold">Make Public</span>
+                        <input
+                            type="checkbox"
+                            x-model="formData.isPublic"
+                            class="checkbox checkbox-primary"
+                        />
+                        <span class="label-text font-semibold"
+                            >Make Public</span
+                        >
                     </label>
                 </div>
             </div>
 
             <div class="card-actions justify-end mt-6">
-                <button @click="handleSubmit" class="btn btn-primary" :disabled="saving">
+                <button
+                    @click="handleSubmit"
+                    class="btn btn-primary"
+                    :disabled="saving"
+                >
                     <span x-text="saving ? 'Saving...' : 'Save Changes'"></span>
                 </button>
-                <a href="/images/view/{{ image.slug }}" class="btn btn-ghost">Cancel</a>
+                <a href="/images/view/{{ image.slug }}" class="btn btn-ghost"
+                    >Cancel</a
+                >
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_scripts %}
+{% endblock %} {% block extra_scripts %}
 <script>
-function imageEdit() {
-    return {
-        saving: false,
-        formData: {
-            title: '{{ image.title }}',
-            isPublic: {{ image.is_public }},
-            groupId: ''
-        },
-        availableGroups: [],
-        loadingGroups: false,
+    function imageEdit() {
+        return {
+            saving: false,
+            formData: {
+                title: '{{ image.title }}',
+                isPublic: {{ image.is_public }},
+                groupId: '{{ image.group_id_str }}'
+            },
+            availableGroups: [],
+            loadingGroups: false,
 
-        async init() {
-            await this.loadGroups();
-        },
+            async init() {
+                await this.loadGroups();
+            },
 
-        async loadGroups() {
-            this.loadingGroups = true;
-            try {
-                const response = await fetch('/api/groups');
-                if (response.ok) {
-                    const data = await response.json();
-                    this.availableGroups = data || [];
+            async loadGroups() {
+                this.loadingGroups = true;
+                try {
+                    const response = await fetch('/api/groups');
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.availableGroups = data || [];
+                    }
+                } catch (error) {
+                    console.error('Failed to load groups:', error);
+                } finally {
+                    this.loadingGroups = false;
                 }
-            } catch (error) {
-                console.error('Failed to load groups:', error);
-            } finally {
-                this.loadingGroups = false;
-            }
-        },
+            },
 
-        async handleSubmit() {
-            this.saving = true;
-            try {
-                const response = await fetch('/api/images/{{ image.id }}', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(this.formData)
-                });
-                if (response.ok) {
-                    window.location.href = '/images/view/{{ image.slug }}';
+            async handleSubmit() {
+                this.saving = true;
+                try {
+                    const response = await fetch('/api/images/{{ image.id }}', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.formData)
+                    });
+                    if (response.ok) {
+                        window.location.href = '/images/view/{{ image.slug }}';
+                    }
+                } catch (error) {
+                    console.error('Failed to save:', error);
+                } finally {
+                    this.saving = false;
                 }
-            } catch (error) {
-                console.error('Failed to save:', error);
-            } finally {
-                this.saving = false;
             }
-        }
-    };
-}
+        };
+    }
 </script>
 {% endblock %}

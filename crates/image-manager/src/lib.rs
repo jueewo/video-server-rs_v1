@@ -103,9 +103,14 @@ pub struct ImageDetail {
     pub seo_description: Option<String>,
     pub seo_keywords: Option<String>,
     pub group_id: Option<i32>,
+    pub group_id_str: String,
 }
 
 impl ImageDetail {
+    pub fn group_id_str(&self) -> String {
+        self.group_id.map(|id| id.to_string()).unwrap_or_default()
+    }
+
     pub fn width_display(&self) -> String {
         self.width
             .map(|w| w.to_string())
@@ -822,6 +827,12 @@ pub async fn image_detail_handler(
         seo_description: row.try_get("seo_description").ok(),
         seo_keywords: row.try_get("seo_keywords").ok(),
         group_id: row.try_get("group_id").ok(),
+        group_id_str: row
+            .try_get::<Option<i32>, _>("group_id")
+            .ok()
+            .flatten()
+            .map(|id| id.to_string())
+            .unwrap_or_default(),
         tags: Vec::new(),
     };
 
@@ -962,6 +973,12 @@ pub async fn edit_image_handler(
         seo_description: row.try_get("seo_description").ok(),
         seo_keywords: row.try_get("seo_keywords").ok(),
         group_id: row.try_get("group_id").ok(),
+        group_id_str: row
+            .try_get::<Option<i32>, _>("group_id")
+            .ok()
+            .flatten()
+            .map(|id| id.to_string())
+            .unwrap_or_default(),
         tags: Vec::new(),
     };
 

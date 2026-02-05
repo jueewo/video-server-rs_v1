@@ -1,0 +1,6 @@
+[general]
+# Directory for all template files
+dirs = ["templates"]
+
+# Use absolute paths
+absolute_template_paths = true

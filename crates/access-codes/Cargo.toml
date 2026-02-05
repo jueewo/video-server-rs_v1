@@ -19,3 +19,5 @@ serde.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
 time.workspace = true
+askama = "0.12"
+askama_axum = "0.4"

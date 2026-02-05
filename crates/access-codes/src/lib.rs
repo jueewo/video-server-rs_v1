@@ -1,7 +1,8 @@
+use askama::Template;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    response::Json,
+    response::{Html, Json},
     routing::{delete, get, post},
     Router,
 };
@@ -40,7 +41,7 @@ pub struct CreateAccessCodeRequest {
     pub media_items: Vec<MediaItem>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct MediaItem {
     pub media_type: String, // "video" or "image"
     pub media_slug: String,
@@ -66,6 +67,35 @@ pub struct MediaResource {
     pub media_type: String,
     pub slug: String,
     pub title: String,
+}
+
+// Template structs
+#[derive(Template)]
+#[template(path = "codes/list.html")]
+pub struct AccessCodesListTemplate {
+    pub access_codes: Vec<AccessCodeDisplay>,
+    pub total_pages: usize,
+    pub current_page: usize,
+    pub base_url: String,
+}
+
+#[derive(Clone)]
+pub struct AccessCodeDisplay {
+    pub code: String,
+    pub description: String,
+    pub has_description: bool,
+    pub created_at: String,
+    pub created_at_human: String,
+    pub expires_at: String,
+    pub expires_at_human: String,
+    pub has_expiration: bool,
+    pub is_expired: bool,
+    pub status: String,
+    pub is_group_code: bool,
+    pub group_name: String,
+    pub resource_count: usize,
+    pub usage_count: usize,
+    pub media_items: Vec<MediaItem>,
 }
 
 #[tracing::instrument(skip(session, state, request))]
@@ -388,10 +418,149 @@ pub async fn delete_access_code(
     }
 }
 
+// UI Page Handlers
+#[tracing::instrument(skip(session, state))]
+pub async fn list_access_codes_page(
+    session: Session,
+    State(state): State<Arc<AccessCodeState>>,
+) -> Result<Html<String>, StatusCode> {
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    // Get user_id from session
+    let user_id: String = session
+        .get("user_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "unknown".to_string());
+
+    // Get access codes created by this user
+    let codes = sqlx::query_as::<_, (i32, String, Option<String>, Option<String>, String)>(
+        "SELECT id, code, description, expires_at, created_at FROM access_codes WHERE created_by = ? ORDER BY created_at DESC"
+    )
+    .bind(&user_id)
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let mut access_codes = Vec::new();
+
+    for (id, code, description, expires_at, created_at) in codes {
+        // Get permissions for this code
+        let permissions = sqlx::query_as::<_, (String, String)>(
+            "SELECT media_type, media_slug FROM access_code_permissions WHERE access_code_id = ?",
+        )
+        .bind(id)
+        .fetch_all(&state.pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        let media_items: Vec<MediaItem> = permissions
+            .into_iter()
+            .map(|(media_type, media_slug)| MediaItem {
+                media_type,
+                media_slug,
+            })
+            .collect();
+
+        // Check if expired
+        let is_expired = if let Some(ref exp) = expires_at {
+            if let Ok(exp_dt) =
+                OffsetDateTime::parse(exp, &time::format_description::well_known::Iso8601::DEFAULT)
+            {
+                exp_dt < OffsetDateTime::now_utc()
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        // Format human-readable dates
+        let created_at_human = format_human_date(&created_at);
+        let expires_at_human = expires_at.as_ref().map(|exp| format_human_date(exp));
+
+        access_codes.push(AccessCodeDisplay {
+            code: code.clone(),
+            description: description.clone().unwrap_or_default(),
+            has_description: description.is_some(),
+            created_at: created_at.clone(),
+            created_at_human,
+            expires_at: expires_at.clone().unwrap_or_default(),
+            expires_at_human: expires_at_human.clone().unwrap_or_default(),
+            has_expiration: expires_at.is_some(),
+            is_expired,
+            status: if is_expired {
+                "expired".to_string()
+            } else {
+                "active".to_string()
+            },
+            is_group_code: false, // For now, all are individual codes
+            group_name: String::new(),
+            resource_count: media_items.len(),
+            usage_count: 0, // TODO: Track usage in database
+            media_items,
+        });
+    }
+
+    let template = AccessCodesListTemplate {
+        access_codes,
+        total_pages: 1,
+        current_page: 1,
+        base_url: "http://localhost:3000".to_string(), // TODO: Get from config
+    };
+
+    let html = template
+        .render()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Html(html))
+}
+
+fn format_human_date(date_str: &str) -> String {
+    // Simple date formatting - can be improved
+    if let Ok(dt) = OffsetDateTime::parse(
+        date_str,
+        &time::format_description::well_known::Iso8601::DEFAULT,
+    ) {
+        let now = OffsetDateTime::now_utc();
+        let diff = now - dt;
+
+        let days = diff.whole_days();
+        if days == 0 {
+            "Today".to_string()
+        } else if days == 1 {
+            "Yesterday".to_string()
+        } else if days < 7 {
+            format!("{} days ago", days)
+        } else if days < 30 {
+            format!("{} weeks ago", days / 7)
+        } else if days < 365 {
+            format!("{} months ago", days / 30)
+        } else {
+            format!("{} years ago", days / 365)
+        }
+    } else {
+        date_str.to_string()
+    }
+}
+
 pub fn access_code_routes(state: Arc<AccessCodeState>) -> Router {
     Router::new()
+        // API routes
         .route("/api/access-codes", post(create_access_code))
         .route("/api/access-codes", get(list_access_codes))
         .route("/api/access-codes/:code", delete(delete_access_code))
+        // UI routes
+        .route("/access/codes", get(list_access_codes_page))
         .with_state(state)
 }

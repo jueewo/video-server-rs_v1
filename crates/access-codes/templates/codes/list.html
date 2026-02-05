@@ -1,0 +1,509 @@
+{% extends "base.html" %} {% block title %}Access Codes{% endblock %} {% block
+content %}
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+    <!-- Header -->
+    <div
+        class="flex flex-col md:flex-row md:items-center md:justify-between mb-8"
+    >
+        <div>
+            <h1 class="text-4</div>xl font-bold mb-2">🔑 Access Codes</h1>
+            <p class="text-base-content/70">
+                Manage access codes for sharing your resources
+            </p>
+        </div>
+        <div class="mt-4 md:mt-0">
+            <a href="/access/codes/new" class="btn btn-primary gap-2">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 4v16m8-8H4"
+                    />
+                </svg>
+                New Access Code
+            </a>
+        </div>
+    </div>
+
+    <!-- Search and Filters -->
+    <div class="card bg-base-100 shadow-xl mb-6">
+        <div class="card-body">
+            <div class="flex flex-col md:flex-row gap-4">
+                <!-- Search -->
+                <div class="flex-1">
+                    <input
+                        type="text"
+                        id="searchInput"
+                        placeholder="Search access codes..."
+                        class="input input-bordered w-full"
+                    />
+                </div>
+
+                <!-- Status Filter -->
+                <div class="w-full md:w-48">
+                    <select
+                        id="statusFilter"
+                        class="select select-bordered w-full"
+                    >
+                        <option value="all">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="expired">Expired</option>
+                    </select>
+                </div>
+
+                <!-- Sort -->
+                <div class="w-full md:w-48">
+                    <select id="sortBy" class="select select-bordered w-full">
+                        <option value="created_desc">Newest First</option>
+                        <option value="created_asc">Oldest First</option>
+                        <option value="usage_desc">Most Used</option>
+                        <option value="usage_asc">Least Used</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Access Codes List -->
+    <div id="codesList" class="space-y-4">
+        {% if access_codes.is_empty() %}
+        <!-- Empty State -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body items-center text-center py-12">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-24 w-24 text-base-content/30 mb-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="1"
+                        d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                    />
+                </svg>
+                <h3 class="text-2xl font-bold mb-2">No Access Codes Yet</h3>
+                <p class="text-base-content/70 mb-4">
+                    Create your first access code to share resources without
+                    requiring authentication.
+                </p>
+                <a href="/access/codes/new" class="btn btn-primary gap-2">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M12 4v16m8-8H4"
+                        />
+                    </svg>
+                    Create Access Code
+                </a>
+            </div>
+        </div>
+        {% else %}
+        <!-- Access Code Cards -->
+        {% for code in access_codes %}
+        <div
+            class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow code-card"
+            data-code="{{ code.code }}"
+            data-status="{{ code.status }}"
+            data-created="{{ code.created_at }}"
+        >
+            <div class="card-body">
+                <div
+                    class="flex flex-col md:flex-row md:items-start md:justify-between gap-4"
+                >
+                    <!-- Left Side - Code Info -->
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-2">
+                            <!-- Icon based on type -->
+                            {% if code.is_group_code %}
+                            <span class="text-2xl">📚</span>
+                            {% else %}
+                            <span class="text-2xl">📋</span>
+                            {% endif %}
+
+                            <!-- Code Name -->
+                            <h3 class="text-xl font-bold">{{ code.code }}</h3>
+
+                            <!-- Status Badge -->
+                            {% if code.is_expired %}
+                            <span class="badge badge-error gap-1">
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="h-3 w-3"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                    />
+                                </svg>
+                                Expired
+                            </span>
+                            {% else %}
+                            <span class="badge badge-success gap-1">
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="h-3 w-3"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M5 13l4 4L19 7"
+                                    />
+                                </svg>
+                                Active
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Description -->
+                        {% if code.has_description %}
+                        <p class="text-base-content/70 mb-3">
+                            {{ code.description }}
+                        </p>
+                        {% endif %}
+
+                        <!-- Details -->
+                        <div
+                            class="flex flex-wrap gap-4 text-sm text-base-content/60"
+                        >
+                            {% if code.is_group_code %}
+                            <span
+                                >📚 Access to
+                                <strong>{{ code.group_name }}</strong> ({{
+                                code.resource_count }} resources)</span
+                            >
+                            {% else %}
+                            <span
+                                >📦 Access to
+                                <strong>{{ code.resource_count }}</strong>
+                                resources</span
+                            >
+                            {% endif %}
+                            <span>📅 Created {{ code.created_at_human }}</span>
+                            {% if code.has_expiration %}
+                            <span>⏰ Expires {{ code.expires_at_human }}</span>
+                            {% else %}
+                            <span>⏰ Never expires</span>
+                            {% endif %}
+                            <span
+                                >👁️ Used
+                                <strong>{{ code.usage_count }}</strong>
+                                times</span
+                            >
+                        </div>
+
+                        <!-- Resources Preview (for individual codes) -->
+                        {% if !code.is_group_code &&
+                        !code.media_items.is_empty() %}
+                        <div class="mt-3">
+                            <div class="text-sm text-base-content/60">
+                                <strong>Resources:</strong>
+                                {% for item in code.media_items %} {% if
+                                loop.index0 < 3 %}
+                                <span class="badge badge-sm badge-ghost">
+                                    {% if item.media_type == "video" %}🎥{% else
+                                    %}🖼️{% endif %} {{ item.media_slug }}
+                                </span>
+                                {% endif %} {% endfor %} {% if
+                                code.media_items.len() > 3 %}
+                                <span class="text-xs"
+                                    >+{{ code.media_items.len() - 3 }}
+                                    more</span
+                                >
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Right Side - Actions -->
+                    <div class="flex flex-col gap-2 md:items-end">
+                        <!-- URL Display (collapsed by default) -->
+                        <div
+                            class="collapse collapse-arrow bg-base-200 w-full md:w-96"
+                        >
+                            <input type="checkbox" />
+                            <div class="collapse-title text-sm font-medium">
+                                Show URL
+                            </div>
+                            <div class="collapse-content">
+                                <div class="flex gap-2 items-center">
+                                    <input
+                                        type="text"
+                                        value="{{ base_url }}/watch/example?code={{ code.code }}"
+                                        readonly
+                                        class="input input-sm input-bordered flex-1 text-xs"
+                                        id="url-{{ code.code }}"
+                                    />
+                                    <button
+                                        onclick="copyUrl('{{ code.code }}')"
+                                        class="btn btn-sm btn-square"
+                                        title="Copy URL"
+                                    >
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            class="h-4 w-4"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                        >
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="2"
+                                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                            />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex gap-2">
+                            <a
+                                href="/access/codes/{{ code.code }}"
+                                class="btn btn-sm btn-ghost gap-1"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="h-4 w-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                    />
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                    />
+                                </svg>
+                                View
+                            </a>
+
+                            <button
+                                onclick="deleteCode('{{ code.code }}')"
+                                class="btn btn-sm btn-error btn-outline gap-1"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="h-4 w-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                    />
+                                </svg>
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %} {% endif %}
+    </div>
+
+    <!-- Pagination (if needed) -->
+    {% if total_pages > 1 %}
+    <div class="flex justify-center mt-8">
+        <div class="join">
+            {% for page_num in 1..=total_pages %}
+            <a
+                href="/access/codes?page={{ page_num }}"
+                class="join-item btn {% if page_num == current_page %}btn-active{% endif %}"
+            >
+                {{ page_num }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Delete Confirmation Modal -->
+<dialog id="deleteModal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">Delete Access Code?</h3>
+        <p class="mb-4">
+            Are you sure you want to delete this access code? This action cannot
+            be undone.
+        </p>
+        <div class="alert alert-warning mb-4">
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="stroke-current shrink-0 h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+            >
+                <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+            </svg>
+            <span
+                >Users with this code will immediately lose access to the
+                resources.</span
+            >
+        </div>
+        <div class="modal-action">
+            <form method="dialog">
+                <button class="btn">Cancel</button>
+            </form>
+            <button id="confirmDelete" class="btn btn-error">Delete</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<script>
+    // Copy URL to clipboard
+    function copyUrl(code) {
+        const input = document.getElementById(`url-${code}`);
+        input.select();
+        document.execCommand("copy");
+
+        // Show toast notification
+        const toast = document.createElement("div");
+        toast.className =
+            "alert alert-success fixed top-4 right-4 w-auto shadow-lg z-50";
+        toast.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>URL copied to clipboard!</span>
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Delete code
+    let codeToDelete = null;
+
+    function deleteCode(code) {
+        codeToDelete = code;
+        document.getElementById("deleteModal").showModal();
+    }
+
+    document
+        .getElementById("confirmDelete")
+        .addEventListener("click", async () => {
+            if (!codeToDelete) return;
+
+            try {
+                const response = await fetch(
+                    `/api/access-codes/${codeToDelete}`,
+                    {
+                        method: "DELETE",
+                    },
+                );
+
+                if (response.ok) {
+                    // Reload page to show updated list
+                    window.location.reload();
+                } else {
+                    alert("Failed to delete access code");
+                }
+            } catch (error) {
+                console.error("Error deleting code:", error);
+                alert("Error deleting access code");
+            }
+
+            document.getElementById("deleteModal").close();
+            codeToDelete = null;
+        });
+
+    // Search functionality
+    const searchInput = document.getElementById("searchInput");
+    const statusFilter = document.getElementById("statusFilter");
+    const sortBy = document.getElementById("sortBy");
+
+    function filterAndSort() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const status = statusFilter.value;
+        const sort = sortBy.value;
+
+        const cards = Array.from(document.querySelectorAll(".code-card"));
+
+        // Filter
+        cards.forEach((card) => {
+            const code = card.dataset.code.toLowerCase();
+            const cardStatus = card.dataset.status;
+
+            const matchesSearch = code.includes(searchTerm);
+            const matchesStatus = status === "all" || cardStatus === status;
+
+            card.style.display = matchesSearch && matchesStatus ? "" : "none";
+        });
+
+        // Sort visible cards
+        const visibleCards = cards.filter(
+            (card) => card.style.display !== "none",
+        );
+        const container = document.getElementById("codesList");
+
+        visibleCards.sort((a, b) => {
+            const aDate = new Date(a.dataset.created);
+            const bDate = new Date(b.dataset.created);
+
+            switch (sort) {
+                case "created_desc":
+                    return bDate - aDate;
+                case "created_asc":
+                    return aDate - bDate;
+                default:
+                    return 0;
+            }
+        });
+
+        // Re-append in sorted order
+        visibleCards.forEach((card) => container.appendChild(card));
+    }
+
+    searchInput.addEventListener("input", filterAndSort);
+    statusFilter.addEventListener("change", filterAndSort);
+    sortBy.addEventListener("change", filterAndSort);
+</script>
+{% endblock %}

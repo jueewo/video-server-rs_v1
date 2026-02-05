@@ -67,7 +67,7 @@ pub struct EditImageTemplate {
     image: ImageDetail,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ImageDetail {
     pub id: i64,
     pub slug: String,
@@ -89,11 +89,18 @@ pub struct ImageDetail {
     pub share_count: i64,
     pub tags: Vec<String>,
     pub upload_date: String,
+    pub created_at: String,
     pub dominant_color: Option<String>,
     pub exif_data: Option<String>,
     pub copyright_holder: Option<String>,
     pub license: Option<String>,
     pub attribution: Option<String>,
+    pub allow_download: bool,
+    pub mature_content: bool,
+    pub seo_title: Option<String>,
+    pub seo_description: Option<String>,
+    pub seo_keywords: Option<String>,
+    pub group_id: Option<i32>,
 }
 
 impl ImageDetail {
@@ -782,11 +789,18 @@ pub async fn image_detail_handler(
         download_count: row.try_get("download_count").unwrap_or(0),
         share_count: row.try_get("share_count").unwrap_or(0),
         upload_date: row.try_get("upload_date").unwrap_or_default(),
+        created_at: row.try_get("created_at").unwrap_or_default(),
         dominant_color: row.try_get("dominant_color").ok(),
         exif_data: row.try_get("exif_data").ok(),
         copyright_holder: row.try_get("copyright_holder").ok(),
         license: row.try_get("license").ok(),
         attribution: row.try_get("attribution").ok(),
+        allow_download: row.try_get("allow_download").unwrap_or(false),
+        mature_content: row.try_get("mature_content").unwrap_or(false),
+        seo_title: row.try_get("seo_title").ok(),
+        seo_description: row.try_get("seo_description").ok(),
+        seo_keywords: row.try_get("seo_keywords").ok(),
+        group_id: row.try_get("group_id").ok(),
         tags: Vec::new(),
     };
 
@@ -912,11 +926,18 @@ pub async fn edit_image_handler(
         download_count: row.try_get("download_count").unwrap_or(0),
         share_count: row.try_get("share_count").unwrap_or(0),
         upload_date: row.try_get("upload_date").unwrap_or_default(),
+        created_at: row.try_get("created_at").unwrap_or_default(),
         dominant_color: row.try_get("dominant_color").ok(),
         exif_data: row.try_get("exif_data").ok(),
         copyright_holder: row.try_get("copyright_holder").ok(),
         license: row.try_get("license").ok(),
         attribution: row.try_get("attribution").ok(),
+        allow_download: row.try_get("allow_download").unwrap_or(false),
+        mature_content: row.try_get("mature_content").unwrap_or(false),
+        seo_title: row.try_get("seo_title").ok(),
+        seo_description: row.try_get("seo_description").ok(),
+        seo_keywords: row.try_get("seo_keywords").ok(),
+        group_id: row.try_get("group_id").ok(),
         tags: Vec::new(),
     };
 

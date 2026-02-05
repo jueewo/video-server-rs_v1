@@ -101,7 +101,7 @@ pub struct AccessCodeDisplay {
 }
 
 // UI Page Handlers
-#[tracing::instrument(skip(session, state))]
+#[tracing::instrument(skip(session, _state))]
 pub async fn new_access_code_page(
     session: Session,
     State(_state): State<Arc<AccessCodeState>>,

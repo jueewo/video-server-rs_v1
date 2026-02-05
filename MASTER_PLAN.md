@@ -695,7 +695,7 @@ if resource.owner_id == user_id {
 ### Overview
 
 ```
-Phase 1: Foundation (✅ COMPLETE)
+Phase 1: Core Infrastructure (✅ COMPLETE)
   └── TailwindCSS, Common crate, UI components
 
 Phase 2: Access Groups (✅ COMPLETE)
@@ -713,7 +713,7 @@ Phase 5: UI Migration (📋 PLANNED)
 
 ---
 
-### Phase 1: Foundation ✅ COMPLETE
+### Phase 1: Core Infrastructure ✅ COMPLETE
 
 **Duration:** 2 weeks  
 **Status:** ✅ Complete (January 2026)

@@ -5,9 +5,9 @@
 //!
 //! # Permission Level
 //!
-//! Public access only grants **Read** permission. Users cannot download,
-//! edit, or delete public resources unless they also have access through
-//! another layer (ownership, group membership, or access key).
+//! Public access grants **Read** and **Download** permissions. Users can view
+//! and download public resources without authentication. Edit, delete, and admin
+//! permissions require access through another layer (ownership, group membership, or access key).
 
 use crate::{
     AccessContext, AccessDecision, AccessError, AccessLayer, AccessRepository, Permission,
@@ -29,8 +29,8 @@ impl<'a> PublicLayer<'a> {
     /// # Rules
     ///
     /// - Resource must be marked as `is_public = true`
-    /// - Only grants `Permission::Read` (view only)
-    /// - Higher permissions (download, edit, etc.) require other layers
+    /// - Grants `Permission::Read` and `Permission::Download`
+    /// - Higher permissions (edit, delete, admin) require other layers
     /// - No authentication or access key required
     ///
     /// # Examples
@@ -47,7 +47,7 @@ impl<'a> PublicLayer<'a> {
     ///
     /// // Request download permission
     /// let decision = layer.check(&context, Permission::Download).await?;
-    /// // Always denied - public layer only grants Read
+    /// // If video 42 is public, access is granted for download too
     /// # Ok(())
     /// # }
     /// ```
@@ -71,23 +71,23 @@ impl<'a> PublicLayer<'a> {
             .with_context(context.clone()));
         }
 
-        // Public resources only grant Read permission
-        if permission > Permission::Read {
+        // Public resources grant Read and Download permissions
+        if permission > Permission::Download {
             return Ok(AccessDecision::denied(
                 AccessLayer::Public,
                 permission,
                 format!(
-                    "Public resources only grant read access, but {:?} was requested",
+                    "Public resources only grant read and download access, but {:?} was requested",
                     permission
                 ),
             )
             .with_context(context.clone()));
         }
 
-        // Grant read access
+        // Grant the requested permission (Read or Download)
         Ok(AccessDecision::granted(
             AccessLayer::Public,
-            Permission::Read,
+            permission,
             "Resource is publicly accessible".to_string(),
         )
         .with_context(context.clone()))
@@ -153,7 +153,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_public_resource_denies_download() {
+    async fn test_public_resource_grants_download() {
         let pool = setup_test_db().await;
         let repo = AccessRepository::new(pool.clone());
         let layer = PublicLayer::new(&repo);
@@ -171,10 +171,10 @@ mod tests {
         let context = AccessContext::new(ResourceType::Video, 1);
         let decision = layer.check(&context, Permission::Download).await.unwrap();
 
-        assert!(!decision.granted);
+        assert!(decision.granted);
         assert_eq!(decision.layer, AccessLayer::Public);
-        assert_eq!(decision.permission_granted, None);
-        assert!(decision.reason.contains("only grant read access"));
+        assert_eq!(decision.permission_granted, Some(Permission::Download));
+        assert!(decision.reason.contains("publicly accessible"));
     }
 
     #[tokio::test]
@@ -199,6 +199,30 @@ mod tests {
         assert!(!decision.granted);
         assert_eq!(decision.layer, AccessLayer::Public);
         assert!(decision.reason.contains("not marked as public"));
+    }
+
+    #[tokio::test]
+    async fn test_public_resource_denies_edit() {
+        let pool = setup_test_db().await;
+        let repo = AccessRepository::new(pool.clone());
+        let layer = PublicLayer::new(&repo);
+
+        // Insert public video
+        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+            .bind(1)
+            .bind("Public Video")
+            .bind("user123")
+            .bind(true)
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let context = AccessContext::new(ResourceType::Video, 1);
+        let decision = layer.check(&context, Permission::Edit).await.unwrap();
+
+        assert!(!decision.granted);
+        assert_eq!(decision.layer, AccessLayer::Public);
+        assert!(decision.reason.contains("only grant read and download"));
     }
 
     #[tokio::test]

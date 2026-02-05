@@ -79,6 +79,7 @@ use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 
 // Import the crates
 use access_codes::{access_code_routes, AccessCodeState, MediaResource};
+use access_control::AccessControlService;
 use access_groups;
 use common::{create_search_routes, create_tag_routes};
 use image_manager::{image_routes, ImageManagerState};
@@ -95,6 +96,7 @@ struct AppState {
     image_state: Arc<ImageManagerState>,
     auth_state: Arc<AuthState>,
     access_state: Arc<AccessCodeState>,
+    access_control: Arc<AccessControlService>,
     config: AppConfig,
 }
 
@@ -682,6 +684,10 @@ async fn main() -> anyhow::Result<()> {
 
     let access_state = Arc::new(AccessCodeState { pool: pool.clone() });
 
+    // Initialize Access Control Service with audit logging enabled
+    let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));
+    println!("🔐 Access Control Service initialized with audit logging enabled");
+
     // Load application configuration
     let app_config = AppConfig::load();
     println!("📋 Application Configuration:");
@@ -693,6 +699,7 @@ async fn main() -> anyhow::Result<()> {
         image_state: image_state.clone(),
         auth_state: auth_state.clone(),
         access_state: access_state.clone(),
+        access_control: access_control.clone(),
         config: app_config,
     });
 
@@ -787,6 +794,7 @@ async fn main() -> anyhow::Result<()> {
     println!("   ✅ image-manager    (Image upload & serving)");
     println!("   ✅ user-auth        (Session management, OIDC ready)");
     println!("   ✅ access-codes     (Shared media access)");
+    println!("   ✅ access-control   (4-layer access with audit logging)");
 
     println!("📊 SERVER ENDPOINTS:");
     println!("   • Web UI:        http://{}", addr);

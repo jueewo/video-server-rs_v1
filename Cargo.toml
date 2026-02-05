@@ -29,6 +29,7 @@ video-manager = { path = "crates/video-manager" }
 image-manager = { path = "crates/image-manager" }
 user-auth = { path = "crates/user-auth" }
 access-codes = { path = "crates/access-codes" }
+access-control = { path = "crates/access-control" }
 
 # Web framework
 axum = { version = "0.7", features = ["multipart"] }

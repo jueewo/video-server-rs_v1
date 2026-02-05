@@ -1019,6 +1019,8 @@ pub struct UpdateImageRequest {
     featured: Option<bool>,
     watermarked: Option<bool>,
     tags: Option<Vec<String>>,
+    #[serde(rename = "groupId")]
+    group_id: Option<String>,
 }
 
 #[tracing::instrument(skip(session, state))]
@@ -1103,6 +1105,21 @@ pub async fn update_image_handler(
         updates.push("watermarked = ?");
         params.push(watermarked.to_string());
     }
+    // Handle group_id separately since it can be NULL
+    let group_id_value: Option<Option<i32>> = if let Some(group_id) = &update_req.group_id {
+        if group_id.is_empty() {
+            Some(None) // Set to NULL
+        } else {
+            Some(group_id.parse().ok()) // Parse to Option<i32>
+        }
+    } else {
+        None // Don't update
+    };
+
+    let has_group_id_update = group_id_value.is_some();
+    if has_group_id_update {
+        updates.push("group_id = ?");
+    }
 
     if updates.is_empty() {
         return Err((StatusCode::BAD_REQUEST, "No fields to update".to_string()));
@@ -1116,6 +1133,14 @@ pub async fn update_image_handler(
     let mut query = sqlx::query(&sql);
     for param in params {
         query = query.bind(param);
+    }
+    // Bind group_id if it was included in updates
+    if has_group_id_update {
+        if let Some(gid) = group_id_value.flatten() {
+            query = query.bind(gid);
+        } else {
+            query = query.bind(Option::<i32>::None);
+        }
     }
     query = query.bind(id);
 

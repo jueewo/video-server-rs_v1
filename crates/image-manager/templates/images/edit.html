@@ -42,11 +42,20 @@ block content %}
                             :key="group.id"
                         >
                             <option
-                                :value="group.id"
+                                :value="String(group.id)"
                                 x-text="'📚 ' + group.name"
                             ></option>
                         </template>
                     </select>
+                    <label class="label" x-show="loadingGroups">
+                        <span class="label-text-alt">Loading groups...</span>
+                    </label>
+                    <label
+                        class="label"
+                        x-show="!loadingGroups && availableGroups.length === 0"
+                    >
+                        <span class="label-text-alt">No groups available</span>
+                    </label>
                 </div>
 
                 <div class="form-control">
@@ -61,6 +70,42 @@ block content %}
                         >
                     </label>
                 </div>
+            </div>
+
+            <!-- Success message -->
+            <div x-show="successMessage" class="alert alert-success mt-4">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="stroke-current shrink-0 h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                </svg>
+                <span x-text="successMessage"></span>
+            </div>
+
+            <!-- Error message -->
+            <div x-show="errorMessage" class="alert alert-error mt-4">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="stroke-current shrink-0 h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                </svg>
+                <span x-text="errorMessage"></span>
             </div>
 
             <div class="card-actions justify-end mt-6">
@@ -88,23 +133,36 @@ block content %}
                 isPublic: {{ image.is_public }},
                 groupId: '{{ image.group_id_str }}'
             },
+            successMessage: '',
+            errorMessage: '',
             availableGroups: [],
             loadingGroups: false,
 
             async init() {
                 await this.loadGroups();
+                // Watch for group changes
+                this.$watch('formData.groupId', (value) => {
+                    console.log('Group changed to:', value, typeof value);
+                });
             },
 
             async loadGroups() {
                 this.loadingGroups = true;
                 try {
+                    console.log('Loading groups...');
                     const response = await fetch('/api/groups');
                     if (response.ok) {
                         const data = await response.json();
+                        console.log('Groups loaded:', data);
                         this.availableGroups = data || [];
+                        console.log('Available groups:', this.availableGroups.length);
+                    } else {
+                        console.error('Failed to load groups:', response.status);
+                        this.errorMessage = 'Failed to load groups';
                     }
                 } catch (error) {
                     console.error('Failed to load groups:', error);
+                    this.errorMessage = 'Failed to load groups: ' + error.message;
                 } finally {
                     this.loadingGroups = false;
                 }
@@ -112,17 +170,41 @@ block content %}
 
             async handleSubmit() {
                 this.saving = true;
+                this.errorMessage = '';
+                this.successMessage = '';
                 try {
+                    // Convert values to proper types for backend
+                    const payload = {
+                        title: this.formData.title,
+                        isPublic: this.formData.isPublic ? 'true' : 'false',
+                        groupId: String(this.formData.groupId) // Ensure it's a string
+                    };
+
+                    console.log('Sending payload:', payload);
+                    console.log('Current groupId:', this.formData.groupId);
+
                     const response = await fetch('/api/images/{{ image.id }}', {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(this.formData)
+                        body: JSON.stringify(payload)
                     });
+
                     if (response.ok) {
-                        window.location.href = '/images/view/{{ image.slug }}';
+                        const result = await response.json();
+                        console.log('Save successful:', result);
+                        this.successMessage = 'Image updated successfully!';
+                        // Redirect after showing success message briefly
+                        setTimeout(() => {
+                            window.location.href = '/images/view/{{ image.slug }}';
+                        }, 500);
+                    } else {
+                        const errorText = await response.text();
+                        console.error('Save failed:', response.status, errorText);
+                        this.errorMessage = `Failed to save (${response.status}): ${errorText}`;
                     }
                 } catch (error) {
                     console.error('Failed to save:', error);
+                    this.errorMessage = 'Failed to save: ' + error.message;
                 } finally {
                     this.saving = false;
                 }

@@ -1047,98 +1047,143 @@ pub async fn update_image_handler(
     Path(id): Path<i64>,
     Json(update_req): Json<UpdateImageRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let authenticated: bool = session
-        .get("authenticated")
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or(false);
+    tracing::info!("Update image handler called for image_id={}", id);
+    tracing::debug!("Update request: {:?}", update_req);
 
-    if !authenticated {
-        return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()));
+    // Get authenticated user
+    let user_sub = get_user_from_session(&session, &state.pool)
+        .await
+        .ok_or_else(|| {
+            tracing::warn!("No authenticated user found in session");
+            (
+                StatusCode::UNAUTHORIZED,
+                "Authentication required".to_string(),
+            )
+        })?;
+
+    tracing::info!("User {} attempting to update image {}", user_sub, id);
+
+    // Check if user can modify this image
+    let can_modify = can_modify_image(&state.pool, id as i32, &user_sub)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                "Error checking image access for user {} on image {}: {}",
+                user_sub,
+                id,
+                e
+            );
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Access check failed".to_string(),
+            )
+        })?;
+
+    if !can_modify {
+        tracing::warn!(
+            "User {} does not have permission to edit image {}",
+            user_sub,
+            id
+        );
+        return Err((
+            StatusCode::FORBIDDEN,
+            "You don't have permission to edit this image".to_string(),
+        ));
     }
 
-    // Build dynamic UPDATE query
+    tracing::info!(
+        "Access granted for user {} to update image {}",
+        user_sub,
+        id
+    );
+
+    // Build dynamic UPDATE query with proper type tracking
+    // We need to track the order and types of parameters for proper binding
+    #[derive(Debug)]
+    enum ParamValue {
+        Text(String),
+        Integer(i32),
+        Bool(bool),
+        OptionalInt(Option<i32>),
+    }
+
     let mut updates = Vec::new();
-    let mut params: Vec<String> = Vec::new();
+    let mut param_values: Vec<ParamValue> = Vec::new();
 
     if let Some(title) = &update_req.title {
         updates.push("title = ?");
-        params.push(title.clone());
+        param_values.push(ParamValue::Text(title.clone()));
     }
     if let Some(description) = &update_req.description {
         updates.push("description = ?");
-        params.push(description.clone());
+        param_values.push(ParamValue::Text(description.clone()));
     }
     if let Some(alt_text) = &update_req.alt_text {
         updates.push("alt_text = ?");
-        params.push(alt_text.clone());
+        param_values.push(ParamValue::Text(alt_text.clone()));
     }
     if let Some(is_public) = &update_req.is_public {
         updates.push("is_public = ?");
-        params.push((is_public == "true").to_string());
+        param_values.push(ParamValue::Bool(is_public == "true"));
     }
     if let Some(status) = &update_req.status {
         updates.push("status = ?");
-        params.push(status.clone());
+        param_values.push(ParamValue::Text(status.clone()));
     }
     if let Some(category) = &update_req.category {
         updates.push("category = ?");
-        params.push(category.clone());
+        param_values.push(ParamValue::Text(category.clone()));
     }
     if let Some(subcategory) = &update_req.subcategory {
         updates.push("subcategory = ?");
-        params.push(subcategory.clone());
+        param_values.push(ParamValue::Text(subcategory.clone()));
     }
     if let Some(collection) = &update_req.collection {
         updates.push("collection = ?");
-        params.push(collection.clone());
+        param_values.push(ParamValue::Text(collection.clone()));
     }
     if let Some(series) = &update_req.series {
         updates.push("series = ?");
-        params.push(series.clone());
+        param_values.push(ParamValue::Text(series.clone()));
     }
     if let Some(copyright_holder) = &update_req.copyright_holder {
         updates.push("copyright_holder = ?");
-        params.push(copyright_holder.clone());
+        param_values.push(ParamValue::Text(copyright_holder.clone()));
     }
     if let Some(license) = &update_req.license {
         updates.push("license = ?");
-        params.push(license.clone());
+        param_values.push(ParamValue::Text(license.clone()));
     }
     if let Some(allow_download) = update_req.allow_download {
         updates.push("allow_download = ?");
-        params.push(allow_download.to_string());
+        param_values.push(ParamValue::Bool(allow_download));
     }
     if let Some(mature_content) = update_req.mature_content {
         updates.push("mature_content = ?");
-        params.push(mature_content.to_string());
+        param_values.push(ParamValue::Bool(mature_content));
     }
     if let Some(featured) = update_req.featured {
         updates.push("featured = ?");
-        params.push(featured.to_string());
+        param_values.push(ParamValue::Bool(featured));
     }
     if let Some(watermarked) = update_req.watermarked {
         updates.push("watermarked = ?");
-        params.push(watermarked.to_string());
+        param_values.push(ParamValue::Bool(watermarked));
     }
     // Handle group_id separately since it can be NULL
-    let group_id_value: Option<Option<i32>> = if let Some(group_id) = &update_req.group_id {
-        if group_id.is_empty() {
-            Some(None) // Set to NULL
-        } else {
-            Some(group_id.parse().ok()) // Parse to Option<i32>
-        }
-    } else {
-        None // Don't update
-    };
-
-    let has_group_id_update = group_id_value.is_some();
-    if has_group_id_update {
+    if let Some(group_id) = &update_req.group_id {
         updates.push("group_id = ?");
+        if group_id.is_empty() {
+            param_values.push(ParamValue::OptionalInt(None));
+        } else if let Ok(gid) = group_id.parse::<i32>() {
+            param_values.push(ParamValue::OptionalInt(Some(gid)));
+        } else {
+            param_values.push(ParamValue::OptionalInt(None));
+        }
     }
 
     if updates.is_empty() {
+        tracing::warn!("No fields to update for image {}", id);
         return Err((StatusCode::BAD_REQUEST, "No fields to update".to_string()));
     }
 
@@ -1147,27 +1192,34 @@ pub async fn update_image_handler(
         updates.join(", ")
     );
 
+    tracing::debug!("SQL: {}", sql);
+    tracing::debug!("Param values: {:?}", param_values);
+
+    // Build query with proper type binding
     let mut query = sqlx::query(&sql);
-    for param in params {
-        query = query.bind(param);
-    }
-    // Bind group_id if it was included in updates
-    if has_group_id_update {
-        if let Some(gid) = group_id_value.flatten() {
-            query = query.bind(gid);
-        } else {
-            query = query.bind(Option::<i32>::None);
-        }
+    for param in param_values {
+        query = match param {
+            ParamValue::Text(s) => query.bind(s),
+            ParamValue::Integer(i) => query.bind(i),
+            ParamValue::Bool(b) => query.bind(if b { 1i32 } else { 0i32 }),
+            ParamValue::OptionalInt(opt) => query.bind(opt),
+        };
     }
     query = query.bind(id);
 
     match query.execute(&state.pool).await {
-        Ok(_) => {
+        Ok(result) => {
+            tracing::info!(
+                "Image {} updated successfully. Rows affected: {:?}",
+                id,
+                result.rows_affected()
+            );
+
             // Handle tags if provided
             if let Some(tags) = update_req.tags {
                 let tag_service = TagService::new(&state.pool);
                 if let Err(e) = tag_service.replace_image_tags(id as i32, tags, None).await {
-                    tracing::error!("Error updating tags: {}", e);
+                    tracing::error!("Error updating tags for image {}: {}", id, e);
                 }
             }
 
@@ -1177,7 +1229,7 @@ pub async fn update_image_handler(
             })))
         }
         Err(e) => {
-            tracing::error!("Error updating image: {}", e);
+            tracing::error!("Database error updating image {}: {}", id, e);
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Database error: {}", e),
@@ -1347,7 +1399,8 @@ pub async fn serve_image_handler(
     };
 
     // Build access context for modern access control
-    // For image serving (download), we require Download permission
+    // For image serving (inline viewing), we require Read permission
+    // This allows group Viewers to see images displayed in pages
     let mut context = AccessContext::new(ResourceType::Image, image_id);
     if let Some(uid) = user_id {
         context = context.with_user(uid);
@@ -1359,7 +1412,7 @@ pub async fn serve_image_handler(
     // Check access using the 4-layer access control system
     let decision = match state
         .access_control
-        .check_access(context, Permission::Download)
+        .check_access(context, Permission::Read)
         .await
     {
         Ok(d) => d,
@@ -1556,12 +1609,12 @@ async fn can_modify_image(
 
 /// Helper to get user from session
 async fn get_user_from_session(session: &Session, pool: &Pool<Sqlite>) -> Option<String> {
-    let user_sub: Option<String> = session.get("user_sub").await.ok().flatten();
+    let user_id: Option<String> = session.get("user_id").await.ok().flatten();
 
-    if let Some(sub) = user_sub {
+    if let Some(id) = user_id {
         // Verify user exists
-        let exists: Option<(String,)> = sqlx::query_as("SELECT sub FROM users WHERE sub = ?")
-            .bind(&sub)
+        let exists: Option<(String,)> = sqlx::query_as("SELECT id FROM users WHERE id = ?")
+            .bind(&id)
             .fetch_optional(pool)
             .await
             .ok()

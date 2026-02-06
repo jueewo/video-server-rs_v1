@@ -369,7 +369,7 @@
                         <select x-model="formData.groupId" class="select select-bordered">
                             <option value="">No group (Private to me only)</option>
                             <template x-for="group in groups" :key="group.id">
-                                <option :value="group.id" x-text="`${group.name} (${group.member_count} members)`"></option>
+                                <option :value="String(group.id)" x-text="`${group.name} (${group.member_count} members)`"></option>
                             </template>
                         </select>
                         <label class="label">
@@ -603,7 +603,9 @@ function videoUpload() {
 
         async loadGroups() {
             try {
-                const response = await fetch('/api/groups');
+                const response = await fetch('/api/groups', {
+                    credentials: 'same-origin'
+                });
                 if (response.ok) {
                     this.groups = await response.json();
                 }

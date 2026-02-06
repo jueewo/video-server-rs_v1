@@ -16,6 +16,21 @@ Server{% endblock %} {% block content %}
         </div>
         <div class="flex items-center gap-3">
             {% if authenticated %}
+            <a href="/videos/new" class="btn btn-primary gap-2">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                >
+                    <path
+                        fill-rule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z"
+                        clip-rule="evenodd"
+                    />
+                </svg>
+                New Video
+            </a>
             <div class="badge badge-success gap-2">
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -107,7 +122,7 @@ Server{% endblock %} {% block content %}
                     class="relative aspect-video bg-base-300 overflow-hidden"
                 >
                     <img
-                        src="/storage/videos/public/{{ video.0 }}/poster.webp"
+                        src="/storage/videos/{{ video.0 }}/poster.webp"
                         alt="{{ video.1 }}"
                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         onerror="
@@ -192,7 +207,7 @@ Server{% endblock %} {% block content %}
                     class="relative aspect-video bg-base-300 overflow-hidden"
                 >
                     <img
-                        src="/storage/videos/private/{{ video.0 }}/poster.webp"
+                        src="/storage/videos/{{ video.0 }}/poster.webp"
                         alt="{{ video.1 }}"
                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         onerror="
@@ -302,7 +317,25 @@ Server{% endblock %} {% block content %}
         <div class="card-body">
             <h3 class="card-title text-2xl mb-4">🎯 Quick Actions</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <a href="/test" class="btn btn-primary gap-2 justify-start">
+                <a
+                    href="/videos/new"
+                    class="btn btn-primary gap-2 justify-start"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                    >
+                        <path
+                            fill-rule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z"
+                            clip-rule="evenodd"
+                        />
+                    </svg>
+                    Register New Video
+                </a>
+                <a href="/test" class="btn btn-secondary gap-2 justify-start">
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
                         class="h-5 w-5"

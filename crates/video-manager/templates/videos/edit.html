@@ -3,6 +3,10 @@
 
 {% block extra_head %}
 <style>
+    [x-cloak] {
+        display: none !important;
+    }
+
     .tag-input-wrapper {
         position: relative;
     }
@@ -47,12 +51,31 @@
     </div>
 
     <!-- Alert Messages -->
+    <!-- Debug Alert for Groups Loading -->
+    <div x-show="errorMessage && errorMessage.includes('groups')" class="alert alert-warning mb-6" x-cloak>
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <div>
+            <h3 class="font-bold">⚠️ Groups Loading Issue</h3>
+            <div class="text-xs" x-text="errorMessage"></div>
+            <div class="text-xs mt-2">
+                <strong></strong>Troubleshooting:</strong>
+                <ul class="list-disc list-inside">
+                    <li>Check browser console (F12) for detailed error logs</li>
+                    <li>Verify you are logged in (session may have expired)</li>
+                    <li>Ensure you are a member of at least one group</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
     <div x-show="saveSuccess" class="alert alert-success mb-6" x-cloak>
         <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <div>
-            <h3 class="</div>font-bold">Changes Saved!</h3>
+            <h3 class="font-bold">Changes Saved!</h3>
             <div class="text-xs">Your video has been updated successfully.</div>
         </div>
     </div>
@@ -79,7 +102,7 @@
                         <h3 class="font-bold mb-2">Current Thumbnail</h3>
                         <div class="bg-base-300 rounded-xl overflow-hidden aspect-video">
                             <img
-                                :src="formData.thumbnailUrl || '/storage/videos/{{ video.is_public ? "public" : "private" }}/{{ video.slug }}/poster.webp'"
+                                :src="formData.thumbnailUrl || '/hls/{{ video.slug }}/poster.webp'"
                                 alt="Video thumbnail"
                                 class="w-full h-full thumbnail-preview"
                                 onerror="this.src='/static/placeholder-video.png'"
@@ -99,19 +122,19 @@
                         <div class="stats stats-vertical shadow w-full">
                             <div class="stat">
                                 <div class="stat-title">Duration</div>
-                                <div class="stat-value text-2xl" x-text="formatDuration({{ video.duration || 0 }})"></div>
+                                <div class="stat-value text-2xl" x-text="formatDuration({{ video.duration.unwrap_or(0) }})"></div>
                             </div>
                             <div class="stat">
                                 <div class="stat-title">Resolution</div>
-                                <div class="stat-value text-2xl">{{ video.resolution || "N/A" }}</div>
+                                <div class="stat-value text-2xl">{% match video.resolution %}{% when Some with (r) %}{{ r }}{% when None %}N/A{% endmatch %}</div>
                             </div>
                             <div class="stat">
                                 <div class="stat-title">File Size</div>
-                                <div class="stat-value text-2xl" x-text="formatFileSize({{ video.file_size || 0 }})"></div>
+                                <div class="stat-value text-2xl" x-text="formatFileSize({{ video.file_size.unwrap_or(0) }})"></div>
                             </div>
                             <div class="stat">
                                 <div class="stat-title">Views</div>
-                                <div class="stat-value text-2xl">{{ video.view_count || 0 }}</div>
+                                <div class="stat-value text-2xl">{{ video.view_count }}</div>
                             </div>
                         </div>
                     </div>
@@ -366,22 +389,27 @@
                         <span class="label-text font-semibold">Assign to Group</span>
                         <span class="label-text-alt text-base-content/60">Optional - Share with a team</span>
                     </label>
-                    <select 
-                        x-model="formData.groupId" 
+                    <select
+                        x-model="formData.groupId"
                         class="select select-bordered"
                         :disabled="loadingGroups"
+                        x-ref="groupSelect"
                     >
                         <option value="">No group (Private)</option>
-                        <template x-for="group in availableGroups" :key="group.id">
-                            <option :value="group.id" x-text="'📚 ' + group.name"></option>
-                        </template>
                     </select>
                     <label class="label">
                         <span class="label-text-alt text-base-content/60">
-                            <template x-if="formData.groupId">
+                            <template x-if="loadingGroups">
+                                <span class="loading loading-spinner loading-xs"></span>
+                                <span class="ml-2">Loading groups...</span>
+                            </template>
+                            <template x-if="!loadingGroups && availableGroups.length === 0">
+                                <span class="text-warning">⚠️ No groups found. Check console (F12) for details.</span>
+                            </template>
+                            <template x-if="!loadingGroups && availableGroups.length > 0 && formData.groupId">
                                 <span class="text-success">✓ Video will be shared with group members</span>
                             </template>
-                            <template x-if="!formData.groupId">
+                            <template x-if="!loadingGroups && availableGroups.length > 0 && !formData.groupId">
                                 <span>Select a group to share this video with your team</span>
                             </template>
                         </span>
@@ -397,7 +425,7 @@
                         <div>
                             <h3 class="font-bold">Shared with Group</h3>
                             <div class="text-xs">
-                                <span x-text="currentGroup.name"></span> - 
+                                <span x-text="currentGroup.name"></span> -
                                 <span x-text="currentGroup.member_count || '0'"></span> members
                             </div>
                         </div>
@@ -519,8 +547,27 @@
         </div>
     </form>
 
+    <!-- Debug Panel -->
+    <div class="card bg-base-200 shadow-xl mt-6" x-show="availableGroups.length > 0">
+        <div class="card-body">
+            <h2 class="card-title text-sm">🐛 Debug: Available Groups</h2>
+            <div class="text-xs">
+                <p></p><strong>Count:</strong> <span x-text="availableGroups.length"></span></p>
+                <template x-for="(group, index) in availableGroups" :key="group.id">
+                    <div class="mt-2 p-2 bg-base-300 rounded">
+                        <p><strong>Group <span x-text="index + 1"></span>:</strong></p>
+                        <p>ID: <span x-text="group.id"></span> (type: <span x-text="typeof group.id"></span>)</p>
+                        <p>Name: <span x-text="group.name"></span></p>
+                        <p>Slug: <span x-text="group.slug"></span></p>
+                        <p>Member Count: <span x-text="group.member_count"></span></p>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
     <!-- Delete Confirmation Modal -->
-    <div x-show="showDeleteModal" class="modal modal-open" x-cloak>
+    <div x-show="showDeleteModal" :class="showDeleteModal ? 'modal modal-open' : 'modal'" x-cloak>
         <div class="modal-box">
             <h3 class="font-bold text-lg mb-4">⚠️ Confirm Deletion</h3>
             <p class="py-4">
@@ -554,22 +601,22 @@ function videoEdit() {
         showDeleteModal: false,
         formData: {
             title: '{{ video.title }}',
-            description: '{{ video.description | default(value="") }}',
-            shortDescription: '{{ video.short_description | default(value="") }}',
-            category: '{{ video.category | default(value="") }}',
-            language: '{{ video.language | default(value="en") }}',
-            status: '{{ video.status | default(value="active") }}',
+            description: '{% match video.description %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}',
+            shortDescription: '{% match video.short_description %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}',
+            category: '{% match video.category %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}',
+            language: '{% match video.language %}{% when Some with (v) %}{{ v }}{% when None %}en{% endmatch %}',
+            status: '{{ video.status }}',
             tags: [], // Will be loaded from API
-            isPublic: {{ video.is_public | default(value=0) }} === 1,
-            featured: {{ video.featured | default(value=0) }} === 1,
-            allowComments: {{ video.allow_comments | default(value=1) }} === 1,
-            allowDownload: {{ video.allow_download | default(value=0) }} === 1,
-            matureContent: {{ video.mature_content | default(value=0) }} === 1,
+            isPublic: {{ video.is_public }},
+            featured: {{ video.featured }},
+            allowComments: {{ video.allow_comments }},
+            allowDownload: {{ video.allow_download }},
+            matureContent: {{ video.mature_content }},
             thumbnailUrl: '',
-            seoTitle: '{{ video.seo_title | default(value="") }}',
-            seoDescription: '{{ video.seo_description | default(value="") }}',
-            seoKeywords: '{{ video.seo_keywords | default(value="") }}',
-            groupId: {% if video.group_id %}{{ video.group_id }}{% else %}''{% endif %}
+            seoTitle: '{% match video.seo_title %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}',
+            seoDescription: '{% match video.seo_description %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}',
+            seoKeywords: '{% match video.seo_keywords %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}',
+            groupId: '{{ video.group_id_str }}'
         },
         originalData: {},
         tagInput: '',
@@ -578,20 +625,77 @@ function videoEdit() {
         currentGroup: null,
         loadingGroups: false,
 
+        populateGroupOptions() {
+            console.log('populateGroupOptions called');
+            console.log('$refs:', this.$refs);
+            console.log('groupSelect:', this.$refs.groupSelect);
+
+            // Try x-ref first, fallback to querySelector
+            let select = this.$refs.groupSelect;
+            if (!select) {
+                console.warn('x-ref not found, trying querySelector...');
+                select = document.querySelector('select[x-model="formData.groupId"]');
+            }
+
+            if (!select) {
+                console.error('Select element not found with querySelector either!');
+                return;
+            }
+
+            console.log('Select element found via:', this.$refs.groupSelect ? 'x-ref' : 'querySelector');
+
+            console.log('Select element found, current options:', select.options.length);
+
+            // Keep only the first option (No group)
+            const firstOption = select.options[0];
+            console.log('First option:', firstOption);
+            select.innerHTML = '';
+            select.appendChild(firstOption);
+            console.log('After reset, options:', select.options.length);
+
+            // Add group options
+            console.log('Adding groups:', this.availableGroups.length);
+            this.availableGroups.forEach((group, index) => {
+                console.log(`Creating option ${index + 1}:`, group.id, group.name);
+                const option = document.createElement('option');
+                option.value = String(group.id);
+                option.textContent = '📚 ' + group.name;
+                select.appendChild(option);
+                console.log(`After adding option ${index + 1}, total options:`, select.options.length);
+            });
+
+            console.log('Final options count:', select.options.length);
+            console.log('Final options:', Array.from(select.options).map(o => ({ value: o.value, text: o.text })));
+
+            // Restore selected value if it exists
+            if (this.formData.groupId) {
+                select.value = String(this.formData.groupId);
+                console.log('Restored selected value:', select.value);
+            }
+
+            // Add change event listener to sync with formData
+            select.addEventListener('change', (e) => {
+                this.formData.groupId = e.target.value;
+                console.log('Group changed to:', this.formData.groupId);
+            });
+        },
+
         async init() {
             // Store original data for reset
             this.originalData = JSON.parse(JSON.stringify(this.formData));
 
             // Load existing tags
             await this.loadTags();
-            
+
             // Load available groups
             await this.loadGroups();
         },
 
         async loadTags() {
             try {
-                const response = await fetch('/api/videos/{{ video.id }}/tags');
+                const response = await fetch('/api/videos/{{ video.id }}/tags', {
+                    credentials: 'same-origin'
+                });
                 if (response.ok) {
                     const data = await response.json();
                     this.formData.tags = data.tags || [];
@@ -604,18 +708,27 @@ function videoEdit() {
         async loadGroups() {
             this.loadingGroups = true;
             try {
-                const response = await fetch('/api/groups');
+                console.log('Loading groups...');
+                const response = await fetch('/api/groups', {
+                    credentials: 'same-origin'
+                });
                 if (response.ok) {
                     const data = await response.json();
+                    console.log('Groups loaded:', data);
                     this.availableGroups = data || [];
-                    
-                    // Find current group if set
-                    if (this.formData.groupId) {
-                        this.currentGroup = this.availableGroups.find(g => g.id == this.formData.groupId);
-                    }
+                    console.log('Available groups:', this.availableGroups.length);
+
+                    // Wait for DOM to be ready before populating
+                    setTimeout(() => {
+                        this.populateGroupOptions();
+                    }, 100);
+                } else {
+                    console.error('Failed to load groups:', response.status);
+                    this.errorMessage = 'Failed to load groups';
                 }
             } catch (error) {
                 console.error('Failed to load groups:', error);
+                this.errorMessage = 'Failed to load groups: ' + error.message;
             } finally {
                 this.loadingGroups = false;
             }
@@ -678,12 +791,26 @@ function videoEdit() {
             this.saveError = false;
 
             try {
+                console.log('Saving video with formData:', this.formData);
+                console.log('groupId value:', this.formData.groupId, 'type:', typeof this.formData.groupId);
+
+                // Prepare data for submission - convert "0" or empty string to null for groupId
+                const dataToSend = { ...this.formData };
+                if (dataToSend.groupId === "0" || dataToSend.groupId === "" || dataToSend.groupId === 0) {
+                    console.log('Converting groupId from', dataToSend.groupId, 'to null');
+                    dataToSend.groupId = null;
+                } else {
+                    console.log('Keeping groupId as:', dataToSend.groupId);
+                }
+                console.log('Final data being sent:', JSON.stringify(dataToSend, null, 2));
+
                 const response = await fetch('/api/videos/{{ video.id }}', {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(this.formData)
+                    body: JSON.stringify(dataToSend),
+                    credentials: 'same-origin'
                 });
 
                 if (response.ok) {
@@ -694,9 +821,19 @@ function videoEdit() {
                     // Scroll to top to show success message
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 } else {
-                    throw new Error('Failed to save changes');
+                    let errorText = 'Unknown error';
+                    try {
+                        errorText = await response.text();
+                    } catch (e) {
+                        console.error('Failed to read error response:', e);
+                    }
+                    console.error('Save failed - Status:', response.status);
+                    console.error('Error response:', errorText);
+                    console.error('Request body:', JSON.stringify(this.formData, null, 2));
+                    throw new Error(`Failed to save changes (${response.status}): ${errorText}`);
                 }
             } catch (error) {
+                console.error('Save error:', error);
                 this.saveError = true;
                 this.errorMessage = error.message || 'An error occurred while saving';
                 showToast('Failed to save changes', 'error');
@@ -719,7 +856,8 @@ function videoEdit() {
         async deleteVideo() {
             try {
                 const response = await fetch('/api/videos/{{ video.id }}', {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    credentials: 'same-origin'
                 });
 
                 if (response.ok) {

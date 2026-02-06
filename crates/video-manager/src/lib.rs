@@ -2,14 +2,14 @@ use askama::Template;
 use axum::{
     extract::{Path, Query, State},
     http::{header, StatusCode},
-    response::{IntoResponse, Response},
+    response::{Html, IntoResponse, Response},
     routing::{delete, get, post, put},
     Json, Router,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use sqlx::{Pool, Sqlite};
+use sqlx::{Pool, Row, Sqlite};
 use std::{path::PathBuf, sync::Arc};
 use time::OffsetDateTime;
 use tokio_util::io::ReaderStream;
@@ -55,6 +55,19 @@ pub struct LiveTestTemplate {
 }
 
 #[derive(Template)]
+#[template(path = "videos/edit.html")]
+pub struct VideoEditTemplate {
+    authenticated: bool,
+    video: VideoDetail,
+}
+
+#[derive(Template)]
+#[template(path = "videos/new.html")]
+pub struct VideoNewTemplate {
+    authenticated: bool,
+}
+
+#[derive(Template)]
 #[template(path = "unauthorized.html")]
 pub struct UnauthorizedTemplate {
     authenticated: bool,
@@ -64,6 +77,52 @@ pub struct UnauthorizedTemplate {
 #[template(path = "not_found.html")]
 pub struct NotFoundTemplate {
     authenticated: bool,
+}
+
+// -------------------------------
+// Video Detail Struct
+// -------------------------------
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct VideoDetail {
+    pub id: i64,
+    pub slug: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub short_description: Option<String>,
+    pub is_public: bool,
+    pub user_id: Option<String>,
+    pub group_id: Option<i32>,
+    pub group_id_str: String,
+    pub duration: Option<i64>,
+    pub file_size: Option<i64>,
+    pub resolution: Option<String>,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub fps: Option<i32>,
+    pub codec: Option<String>,
+    pub thumbnail_url: Option<String>,
+    pub poster_url: Option<String>,
+    pub category: Option<String>,
+    pub language: Option<String>,
+    pub status: String,
+    pub featured: bool,
+    pub allow_comments: bool,
+    pub allow_download: bool,
+    pub mature_content: bool,
+    pub view_count: i64,
+    pub like_count: i64,
+    pub download_count: i64,
+    pub share_count: i64,
+    pub upload_date: String,
+    pub seo_title: Option<String>,
+    pub seo_description: Option<String>,
+    pub seo_keywords: Option<String>,
+}
+
+impl VideoDetail {
+    pub fn group_id_str(&self) -> String {
+        self.group_id.map(|id| id.to_string()).unwrap_or_default()
+    }
 }
 
 // -------------------------------
@@ -103,14 +162,23 @@ impl VideoManagerState {
 pub fn video_routes() -> Router<Arc<VideoManagerState>> {
     Router::new()
         .route("/videos", get(videos_list_handler))
+        .route("/videos/new", get(video_new_page_handler))
+        .route("/videos/:slug/edit", get(video_edit_page_handler))
         .route("/watch/:slug", get(video_player_handler))
         .route("/test", get(live_test_handler))
         .route("/hls/*path", get(hls_proxy_handler))
         .route("/api/stream/validate", get(validate_stream_handler))
         .route("/api/stream/authorize", get(authorize_stream_handler))
         .route("/api/mediamtx/status", get(mediamtx_status))
-        // Video list API
+        // Video CRUD API
         .route("/api/videos", get(list_videos_api_handler))
+        .route("/api/videos", post(register_video_handler))
+        .route(
+            "/api/videos/available-folders",
+            get(available_folders_handler),
+        )
+        .route("/api/videos/:id", put(update_video_handler))
+        .route("/api/videos/:id", delete(delete_video_handler))
         // Video tag endpoints
         .route("/api/videos/:id/tags", get(get_video_tags_handler))
         .route("/api/videos/:id/tags", post(add_video_tags_handler))
@@ -667,6 +735,657 @@ pub async fn get_videos(
 }
 
 // -------------------------------
+// Video New Page Handler (Register Video)
+// -------------------------------
+
+#[tracing::instrument(skip(session))]
+pub async fn video_new_page_handler(
+    session: Session,
+) -> Result<Html<String>, (StatusCode, String)> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()));
+    }
+
+    let template = VideoNewTemplate { authenticated };
+    match template.render() {
+        Ok(html) => Ok(Html(html)),
+        Err(e) => {
+            tracing::error!("Template render error: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Template error: {}", e),
+            ))
+        }
+    }
+}
+
+// -------------------------------
+// Available Folders API
+// -------------------------------
+
+#[derive(Debug, Serialize)]
+struct FolderInfo {
+    name: String,
+    has_playlist: bool,
+    has_poster: bool,
+    segment_count: usize,
+}
+
+/// GET /api/videos/available-folders - List video folders on disk without DB entries
+#[tracing::instrument(skip(session, state))]
+pub async fn available_folders_handler(
+    session: Session,
+    State(state): State<Arc<VideoManagerState>>,
+) -> Result<Json<Vec<FolderInfo>>, StatusCode> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    let videos_dir = state.storage_dir.join("videos");
+
+    // Read directories from disk
+    let mut entries = match tokio::fs::read_dir(&videos_dir).await {
+        Ok(entries) => entries,
+        Err(_) => return Ok(Json(vec![])),
+    };
+
+    let mut folders = Vec::new();
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        if let Ok(file_type) = entry.file_type().await {
+            if file_type.is_dir() {
+                if let Some(name) = entry.file_name().to_str() {
+                    folders.push(name.to_string());
+                }
+            }
+        }
+    }
+
+    // Get slugs already registered in DB
+    let registered: Vec<(String,)> = sqlx::query_as("SELECT slug FROM videos")
+        .fetch_all(&state.pool)
+        .await
+        .unwrap_or_default();
+    let registered_slugs: Vec<&str> = registered.iter().map(|(s,)| s.as_str()).collect();
+
+    // Filter to unregistered folders and gather info
+    let mut result = Vec::new();
+    for folder in folders {
+        if registered_slugs.contains(&folder.as_str()) {
+            continue;
+        }
+
+        let folder_path = videos_dir.join(&folder);
+        let has_playlist = folder_path.join("master.m3u8").exists();
+        let has_poster = folder_path.join("poster.webp").exists();
+
+        // Count segments
+        let mut segment_count = 0;
+        let segments_dir = folder_path.join("segments");
+        if segments_dir.exists() {
+            if let Ok(mut seg_entries) = tokio::fs::read_dir(&segments_dir).await {
+                while let Ok(Some(seg)) = seg_entries.next_entry().await {
+                    if let Some(name) = seg.file_name().to_str() {
+                        if name.ends_with(".ts") {
+                            segment_count += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        result.push(FolderInfo {
+            name: folder,
+            has_playlist,
+            has_poster,
+            segment_count,
+        });
+    }
+
+    result.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(Json(result))
+}
+
+// -------------------------------
+// Register Video Handler (Create DB entry)
+// -------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct RegisterVideoRequest {
+    slug: String,
+    title: String,
+    description: Option<String>,
+    #[serde(rename = "isPublic")]
+    is_public: Option<bool>,
+    #[serde(rename = "groupId")]
+    group_id: Option<String>,
+    tags: Option<Vec<String>>,
+}
+
+/// POST /api/videos - Register a video folder as a DB entry
+#[tracing::instrument(skip(session, state))]
+pub async fn register_video_handler(
+    session: Session,
+    State(state): State<Arc<VideoManagerState>>,
+    Json(req): Json<RegisterVideoRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()));
+    }
+
+    let user_id: Option<String> = session.get::<String>("user_id").await.ok().flatten();
+    let user_id = user_id.ok_or_else(|| {
+        (
+            StatusCode::UNAUTHORIZED,
+            "No user_id in session".to_string(),
+        )
+    })?;
+
+    // Validate slug
+    let slug = req.slug.trim().to_string();
+    if slug.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "Slug is required".to_string()));
+    }
+
+    // Validate folder exists on disk
+    let folder_path = state.storage_dir.join("videos").join(&slug);
+    if !folder_path.exists() || !folder_path.is_dir() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!("Video folder '{}' does not exist on disk", slug),
+        ));
+    }
+
+    // Validate master.m3u8 exists
+    if !folder_path.join("master.m3u8").exists() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!("Video folder '{}' does not contain master.m3u8", slug),
+        ));
+    }
+
+    // Validate title
+    let title = req.title.trim().to_string();
+    if title.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "Title is required".to_string()));
+    }
+
+    let is_public = req.is_public.unwrap_or(false);
+    let description = req.description.unwrap_or_default();
+
+    // Parse group_id
+    let group_id: Option<i32> = req.group_id.as_ref().and_then(|g| {
+        if g.is_empty() {
+            None
+        } else {
+            g.parse::<i32>().ok()
+        }
+    });
+
+    // Insert into database
+    let result = sqlx::query(
+        "INSERT INTO videos (slug, title, description, is_public, user_id, group_id, status, upload_date)
+         VALUES (?, ?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)"
+    )
+    .bind(&slug)
+    .bind(&title)
+    .bind(&description)
+    .bind(if is_public { 1i32 } else { 0i32 })
+    .bind(&user_id)
+    .bind(group_id)
+    .execute(&state.pool)
+    .await
+    .map_err(|e| {
+        if e.to_string().contains("UNIQUE constraint") {
+            (StatusCode::CONFLICT, format!("Video with slug '{}' already exists", slug))
+        } else {
+            tracing::error!("Database error registering video: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, format!("Database error: {}", e))
+        }
+    })?;
+
+    let video_id = result.last_insert_rowid();
+
+    // Handle tags if provided
+    if let Some(tags) = req.tags {
+        if !tags.is_empty() {
+            let tag_service = TagService::new(&state.pool);
+            if let Err(e) = tag_service
+                .replace_video_tags(video_id as i32, tags, Some(&user_id))
+                .await
+            {
+                tracing::error!("Error adding tags to video {}: {}", video_id, e);
+                // Don't fail the whole registration if tags fail
+            }
+        }
+    }
+
+    info!(
+        video_id = video_id,
+        slug = %slug,
+        title = %title,
+        "Video registered successfully"
+    );
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "id": video_id,
+        "slug": slug,
+        "title": title,
+        "message": "Video registered successfully"
+    })))
+}
+
+// -------------------------------
+// Video Edit Page Handler
+// -------------------------------
+
+fn video_detail_from_row(row: &sqlx::sqlite::SqliteRow) -> VideoDetail {
+    let group_id: Option<i32> = row.try_get("group_id").ok();
+    VideoDetail {
+        id: row.try_get("id").unwrap_or(0),
+        slug: row.try_get("slug").unwrap_or_default(),
+        title: row.try_get("title").unwrap_or_default(),
+        description: row.try_get("description").ok(),
+        short_description: row.try_get("short_description").ok(),
+        is_public: row.try_get::<i32, _>("is_public").unwrap_or(0) == 1,
+        user_id: row.try_get("user_id").ok(),
+        group_id,
+        group_id_str: group_id.map(|id| id.to_string()).unwrap_or_default(),
+        duration: row.try_get("duration").ok(),
+        file_size: row.try_get("file_size").ok(),
+        resolution: row.try_get("resolution").ok(),
+        width: row.try_get("width").ok(),
+        height: row.try_get("height").ok(),
+        fps: row.try_get("fps").ok(),
+        codec: row.try_get("codec").ok(),
+        thumbnail_url: row.try_get("thumbnail_url").ok(),
+        poster_url: row.try_get("poster_url").ok(),
+        category: row.try_get("category").ok(),
+        language: row.try_get("language").ok(),
+        status: row
+            .try_get("status")
+            .unwrap_or_else(|_| "active".to_string()),
+        featured: row.try_get::<i32, _>("featured").unwrap_or(0) == 1,
+        allow_comments: row.try_get::<i32, _>("allow_comments").unwrap_or(1) == 1,
+        allow_download: row.try_get::<i32, _>("allow_download").unwrap_or(0) == 1,
+        mature_content: row.try_get::<i32, _>("mature_content").unwrap_or(0) == 1,
+        view_count: row.try_get("view_count").unwrap_or(0),
+        like_count: row.try_get("like_count").unwrap_or(0),
+        download_count: row.try_get("download_count").unwrap_or(0),
+        share_count: row.try_get("share_count").unwrap_or(0),
+        upload_date: row.try_get("upload_date").unwrap_or_default(),
+        seo_title: row.try_get("seo_title").ok(),
+        seo_description: row.try_get("seo_description").ok(),
+        seo_keywords: row.try_get("seo_keywords").ok(),
+    }
+}
+
+/// GET /videos/:slug/edit - Serve the video edit page
+#[tracing::instrument(skip(session, state))]
+pub async fn video_edit_page_handler(
+    session: Session,
+    State(state): State<Arc<VideoManagerState>>,
+    Path(slug): Path<String>,
+) -> Result<Html<String>, (StatusCode, String)> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()));
+    }
+
+    // Fetch video from database
+    let row = sqlx::query("SELECT * FROM videos WHERE slug = ?")
+        .bind(&slug)
+        .fetch_one(&state.pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Error fetching video: {}", e);
+            (StatusCode::NOT_FOUND, format!("Video not found: {}", e))
+        })?;
+
+    let video = video_detail_from_row(&row);
+
+    let template = VideoEditTemplate {
+        authenticated,
+        video,
+    };
+
+    match template.render() {
+        Ok(html) => Ok(Html(html)),
+        Err(e) => {
+            tracing::error!("Template render error: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Template error: {}", e),
+            ))
+        }
+    }
+}
+
+// -------------------------------
+// Update Video Handler (API)
+// -------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateVideoRequest {
+    title: Option<String>,
+    description: Option<String>,
+    #[serde(rename = "shortDescription")]
+    short_description: Option<String>,
+    #[serde(rename = "isPublic")]
+    is_public: Option<bool>,
+    category: Option<String>,
+    language: Option<String>,
+    status: Option<String>,
+    featured: Option<bool>,
+    #[serde(rename = "allowComments")]
+    allow_comments: Option<bool>,
+    #[serde(rename = "allowDownload")]
+    allow_download: Option<bool>,
+    #[serde(rename = "matureContent")]
+    mature_content: Option<bool>,
+    #[serde(rename = "seoTitle")]
+    seo_title: Option<String>,
+    #[serde(rename = "seoDescription")]
+    seo_description: Option<String>,
+    #[serde(rename = "seoKeywords")]
+    seo_keywords: Option<String>,
+    #[serde(rename = "groupId")]
+    group_id: Option<serde_json::Value>,
+    tags: Option<Vec<String>>,
+}
+
+/// PUT /api/videos/:id - Update video metadata
+#[tracing::instrument(skip(session, state))]
+pub async fn update_video_handler(
+    session: Session,
+    State(state): State<Arc<VideoManagerState>>,
+    Path(id): Path<i64>,
+    Json(update_req): Json<UpdateVideoRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    tracing::info!("Update video handler called for video_id={}", id);
+
+    // Get authenticated user
+    let user_sub = get_user_from_session(&session, &state.pool)
+        .await
+        .ok_or_else(|| {
+            (
+                StatusCode::UNAUTHORIZED,
+                "Authentication required".to_string(),
+            )
+        })?;
+
+    // Check if user can modify this video
+    let can_modify = can_modify_video(&state.pool, id as i32, &user_sub)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Access check failed: {}", e),
+            )
+        })?;
+
+    if !can_modify {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "You don't have permission to edit this video".to_string(),
+        ));
+    }
+
+    // Build dynamic UPDATE query
+    #[derive(Debug)]
+    enum ParamValue {
+        Text(String),
+        Bool(bool),
+        OptionalInt(Option<i32>),
+    }
+
+    let mut updates = Vec::new();
+    let mut param_values: Vec<ParamValue> = Vec::new();
+
+    if let Some(title) = &update_req.title {
+        updates.push("title = ?");
+        param_values.push(ParamValue::Text(title.clone()));
+    }
+    if let Some(description) = &update_req.description {
+        updates.push("description = ?");
+        param_values.push(ParamValue::Text(description.clone()));
+    }
+    if let Some(short_description) = &update_req.short_description {
+        updates.push("short_description = ?");
+        param_values.push(ParamValue::Text(short_description.clone()));
+    }
+    if let Some(is_public) = update_req.is_public {
+        updates.push("is_public = ?");
+        param_values.push(ParamValue::Bool(is_public));
+    }
+    if let Some(category) = &update_req.category {
+        updates.push("category = ?");
+        param_values.push(ParamValue::Text(category.clone()));
+    }
+    if let Some(language) = &update_req.language {
+        updates.push("language = ?");
+        param_values.push(ParamValue::Text(language.clone()));
+    }
+    if let Some(status) = &update_req.status {
+        updates.push("status = ?");
+        param_values.push(ParamValue::Text(status.clone()));
+    }
+    if let Some(featured) = update_req.featured {
+        updates.push("featured = ?");
+        param_values.push(ParamValue::Bool(featured));
+    }
+    if let Some(allow_comments) = update_req.allow_comments {
+        updates.push("allow_comments = ?");
+        param_values.push(ParamValue::Bool(allow_comments));
+    }
+    if let Some(allow_download) = update_req.allow_download {
+        updates.push("allow_download = ?");
+        param_values.push(ParamValue::Bool(allow_download));
+    }
+    if let Some(mature_content) = update_req.mature_content {
+        updates.push("mature_content = ?");
+        param_values.push(ParamValue::Bool(mature_content));
+    }
+    if let Some(seo_title) = &update_req.seo_title {
+        updates.push("seo_title = ?");
+        param_values.push(ParamValue::Text(seo_title.clone()));
+    }
+    if let Some(seo_description) = &update_req.seo_description {
+        updates.push("seo_description = ?");
+        param_values.push(ParamValue::Text(seo_description.clone()));
+    }
+    if let Some(seo_keywords) = &update_req.seo_keywords {
+        updates.push("seo_keywords = ?");
+        param_values.push(ParamValue::Text(seo_keywords.clone()));
+    }
+    // Handle group_id - can be number, string, or empty/null
+    if let Some(group_id_val) = &update_req.group_id {
+        updates.push("group_id = ?");
+        let parsed = match group_id_val {
+            serde_json::Value::Number(n) => n.as_i64().map(|v| v as i32),
+            serde_json::Value::String(s) => {
+                if s.is_empty() {
+                    None
+                } else {
+                    s.parse::<i32>().ok()
+                }
+            }
+            serde_json::Value::Null => None,
+            _ => None,
+        };
+        param_values.push(ParamValue::OptionalInt(parsed));
+    }
+
+    if updates.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "No fields to update".to_string()));
+    }
+
+    let sql = format!(
+        "UPDATE videos SET {}, last_modified = CURRENT_TIMESTAMP WHERE id = ?",
+        updates.join(", ")
+    );
+
+    let mut query = sqlx::query(&sql);
+    for param in param_values {
+        query = match param {
+            ParamValue::Text(s) => query.bind(s),
+            ParamValue::Bool(b) => query.bind(if b { 1i32 } else { 0i32 }),
+            ParamValue::OptionalInt(opt) => query.bind(opt),
+        };
+    }
+    query = query.bind(id);
+
+    match query.execute(&state.pool).await {
+        Ok(result) => {
+            tracing::info!(
+                "Video {} updated successfully. Rows affected: {:?}",
+                id,
+                result.rows_affected()
+            );
+
+            // Handle tags if provided
+            if let Some(tags) = update_req.tags {
+                let tag_service = TagService::new(&state.pool);
+                if let Err(e) = tag_service.replace_video_tags(id as i32, tags, None).await {
+                    tracing::error!("Error updating tags for video {}: {}", id, e);
+                }
+            }
+
+            Ok(Json(serde_json::json!({
+                "success": true,
+                "message": "Video updated successfully"
+            })))
+        }
+        Err(e) => {
+            tracing::error!("Database error updating video {}: {}", id, e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Database error: {}", e),
+            ))
+        }
+    }
+}
+
+// -------------------------------
+// Delete Video Handler (API)
+// -------------------------------
+
+/// DELETE /api/videos/:id - Delete video DB entry (files remain on disk)
+#[tracing::instrument(skip(session, state))]
+pub async fn delete_video_handler(
+    session: Session,
+    State(state): State<Arc<VideoManagerState>>,
+    Path(id): Path<i64>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()));
+    }
+
+    let user_id: Option<String> = session.get::<String>("user_id").await.ok().flatten();
+
+    // Check access with Delete permission
+    let mut context = AccessContext::new(ResourceType::Video, id as i32);
+    if let Some(uid) = user_id {
+        context = context.with_user(uid);
+    }
+
+    let decision = state
+        .access_control
+        .check_access(context, Permission::Delete)
+        .await
+        .map_err(|e| {
+            info!(error = ?e, "Access control error for video deletion");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Access check failed".to_string(),
+            )
+        })?;
+
+    if !decision.granted {
+        info!(video_id = id, reason = %decision.reason, "Access denied to delete video");
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Cannot delete this video".to_string(),
+        ));
+    }
+
+    // Delete associated tags
+    let _ = sqlx::query("DELETE FROM video_tags WHERE video_id = ?")
+        .bind(id)
+        .execute(&state.pool)
+        .await;
+
+    // Delete associated access permissions
+    let _ = sqlx::query(
+        "DELETE FROM access_key_permissions WHERE resource_type = 'video' AND resource_id = ?",
+    )
+    .bind(id as i32)
+    .execute(&state.pool)
+    .await;
+
+    // Delete the video record
+    let result = sqlx::query("DELETE FROM videos WHERE id = ?")
+        .bind(id)
+        .execute(&state.pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Database error deleting video {}: {}", id, e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Database error: {}", e),
+            )
+        })?;
+
+    if result.rows_affected() == 0 {
+        return Err((StatusCode::NOT_FOUND, "Video not found".to_string()));
+    }
+
+    info!(
+        video_id = id,
+        "Video deleted successfully (files remain on disk)"
+    );
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "message": "Video deleted successfully. Files remain on disk."
+    })))
+}
+
+// -------------------------------
 // Video Tag Handlers
 // -------------------------------
 
@@ -708,19 +1427,33 @@ async fn can_modify_video(
 
 /// Helper to get user from session
 async fn get_user_from_session(session: &Session, pool: &Pool<Sqlite>) -> Option<String> {
-    let user_sub: Option<String> = session.get("user_sub").await.ok().flatten();
+    tracing::debug!("get_user_from_session: Attempting to get user_id from session");
+    let user_id: Option<String> = session.get("user_id").await.ok().flatten();
+    tracing::debug!(
+        "get_user_from_session: user_id from session = {:?}",
+        user_id
+    );
 
-    if let Some(sub) = user_sub {
+    if let Some(id) = user_id {
+        tracing::debug!(
+            "get_user_from_session: Verifying user exists with id = {}",
+            id
+        );
         // Verify user exists
-        let exists: Option<(String,)> = sqlx::query_as("SELECT sub FROM users WHERE sub = ?")
-            .bind(&sub)
+        let exists: Option<(String,)> = sqlx::query_as("SELECT id FROM users WHERE id = ?")
+            .bind(&id)
             .fetch_optional(pool)
             .await
             .ok()
             .flatten();
 
-        exists.map(|(s,)| s)
+        tracing::debug!(
+            "get_user_from_session: User verification result = {:?}",
+            exists
+        );
+        exists.map(|(user_id,)| user_id)
     } else {
+        tracing::warn!("get_user_from_session: No user_id found in session!");
         None
     }
 }

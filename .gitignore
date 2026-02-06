@@ -17,6 +17,7 @@ target_wasm
 
 Cargo.lock
 storage/
+storage*/
 video.db
 video.db_
 migrations/

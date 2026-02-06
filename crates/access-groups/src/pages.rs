@@ -88,6 +88,7 @@ struct ResourceItem {
     title: String,
     thumbnail: String,
     url: String,
+    resource_type: String,
 }
 
 /// Group detail page handler
@@ -135,7 +136,7 @@ pub async fn group_detail_page_handler(
 
     // Get resources assigned to this group
     let videos: Vec<(String, String, String)> = sqlx::query_as(
-        "SELECT slug, title, 'video' as type FROM videos WHERE group_id = ? ORDER BY created_at DESC"
+        "SELECT slug, title, 'video' as type FROM videos WHERE group_id = ? ORDER BY upload_date DESC"
     )
     .bind(group.id)
     .fetch_all(&pool)
@@ -143,7 +144,7 @@ pub async fn group_detail_page_handler(
     .unwrap_or_default();
 
     let images: Vec<(String, String, String)> = sqlx::query_as(
-        "SELECT slug, title, 'image' as type FROM images WHERE group_id = ? ORDER BY created_at DESC"
+        "SELECT slug, title, 'image' as type FROM images WHERE group_id = ? ORDER BY upload_date DESC"
     )
     .bind(group.id)
     .fetch_all(&pool)
@@ -152,19 +153,21 @@ pub async fn group_detail_page_handler(
 
     let mut resources: Vec<ResourceItem> = Vec::new();
 
-    for (slug, title, _resource_type) in videos {
+    for (slug, title, resource_type) in videos {
         resources.push(ResourceItem {
             title,
-            thumbnail: format!("/storage/videos/{}_thumb.jpg", slug),
+            thumbnail: format!("/storage/videos/{}/poster.webp", slug),
             url: format!("/watch/{}", slug),
+            resource_type,
         });
     }
 
-    for (slug, title, _resource_type) in images {
+    for (slug, title, resource_type) in images {
         resources.push(ResourceItem {
             title,
             thumbnail: format!("/storage/images/{}_thumb.webp", slug),
             url: format!("/images/{}", slug),
+            resource_type,
         });
     }
 

@@ -2,7 +2,7 @@
 
 **Last Updated:** January 2025  
 **Branch:** `feature/access-management-ui`  
-**Current Status:** Phase 1 Complete ✅ | Preview Page Complete ✅ | Phase 2: 50% Complete 🚧
+**Current Status:** Phase 1 Complete ✅ | Preview Page Complete ✅ | Phase 2: Video Edit Backend Needed 🚧
 
 ---
 
@@ -90,11 +90,21 @@
   - ✅ **Public preview page** (`/access/preview?code=...`) - Beautiful landing page for recipients
   - ✅ **Demo page integration** - Links to preview page with clean UX
 
-- **Group Assignment (Phase 2 - Partial):**
-  - ✅ Video edit form has group selector
-  - ✅ Image edit form has group selector
+- **Image Management (Complete):**
+  - ✅ Image upload with group assignment (frontend + backend)
+  - ✅ Image edit form with group selector (frontend + backend `PUT /api/images/:id`)
+  - ✅ `ImageDetail` struct with `group_id` support
   - ✅ Groups load from `/api/groups`
-  - ✅ API endpoints for listing resources (`/api/videos`, `/api/images`)
+
+- **Video Management (Backend Missing):**
+  - ⚠️ **No "Register Video" form** — need a way to create DB entries for video folders already on disk
+  - ✅ Video edit form template exists with group selector (`edit.html`)
+  - ⚠️ **No `PUT /api/videos/:id` endpoint** — edit form can't save
+  - ⚠️ **No `GET /videos/:slug/edit` route** — no way to navigate to edit page
+  - ⚠️ **No `DELETE /api/videos/:id` endpoint** — can't delete videos
+  - ⚠️ **No `VideoDetail` struct** — using simple tuples, no `group_id` field
+  - ℹ️ Videos are NOT uploaded — folders placed on disk at `storage/videos/{slug}/`
+  - ✅ API endpoint for listing videos (`/api/videos`)
 
 ### 🐛 Known Issues Fixed
 - ✅ Template syntax errors (curly quotes, single vs double quotes)
@@ -106,99 +116,183 @@
 
 ---
 
-## 📋 TODO: Phase 2 - Complete Resource Assignment UI
+## 📋 TODO: Phase 2 - Video Management & Group Assignment
 
-### Priority 1: Upload Forms ✅ COMPLETE
+### Context
+- **Videos are NOT uploaded through the UI.** Video folders (containing `master.m3u8`, `segments/*.ts`, optionally `poster.webp`) are placed manually on disk at `storage/videos/{slug}/`.
+- A **"Register Video" form** is needed to create a DB entry for a video folder that already exists on disk.
+- A **Video Edit page** is needed to modify metadata and assign to groups (similar to image edit).
+- The image manager has a fully working edit flow (`PUT /api/images/:id`) as a reference.
+- Video edit form template (`edit.html`) exists with a group selector but **no backend handler** yet.
 
-#### Task 2.1: Add Group Selector to Video Upload Form ✅
-**File:** `crates/video-manager/templates/videos/upload.html`  
+**Video folder structure on disk:**
+```
+storage/videos/{slug}/
+├── master.m3u8          # HLS playlist (required)
+├── poster.webp          # Thumbnail (optional)
+└── segments/            # Video segments
+    ├── 000.ts
+    ├── 001.ts
+    └── ...
+```
+
+**Existing video folders:** `bbb`, `lesson1`, `live`, `private`, `public`, `webconjoint`, `welcome`
+
+### Priority 1: Image Upload Backend ✅ COMPLETE
+
+#### Task 2.1: Add Group Selector to Image Upload Form ✅
 **Status:** ✅ Complete
-
-**Completed:**
-- ✅ Added "Access & Sharing" section to upload form
-- ✅ Group selector dropdown (loads from `/api/groups`)
-- ✅ Default to "No group (Private to me only)"
-- ✅ Included `groupId` in formData
-- ✅ Upload request includes `group_id` parameter
-- ✅ Info alert explaining privacy implications
-
-**Implementation Notes:**
-- Copy the "Access & Sharing" section from video edit form
-- Use same Alpine.js pattern: `loadGroups()` on init
-- Add to FormData sent to `/api/videos/upload` endpoint
-- Update backend to accept `group_id` parameter
 
 ---
 
-#### Task 2.2: Add Group Selector to Image Upload Form ✅
-**File:** `crates/image-manager/templates/images/upload.html`  
-**Status:** ✅ Complete
+### Priority 2: Register Video Form 🚧 NEW
 
-**Completed:**
-- ✅ Added "Access & Sharing" section to upload form
-- ✅ Group selector dropdown (loads from `/api/groups`)
-- ✅ Default to "No group (Private to me only)"
-- ✅ Included `groupId` in globalMetadata
-- ✅ Supports batch uploads (applies group to all images)
-- ✅ Upload request includes `group_id` parameter
-- ✅ Info alert explaining privacy implications
-- [ ] Match design of video upload form
-
-**Implementation Notes:**
-- Use same pattern as video upload
-- Add to existing upload form (already has fields for title, description, etc.)
-- Backend handler: `upload_image_handler` needs to accept `group_id`
-
----
-
-#### Task 2.3: Update Backend Upload Handlers
-**Files:** 
-- `crates/video-manager/src/lib.rs` - video upload handler
-- `crates/image-manager/src/lib.rs` - image upload handler
+#### Task 2.2: Create "Register Video" Page & Backend
+**Files:**
+- `crates/video-manager/templates/videos/new.html` (new template)
+- `crates/video-manager/src/lib.rs` (new handler + route)
 
 **Status:** ⏳ Not Started
 
+**What it does:** User points to an existing video folder on disk and creates a DB entry for it.
+
+**Form fields:**
+- **Folder name / slug** (required) — the folder name under `storage/videos/`. Could be a dropdown listing folders on disk that don't yet have a DB entry, or a text input with validation.
+- **Title** (required) — display name for the video
+- **Description** (optional) — text description
+- **Visibility** — Public / Private toggle
+- **Group** (optional) — group selector dropdown (loads from `/api/groups`)
+
 **Requirements:**
-- [ ] Accept `group_id` parameter in upload request
-- [ ] Validate group exists and user is member
-- [ ] Save `group_id` when creating video/image record
-- [ ] Return group info in response
-- [ ] Add proper error handling
+- [ ] Create `new.html` template (similar style to image upload form, using DaisyUI/Tailwind)
+  - Folder selector: scan `storage/videos/` for folders, show dropdown of available (unregistered) folders
+  - Or allow manual text input of folder name
+  - Validate folder exists on disk and contains `master.m3u8`
+  - Show preview info (folder contents, segment count) when folder selected
+  - Title, description, visibility, group selector fields
+  - Submit button
+- [ ] Create `RegisterVideoRequest` struct
+  - Fields: `slug` (String, required), `title` (String, required), `description` (Option<String>), `is_public` (bool), `group_id` (Option<String>)
+- [ ] Create `POST /api/videos` handler (`register_video_handler`)
+  - Validate folder exists at `storage/videos/{slug}/`
+  - Validate `master.m3u8` exists in the folder
+  - Check slug not already in DB (unique constraint)
+  - INSERT into `videos` table with user_id from session
+  - Handle `group_id` (parse to Option<i32>)
+  - Return created video data (id, slug, title)
+- [ ] Create `GET /videos/new` handler to serve the form
+- [ ] Create `GET /api/videos/available-folders` endpoint
+  - Scan `storage/videos/` directory
+  - Return folders that do NOT already have a DB entry
+  - Include folder info (has master.m3u8, segment count, has poster)
+- [ ] Register routes in `video_routes()`
 
-**SQL Updates Needed:**
+**SQL:**
 ```sql
--- Video upload
-INSERT INTO videos (slug, title, user_id, group_id, ...) VALUES (?, ?, ?, ?, ...)
+INSERT INTO videos (slug, title, description, is_public, user_id, group_id, status, upload_date)
+VALUES (?, ?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)
+```
 
--- Image upload  
-INSERT INTO images (slug, title, user_id, group_id, ...) VALUES (?, ?, ?, ?, ...)
+**UI Mockup:**
+```
+┌─────────────────────────────────────────┐
+│ 🎬 Register New Video                   │
+├─────────────────────────────────────────┤
+│                                         │
+│ Video Folder:                           │
+│ ┌─────────────────────────────────┐     │
+│ │ ▾ Select folder...              │     │
+│ │   bbb (109 segments, poster ✓)  │     │
+│ │   lesson1 (45 segments)         │     │
+│ └─────────────────────────────────┘     │
+│                                         │
+│ Title:                                  │
+│ ┌─────────────────────────────────┐     │
+│ │ Big Buck Bunny                  │     │
+│ └─────────────────────────────────┘     │
+│                                         │
+│ Description:                            │
+│ ┌─────────────────────────────────┐     │
+│ │                                 │     │
+│ └─────────────────────────────────┘     │
+│                                         │
+│ Visibility: ○ Public  ● Private         │
+│                                         │
+│ 🔐 Access & Sharing                     │
+│ Group: [▾ No group (Private)]           │
+│                                         │
+│        [Register Video]                 │
+└─────────────────────────────────────────┘
 ```
 
 ---
 
-### Priority 2: Testing & Validation (0.5 days)
+### Priority 3: Video Detail Struct & Edit Backend 🚧
 
-#### Task 2.4: Integration Testing
+#### Task 2.3: Create Video Detail Struct
+**File:** `crates/video-manager/src/lib.rs`
+**Status:** ⏳ Not Started
+
+**Problem:** Videos currently use simple tuples `(String, String, i32)` for list data. The edit form needs a proper struct with `group_id` support (similar to `ImageDetail`).
+
+**Requirements:**
+- [ ] Create `VideoDetail` struct with fields: `id`, `slug`, `title`, `description`, `is_public`, `user_id`, `group_id`, `group_id_str`, `created_at`, etc.
+- [ ] Add `group_id_str()` helper method (returns group_id as String or empty)
+- [ ] Update video detail/edit template to use struct fields
+- [ ] Use `VideoDetail` in the edit page handler
+
+**Reference:** `ImageDetail` struct in `crates/image-manager/src/lib.rs`
+
+---
+
+#### Task 2.4: Create Video Edit Page Route & Update API
+**File:** `crates/video-manager/src/lib.rs`
+**Status:** ⏳ Not Started
+
+**Requirements:**
+- [ ] Create `VideoEditTemplate` struct for Askama
+- [ ] Create `GET /videos/:slug/edit` handler — serve edit form with current data
+- [ ] Create `UpdateVideoRequest` struct (fields: `title`, `description`, `is_public`, `group_id`, all optional)
+- [ ] Create `PUT /api/videos/:id` handler — save edits
+  - Validate user owns the video
+  - Handle `group_id`: parse optional string to `Option<i32>`, empty string = NULL
+  - Build dynamic UPDATE SQL (only update provided fields)
+- [ ] Register routes
+
+**Reference:** `UpdateImageRequest` + `update_image_handler` in `crates/image-manager/src/lib.rs`
+
+---
+
+#### Task 2.5: Create Video Delete Endpoint
+**File:** `crates/video-manager/src/lib.rs`
+**Status:** ⏳ Not Started
+
+**Requirements:**
+- [ ] Create `DELETE /api/videos/:id` handler
+- [ ] Verify user owns the video
+- [ ] Delete video record from database (does NOT delete files on disk)
+- [ ] Clean up associated tags, access permissions
+- [ ] Register route
+
+---
+
+### Priority 4: Testing & Validation
+
+#### Task 2.6: Integration Testing
 **Status:** ⏳ Not Started
 
 **Test Scenarios:**
-- [ ] Upload video with group assignment
-- [ ] Upload image with group assignment
-- [ ] Edit video to change group
-- [ ] Edit video to remove group
-- [ ] Edit image to change group
-- [ ] Verify group members can access assigned resources
-- [ ] Verify non-members cannot access group resources
-- [ ] Test with multiple groups
-
-**Manual Test Checklist:**
-- [ ] Create a test group at `/groups`
-- [ ] Add a test member to the group
-- [ ] Upload a video and assign to group
-- [ ] Login as group member - verify can access video
-- [ ] Login as non-member - verify cannot access video
-- [ ] Edit video to remove from group - verify access revoked
-- [ ] Test same flow for images
+- [ ] Navigate to `/videos/new` → see register form with available folders
+- [ ] Register a new video → verify DB entry created, redirect to video page
+- [ ] Try registering folder that doesn't exist → error
+- [ ] Try registering duplicate slug → error
+- [ ] Navigate to video edit page → verify form loads with current data
+- [ ] Edit video title/description → verify saves correctly
+- [ ] Assign video to group → verify group_id saved
+- [ ] Remove video from group → verify group_id cleared (NULL)
+- [ ] Delete video → verify removed from DB (files remain on disk)
+- [ ] Verify group members can access assigned video
+- [ ] Verify non-members cannot access group video
 
 ---
 
@@ -485,23 +579,34 @@ INSERT INTO images (slug, title, user_id, group_id, ...) VALUES (?, ?, ?, ?, ...
 
 ## 🚀 Immediate Next Steps (This Week)
 
-### 1. Complete Phase 2 (1-2 days)
-- [ ] Add group selector to video upload form
-- [ ] Add group selector to image upload form
-- [ ] Update upload handlers to save `group_id`
-- [ ] Test end-to-end group assignment
+### 1. Complete Phase 2: Video Registration & Edit Backend (2-3 days)
 
-**Files to Modify:**
-- `crates/video-manager/templates/videos/upload.html` (if exists)
-- `crates/image-manager/templates/images/upload.html`
-- `crates/video-manager/src/lib.rs` - upload handler
-- `crates/image-manager/src/lib.rs` - upload handler
+**Goal:** Register video folders from disk as DB entries, then edit metadata & assign groups.
+
+**Note:** Videos are NOT uploaded. Folders with HLS segments are placed on disk at `storage/videos/{slug}/`. The UI needs a "Register Video" form to create a DB entry pointing to an existing folder.
+
+**Files to Create/Modify:**
+- `crates/video-manager/templates/videos/new.html` — NEW: register video form
+- `crates/video-manager/src/lib.rs` — add structs, handlers, routes
+
+**Steps:**
+1. [ ] Create `VideoDetail` struct with `group_id` support
+2. [ ] Create `GET /api/videos/available-folders` — scan disk for unregistered folders
+3. [ ] Create `new.html` template — register video form (folder dropdown, title, description, visibility, group)
+4. [ ] Create `POST /api/videos` + `GET /videos/new` handlers
+5. [ ] Create `VideoEditTemplate` + `GET /videos/:slug/edit` handler
+6. [ ] Create `UpdateVideoRequest` + `PUT /api/videos/:id` handler
+7. [ ] Create `DELETE /api/videos/:id` handler
+8. [ ] Register all new routes in `video_routes()`
+9. [ ] Test end-to-end: register → edit → assign group → delete
 
 **Acceptance Criteria:**
-- Can upload video and assign to group in one flow
-- Can upload image and assign to group in one flow
-- Group members can immediately access uploaded resources
-- Resources show correct group in edit forms
+- Can navigate to `/videos/new` and see available unregistered folders
+- Can register a video folder → creates DB entry, redirect to video page
+- Can navigate to `/videos/:slug/edit` and see edit form with current data
+- Can edit title, description, visibility, group and save
+- Can delete video (removes DB entry, files stay on disk)
+- Group members can access assigned video
 
 ---
 
@@ -516,7 +621,6 @@ INSERT INTO images (slug, title, user_id, group_id, ...) VALUES (?, ?, ?, ?, ...
 ### 3. Testing & Bug Fixes (1 day)
 - [ ] Manual testing of all flows
 - [ ] Fix any bugs discovered
-- [ ] Performance testing with larger datasets
 - [ ] Cross-browser testing
 - [ ] Mobile testing
 
@@ -527,11 +631,14 @@ INSERT INTO images (slug, title, user_id, group_id, ...) VALUES (?, ?, ?, ?, ...
 ### Phase 2 Complete When:
 - [x] Users can create access codes with resource selection
 - [x] Users can access private resources with codes (logged out)
-- [x] Video edit form has group assignment
-- [x] Image edit form has group assignment
-- [ ] **Video upload form has group assignment** ⬅️ NEXT
-- [ ] **Image upload form has group assignment** ⬅️ NEXT
-- [ ] All group assignments save correctly
+- [x] Image edit form has group assignment (frontend + backend)
+- [x] Image upload form has group assignment (frontend + backend)
+- [ ] **"Register Video" form** — create DB entry for existing video folder on disk ⬅️ NEXT
+- [ ] **Available folders API** — scan disk, return unregistered video folders ⬅️ NEXT
+- [ ] **`VideoDetail` struct with `group_id` support** ⬅️ NEXT
+- [ ] **Video edit page `GET /videos/:slug/edit`** + **update API `PUT /api/videos/:id`** ⬅️ NEXT
+- [ ] **Video delete endpoint `DELETE /api/videos/:id`** ⬅️ NEXT
+- [ ] All group assignments save correctly (both images and videos)
 - [ ] Group members can access group resources
 
 ### Phase 3 Complete When:
@@ -550,6 +657,16 @@ INSERT INTO images (slug, title, user_id, group_id, ...) VALUES (?, ?, ?, ?, ...
 ---
 
 ## 💡 Future Enhancements (Post-MVP)
+
+### Video Upload & Transcoding
+- [ ] **MP4 Upload Form** — upload an MP4 file through the UI
+- [ ] **Server-side transcoding** — convert uploaded MP4 to HLS format (master.m3u8 + segments/*.ts)
+  - Use ffmpeg to transcode: `ffmpeg -i input.mp4 -codec: copy -start_number 0 -hls_time 10 -hls_list_size 0 -f hls master.m3u8`
+  - Generate multiple quality levels (adaptive bitrate) if needed
+  - Extract poster/thumbnail from video frame
+- [ ] **Progress tracking** — show transcoding progress to user (WebSocket or polling)
+- [ ] **Auto-register** — after transcoding completes, automatically create DB entry
+- [ ] **Queue system** — handle multiple uploads, process sequentially or with worker pool
 
 ### Advanced Features
 - [ ] Two-factor authentication for sensitive resources
@@ -589,7 +706,7 @@ INSERT INTO images (slug, title, user_id, group_id, ...) VALUES (?, ?, ?, ?, ...
 
 ## 📞 Questions to Resolve
 
-1. **Upload Forms:** Do separate upload pages exist, or should we add upload to list pages?
+1. ~~**Upload Forms:**~~ ✅ Resolved — No video uploader exists. Videos come from MediaMTX/RTMP. Image upload has group selector.
 2. **Group Permissions:** Should group Viewers be able to see resources, or only Editors+?
 3. **Code Expiration:** Auto-delete expired codes, or keep for history?
 4. **Resource Deletion:** What happens to access codes when resource is deleted?
@@ -648,18 +765,17 @@ INSERT INTO images (slug, title, user_id, group_id, ...) VALUES (?, ?, ?, ?, ...
 
 ---
 
-**Next Session Focus:** Complete Phase 2 by adding group selectors to upload forms!
+**Next Session Focus:** Build "Register Video" form + video edit/update/delete backend.
 
-**Completed in This Session:**
-- ✅ Access code preview page implementation
-- ✅ Demo page simplification and integration
-- ✅ Complete documentation suite
-- ✅ Profile page redesign with modern UI
-- ✅ Homepage navigation updated for access codes
-- ✅ **Phase 2 Upload Forms** - Added group selectors to video and image upload forms
+**Key Insight:** Videos are NOT uploaded. HLS folders are placed manually on disk at `storage/videos/{slug}/`. The UI needs:
+1. A **"Register Video" form** (`/videos/new`) — pick a folder from disk, enter title/description/visibility/group, create DB entry
+2. A **Video Edit page** (`/videos/:slug/edit`) — modify metadata, change group
+3. **Backend APIs** — `POST /api/videos`, `PUT /api/videos/:id`, `DELETE /api/videos/:id`, `GET /api/videos/available-folders`
 
-**Estimated Time to Phase 2 Complete:** 0.5 days (just backend handlers remaining)  
-**Estimated Time to Phase 3 Complete:** 2-3 days  
+**Reference Implementation:** Image manager (`crates/image-manager/src/lib.rs`) has the complete pattern for edit/update.
+
+**Estimated Time to Phase 2 Complete:** 2-3 days (register form + edit backend)
+**Estimated Time to Phase 3 Complete:** 2-3 days after Phase 2
 **Estimated Time to Full MVP:** 1-2 weeks
 
 ---

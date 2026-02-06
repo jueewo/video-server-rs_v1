@@ -36,7 +36,7 @@
 <div class="container">
     <div class="section-header">
         <div>
-            <h1>{{ page_title }}</h1></div>
+            <h1>{{ page_title }}</h1>
             <p class="subtitle">
                 {% if authenticated %}
                     Browse your entire video collection
@@ -45,8 +45,12 @@
                 {% endif %}
             </p>
         </div>
-        <div>
+        <div style="display: flex; align-items: center; gap: 10px;">
             {% if authenticated %}
+                <a href="/videos/new" class="btn btn-primary">
+                    <span class="emoji">➕</span>
+                    New Video
+                </a>
                 <span class="status-badge authenticated">✅ Authenticated</span>
             {% else %}
                 <span class="status-badge guest">👋 Guest Mode</span>
@@ -70,7 +74,7 @@
             <a href="/watch/{{ video.0 }}" style="text-decoration: none;">
                 <div class="video-card">
                     <div class="video-thumbnail">
-                        <img src="/storage/videos/public/{{ video.0 }}/poster.webp"
+                        <img src="/storage/videos/{{ video.0 }}/poster.webp"
                              alt="{{ video.1 }}"
                              onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                         <span class="fallback-icon" style="display: none;">🎬</span>
@@ -107,7 +111,7 @@
                 <a href="/watch/{{ video.0 }}" style="text-decoration: none;">
                     <div class="video-card private">
                         <div class="video-thumbnail">
-                            <img src="/storage/videos/private/{{ video.0 }}/poster.webp"
+                            <img src="/storage/videos/{{ video.0 }}/poster.webp"
                                  alt="{{ video.1 }}"
                                  onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                             <span class="fallback-icon" style="display: none;">🎥</span>
@@ -151,7 +155,11 @@
     <div class="section">
         <h2>🎯 Quick Actions</h2>
         <div class="buttons">
-            <a href="/test" class="btn btn-primary">
+            <a href="/videos/new" class="btn btn-primary">
+                <span class="emoji">➕</span>
+                Register New Video
+            </a>
+            <a href="/test" class="btn btn-secondary">
                 <span class="emoji">📡</span>
                 Watch Live Stream
             </a>

@@ -70,6 +70,61 @@ block content %}
                         >
                     </label>
                 </div>
+
+                <!-- Tags Section -->
+                <div class="form-control mt-4">
+                    <label class="label">
+                        <span class="label-text font-semibold">Tags</span>
+                        <span class="label-text-alt"
+                            >Help others discover your image</span
+                        >
+                    </label>
+                    <div class="flex gap-2">
+                        <input
+                            type="text"
+                            x-model="tagInput"
+                            @keydown.enter.prevent="addTag"
+                            placeholder="Type tag name and press Enter..."
+                            class="input input-bordered flex-1"
+                        />
+                        <button
+                            type="button"
+                            @click="addTag"
+                            class="btn btn-primary"
+                        >
+                            Add
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Selected Tags -->
+                <div
+                    class="flex flex-wrap gap-2 mt-4"
+                    x-show="formData.tags.length > 0"
+                >
+                    <template
+                        x-for="(tag, index) in formData.tags"
+                        :key="index"
+                    >
+                        <div class="badge badge-primary badge-lg gap-2">
+                            <span x-text="tag"></span>
+                            <button
+                                type="button"
+                                @click="removeTag(index)"
+                                class="btn btn-ghost btn-xs btn-circle"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </template>
+                </div>
+
+                <div
+                    x-show="formData.tags.length === 0"
+                    class="text-center py-2 text-base-content/60 text-sm"
+                >
+                    No tags added yet
+                </div>
             </div>
 
             <!-- Success message -->
@@ -131,8 +186,10 @@ block content %}
             formData: {
                 title: '{{ image.title }}',
                 isPublic: {{ image.is_public }},
-                groupId: '{{ image.group_id_str }}'
+                groupId: '{{ image.group_id_str }}',
+                tags: []
             },
+            tagInput: '',
             successMessage: '',
             errorMessage: '',
             availableGroups: [],
@@ -140,17 +197,33 @@ block content %}
 
             async init() {
                 await this.loadGroups();
+                await this.loadTags();
                 // Watch for group changes
                 this.$watch('formData.groupId', (value) => {
                     console.log('Group changed to:', value, typeof value);
                 });
             },
 
+            async loadTags() {
+                try {
+                    const response = await fetch('/api/images/{{ image.id }}/tags');
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.formData.tags = data.tags || [];
+                        console.log('Tags loaded:', this.formData.tags);
+                    }
+                } catch (error) {
+                    console.error('Failed to load tags:', error);
+                }
+            },
+
             async loadGroups() {
                 this.loadingGroups = true;
                 try {
                     console.log('Loading groups...');
-                    const response = await fetch('/api/groups');
+                    const response = await fetch('/api/groups', {
+                        credentials: 'same-origin'
+                    });
                     if (response.ok) {
                         const data = await response.json();
                         console.log('Groups loaded:', data);
@@ -168,6 +241,23 @@ block content %}
                 }
             },
 
+            addTag() {
+                const tag = this.tagInput.trim().toLowerCase();
+                if (tag && !this.formData.tags.includes(tag)) {
+                    this.formData.tags.push(tag);
+                    this.tagInput = '';
+                    this.successMessage = `Tag "${tag}" added`;
+                    setTimeout(() => this.successMessage = '', 2000);
+                }
+            },
+
+            removeTag(index) {
+                const tag = this.formData.tags[index];
+                this.formData.tags.splice(index, 1);
+                this.successMessage = `Tag "${tag}" removed`;
+                setTimeout(() => this.successMessage = '', 2000);
+            },
+
             async handleSubmit() {
                 this.saving = true;
                 this.errorMessage = '';
@@ -177,11 +267,13 @@ block content %}
                     const payload = {
                         title: this.formData.title,
                         isPublic: this.formData.isPublic ? 'true' : 'false',
-                        groupId: String(this.formData.groupId) // Ensure it's a string
+                        groupId: String(this.formData.groupId),
+                        tags: this.formData.tags // Include tags in main payload
                     };
 
                     console.log('Sending payload:', payload);
                     console.log('Current groupId:', this.formData.groupId);
+                    console.log('Tags:', this.formData.tags);
 
                     const response = await fetch('/api/images/{{ image.id }}', {
                         method: 'PUT',
@@ -192,7 +284,7 @@ block content %}
                     if (response.ok) {
                         const result = await response.json();
                         console.log('Save successful:', result);
-                        this.successMessage = 'Image updated successfully!';
+                        this.successMessage = 'Image and tags updated successfully!';
                         // Redirect after showing success message briefly
                         setTimeout(() => {
                             window.location.href = '/images/view/{{ image.slug }}';

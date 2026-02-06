@@ -1,0 +1,518 @@
+{% extends "base-tailwind.html" %} {% block title %}Register New Video{%
+endblock %} {% block content %}
+<div class="container mx-auto px-4 py-8 max-w-3xl" x-data="registerVideo()">
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center gap-4 mb-4">
+            <a href="/videos" class="btn btn-ghost btn-sm gap-2">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                >
+                    <path
+                        fill-rule="evenodd"
+                        d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
+                        clip-rule="evenodd"
+                    />
+                </svg>
+                All Videos
+            </a>
+        </div>
+        <h1 class="text-4xl font-bold text-base-content mb-2">
+            Register New Video
+        </h1>
+        <p class="text-lg text-base-content/70">
+            Create a database entry for a video folder already on disk
+        </p>
+    </div>
+
+    <!-- Alert Messages -->
+    <div x-show="successMessage" class="alert alert-success mb-6" x-cloak>
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="stroke-current shrink-0 h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+        >
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+        </svg>
+        <div>
+            <h3 class="font-bold">Video Registered!</h3>
+            <div class="text-xs" x-text="successMessage"></div>
+        </div>
+    </div>
+
+    <div x-show="errorMessage" class="alert alert-error mb-6" x-cloak>
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="stroke-current shrink-0 h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+        >
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+        </svg>
+        <div>
+            <h3 class="font-bold">Error</h3>
+            <div class="text-xs" x-text="errorMessage"></div>
+        </div>
+    </div>
+
+    <form @submit.prevent="handleSubmit" class="space-y-6">
+        <!-- Video Folder Selection -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title text-2xl mb-4">Video Folder</h2>
+
+                <div
+                    x-show="loadingFolders"
+                    class="flex items-center gap-2 py-4"
+                >
+                    <span class="loading loading-spinner loading-sm"></span>
+                    <span>Scanning for video folders...</span>
+                </div>
+
+                <div x-show="!loadingFolders">
+                    <div
+                        x-show="availableFolders.length === 0"
+                        class="alert alert-warning"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="stroke-current shrink-0 h-6 w-6"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
+                            />
+                        </svg>
+                        <span
+                            >No unregistered video folders found in
+                            <code>storage/videos/</code>. Place a video folder
+                            on disk first.</span
+                        >
+                    </div>
+
+                    <div
+                        x-show="availableFolders.length > 0"
+                        class="form-control"
+                    >
+                        <label class="label">
+                            <span class="label-text font-semibold"
+                                >Select Folder *</span
+                            >
+                            <span
+                                class="label-text-alt"
+                                x-text="availableFolders.length + ' available'"
+                            ></span>
+                        </label>
+                        <select
+                            x-model="formData.slug"
+                            class="select select-bordered w-full"
+                            required
+                        >
+                            <option value="">Choose a video folder...</option>
+                            <template
+                                x-for="folder in availableFolders"
+                                :key="folder.name"
+                            >
+                                <option
+                                    :value="folder.name"
+                                    x-text="folderLabel(folder)"
+                                ></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <!-- Folder Info -->
+                    <template x-if="selectedFolder">
+                        <div class="mt-4 p-4 bg-base-200 rounded-lg">
+                            <h4 class="font-semibold mb-2">Folder Contents</h4>
+                            <div class="grid grid-cols-3 gap-4 text-sm">
+                                <div>
+                                    <span class="text-base-content/60"
+                                        >Playlist:</span
+                                    >
+                                    <span
+                                        x-text="selectedFolder.has_playlist ? 'master.m3u8' : 'Missing!'"
+                                        :class="selectedFolder.has_playlist ? 'text-success' : 'text-error font-bold'"
+                                    ></span>
+                                </div>
+                                <div>
+                                    <span class="text-base-content/60"
+                                        >Segments:</span
+                                    >
+                                    <span
+                                        x-text="selectedFolder.segment_count + ' .ts files'"
+                                    ></span>
+                                </div>
+                                <div>
+                                    <span class="text-base-content/60"
+                                        >Poster:</span
+                                    >
+                                    <span
+                                        x-text="selectedFolder.has_poster ? 'Yes' : 'No'"
+                                        :class="selectedFolder.has_poster ? 'text-success' : 'text-base-content/60'"
+                                    ></span>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Basic Information -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title text-2xl mb-4">Basic Information</h2>
+
+                <!-- Title -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">Title *</span>
+                        <span
+                            class="label-text-alt"
+                            x-text="formData.title.length + '/100'"
+                        ></span>
+                    </label>
+                    <input
+                        type="text"
+                        x-model="formData.title"
+                        placeholder="Enter video title"
+                        class="input input-bordered w-full"
+                        maxlength="100"
+                        required
+                    />
+                </div>
+
+                <!-- Description -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold"
+                            >Description</span
+                        >
+                        <span
+                            class="label-text-alt"
+                            x-text="formData.description.length + '/2000'"
+                        ></span>
+                    </label>
+                    <textarea
+                        x-model="formData.description"
+                        class="textarea textarea-bordered h-24"
+                        placeholder="Describe the video content..."
+                        maxlength="2000"
+                    ></textarea>
+                </div>
+
+                <!-- Visibility -->
+                <div class="form-control mt-2">
+                    <label class="label cursor-pointer justify-start gap-4">
+                        <input
+                            type="checkbox"
+                            x-model="formData.isPublic"
+                            class="checkbox checkbox-primary"
+                        />
+                        <div>
+                            <span class="label-text font-semibold"
+                                >Make Public</span
+                            >
+                            <p class="text-xs text-base-content/60">
+                                Anyone can view this video
+                            </p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Access & Sharing -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title text-2xl mb-4">Access & Sharing</h2>
+
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold"
+                            >Assign to Group</span
+                        >
+                        <span class="label-text-alt text-base-content/60"
+                            >Optional</span
+                        >
+                    </label>
+                    <select
+                        x-model="formData.groupId"
+                        class="select select-bordered w-full"
+                        :disabled="loadingGroups"
+                    >
+                        <option value="">No group (Private to me only)</option>
+                        <template x-for="group in groups" :key="group.id">
+                            <option
+                                :value="String(group.id)"
+                                x-text="group.name + ' (' + (group.member_count || 0) + ' members)'"
+                            ></option>
+                        </template>
+                    </select>
+                    <label class="label">
+                        <span class="label-text-alt"
+                            >Assign this video to a group for team
+                            collaboration</span
+                        >
+                    </label>
+                </div>
+
+                <div
+                    class="alert alert-info mt-2"
+                    x-show="formData.groupId"
+                    x-cloak
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="stroke-current shrink-0 h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                    </svg>
+                    <span
+                        >All members of the selected group will be able to
+                        access this video.</span
+                    >
+                </div>
+            </div>
+        </div>
+
+        <!-- Tags -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title text-2xl mb-4">🏷️ Tags</h2>
+
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">Add Tags</span>
+                        <span class="label-text-alt"
+                            >Help others discover your video</span
+                        >
+                    </label>
+                    <div class="flex gap-2">
+                        <input
+                            type="text"
+                            x-model="tagInput"
+                            @keydown.enter.prevent="addTag"
+                            placeholder="Type tag name and press Enter..."
+                            class="input input-bordered flex-1"
+                        />
+                        <button
+                            type="button"
+                            @click="addTag"
+                            class="btn btn-primary"
+                        >
+                            Add
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Selected Tags -->
+                <div
+                    class="flex flex-wrap gap-2 mt-4"
+                    x-show="formData.tags.length > 0"
+                >
+                    <template
+                        x-for="(tag, index) in formData.tags"
+                        :key="index"
+                    >
+                        <div class="badge badge-primary badge-lg gap-2">
+                            <span x-text="tag"></span>
+                            <button
+                                type="button"
+                                @click="removeTag(index)"
+                                class="btn btn-ghost btn-xs btn-circle"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </template>
+                </div>
+
+                <div
+                    x-show="formData.tags.length === 0"
+                    class="text-center py-2 text-base-content/60 text-sm"
+                >
+                    No tags added yet
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <button
+                    type="submit"
+                    class="btn btn-primary w-full gap-2"
+                    :disabled="submitting || !formData.slug || !formData.title"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                    >
+                        <path
+                            fill-rule="evenodd"
+                            d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                            clip-rule="evenodd"
+                        />
+                    </svg>
+                    <span
+                        x-text="submitting ? 'Registering...' : 'Register Video'"
+                    ></span>
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %} {% block extra_scripts %}
+<script>
+    function registerVideo() {
+        return {
+            formData: {
+                slug: "",
+                title: "",
+                description: "",
+                isPublic: false,
+                groupId: "",
+                tags: [],
+            },
+            tagInput: "",
+            availableFolders: [],
+            groups: [],
+            loadingFolders: true,
+            loadingGroups: false,
+            submitting: false,
+            successMessage: "",
+            errorMessage: "",
+
+            get selectedFolder() {
+                if (!this.formData.slug) return null;
+                return this.availableFolders.find(
+                    (f) => f.name === this.formData.slug,
+                );
+            },
+
+            async init() {
+                await Promise.all([this.loadFolders(), this.loadGroups()]);
+            },
+
+            async loadFolders() {
+                this.loadingFolders = true;
+                try {
+                    const response = await fetch(
+                        "/api/videos/available-folders",
+                        {
+                            credentials: "same-origin",
+                        },
+                    );
+                    if (response.ok) {
+                        this.availableFolders = await response.json();
+                    }
+                } catch (error) {
+                    console.error("Failed to load folders:", error);
+                }
+            },
+
+            async loadGroups() {
+                this.loadingGroups = true;
+                try {
+                    const response = await fetch("/api/groups", {
+                        credentials: "same-origin",
+                    });
+                    if (response.ok) {
+                        this.groups = await response.json();
+                    }
+                } catch (error) {
+                    console.error("Failed to load groups:", error);
+                } finally {
+                    this.loadingGroups = false;
+                }
+            },
+
+            folderLabel(folder) {
+                let label = folder.name;
+                const parts = [];
+                if (folder.segment_count > 0)
+                    parts.push(folder.segment_count + " segments");
+                if (folder.has_poster) parts.push("poster");
+                if (!folder.has_playlist) parts.push("NO PLAYLIST!");
+                if (parts.length > 0) label += " (" + parts.join(", ") + ")";
+                return label;
+            },
+
+            addTag() {
+                const tag = this.tagInput.trim().toLowerCase();
+                if (tag && !this.formData.tags.includes(tag)) {
+                    this.formData.tags.push(tag);
+                    this.tagInput = "";
+                }
+            },
+
+            removeTag(index) {
+                this.formData.tags.splice(index, 1);
+            },
+
+            async handleSubmit() {
+                this.submitting = true;
+                this.successMessage = "";
+                this.errorMessage = "";
+
+                try {
+                    const response = await fetch("/api/videos", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(this.formData),
+                        credentials: "same-origin",
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        this.successMessage = "Redirecting to video page...";
+                        setTimeout(() => {
+                            window.location.href =
+                                "/watch/" + this.formData.slug;
+                        }, 1000);
+                    } else {
+                        this.errorMessage =
+                            data.message ||
+                            data.error ||
+                            "Failed to register video";
+                    }
+                } catch (error) {
+                    this.errorMessage = error.message || "Network error";
+                } finally {
+                    this.submitting = false;
+                }
+            },
+        };
+    }
+</script>
+{% endblock %}

@@ -188,6 +188,10 @@
                 Back to Videos
             </a>
             {% if authenticated %}
+                <a href="/videos/{{ slug }}/edit" class="btn btn-secondary">
+                    <span class="emoji">✏️</span>
+                    Edit Video
+                </a>
                 <a href="/images" class="btn btn-secondary">
                     <span class="emoji">🖼️</span>
                     View Images

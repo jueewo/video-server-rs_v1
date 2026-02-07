@@ -2090,6 +2090,302 @@ Line Heights:
 
 ---
 
+## 🛠️ Infrastructure & Developer Tools
+
+### API Documentation System ⭐ HIGH VALUE
+
+**Goal:** Comprehensive, auto-generated API documentation accessible to authenticated users
+
+**Why This Matters:**
+- Self-service for developers integrating with the API
+- Foundation for CLI tool development
+- Professional developer experience
+- Reduces support burden
+- Enables third-party integrations (future)
+
+**Requirements:**
+
+1. **Auto-Generated Documentation**
+   - Document all API endpoints across all crates
+   - Generate OpenAPI 3.0 / Swagger specification
+   - Include request/response schemas, examples, error codes
+   - Keep documentation in sync with code automatically
+
+2. **Interactive API Explorer**
+   - Render as web UI at `/api/docs` for logged-in users
+   - Swagger UI / RapiDoc / Redoc integration
+   - "Try it out" functionality to test endpoints live
+   - Authentication handled via session cookies
+   - Organized by crate/module:
+     - `video-manager` APIs
+     - `image-manager` APIs  
+     - `access-groups` APIs
+     - `access-control` APIs
+     - `user-auth` APIs
+
+3. **Documentation Features**
+   - Search and filter endpoints
+   - Code examples (curl, JavaScript, Python)
+   - Rate limiting information
+   - Deprecation notices
+   - Version history
+   - Rich markdown descriptions
+
+**Implementation Options:**
+
+**Option A: `utoipa` crate (Recommended)**
+```rust
+#[utoipa::path(
+    get,
+    path = "/api/videos/{id}",
+    responses(
+        (status = 200, description = "Video found", body = Video),
+        (status = 404, description = "Video not found")
+    )
+)]
+async fn get_video_handler(...)
+```
+- Rust-native OpenAPI generation
+- Compile-time validation
+- Minimal boilerplate
+- Excellent Axum integration
+
+**Option B: `aide` crate**
+- More flexible type inference
+- Less annotation required
+- Good for complex schemas
+
+**Option C: Manual OpenAPI spec**
+- Maximum control
+- Requires manual maintenance
+
+**Estimated Effort:** 3-4 days
+- Day 1-2: Add annotations to all endpoints
+- Day 2-3: Setup Swagger UI rendering
+- Day 3-4: Polish, organize by crate, test
+
+---
+
+### Standalone CLI Tool ⭐ HIGH VALUE
+
+**Goal:** Command-line interface for administrative operations from local machine
+
+**Why This Matters:**
+- **Safety:** Dangerous operations (bulk delete) require explicit CLI action
+- **Efficiency:** Bulk operations faster than clicking UI
+- **Automation:** Scriptable for scheduled tasks and CI/CD
+- **Control:** Admin operations without cluttering UI
+- **Development:** Easier API testing and debugging
+
+**Primary Use Cases:**
+
+1. **Bulk Operations**
+   - Delete multiple videos/images at once
+   - Bulk update metadata
+   - Batch file operations  
+   - Mass tag assignments
+
+2. **Administrative Tasks**
+   - Clean up orphaned files
+   - Database maintenance
+   - Generate reports
+   - Backup/restore operations
+
+3. **Automation & Scripting**
+   - Scheduled tasks (cron jobs)
+   - CI/CD integration
+   - Monitoring scripts
+   - Data migration
+
+4. **Developer Tools**
+   - Test API endpoints
+   - Debug authentication
+   - Inspect data structures
+   - Performance testing
+
+**CLI Command Examples:**
+
+```bash
+# Authentication
+video-cli login --email user@example.com
+video-cli logout
+
+# Video operations
+video-cli videos list --group "my-group"
+video-cli videos delete <video-id> --force
+video-cli videos delete-multiple <id1> <id2> <id3>
+video-cli videos update <id> --title "New Title" --group "new-group"
+video-cli videos upload video.mp4 --title "My Video" --group "team"
+
+# Image operations
+video-cli images list --tag "vacation"
+video-cli images delete <image-id>
+video-cli images bulk-delete --tag "outdated"
+
+# Group operations
+video-cli groups list
+video-cli groups create "Team X" --description "Our team"
+video-cli groups add-member <group-id> user@example.com
+
+# Access codes
+video-cli access-codes create --resource video/<id> --expires 7d
+video-cli access-codes list --group "my-group"
+video-cli access-codes revoke <code-id>
+
+# File cleanup (dangerous operations - CLI only)
+video-cli cleanup orphaned-files --dry-run
+video-cli cleanup unused-thumbnails --confirm
+
+# Analytics & reporting
+video-cli stats --group "my-group" --format json
+video-cli report usage --last 30d --output report.pdf
+
+# Database operations
+video-cli db backup --output backup.sql
+video-cli db migrate --target latest
+video-cli db check-integrity
+```
+
+**Technical Architecture:**
+
+```
+crates/
+├── video-cli/              # New CLI crate
+│   ├── src/
+│   │   ├── main.rs
+│   │   ├── commands/       # Each command as module
+│   │   │   ├── videos.rs
+│   │   │   ├── images.rs
+│   │   │   ├── groups.rs
+│   │   │   ├── access_codes.rs
+│   │   │   ├── cleanup.rs
+│   │   │   └── auth.rs
+│   │   ├── api/            # API client
+│   │   │   ├── client.rs
+│   │   │   └── models.rs
+│   │   ├── config.rs       # CLI configuration
+│   │   └── utils.rs        # Helpers
+│   └── Cargo.toml
+```
+
+**Dependencies:**
+- `clap` - CLI argument parsing with derives
+- `reqwest` - HTTP client for API calls
+- `tokio` - Async runtime
+- `serde` / `serde_json` - Serialization
+- `indicatif` - Progress bars
+- `colored` - Terminal colors
+- `dialoguer` - Interactive prompts
+- `tabled` - Pretty table output
+- `anyhow` - Error handling
+
+**Configuration File** (`~/.video-cli/config.toml`):
+```toml
+[server]
+url = "http://localhost:3000"
+
+[auth]
+token = "session-token-here"
+user_id = "user-id-here"
+
+[output]
+format = "table"  # table, json, yaml
+color = true
+```
+
+**Authentication Flow:**
+- Store session token in config file (or OS keychain)
+- Include token in all API requests
+- Auto-refresh if expired
+- Support API keys (future enhancement)
+
+**Implementation Phases:**
+
+**Phase 1: Core CLI (2-3 days)**
+- Setup CLI crate structure with clap
+- Implement authentication (login/logout)
+- Basic list commands (videos, images, groups)
+- Configuration management
+- Pretty output formatting (tables, JSON)
+
+**Phase 2: CRUD Operations (2-3 days)**
+- Create/update/delete resources
+- Bulk operations with progress indicators
+- Interactive confirmations for dangerous ops
+- Error handling and recovery
+- Dry-run mode for testing
+
+**Phase 3: Advanced Features (2-3 days)**
+- File cleanup operations
+- Reporting and analytics
+- Database operations
+- Batch processing from CSV/JSON
+- Scriptable output (--json flag)
+
+**Phase 4: Polish (1-2 days)**
+- Shell completions (bash, zsh, fish)
+- Man pages / comprehensive help
+- Installation script
+- Update checker
+- CI/CD for binary releases
+
+**Security Considerations:**
+- Store tokens securely (OS keychain integration)
+- Require explicit confirmation for destructive operations
+- Audit log all CLI operations server-side
+- Rate limiting per CLI session
+- Support read-only API keys
+- Never log sensitive data
+
+**Distribution:**
+- Binary releases for macOS, Linux, Windows
+- Homebrew formula: `brew install video-cli`
+- Cargo install: `cargo install video-cli`
+- Docker image: `docker run video-cli`
+- Auto-update mechanism
+
+**Estimated Total Effort:** 8-10 days for full-featured CLI
+
+---
+
+### Why These Two Go Together
+
+1. **API Docs → CLI Development**
+   - Documentation provides reference for CLI implementation
+   - Know all endpoints, schemas, error codes upfront
+   - Reduces trial-and-error
+
+2. **CLI → API Validation**
+   - CLI usage validates API documentation accuracy
+   - Real-world testing of all endpoints
+   - Identifies missing/incorrect docs
+
+3. **Developer Experience**
+   - Both serve power users and developers
+   - Professional, complete tooling ecosystem
+   - Foundation for third-party integrations
+
+4. **Future-Proofing**
+   - Both enable automation and scripting
+   - Support for headless operations
+   - Integration with external systems
+
+**Recommended Implementation Order:**
+
+1. **First: API Documentation (3-4 days)**
+   - Needed as reference for CLI development
+   - Immediately useful for debugging
+   - Lower risk, high immediate value
+   
+2. **Second: CLI Tool (8-10 days)**
+   - Uses API docs as authoritative reference
+   - Thoroughly tests all documented endpoints
+   - Adds massive value for administrators
+
+**Total Investment:** ~2 weeks, very high ROI
+
+---
+
 ## 📊 Success Metrics
 
 ### Phase 1-3 (Current)

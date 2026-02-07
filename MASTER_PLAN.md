@@ -2092,6 +2092,10 @@ Line Heights:
 
 ## 🛠️ Infrastructure & Developer Tools
 
+> **📋 Detailed Implementation Tracking:**
+> - [API Documentation Progress](API_DOCUMENTATION_PROGRESS.md)
+> - [Media CLI Tool Progress](MEDIA_CLI_PROGRESS.md)
+
 ### API Documentation System ⭐ HIGH VALUE
 
 **Goal:** Comprehensive, auto-generated API documentation accessible to authenticated users
@@ -2623,6 +2627,10 @@ By supporting **both** individual and group access codes simultaneously:
 ## 📚 Related Documentation
 
 This master plan is supported by detailed implementation guides:
+
+### Infrastructure & Developer Tools
+- **`API_DOCUMENTATION_PROGRESS.md`** - API documentation system implementation tracking
+- **`MEDIA_CLI_PROGRESS.md`** - Media CLI tool implementation tracking (media-cli)
 
 ### Core Workflow & Access Control
 - **`RESOURCE_WORKFLOW_GUIDE.md`** - Complete Upload → Organize → Share workflow

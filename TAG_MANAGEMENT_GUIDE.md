@@ -462,7 +462,7 @@ async searchTags() {
 
 4. **Verify tags are saved:**
    ```bash
-   sqlite3 video.db "SELECT * FROM image_tags WHERE image_id = 1;"
+   sqlite3 media.db "SELECT * FROM image_tags WHERE image_id = 1;"
    ```
 
 ---

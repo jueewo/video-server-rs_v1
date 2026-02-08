@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Background -->
+  <rect x="8" y="4" width="48" height="56" rx="4" fill="#16A085"/>
+
+  <!-- Paper fold -->
+  <path d="M 56 4 L 56 16 L 44 16 L 56 4" fill="#138D75"/>
+
+  <!-- BPMN workflow elements -->
+  <!-- Start circle -->
+  <circle cx="20" cy="30" r="3" stroke="white" stroke-width="1.5" fill="none"/>
+
+  <!-- Task rectangle -->
+  <rect x="28" y="26" width="8" height="8" rx="1" stroke="white" stroke-width="1.5" fill="none"/>
+
+  <!-- End circle -->
+  <circle cx="44" cy="30" r="3" stroke="white" stroke-width="2" fill="white"/>
+
+  <!-- Connecting arrows -->
+  <line x1="23" y1="30" x2="28" y2="30" stroke="white" stroke-width="1.5"/>
+  <line x1="36" y1="30" x2="41" y2="30" stroke="white" stroke-width="1.5"/>
+  <polygon points="41,30 38,28 38,32" fill="white"/>
+
+  <!-- BPMN Text -->
+  <text x="32" y="52" font-family="monospace" font-size="10" font-weight="bold" fill="white" text-anchor="middle">BPMN</text>
+</svg>

@@ -621,6 +621,18 @@ async fn main() -> anyhow::Result<()> {
 
     println!("\n🚀 Initializing Modular Media Server...");
 
+    // Load environment variables
+    dotenvy::dotenv().ok();
+
+    // Get database URL from environment or use default
+    let database_url =
+        std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:media.db?mode=rwc".to_string());
+
+    println!(
+        "📊 Database: {}",
+        database_url.split('?').next().unwrap_or(&database_url)
+    );
+
     // DB setup
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
@@ -633,7 +645,7 @@ async fn main() -> anyhow::Result<()> {
                 Ok(())
             })
         })
-        .connect("sqlite:video.db?mode=rwc")
+        .connect(&database_url)
         .await?;
 
     // Run migrations (skip if already applied or modified)

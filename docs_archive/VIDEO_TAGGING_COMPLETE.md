@@ -355,7 +355,7 @@ DELETE /api/tags/:slug             - Delete tag (admin)
 - [ ] Remove an existing tag (click X)
 - [ ] Save changes
 - [ ] Reload page and verify tags persisted
-- [ ] Check database: `sqlite3 video.db "SELECT * FROM video_tags;"`
+- [ ] Check database: `sqlite3 media.db "SELECT * FROM video_tags;"`
 
 ### Test New Video Registration
 - [ ] Go to `/videos/new`
@@ -441,7 +441,7 @@ curl -X DELETE http://localhost:3000/api/videos/1/tags/test
 ### Tags not displaying?
 1. Check if video has tags in DB:
    ```bash
-   sqlite3 video.db "SELECT * FROM video_tags WHERE video_id = 1;"
+   sqlite3 media.db "SELECT * FROM video_tags WHERE video_id = 1;"
    ```
 2. Verify API response:
    ```bash

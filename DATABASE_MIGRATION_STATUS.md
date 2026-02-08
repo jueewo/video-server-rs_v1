@@ -88,7 +88,7 @@ CREATE TABLE documents (
 
 ### Manual Application (Completed)
 \`\`\`bash
-sqlite3 video.db < migrations/007_documents.sql
+sqlite3 media.db < migrations/007_documents.sql
 ✅ Applied successfully
 \`\`\`
 
@@ -101,19 +101,19 @@ sqlite3 video.db < migrations/007_documents.sql
 
 \`\`\`bash
 # Check if documents table exists
-sqlite3 video.db "SELECT name FROM sqlite_master WHERE type='table' AND name='documents';"
+sqlite3 media.db "SELECT name FROM sqlite_master WHERE type='table' AND name='documents';"
 
 # Check table structure  
-sqlite3 video.db "PRAGMA table_info(documents);"
+sqlite3 media.db "PRAGMA table_info(documents);"
 
 # Check indexes
-sqlite3 video.db "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='documents';"
+sqlite3 media.db "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='documents';"
 
 # Test insert
-sqlite3 video.db "INSERT INTO documents (slug, filename, title, mime_type, file_size, file_path, document_type) VALUES ('test', 'test.pdf', 'Test Doc', 'application/pdf', 1024, 'storage/documents/test.pdf', 'pdf');"
+sqlite3 media.db "INSERT INTO documents (slug, filename, title, mime_type, file_size, file_path, document_type) VALUES ('test', 'test.pdf', 'Test Doc', 'application/pdf', 1024, 'storage/documents/test.pdf', 'pdf');"
 
 # Verify insert
-sqlite3 video.db "SELECT id, title, document_type FROM documents WHERE slug='test';"
+sqlite3 media.db "SELECT id, title, document_type FROM documents WHERE slug='test';"
 \`\`\`
 
 ## Status: READY FOR USE ✅

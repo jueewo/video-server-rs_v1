@@ -482,7 +482,7 @@ video-server-rs_v1/
 ├── mediamtx.yml             # MediaMTX configuration
 ├── Caddyfile                # HTTPS reverse proxy config
 ├── test-hls.html            # Standalone test player
-├── video.db                 # SQLite database
+├── media.db                 # SQLite database
 ├── README.md                # This file
 ├── QUICKSTART.md            # Quick start guide
 ├── PROJECT_STATUS.md        # Project status

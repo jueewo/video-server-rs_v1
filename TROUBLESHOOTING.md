@@ -69,13 +69,13 @@ cargo build
 **Manual solution:**
 ```bash
 # Remove old database
-rm video.db
+rm media.db
 
 # Run migration manually
-sqlite3 video.db < migrations/20240101000000_create_videos_table/up.sql
+sqlite3 media.db < migrations/20240101000000_create_videos_table/up.sql
 
 # Verify tables exist
-sqlite3 video.db "SELECT name FROM sqlite_master WHERE type='table';"
+sqlite3 media.db "SELECT name FROM sqlite_master WHERE type='table';"
 ```
 
 ### Problem: "database is locked"
@@ -88,7 +88,7 @@ sqlite3 video.db "SELECT name FROM sqlite_master WHERE type='table';"
 pkill -f video-server-rs
 
 # Remove lock file if exists
-rm -f video.db-shm video.db-wal
+rm -f media.db-shm media.db-wal
 
 # Restart server
 cargo run
@@ -102,23 +102,23 @@ cargo run
 ./init-database.sh
 
 # Or manually insert:
-sqlite3 video.db "INSERT INTO images (slug, filename, title, is_public) VALUES ('test', 'test.png', 'Test Image', 1);"
+sqlite3 media.db "INSERT INTO images (slug, filename, title, is_public) VALUES ('test', 'test.png', 'Test Image', 1);"
 ```
 
 ### Checking database health
 
 ```bash
 # View all tables
-sqlite3 video.db ".tables"
+sqlite3 media.db ".tables"
 
 # View table schema
-sqlite3 video.db ".schema images"
+sqlite3 media.db ".schema images"
 
 # Check data
-sqlite3 video.db "SELECT * FROM images;"
+sqlite3 media.db "SELECT * FROM images;"
 
 # Check integrity
-sqlite3 video.db "PRAGMA integrity_check;"
+sqlite3 media.db "PRAGMA integrity_check;"
 ```
 
 ---
@@ -129,7 +129,7 @@ sqlite3 video.db "PRAGMA integrity_check;"
 
 **Check 1 - Image exists in database:**
 ```bash
-sqlite3 video.db "SELECT * FROM images WHERE slug='logo';"
+sqlite3 media.db "SELECT * FROM images WHERE slug='logo';"
 ```
 
 **Check 2 - File exists on disk:**
@@ -147,7 +147,7 @@ The `filename` column in database must match the actual file name.
 **Solution - Add missing image:**
 ```bash
 # Add to database
-sqlite3 video.db "INSERT INTO images (slug, filename, title, is_public) VALUES ('logo', 'logo.png', 'Logo', 1);"
+sqlite3 media.db "INSERT INTO images (slug, filename, title, is_public) VALUES ('logo', 'logo.png', 'Logo', 1);"
 
 # Add file
 cp /path/to/image.png storage/images/public/logo.png
@@ -160,17 +160,17 @@ cp /path/to/image.png storage/images/public/logo.png
 **Solution:**
 ```bash
 # Check image visibility
-sqlite3 video.db "SELECT slug, is_public FROM images WHERE slug='logo';"
+sqlite3 media.db "SELECT slug, is_public FROM images WHERE slug='logo';"
 
 # Make it public (set is_public=1)
-sqlite3 video.db "UPDATE images SET is_public=1 WHERE slug='logo';"
+sqlite3 media.db "UPDATE images SET is_public=1 WHERE slug='logo';"
 ```
 
 ### Problem: Images not displaying in gallery
 
 **Check 1 - Database has images:**
 ```bash
-sqlite3 video.db "SELECT COUNT(*) FROM images;"
+sqlite3 media.db "SELECT COUNT(*) FROM images;"
 ```
 
 **Check 2 - View server logs:**
@@ -254,7 +254,7 @@ Use a unique identifier like `logo-v2` or `company-logo-2024`
 **Solution 2 - Delete old image:**
 ```bash
 # Remove from database
-sqlite3 video.db "DELETE FROM images WHERE slug='logo';"
+sqlite3 media.db "DELETE FROM images WHERE slug='logo';"
 
 # Remove file
 rm storage/images/public/logo.png
@@ -270,7 +270,7 @@ ls -la storage/images/private/
 
 **Check 2 - Database entry exists:**
 ```bash
-sqlite3 video.db "SELECT * FROM images WHERE slug='your-slug';"
+sqlite3 media.db "SELECT * FROM images WHERE slug='your-slug';"
 ```
 
 **Check 3 - File permissions:**
@@ -354,7 +354,7 @@ curl http://localhost:3000/health
 ./init-database.sh
 
 # Or apply migration directly
-sqlite3 video.db < migrations/20240101000000_create_videos_table/up.sql
+sqlite3 media.db < migrations/20240101000000_create_videos_table/up.sql
 ```
 
 ### Problem: "migration checksum mismatch"
@@ -364,7 +364,7 @@ sqlite3 video.db < migrations/20240101000000_create_videos_table/up.sql
 **Solution:**
 ```bash
 # Reset database
-rm video.db
+rm media.db
 ./init-database.sh
 ```
 
@@ -372,10 +372,10 @@ rm video.db
 
 ```bash
 # View applied migrations
-sqlite3 video.db "SELECT * FROM _sqlx_migrations;"
+sqlite3 media.db "SELECT * FROM _sqlx_migrations;"
 
 # View all tables
-sqlite3 video.db ".tables"
+sqlite3 media.db ".tables"
 ```
 
 ---
@@ -408,8 +408,8 @@ cargo run
 **Solution:**
 ```bash
 # Check what's in database
-sqlite3 video.db "SELECT * FROM images;"
-sqlite3 video.db "SELECT * FROM videos;"
+sqlite3 media.db "SELECT * FROM images;"
+sqlite3 media.db "SELECT * FROM videos;"
 
 # Add missing data if needed
 ./init-database.sh
@@ -439,13 +439,13 @@ echo "1. Server health:"
 curl -s http://localhost:3000/health
 
 echo -e "\n2. Database tables:"
-sqlite3 video.db ".tables"
+sqlite3 media.db ".tables"
 
 echo -e "\n3. Image count:"
-sqlite3 video.db "SELECT COUNT(*) FROM images;"
+sqlite3 media.db "SELECT COUNT(*) FROM images;"
 
 echo -e "\n4. Video count:"
-sqlite3 video.db "SELECT COUNT(*) FROM videos;"
+sqlite3 media.db "SELECT COUNT(*) FROM videos;"
 
 echo -e "\n5. Storage directories:"
 ls -la storage/images/
@@ -458,7 +458,7 @@ ls -la storage/images/
 pkill -f video-server-rs
 
 # Remove database
-rm video.db
+rm media.db
 
 # Reinitialize
 ./init-database.sh
@@ -502,9 +502,9 @@ uname -a >> diagnostic.txt
 echo -e "\n=== Rust Version ===" >> diagnostic.txt
 rustc --version >> diagnostic.txt
 echo -e "\n=== Database Tables ===" >> diagnostic.txt
-sqlite3 video.db ".tables" >> diagnostic.txt
+sqlite3 media.db ".tables" >> diagnostic.txt
 echo -e "\n=== Image Records ===" >> diagnostic.txt
-sqlite3 video.db "SELECT * FROM images;" >> diagnostic.txt
+sqlite3 media.db "SELECT * FROM images;" >> diagnostic.txt
 echo -e "\n=== Directory Structure ===" >> diagnostic.txt
 ls -laR storage/ >> diagnostic.txt
 
@@ -546,7 +546,7 @@ cat diagnostic.txt
 1. **Always use init script:** Run `./init-database.sh` for fresh setup
 2. **Check logs:** Monitor server output for errors
 3. **Use test script:** Run `./test-images.sh` to verify everything works
-4. **Backup database:** `cp video.db video.db.backup` before changes
+4. **Backup database:** `cp media.db media.db.backup` before changes
 5. **Keep dependencies updated:** `cargo update` regularly
 
 ---

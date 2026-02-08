@@ -139,26 +139,26 @@ echo ""
 # Test 10: Database Check
 echo "Test 10: Database Check"
 echo "-----------------------"
-if [ -f "video.db" ]; then
+if [ -f "media.db" ]; then
     echo -e "${GREEN}✓ Database exists${NC}"
 
     # Check if images table exists
-    if sqlite3 video.db "SELECT name FROM sqlite_master WHERE type='table' AND name='images';" | grep -q "images"; then
+    if sqlite3 media.db "SELECT name FROM sqlite_master WHERE type='table' AND name='images';" | grep -q "images"; then
         echo -e "${GREEN}✓ Images table exists${NC}"
 
         # Count images
-        IMAGE_COUNT=$(sqlite3 video.db "SELECT COUNT(*) FROM images;")
+        IMAGE_COUNT=$(sqlite3 media.db "SELECT COUNT(*) FROM images;")
         echo "  Total images in database: $IMAGE_COUNT"
 
         if [ "$IMAGE_COUNT" -gt 0 ]; then
             echo "  Sample images:"
-            sqlite3 -header -column video.db "SELECT slug, title, is_public FROM images LIMIT 3;"
+            sqlite3 -header -column media.db "SELECT slug, title, is_public FROM images LIMIT 3;"
         else
             echo -e "${YELLOW}  ⚠ No images in database${NC}"
         fi
     else
         echo -e "${RED}✗ Images table does not exist${NC}"
-        echo "  Run: rm video.db && cargo run (to recreate database)"
+        echo "  Run: rm media.db && cargo run (to recreate database)"
     fi
 else
     echo -e "${RED}✗ Database not found${NC}"
@@ -177,7 +177,7 @@ echo "2. Visit http://localhost:3000/login then http://localhost:3000/upload to 
 echo "3. Add test images to storage/images/public/ and storage/images/private/"
 echo ""
 echo "Useful Commands:"
-echo "  View images:    sqlite3 video.db 'SELECT * FROM images;'"
-echo "  Add sample:     sqlite3 video.db \"INSERT INTO images (slug, filename, title, is_public) VALUES ('test', 'test.jpg', 'Test', 1);\""
-echo "  Delete image:   sqlite3 video.db \"DELETE FROM images WHERE slug='test';\""
+echo "  View images:    sqlite3 media.db 'SELECT * FROM images;'"
+echo "  Add sample:     sqlite3 media.db \"INSERT INTO images (slug, filename, title, is_public) VALUES ('test', 'test.jpg', 'Test', 1);\""
+echo "  Delete image:   sqlite3 media.db \"DELETE FROM images WHERE slug='test';\""
 echo ""

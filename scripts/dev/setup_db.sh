@@ -1,3 +1,3 @@
 #!/bin/bash
 #
-sqlite3 video.db < src/schema.sql
+sqlite3 media.db < src/schema.sql

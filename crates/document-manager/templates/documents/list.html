@@ -1,0 +1,150 @@
+{% extends "base.html" %} {% block title %}{{ page_title }} - Document Manager{%
+endblock %} {% block extra_styles %} .cta-box { background:
+linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px;
+border-radius: 12px; margin: 30px 0; text-align: center; } .cta-box h3 { color:
+white; margin-bottom: 15px; } .cta-box p { margin-bottom: 20px; font-size: 16px;
+} .cta-box .btn { background: white; color: #667eea; } .cta-box .btn:hover {
+background: #f0f0f0; } {% endblock %} {% block content %}
+<div class="container">
+    <div class="section-header">
+        <div>
+            <h1>{{ page_title }}</h1>
+            <p class="subtitle">
+                {% if authenticated %} Your document library {% else %} Browse
+                our public documents {% endif %}
+            </p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px">
+            {% if authenticated %}
+            <a href="/media/upload" class="btn btn-primary">
+                <span class="emoji">📤</span>
+                Upload Document
+            </a>
+            <span class="status-badge authenticated">✅ Authenticated</span>
+            {% else %}
+            <span class="status-badge guest">👋 Guest Mode</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if !authenticated %}
+    <div class="info">
+        <strong>ℹ️ Limited Access</strong>
+        <p>
+            You're viewing public documents only. <a href="/login">Login</a> to
+            access private documents and upload functionality.
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- Public Documents Section -->
+    {% if !public_documents.is_empty() %}
+    <div class="section">
+        <h2>📄 Public Documents</h2>
+        <div class="document-grid">
+            {% for doc in public_documents %}
+            <div
+                class="document-card"
+                onclick="window.location.href='/documents/{{ doc.slug }}'"
+            >
+                <div class="document-thumbnail">
+                    <span class="icon">📄</span>
+                </div>
+                <div class="document-info">
+                    <div class="document-title">{{ doc.title }}</div>
+                    <div class="document-meta">
+                        <span class="badge public">PUBLIC</span>
+                        <span>📦 {{ doc.file_size }} bytes</span>
+                    </div>
+                    <div class="document-meta" style="margin-top: 5px">
+                        <span>👁️ {{ doc.view_count }} views</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="section">
+        <h2>📄 Public Documents</h2>
+        <div class="empty-state">
+            <span class="emoji">📭</span>
+            <p>No public documents available at the moment.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Private Documents Section (Only if authenticated) -->
+    {% if authenticated %} {% if !private_documents.is_empty() %}
+    <div class="section">
+        <h2>🔒 Private Documents</h2>
+        <div class="document-grid">
+            {% for doc in private_documents %}
+            <div
+                class="document-card private"
+                onclick="window.location.href='/documents/{{ doc.slug }}'"
+            >
+                <div class="document-thumbnail">
+                    <span class="icon">📄</span>
+                </div>
+                <div class="document-info">
+                    <div class="document-title">{{ doc.title }}</div>
+                    <div class="document-meta">
+                        <span class="badge private">PRIVATE</span>
+                        <span>🔐 Members only</span>
+                    </div>
+                    <div class="document-meta" style="margin-top: 5px">
+                        <span>👁️ {{ doc.view_count }} views</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="section">
+        <h2>🔒 Private Documents</h2>
+        <div class="empty-state">
+            <span class="emoji">🔓</span>
+            <p>No private documents available.</p>
+        </div>
+    </div>
+    {% endif %} {% endif %}
+
+    <!-- Call to Action -->
+    {% if !authenticated %}
+    <div class="cta-box">
+        <h3>🌟 Want to See More?</h3>
+        <p>Login to access private documents and upload your own files.</p>
+        <div class="buttons" style="justify-content: center">
+            <a href="/login" class="btn" style="margin: 0">
+                <span class="emoji">🔐</span>
+                Login Now
+            </a>
+        </div>
+    </div>
+    {% else %}
+    <div class="section">
+        <h2>🎯 Quick Actions</h2>
+        <div class="buttons">
+            <a href="/media/upload" class="btn btn-primary">
+                <span class="emoji">📤</span>
+                Upload New Document
+            </a>
+            <a href="/videos" class="btn btn-secondary">
+                <span class="emoji">🎥</span>
+                Browse Videos
+            </a>
+            <a href="/images" class="btn btn-secondary">
+                <span class="emoji">🖼️</span>
+                View Images
+            </a>
+            <a href="/profile" class="btn btn-outline">
+                <span class="emoji">👤</span>
+                My Profile
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

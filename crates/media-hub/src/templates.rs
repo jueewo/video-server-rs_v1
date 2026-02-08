@@ -8,7 +8,7 @@ use askama::Template;
 
 /// Template for the unified media list page
 #[derive(Template)]
-#[template(path = "media_list.html")]
+#[template(path = "media_list_tailwind.html")]
 pub struct MediaListTemplate {
     /// List of media items (mixed types)
     pub items: Vec<UnifiedMediaItem>,

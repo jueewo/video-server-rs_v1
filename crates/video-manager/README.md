@@ -117,7 +117,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 // Initialize state
-let pool = SqlitePool::connect("sqlite:video.db").await?;
+let pool = SqlitePool::connect("sqlite:media.db").await?;
 let storage_dir = PathBuf::from("./storage");
 let http_client = Client::new();
 

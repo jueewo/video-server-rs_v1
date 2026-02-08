@@ -10,6 +10,7 @@ use crate::MediaHubState;
 use askama::Template;
 use axum::{
     extract::{Multipart, Query, State},
+    http::StatusCode,
     response::{Html, IntoResponse, Json, Redirect},
     routing::{get, post},
     Router,
@@ -18,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
+use tower_sessions::Session;
 use tracing::{debug, error, info, warn};
 
 /// Query parameters for media list endpoint
@@ -78,17 +80,38 @@ pub fn media_routes() -> Router<MediaHubState> {
 /// List all media (HTML view)
 async fn list_media_html(
     State(state): State<MediaHubState>,
+    session: Session,
     Query(query): Query<MediaListQuery>,
 ) -> impl IntoResponse {
     debug!("List media HTML request: {:?}", query);
 
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    // Get user_id from session if authenticated
+    let user_id: Option<String> = if authenticated {
+        session.get("user_id").await.ok().flatten()
+    } else {
+        None
+    };
+
     let search_service = MediaSearchService::new(state.pool.clone());
 
+    // Filter by user_id for authenticated users, or only show public for guests
     let filter = MediaFilterOptions {
         search: query.q.clone(),
         media_type: query.type_filter.clone(),
-        is_public: query.is_public,
-        user_id: None, // TODO: Get from session
+        is_public: if authenticated {
+            query.is_public
+        } else {
+            Some(true)
+        }, // Only public for guests
+        user_id: user_id.clone(),
         sort_by: query.sort_by.clone(),
         sort_order: query.sort_order.clone(),
         page: query.page,
@@ -139,17 +162,38 @@ async fn list_media_html(
 /// List all media (JSON API)
 async fn list_media_json(
     State(state): State<MediaHubState>,
+    session: Session,
     Query(query): Query<MediaListQuery>,
 ) -> impl IntoResponse {
     debug!("List media JSON request: {:?}", query);
 
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    // Get user_id from session if authenticated
+    let user_id: Option<String> = if authenticated {
+        session.get("user_id").await.ok().flatten()
+    } else {
+        None
+    };
+
     let search_service = MediaSearchService::new(state.pool.clone());
 
+    // Filter by user_id for authenticated users, or only show public for guests
     let filter = MediaFilterOptions {
         search: query.q,
         media_type: query.type_filter,
-        is_public: query.is_public,
-        user_id: None, // TODO: Get from session
+        is_public: if authenticated {
+            query.is_public
+        } else {
+            Some(true)
+        }, // Only public for guests
+        user_id: user_id.clone(),
         sort_by: query.sort_by,
         sort_order: query.sort_order,
         page: query.page,
@@ -174,24 +218,40 @@ async fn list_media_json(
 /// Search media (HTML view)
 async fn search_media_html(
     State(state): State<MediaHubState>,
+    session: Session,
     Query(query): Query<MediaListQuery>,
 ) -> impl IntoResponse {
-    // Same as list_media_html but with search emphasis
-    list_media_html(State(state), Query(query)).await
+    list_media_html(State(state), session, Query(query)).await
 }
 
 /// Search media (JSON API)
 async fn search_media_json(
     State(state): State<MediaHubState>,
+    session: Session,
     Query(query): Query<MediaListQuery>,
 ) -> impl IntoResponse {
-    // Same as list_media_json
-    list_media_json(State(state), Query(query)).await
+    list_media_json(State(state), session, Query(query)).await
 }
 
 /// Show unified upload form
-async fn show_upload_form(Query(params): Query<UploadFormQuery>) -> impl IntoResponse {
+async fn show_upload_form(
+    session: Session,
+    Query(params): Query<UploadFormQuery>,
+) -> impl IntoResponse {
     debug!("Show upload form request");
+
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        warn!("Upload form access attempt without authentication");
+        return Redirect::to("/login").into_response();
+    }
 
     let template = MediaUploadTemplate {
         max_file_size: 100 * 1024 * 1024, // 100MB
@@ -229,9 +289,37 @@ pub struct UploadFormQuery {
 /// Upload media file (unified endpoint)
 async fn upload_media(
     State(state): State<MediaHubState>,
+    session: Session,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
     info!("Upload media request received");
+
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        warn!("Upload attempt without authentication");
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(UploadResponse {
+                success: false,
+                message: "Authentication required".to_string(),
+                media_id: None,
+                media_type: None,
+                url: None,
+            }),
+        )
+            .into_response();
+    }
+
+    // Get user_id from session
+    let user_id: Option<String> = session.get("user_id").await.ok().flatten();
+    info!("Upload request from user: {:?}", user_id);
 
     let mut file_data: Option<Vec<u8>> = None;
     let mut filename: Option<String> = None;
@@ -446,6 +534,7 @@ async fn upload_media(
                 &unique_filename,
                 file_data.len() as i64,
                 is_public,
+                user_id.as_deref(),
             )
             .await
         }
@@ -458,6 +547,7 @@ async fn upload_media(
                 &unique_filename,
                 file_data.len() as i64,
                 is_public,
+                user_id.as_deref(),
             )
             .await
         }
@@ -470,6 +560,7 @@ async fn upload_media(
                 &unique_filename,
                 file_data.len() as i64,
                 is_public,
+                user_id.as_deref(),
             )
             .await
         }
@@ -600,10 +691,11 @@ async fn create_video_record(
     state: &MediaHubState,
     title: &str,
     description: Option<&str>,
-    category: Option<&str>,
+    _category: Option<&str>,
     filename: &str,
     file_size: i64,
     is_public: bool,
+    user_id: Option<&str>,
 ) -> Result<(i32, String), sqlx::Error> {
     let slug = slugify(title);
     let is_public_int = if is_public { 1 } else { 0 };
@@ -640,10 +732,11 @@ async fn create_image_record(
     state: &MediaHubState,
     title: &str,
     description: Option<&str>,
-    category: Option<&str>,
+    _category: Option<&str>,
     filename: &str,
     file_size: i64,
     is_public: bool,
+    user_id: Option<&str>,
 ) -> Result<(i32, String), sqlx::Error> {
     let is_public_int = if is_public { 1 } else { 0 };
     let created_at = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
@@ -651,10 +744,10 @@ async fn create_image_record(
     let result = sqlx::query(
         r#"
         INSERT INTO images (
-            title, description, filename, file_size, is_public,
+            title, description, filename, file_size, is_public, user_id,
             created_at, view_count, like_count, download_count
         )
-        VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0)
         "#,
     )
     .bind(title)
@@ -662,6 +755,7 @@ async fn create_image_record(
     .bind(filename)
     .bind(file_size)
     .bind(is_public_int)
+    .bind(user_id)
     .bind(&created_at)
     .execute(&state.pool)
     .await?;
@@ -677,52 +771,72 @@ async fn create_document_record(
     state: &MediaHubState,
     title: &str,
     description: Option<&str>,
-    category: Option<&str>,
+    _category: Option<&str>,
     filename: &str,
     file_size: i64,
     is_public: bool,
+    user_id: Option<&str>,
 ) -> Result<(i32, String), sqlx::Error> {
     let is_public_int = if is_public { 1 } else { 0 };
     let created_at = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
-    // Detect document type from filename
-    let doc_type = if filename.ends_with(".pdf") {
-        "pdf"
+    // Generate slug from title
+    let base_slug = slugify(title);
+    let timestamp = chrono::Utc::now().timestamp();
+    let slug = format!("{}-{}", base_slug, timestamp);
+
+    // Detect document type and mime type from filename
+    let (doc_type, mime_type) = if filename.ends_with(".pdf") {
+        ("pdf", "application/pdf")
     } else if filename.ends_with(".csv") {
-        "csv"
+        ("csv", "text/csv")
     } else if filename.ends_with(".md") || filename.ends_with(".markdown") {
-        "markdown"
+        ("markdown", "text/markdown")
     } else if filename.ends_with(".json") {
-        "json"
+        ("json", "application/json")
     } else if filename.ends_with(".xml") {
-        "xml"
+        ("xml", "application/xml")
     } else if filename.ends_with(".bpmn") {
-        "bpmn"
+        ("bpmn", "application/xml")
+    } else if filename.ends_with(".txt") {
+        ("text", "text/plain")
+    } else if filename.ends_with(".doc") || filename.ends_with(".docx") {
+        (
+            "document",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
     } else {
-        "other"
+        ("other", "application/octet-stream")
     };
+
+    // File path for storage
+    let file_path = format!("documents/{}", filename);
 
     let result = sqlx::query(
         r#"
         INSERT INTO documents (
-            title, description, document_type, filename, file_size,
-            is_public, created_at, view_count, download_count
+            slug, title, description, document_type, filename, file_size, file_path,
+            mime_type, is_public, user_id, created_at, view_count, download_count
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
         "#,
     )
+    .bind(&slug)
     .bind(title)
     .bind(description)
     .bind(doc_type)
     .bind(filename)
     .bind(file_size)
+    .bind(&file_path)
+    .bind(mime_type)
     .bind(is_public_int)
+    .bind(user_id)
     .bind(&created_at)
     .execute(&state.pool)
     .await?;
 
     let document_id = result.last_insert_rowid() as i32;
-    let url = format!("/documents/{}", document_id);
+    let url = format!("/documents/{}", slug);
 
     Ok((document_id, url))
 }

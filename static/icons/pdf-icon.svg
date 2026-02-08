@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Background -->
+  <rect x="8" y="4" width="48" height="56" rx="4" fill="#E74C3C"/>
+
+  <!-- Paper fold -->
+  <path d="M 56 4 L 56 16 L 44 16 L 56 4" fill="#C0392B"/>
+
+  <!-- PDF Text -->
+  <text x="32" y="38" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">PDF</text>
+</svg>

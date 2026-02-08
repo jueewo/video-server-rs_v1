@@ -61,7 +61,7 @@ storage/videos/public/my-awesome-video/
 
 **Usage:**
 ```bash
-sqlite3 video.db < scripts/update_video_posters.sql
+sqlite3 media.db < scripts/update_video_posters.sql
 ```
 
 **What it does:**
@@ -229,7 +229,7 @@ cargo run --bin generate-thumbnails
 - Database migration or recovery
 
 **Requirements:**
-- Database must be accessible (video.db)
+- Database must be accessible (media.db)
 - Original images must exist in storage directory
 - Write permissions to storage directory
 

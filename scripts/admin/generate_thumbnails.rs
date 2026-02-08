@@ -6,10 +6,22 @@ use tokio;
 async fn main() -> anyhow::Result<()> {
     println!("🖼️  Generating thumbnails for existing images...");
 
+    // Load environment variables
+    dotenvy::dotenv().ok();
+
+    // Get database URL from environment or use default
+    let database_url =
+        std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:media.db?mode=rwc".to_string());
+
+    println!(
+        "📊 Database: {}",
+        database_url.split('?').next().unwrap_or(&database_url)
+    );
+
     // Connect to database
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
-        .connect("sqlite:video.db?mode=rwc")
+        .connect(&database_url)
         .await?;
 
     // Get storage directory

@@ -381,14 +381,14 @@ Phase 3: Media CRUD + Tags .............. 🚧 WEEK 1 (Day 2)
 ### Testing Migrations:
 ```bash
 # Backup current database
-cp video.db video.db.backup
+cp media.db media.db.backup
 
 # Apply migration
-sqlite3 video.db < migrations/003_tagging_system.sql
+sqlite3 media.db < migrations/003_tagging_system.sql
 
 # Verify
-sqlite3 video.db ".tables"
-sqlite3 video.db "SELECT COUNT(*) FROM tags;"
+sqlite3 media.db ".tables"
+sqlite3 media.db "SELECT COUNT(*) FROM tags;"
 ```
 
 ### Code Structure:

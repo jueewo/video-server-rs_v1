@@ -288,7 +288,7 @@ Should show: `CSRF: true` and `PKCE: true`
 # Stop server (Ctrl+C)
 # Clear everything
 rm -rf target/
-rm video.db
+rm media.db
 rm -rf storage/
 
 # Restart fresh

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Background -->
+  <rect x="8" y="4" width="48" height="56" rx="4" fill="#3498DB"/>
+
+  <!-- Paper fold -->
+  <path d="M 56 4 L 56 16 L 44 16 L 56 4" fill="#2874A6"/>
+
+  <!-- Markdown M symbol -->
+  <path d="M 18 28 L 18 42 L 22 42 L 22 34 L 26 38 L 30 34 L 30 42 L 34 42 L 34 28 L 26 36 Z" fill="white"/>
+  <path d="M 36 28 L 36 42 L 40 42 L 40 34 L 44 38 L 44 28 Z" fill="white"/>
+
+  <!-- Text -->
+  <text x="32" y="52" font-family="monospace" font-size="10" font-weight="bold" fill="white" text-anchor="middle">.md</text>
+</svg>

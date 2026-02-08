@@ -67,7 +67,7 @@ cargo run
    cp myimage.jpg storage/images/public/myimage.jpg
    
    # Add to database
-   sqlite3 video.db "INSERT INTO images (slug, filename, title, is_public) VALUES ('myimage', 'myimage.jpg', 'My Image', 1);"
+   sqlite3 media.db "INSERT INTO images (slug, filename, title, is_public) VALUES ('myimage', 'myimage.jpg', 'My Image', 1);"
    ```
 
 ### Add a Private Image
@@ -78,13 +78,13 @@ Same as above, but:
 
 ### List All Images
 ```bash
-sqlite3 video.db "SELECT slug, title, is_public FROM images;"
+sqlite3 media.db "SELECT slug, title, is_public FROM images;"
 ```
 
 ### Delete an Image
 ```bash
 # Remove from database
-sqlite3 video.db "DELETE FROM images WHERE slug='myimage';"
+sqlite3 media.db "DELETE FROM images WHERE slug='myimage';"
 
 # Remove file
 rm storage/images/public/myimage.jpg
@@ -132,7 +132,7 @@ video-server-rs_v1/
 │       │   └── banner.jpg
 │       └── private/         # Private images (requires auth)
 │           └── secret.png
-├── video.db                 # SQLite database
+├── media.db                 # SQLite database
 └── src/
     └── main.rs             # Server code
 ```
@@ -142,14 +142,14 @@ video-server-rs_v1/
 ### "Database error"
 ```bash
 # Reset database
-rm video.db
+rm media.db
 cargo run
 ```
 
 ### "Image not found"
 Check that:
 1. File exists in `storage/images/public/` or `storage/images/private/`
-2. Database entry exists: `sqlite3 video.db "SELECT * FROM images;"`
+2. Database entry exists: `sqlite3 media.db "SELECT * FROM images;"`
 3. Filename in database matches actual file
 
 ### "Unauthorized" for private image

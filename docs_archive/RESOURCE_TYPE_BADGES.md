@@ -171,12 +171,12 @@ Design Assets:
 
 1. **Add video to group:**
    ```bash
-   sqlite3 video.db "UPDATE videos SET group_id = 7 WHERE slug = 'test-demo-video';"
+   sqlite3 media.db "UPDATE videos SET group_id = 7 WHERE slug = 'test-demo-video';"
    ```
 
 2. **Add image to group:**
    ```bash
-   sqlite3 video.db "UPDATE images SET group_id = 7 WHERE slug = 'some-image';"
+   sqlite3 media.db "UPDATE images SET group_id = 7 WHERE slug = 'some-image';"
    ```
 
 3. **Visit group page:**

@@ -388,10 +388,13 @@
             <h1>Upload Media</h1>
             <p class="subtitle">Upload videos, images, or documents - type will be auto-detected</p>
             <div class="nav-links">
-                <a href="/media">← Back to All Media</a>
-                <a href="/videos">Videos</a>
-                <a href="/images">Images</a>
-                <a href="/documents">Documents</a>
+                <a href="/">🏠 Home</a>
+                <a href="/videos">🎥 Videos</a>
+                <a href="/images">🖼️ Images</a>
+                <a href="/documents">📄 Documents</a>
+                <a href="/media">🎨 All Media</a>
+                <a href="/groups">👥 Groups</a>
+                <a href="/test">📡 Live</a>
             </div>
         </header>
 
@@ -416,7 +419,7 @@
                 <h2>Select File</h2>
                 <form id="uploadForm" action="/api/media/upload" method="post" enctype="multipart/form-data">
                     <div class="drop-zone" id="dropZone">
-                        <input type="file" name="file" id="fileInput" accept="video/*,image/*,.pdf,.csv,.xml,.md,.json" required>
+                        <input type="file" name="file" id="fileInput" accept="video/*,image/*,.pdf,.csv,.xml,.md,.json,.bpmn,.txt,.doc,.docx" required>
                         <div class="drop-zone-icon">📁</div>
                         <div class="drop-zone-text">Drag & drop your file here</div>
                         <div class="drop-zone-hint">or click to browse (max {{ self.max_size_formatted() }})</div>
@@ -496,8 +499,10 @@
                     <ul>
                         <li>PDF</li>
                         <li>CSV</li>
-                        <li></li>Markdown (.md)</li>
+                        <li>Markdown (.md)</li>
                         <li>JSON, XML</li>
+                        <li>BPMN</li>
+                        <li>Text (.txt)</li>
                     </ul>
                 </div>
             </div>

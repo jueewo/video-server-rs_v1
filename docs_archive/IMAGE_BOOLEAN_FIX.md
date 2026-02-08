@@ -107,7 +107,7 @@ curl -X PUT http://localhost:3000/api/images/1 \
   -d '{"isPublic": "true"}'
 
 # Verify: is_public should be 1 (integer)
-sqlite3 video.db "SELECT id, is_public FROM images WHERE id = 1;"
+sqlite3 media.db "SELECT id, is_public FROM images WHERE id = 1;"
 
 # 2. Set image to private
 curl -X PUT http://localhost:3000/api/images/1 \
@@ -115,7 +115,7 @@ curl -X PUT http://localhost:3000/api/images/1 \
   -d '{"isPublic": "false"}'
 
 # Verify: is_public should be 0 (integer)
-sqlite3 video.db "SELECT id, is_public FROM images WHERE id = 1;"
+sqlite3 media.db "SELECT id, is_public FROM images WHERE id = 1;"
 ```
 
 ## Related Fields

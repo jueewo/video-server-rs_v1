@@ -331,7 +331,7 @@ if [ ! -d "storage" ]; then
 fi
 
 # Check database exists
-if [ ! -f "media.db" ] && [ ! -f "video.db" ]; then
+if [ ! -f "media.db" ] && [ ! -f "media.db" ]; then
     print_warning "Database not found - you may need to run migrations"
 fi
 

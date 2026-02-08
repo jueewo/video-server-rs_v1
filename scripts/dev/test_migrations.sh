@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 MIGRATIONS_DIR="$PROJECT_DIR/migrations"
 TEST_DB="$PROJECT_DIR/test_migration.db"
-BACKUP_DB="$PROJECT_DIR/video.db.backup-$(date +%Y%m%d-%H%M%S)"
+BACKUP_DB="$PROJECT_DIR/media.db.backup-$(date +%Y%m%d-%H%M%S)"
 
 echo "╔════════════════════════════════════════════════════════════════╗"
 echo "║          Phase 3 Migration Testing Script                     ║"
@@ -248,7 +248,7 @@ echo ""
 
 echo "═════════════════════════════════════════════════════════════════"
 echo ""
-read -p "Apply migrations to production database (video.db)? [y/N] " -n 1 -r
+read -p "Apply migrations to production database (media.db)? [y/N] " -n 1 -r
 echo ""
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -256,21 +256,21 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "🔄 Applying to production database..."
 
     # Backup production database
-    if [ -f "$PROJECT_DIR/video.db" ]; then
+    if [ -f "$PROJECT_DIR/media.db" ]; then
         echo "💾 Creating backup: $BACKUP_DB"
-        cp "$PROJECT_DIR/video.db" "$BACKUP_DB"
+        cp "$PROJECT_DIR/media.db" "$BACKUP_DB"
         echo "✅ Backup created"
     else
-        echo "⚠️  No existing video.db found, will create new database"
+        echo "⚠️  No existing media.db found, will create new database"
     fi
 
     echo ""
     echo "📝 Applying migrations..."
-    sqlite3 "$PROJECT_DIR/video.db" < "$MIGRATIONS_DIR/003_tagging_system.sql"
-    echo "✅ Migration 003 applied to video.db"
+    sqlite3 "$PROJECT_DIR/media.db" < "$MIGRATIONS_DIR/003_tagging_system.sql"
+    echo "✅ Migration 003 applied to media.db"
 
-    sqlite3 "$PROJECT_DIR/video.db" < "$MIGRATIONS_DIR/004_enhance_metadata.sql"
-    echo "✅ Migration 004 applied to video.db"
+    sqlite3 "$PROJECT_DIR/media.db" < "$MIGRATIONS_DIR/004_enhance_metadata.sql"
+    echo "✅ Migration 004 applied to media.db"
 
     echo ""
     echo "✅ Production database updated successfully!"
@@ -280,8 +280,8 @@ else
     echo ""
     echo "⏭️  Skipped production database update"
     echo "   You can apply manually:"
-    echo "   sqlite3 video.db < migrations/003_tagging_system.sql"
-    echo "   sqlite3 video.db < migrations/004_enhance_metadata.sql"
+    echo "   sqlite3 media.db < migrations/003_tagging_system.sql"
+    echo "   sqlite3 media.db < migrations/004_enhance_metadata.sql"
     echo ""
 fi
 

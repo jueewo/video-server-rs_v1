@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Background -->
+  <rect x="8" y="4" width="48" height="56" rx="4" fill="#95A5A6"/>
+
+  <!-- Paper fold -->
+  <path d="M 56 4 L 56 16 L 44 16 L 56 4" fill="#7F8C8D"/>
+
+  <!-- Document lines -->
+  <line x1="16" y1="24" x2="48" y2="24" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+  <line x1="16" y1="30" x2="48" y2="30" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+  <line x1="16" y1="36" x2="40" y2="36" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+  <line x1="16" y1="42" x2="44" y2="42" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+  <line x1="16" y1="48" x2="36" y2="48" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- DOC Text -->
+  <text x="32" y="18" font-family="monospace" font-size="10" font-weight="bold" fill="white" text-anchor="middle">DOC</text>
+</svg>

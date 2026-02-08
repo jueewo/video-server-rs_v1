@@ -19,8 +19,9 @@ Cargo.lock
 storage/
 storage*/
 storage-backup*/
-video.db
-video.db_
+media.db
+media.db-shm
+media.db-wal
 migrations/
 
 # Node.js dependencies

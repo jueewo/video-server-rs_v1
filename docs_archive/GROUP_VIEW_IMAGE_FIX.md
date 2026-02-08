@@ -112,7 +112,7 @@ UPDATE images SET is_public = 1 WHERE is_public = 'true';
 
 ### Database Check ✅
 ```bash
-sqlite3 video.db "SELECT id, slug, title, group_id FROM images WHERE group_id = 7;"
+sqlite3 media.db "SELECT id, slug, title, group_id FROM images WHERE group_id = 7;"
 ```
 Output:
 ```

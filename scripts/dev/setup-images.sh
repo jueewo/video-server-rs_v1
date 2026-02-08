@@ -89,17 +89,17 @@ fi
 
 # Reset database to include images table
 echo "🗄️  Database setup..."
-if [ -f "video.db" ]; then
+if [ -f "media.db" ]; then
     read -p "Database exists. Reset it to add images table? (y/N): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        rm video.db
+        rm media.db
         echo -e "${GREEN}✓ Removed old database${NC}"
         echo "  Database will be recreated on next server start"
     else
         echo -e "${YELLOW}⚠ Kept existing database${NC}"
         echo "  Note: Images table may not exist. Check with:"
-        echo "  sqlite3 video.db \"SELECT name FROM sqlite_master WHERE type='table';\""
+        echo "  sqlite3 media.db \"SELECT name FROM sqlite_master WHERE type='table';\""
     fi
 else
     echo -e "${GREEN}✓ No existing database (will be created on server start)${NC}"
@@ -146,7 +146,7 @@ echo "4. Upload images:        http://localhost:3000/upload"
 echo ""
 echo "Testing:"
 echo "  Run tests:             ./test-images.sh"
-echo "  View database:         sqlite3 video.db 'SELECT * FROM images;'"
+echo "  View database:         sqlite3 media.db 'SELECT * FROM images;'"
 echo ""
 echo "Documentation:"
 echo "  Read guide:            cat IMAGE_SERVING_GUIDE.md"

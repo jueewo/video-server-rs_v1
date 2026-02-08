@@ -415,7 +415,7 @@ All changes are included in a single API call:
 - ✅ Clear browser cache
 - ✅ Check database directly:
    ```bash
-   sqlite3 video.db "SELECT title, description FROM videos WHERE slug='your-video';"
+   sqlite3 media.db "SELECT title, description FROM videos WHERE slug='your-video';"
    ```
 - ✅ Verify save was successful (check for success message)
 

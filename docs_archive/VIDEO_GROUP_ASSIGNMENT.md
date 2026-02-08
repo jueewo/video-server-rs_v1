@@ -95,7 +95,7 @@ SELECT id, name FROM access_groups WHERE id=7;
 **Option 2: Check the Database**
 ```bash
 cd video-server-rs_v1
-sqlite3 video.db "SELECT slug, title, group_id FROM videos WHERE slug='test-demo-video';"
+sqlite3 media.db "SELECT slug, title, group_id FROM videos WHERE slug='test-demo-video';"
 ```
 
 ## 🔐 Access Control

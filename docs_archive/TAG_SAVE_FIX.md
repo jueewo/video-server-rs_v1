@@ -116,8 +116,8 @@ if let Some(tags) = update_req.tags {
 
 3. **Verify in database:**
    ```bash
-   sqlite3 video.db "SELECT * FROM image_tags WHERE image_id = 1;"
-   sqlite3 video.db "SELECT t.name FROM tags t JOIN image_tags it ON t.id = it.tag_id WHERE it.image_id = 1;"
+   sqlite3 media.db "SELECT * FROM image_tags WHERE image_id = 1;"
+   sqlite3 media.db "SELECT t.name FROM tags t JOIN image_tags it ON t.id = it.tag_id WHERE it.image_id = 1;"
    ```
 
 ## 📊 Comparison with Video Tags
@@ -165,8 +165,8 @@ See `TAG_MANAGEMENT_GUIDE.md` for complete roadmap.
 
 4. **Check database:**
    ```bash
-   sqlite3 video.db "SELECT * FROM tags;"
-   sqlite3 video.db "SELECT * FROM image_tags;"
+   sqlite3 media.db "SELECT * FROM tags;"
+   sqlite3 media.db "SELECT * FROM image_tags;"
    ```
 
 ## ✨ Benefits of This Fix

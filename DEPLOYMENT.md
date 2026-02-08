@@ -209,7 +209,7 @@ Create `.env` file if needed:
 ```bash
 cat > .env << 'EOF'
 # Database
-DATABASE_URL=sqlite:video.db
+DATABASE_URL=sqlite:media.db
 
 # Server
 RUST_LOG=info
@@ -319,7 +319,7 @@ curl -I http://localhost:3000/static/css/tailwind.css
 ffmpeg -version
 
 # Check database
-sqlite3 video.db "SELECT COUNT(*) FROM videos;"
+sqlite3 media.db "SELECT COUNT(*) FROM videos;"
 ```
 
 ### Generate Admin Thumbnails (if needed)
@@ -443,7 +443,7 @@ chown -R your-username:your-group storage/
 pkill video-server-rs
 
 # Check database isn't corrupted
-sqlite3 video.db "PRAGMA integrity_check;"
+sqlite3 media.db "PRAGMA integrity_check;"
 
 # Restart server
 ```
@@ -517,7 +517,7 @@ For updating an existing deployment:
 sudo systemctl stop video-server
 
 # 2. Backup database
-cp video.db video.db.backup-$(date +%Y%m%d-%H%M%S)
+cp media.db media.db.backup-$(date +%Y%m%d-%H%M%S)
 
 # 3. Pull latest code
 git pull origin main
@@ -542,7 +542,7 @@ sudo journalctl -u video-server -f
 sudo systemctl stop video-server
 
 # 2. Backup database
-cp video.db video.db.backup-$(date +%Y%m%d-%H%M%S)
+cp media.db media.db.backup-$(date +%Y%m%d-%H%M%S)
 
 # 3. Pull latest code
 git pull origin main

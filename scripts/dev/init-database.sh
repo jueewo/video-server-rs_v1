@@ -9,7 +9,7 @@ echo "🗄️  Database Initialization"
 echo "============================"
 echo ""
 
-DB_FILE="video.db"
+DB_FILE="media.db"
 
 # Check if database exists
 if [ -f "$DB_FILE" ]; then

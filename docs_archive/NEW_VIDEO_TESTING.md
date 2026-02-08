@@ -39,10 +39,10 @@ Temporarily remove a video from the database:
 cd video-server-rs_v1
 
 # Check existing videos
-sqlite3 video.db "SELECT slug, title FROM videos;"
+sqlite3 media.db "SELECT slug, title FROM videos;"
 
 # Unregister one (e.g., lesson1)
-sqlite3 video.db "DELETE FROM videos WHERE slug='lesson1';"
+sqlite3 media.db "DELETE FROM videos WHERE slug='lesson1';"
 
 # Now refresh the /videos/new page
 # You should see "lesson1" in the dropdown
@@ -145,7 +145,7 @@ Check what's currently registered:
 
 ```bash
 cd video-server-rs_v1
-sqlite3 video.db "SELECT slug, title, is_public FROM videos;"
+sqlite3 media.db "SELECT slug, title, is_public FROM videos;"
 ```
 
 Count unregistered folders:

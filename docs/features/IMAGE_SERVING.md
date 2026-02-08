@@ -23,7 +23,7 @@ This guide covers the complete image serving functionality with public/private a
 Delete the old database to let it recreate with the new schema:
 
 ```bash
-rm video.db
+rm media.db
 ```
 
 ### 2. Create Image Storage Directories
@@ -199,10 +199,10 @@ curl http://localhost:3000/images/secret -b cookies.txt
 
 ### Issue: "Database error" when starting
 
-**Solution**: Delete `video.db` and restart to recreate with new schema.
+**Solution**: Delete `media.db` and restart to recreate with new schema.
 
 ```bash
-rm video.db
+rm media.db
 cargo run
 ```
 
@@ -249,7 +249,7 @@ let res = client
 ### Direct Database Access
 
 ```bash
-sqlite3 video.db
+sqlite3 media.db
 
 # List all images
 SELECT slug, title, is_public FROM images;
@@ -390,7 +390,7 @@ thumb.save(&thumb_path)?;
 ### Environment Variables
 
 ```bash
-export DATABASE_URL="sqlite:video.db"
+export DATABASE_URL="sqlite:media.db"
 export STORAGE_PATH="/var/www/storage"
 export MAX_FILE_SIZE="10485760"  # 10 MB
 ```

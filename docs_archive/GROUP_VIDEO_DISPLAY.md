@@ -73,13 +73,13 @@ Resources Tab:
 
 1. **Check database assignment:**
    ```bash
-   sqlite3 video.db "SELECT slug, title, group_id FROM videos WHERE slug='test-demo-video';"
+   sqlite3 media.db "SELECT slug, title, group_id FROM videos WHERE slug='test-demo-video';"
    # Should show: test-demo-video|test-demo-video|7
    ```
 
 2. **Check group exists:**
    ```bash
-   sqlite3 video.db "SELECT id, name, slug FROM access_groups WHERE id=7;"
+   sqlite3 media.db "SELECT id, name, slug FROM access_groups WHERE id=7;"
    # Should show: 7|group1|group1
    ```
 
@@ -112,7 +112,7 @@ Resources Tab:
 
 ### Option 3: Direct Database Update (Advanced)
 ```bash
-sqlite3 video.db "UPDATE videos SET group_id = 7 WHERE slug = 'your-video';"
+sqlite3 media.db "UPDATE videos SET group_id = 7 WHERE slug = 'your-video';"
 ```
 
 ## 📊 Resource Types Shown
@@ -147,13 +147,13 @@ Both are shown together in a unified grid.
 
 **Check 1: Is video assigned to group?**
 ```bash
-sqlite3 video.db "SELECT slug, group_id FROM videos WHERE slug='your-video';"
+sqlite3 media.db "SELECT slug, group_id FROM videos WHERE slug='your-video';"
 ```
 - If `group_id` is NULL or different number, video isn't in this group
 
 **Check 2: Are you a member of the group?**
 ```bash
-sqlite3 video.db "SELECT * FROM group_members WHERE group_id=7 AND user_id='your-user-id';"
+sqlite3 media.db "SELECT * FROM group_members WHERE group_id=7 AND user_id='your-user-id';"
 ```
 - You must be a member to view the group page
 

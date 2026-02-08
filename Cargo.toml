@@ -2,6 +2,7 @@
 members = [
     "crates/common",
     "crates/ui-components",
+    "crates/media-core",
     "crates/access-groups",
     "crates/video-manager",
     "crates/image-manager",

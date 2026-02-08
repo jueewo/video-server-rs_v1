@@ -1,0 +1,33 @@
+[package]
+name = "media-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Media Server Team"]
+description = "Core abstractions and shared logic for all media types"
+
+[dependencies]
+# Async traits
+async-trait = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# File handling
+bytes = "1.5"
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+
+# MIME type detection
+mime = "0.3"
+mime_guess = "2.0"
+
+# Logging
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+tempfile = "3.8"

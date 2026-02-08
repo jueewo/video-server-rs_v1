@@ -248,7 +248,7 @@
                     <div class="flex flex-wrap gap-2 mt-4" x-show="formData.tags.length > 0">
                         <template x-for="(tag, index) in formData.tags" :key="index">
                             <div class="badge badge-primary badge-lg gap-2">
-                                <span x-text="tag"></span>
+                                <span x-text="typeof tag === 'object' ? tag.name : tag"></span>
                                 <button type="button" @click="removeTag(index)" class="btn btn-ghost btn-xs btn-circle">✕</button>
                             </div>
                         </template>
@@ -698,7 +698,8 @@ function videoEdit() {
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    this.formData.tags = data.tags || [];
+                    // Extract tag names from tag objects
+                    this.formData.tags = (data.tags || []).map(tag => typeof tag === 'object' ? tag.name : tag);
                 }
             } catch (error) {
                 console.error('Failed to load tags:', error);

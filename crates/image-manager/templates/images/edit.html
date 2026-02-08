@@ -107,7 +107,9 @@ block content %}
                         :key="index"
                     >
                         <div class="badge badge-primary badge-lg gap-2">
-                            <span x-text="tag"></span>
+                            <span
+                                x-text="typeof tag === 'object' ? tag.name : tag"
+                            ></span>
                             <button
                                 type="button"
                                 @click="removeTag(index)"
@@ -209,7 +211,8 @@ block content %}
                     const response = await fetch('/api/images/{{ image.id }}/tags');
                     if (response.ok) {
                         const data = await response.json();
-                        this.formData.tags = data.tags || [];
+                        // Extract tag names from tag objects
+                        this.formData.tags = (data.tags || []).map(tag => typeof tag === 'object' ? tag.name : tag);
                         console.log('Tags loaded:', this.formData.tags);
                     }
                 } catch (error) {

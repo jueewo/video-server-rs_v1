@@ -3,6 +3,7 @@ pub mod cleanup;
 pub mod errors;
 pub mod ffmpeg;
 pub mod hls;
+pub mod media_item_impl;
 pub mod metrics;
 pub mod processing;
 pub mod progress;

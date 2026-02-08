@@ -365,12 +365,13 @@ volumes:
 
 ```
 storage/
-├── images/
-│   ├── public/          # Public images
-│   └── private/         # Private images
-└── videos/
-    ├── public/          # Public videos
-    └── private/         # Private videos
+├── images/              # All images (flat structure)
+│   ├── {uuid}.webp      # Original images
+│   └── {uuid}_thumb.webp # Thumbnails
+├── videos/              # All videos (flat structure)
+│   └── {slug}/          # Video folders
+│       └── hls/         # HLS segments and playlists
+└── temp/                # Temporary upload files
 
 livestreams/
 └── live/                # Recorded live streams

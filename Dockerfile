@@ -66,10 +66,9 @@ COPY --from=builder /app/static /app/static
 COPY templates/ /app/templates/
 
 # Create storage directories
-RUN mkdir -p /app/storage/images/public \
-             /app/storage/images/private \
-             /app/storage/videos/public \
-             /app/storage/videos/private && \
+RUN mkdir -p /app/storage/images \
+             /app/storage/videos \
+             /app/storage/temp && \
     chown -R mediaserver:mediaserver /app
 
 # Switch to non-root user

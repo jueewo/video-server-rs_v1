@@ -324,8 +324,9 @@ fi
 # Check storage directories exist
 if [ ! -d "storage" ]; then
     print_warning "Storage directory missing - creating..."
-    mkdir -p storage/images/public storage/images/private
-    mkdir -p storage/videos/public storage/videos/private
+    mkdir -p storage/images
+    mkdir -p storage/videos
+    mkdir -p storage/temp
     print_success "Storage directories created"
 fi
 

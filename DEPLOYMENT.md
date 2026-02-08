@@ -169,16 +169,13 @@ The binary will be at:
 
 ```bash
 # Create storage structure
-mkdir -p storage/images/public
-mkdir -p storage/images/private
-mkdir -p storage/videos/public
-mkdir -p storage/videos/private
+mkdir -p storage/images
+mkdir -p storage/videos
+mkdir -p storage/temp
 
 # Set permissions (if needed)
 chmod 755 storage
-chmod 755 storage/images storage/videos
-chmod 755 storage/images/public storage/images/private
-chmod 755 storage/videos/public storage/videos/private
+chmod 755 storage/images storage/videos storage/temp
 ```
 
 ### 5. Configure Environment

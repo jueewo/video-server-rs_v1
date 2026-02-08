@@ -11,6 +11,7 @@ This document records key architectural decisions made during the development of
 - [ADR-001: Modular Crate Structure](#adr-001-modular-crate-structure)
 - [ADR-002: CLI Architecture (API-First Approach)](#adr-002-cli-architecture-api-first-approach)
 - [ADR-003: Template Organization](#adr-003-template-organization)
+- [ADR-004: Media-Core Architecture (Trait-Based Media System)](#adr-004-media-core-architecture-trait-based-media-system)
 
 ---
 
@@ -364,15 +365,296 @@ dirs = ["templates"]
 
 ---
 
+## ADR-004: Media-Core Architecture (Trait-Based Media System)
+
+**Status:** 📋 PLANNED (Phase 4)
+
+**Date:** February 2026
+
+**Related Documents:** `MEDIA_CORE_ARCHITECTURE.md`, `TODO_MEDIA_CORE.md`, `MASTER_PLAN.md` (Phase 4)
+
+### Context
+
+As we expand beyond videos and images to support documents (PDF, CSV, BPMN, etc.), we face code duplication across media managers:
+
+**Current Problems:**
+- 🔴 Duplicate upload logic in video-manager and image-manager
+- 🔴 Duplicate storage logic (saving files, creating directories)
+- 🔴 Duplicate validation logic (file size, MIME types)
+- 🔴 Duplicate UI components (upload forms, edit forms, cards)
+- 🔴 Hard to add new media types - need to copy-paste everything
+
+**What's Shared vs What's Different:**
+
+| Operation | Shared | Type-Specific |
+|-----------|--------|---------------|
+| Upload | ✅ Multipart handling | File validation rules |
+| Storage | ✅ Save/delete files | Directory structure |
+| Validation | ✅ Size/MIME checks | Format-specific checks |
+| Metadata | ✅ Common fields | Extraction methods |
+| Thumbnail | ❌ | FFmpeg, ImageMagick, PDF renderers |
+| Processing | ❌ | Transcode, resize, parse |
+| Display | ❌ | Video.js, image gallery, PDF viewer |
+
+**Architectural Approaches Considered:**
+
+**Option 1: Keep Separate Managers (Status Quo)**
+```
+video-manager/   # All video logic
+image-manager/   # All image logic (duplicates upload/storage)
+document-manager/  # Would duplicate even more
+```
+
+**Option 2: Monolithic Media Manager**
+```
+media-manager/   # Everything in one crate
+├── video/
+├── image/
+└── document/
+```
+
+**Option 3: Trait-Based Architecture with Media-Core**
+```
+media-core/          # Shared abstractions (traits + common logic)
+video-manager/       # Implements MediaItem trait
+image-manager/       # Implements MediaItem trait
+document-manager/    # Implements MediaItem trait
+```
+
+### Decision
+
+**Choose Option 3**: Create `media-core` crate with trait-based architecture.
+
+### Architecture
+
+#### Core Trait
+
+```rust
+#[async_trait]
+pub trait MediaItem {
+    // Identity
+    fn id(&self) -> i32;
+    fn slug(&self) -> &str;
+    fn media_type(&self) -> MediaType;
+    
+    // Content
+    fn title(&self) -> &str;
+    fn description(&self) -> Option<&str>;
+    fn mime_type(&self) -> &str;
+    
+    // Access Control
+    fn is_public(&self) -> bool;
+    fn can_view(&self, user_id: Option<&str>) -> bool;
+    fn can_edit(&self, user_id: Option<&str>) -> bool;
+    
+    // Storage
+    fn storage_path(&self) -> String;
+    fn public_url(&self) -> String;
+    
+    // Type-specific processing
+    async fn validate(&self) -> Result<(), MediaError>;
+    async fn process(&self) -> Result<(), MediaError>;
+    async fn generate_thumbnail(&self) -> Result<String, MediaError>;
+    
+    // Rendering
+    fn render_card(&self) -> String;
+    fn render_player(&self) -> String;
+}
+```
+
+#### Crate Organization
+
+```
+crates/
+├── media-core/              # NEW: Shared abstractions
+│   ├── traits.rs            # MediaItem trait
+│   ├── upload.rs            # Generic upload handler
+│   ├── storage.rs           # Storage abstraction
+│   ├── validation.rs        # File validation
+│   └── metadata.rs          # Common metadata
+│
+├── common/                  # KEEP: Database models/services
+│   ├── models/              # Video, Image, Document structs
+│   └── services/            # Database CRUD operations
+│
+├── video-manager/           # REFACTOR: Implements MediaItem
+│   ├── media_item_impl.rs   # MediaItem for Video
+│   └── processor.rs         # FFmpeg (type-specific)
+│
+├── image-manager/           # REFACTOR: Implements MediaItem
+│   ├── media_item_impl.rs   # MediaItem for Image
+│   └── processor.rs         # ImageMagick (type-specific)
+│
+└── document-manager/        # NEW: Implements MediaItem
+    ├── media_item_impl.rs   # MediaItem for Document
+    └── processors/
+        ├── pdf.rs           # PDF processing
+        ├── csv.rs           # CSV processing
+        └── bpmn.rs          # BPMN processing
+```
+
+### Rationale
+
+#### Why Trait-Based Architecture?
+
+1. **Code Reuse Without Over-Engineering** ✅
+   - Extract only truly common code (upload, storage, validation)
+   - Keep type-specific code in manager crates (FFmpeg, ImageMagick)
+   - Clear boundary: trait defines "what", managers define "how"
+
+2. **Type Safety** ✅
+   - Compile-time guarantees that all media types support required operations
+   - Rust's trait system prevents missing implementations
+   - Zero-cost abstractions (monomorphization)
+
+3. **Easy Extension** ✅
+   - Add new media type = implement trait + add processor
+   - Estimated: 1-2 days (vs 3-5 days copying code)
+   - Example: Adding BPMN support is just implementing MediaItem
+
+4. **Consistent API** ✅
+   - All media types follow same patterns
+   - Same upload endpoint structure
+   - Same access control logic
+   - Same error handling
+
+5. **Testability** ✅
+   - Mock media items for testing
+   - Test generic operations once
+   - Type-specific tests remain in managers
+
+#### Why NOT Monolithic?
+
+Combining everything into one `media-manager` crate would:
+- ❌ Create a massive, hard-to-navigate crate
+- ❌ Tight coupling between unrelated media types
+- ❌ Harder to work on video without affecting images
+- ❌ Longer compile times (can't parallelize builds)
+
+#### Why NOT Status Quo?
+
+Keeping separate managers without shared abstractions:
+- ❌ 40-60% code duplication
+- ❌ Slower development (copy-paste-modify)
+- ❌ Inconsistent implementations
+- ❌ Bugs need fixing in multiple places
+
+### Implementation Strategy
+
+**Incremental Migration (No Big Bang):**
+
+1. **Phase 1:** Create media-core crate (2 weeks)
+   - Define traits, write tests
+   - Existing managers continue working
+
+2. **Phase 2:** Migrate video-manager (1 week)
+   - Implement MediaItem for Video
+   - Test everything still works
+   - Remove duplicate code
+
+3. **Phase 3:** Migrate image-manager (1 week)
+   - Implement MediaItem for Image
+   - Test everything still works
+   - Remove duplicate code
+
+4. **Phase 4:** Add document-manager (2 weeks)
+   - New crate using media-core from day one
+   - Add PDF, CSV, BPMN support
+   - Demonstrates extensibility
+
+5. **Phase 5:** Unified UI (1 week)
+   - Single upload form for all types
+   - Unified media browser
+
+**Rollback Strategy:**
+- Each phase in separate git branch
+- Can rollback any phase independently
+- Keep old code until new code is tested
+- Feature flags for gradual rollout
+
+### What Goes Where?
+
+| Component | Location | Reason |
+|-----------|----------|--------|
+| **MediaItem trait** | `media-core` | Common interface |
+| **Upload handler** | `media-core` | Same for all types |
+| **Storage (save/delete)** | `media-core` | Same for all types |
+| **Validation (size/MIME)** | `media-core` | Common rules |
+| **FFmpeg processing** | `video-manager` | Video-specific |
+| **ImageMagick processing** | `image-manager` | Image-specific |
+| **PDF parsing** | `document-manager` | Document-specific |
+| **Video player UI** | `video-manager/templates` | Type-specific |
+| **PDF viewer UI** | `document-manager/templates` | Type-specific |
+| **Database models** | `common/models` | Shared across app |
+| **Database services** | `common/services` | Shared across app |
+
+### Consequences
+
+**Positive:**
+- ✅ 40-60% reduction in duplicate code
+- ✅ New media types added 50% faster
+- ✅ Consistent API across all media
+- ✅ Type-safe at compile time
+- ✅ Better testability (mock trait)
+- ✅ Clear separation of concerns
+
+**Negative:**
+- ⚠️ Initial migration effort (5 weeks)
+- ⚠️ More abstract (1 week learning curve)
+- ⚠️ Need to understand traits
+- ⚠️ Slight trait method overhead (< 1%)
+
+**Mitigation:**
+- Excellent documentation with examples
+- Incremental migration (safe rollback)
+- Comprehensive test coverage
+- Code reviews for architecture changes
+
+### Success Metrics
+
+**Code Quality:**
+- Code duplication reduced by 40%+
+- Test coverage > 80%
+- All clippy warnings resolved
+
+**Developer Experience:**
+- New media type in 1-2 days (vs 3-5 days)
+- Clear trait implementation examples
+- Good error messages
+
+**Performance:**
+- Upload performance unchanged
+- Trait overhead < 1%
+- Build times reasonable
+
+**User Experience:**
+- No regression in functionality
+- Unified upload experience
+- Consistent UI
+
+### References
+
+- **Full Architecture:** `MEDIA_CORE_ARCHITECTURE.md`
+- **Implementation Plan:** `TODO_MEDIA_CORE.md`
+- **Master Plan:** `MASTER_PLAN.md` (Phase 4)
+- **Code Examples:** See MEDIA_CORE_ARCHITECTURE.md sections 9-10
+
+### Related ADRs
+
+- **ADR-001:** Modular Crate Structure - We build on this foundation
+- **ADR-003:** Template Organization - Templates stay in manager crates
+
+---
+
 ## Future ADRs
 
 Topics to document when decided:
 
-- **ADR-004:** Authentication System (OIDC vs Session-based)
-- **ADR-005:** Database Migration Strategy
-- **ADR-006:** File Storage Strategy (local vs S3)
-- **ADR-007:** Video Transcoding Pipeline
-- **ADR-008:** API Versioning Strategy
+- **ADR-005:** Authentication System (OIDC vs Session-based)
+- **ADR-006:** Database Migration Strategy
+- **ADR-007:** File Storage Strategy (local vs S3)
+- **ADR-008:** Video Transcoding Pipeline
+- **ADR-009:** API Versioning Strategy
 
 ---
 

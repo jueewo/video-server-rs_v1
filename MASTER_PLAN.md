@@ -1040,55 +1040,140 @@ CREATE TABLE image_tags (
 
 ---
 
-### Phase 4: File Manager 📋 PLANNED
+### Phase 4: Media-Core Architecture & Document Manager 📋 PLANNED
 
-**Duration:** 4 weeks  
-**Status:** 📋 Not Started
+**Duration:** 7 weeks  
+**Status:** 📋 Not Started  
+**Branch:** `feature/media-core-architecture`  
+**Related:** [`MEDIA_CORE_ARCHITECTURE.md`](MEDIA_CORE_ARCHITECTURE.md), [`TODO_MEDIA_CORE.md`](TODO_MEDIA_CORE.md)
+
+#### Overview
+
+Phase 4 introduces a **unified, trait-based architecture** for managing all media types. Instead of duplicating upload, storage, and validation logic across managers, we extract common functionality into a new `media-core` crate that all media types can use.
+
+**Key Innovation:** The `MediaItem` trait provides a common interface while allowing type-specific processing (FFmpeg for videos, ImageMagick for images, PDF.js for documents).
 
 #### Objectives
 
-1. Support general file uploads (BPMN, CSV, MD, PDF, etc.)
-2. Create file-specific viewers and editors
-3. Implement version control
-4. Add collaborative editing features
-5. Integrate with existing access control
+1. **Create media-core crate** - Unified trait-based architecture for all media
+2. **Refactor existing managers** - Video and image managers implement MediaItem trait
+3. **Add document support** - PDF, CSV, BPMN, Markdown, and more
+4. **Reduce code duplication** - 40-60% reduction in duplicate code
+5. **Unified UI** - Single upload form and media browser for all types
+6. **Easy extensibility** - Add new media types in 1-2 days
 
-#### Planned Features
+#### Architecture: Trait-Based Media System
 
-**File Types:**
-- **Documents**: PDF, DOCX, XLSX, PPTX
-- **Diagrams**: BPMN, SVG, Mermaid
-- **Data**: CSV, JSON, XML
-- **Code**: RS, JS, PY, etc.
-- **Markdown**: MD, MDX
-- **Archives**: ZIP, TAR, GZ
+**Core Concept:** All media types implement the `MediaItem` trait:
 
-**File Manager Crate:**
 ```rust
-crates/file-manager/
-├── src/
-│   ├── lib.rs              # Main module
-│   ├── crud.rs             # File CRUD operations
-│   ├── mime.rs             # MIME type detection
-│   ├── preview.rs          # Preview generation
-│   ├── version.rs          # Version control
-│   ├── viewers/            # File-specific viewers
-│   │   ├── pdf.rs          # PDF viewer
-│   │   ├── markdown.rs     # Markdown renderer
-│   │   ├── bpmn.rs         # BPMN diagram viewer
-│   │   ├── csv.rs          # CSV table viewer
-│   │   └── code.rs         # Code syntax highlighter
-│   └── templates/          # Askama templates
-│       ├── file_list.html
-│       ├── file_upload.html
-│       ├── file_viewer.html
-│       └── file_edit.html
-└── Cargo.toml
+// Common interface for videos, images, documents
+#[async_trait]
+pub trait MediaItem {
+    fn id(&self) -> i32;
+    fn slug(&self) -> &str;
+    fn media_type(&self) -> MediaType;
+    fn title(&self) -> &str;
+    
+    // Access control
+    fn is_public(&self) -> bool;
+    fn can_view(&self, user_id: Option<&str>) -> bool;
+    
+    // Storage
+    fn storage_path(&self) -> String;
+    fn public_url(&self) -> String;
+    
+    // Type-specific processing
+    async fn validate(&self) -> Result<(), MediaError>;
+    async fn process(&self) -> Result<(), MediaError>;
+    async fn generate_thumbnail(&self) -> Result<String, MediaError>;
+    
+    // Rendering
+    fn render_card(&self) -> String;
+    fn render_player(&self) -> String;
+}
 ```
 
-**Database Schema:**
+**New Crate Structure:**
+
+```
+crates/
+├── media-core/              # NEW: Shared abstractions
+│   ├── traits.rs            # MediaItem trait
+│   ├── upload.rs            # Generic upload handler
+│   ├── storage.rs           # Storage abstraction
+│   ├── validation.rs        # File validation
+│   └── metadata.rs          # Common metadata
+│
+├── video-manager/           # REFACTOR: Implements MediaItem
+│   ├── media_item_impl.rs   # MediaItem for Video
+│   └── processor.rs         # FFmpeg (video-specific)
+│
+├── image-manager/           # REFACTOR: Implements MediaItem
+│   ├── media_item_impl.rs   # MediaItem for Image
+│   └── processor.rs         # ImageMagick (image-specific)
+│
+└── document-manager/        # NEW: Implements MediaItem
+    ├── media_item_impl.rs   # MediaItem for Document
+    └── processors/
+        ├── pdf.rs           # PDF processing
+        ├── csv.rs           # CSV processing
+        └── bpmn.rs          # BPMN processing
+```
+
+#### Implementation Phases
+
+**Phase 4.1: Extract Media-Core** (2 weeks)
+- Create `media-core` crate with trait definitions
+- Implement generic upload, storage, validation
+- Define `MediaItem` trait and `MediaType` enum
+- Add comprehensive tests and documentation
+
+**Phase 4.2: Migrate Video Manager** (1 week)
+- Implement `MediaItem` trait for `Video`
+- Replace duplicate code with `media-core` functions
+- Keep FFmpeg processing in video-manager
+- Test all video operations still work
+
+**Phase 4.3: Migrate Image Manager** (1 week)
+- Implement `MediaItem` trait for `Image`
+- Replace duplicate code with `media-core` functions
+- Keep image processing in image-manager
+- Test all image operations still work
+
+**Phase 4.4: Create Document Manager** (2 weeks)
+- Create new `document-manager` crate
+- Implement `MediaItem` trait for documents
+- Add processors for PDF, CSV, BPMN
+- Create document viewers (PDF.js, BPMN.js)
+- Add database migrations for documents table
+
+**Phase 4.5: Unified Media UI** (1 week)
+- Create generic upload form (all types)
+- Create unified media list view
+- Add type filters and search
+- Test responsive design
+
+#### Supported Document Types
+
+**Documents:**
+- **PDF** - Inline viewer with PDF.js
+- **CSV** - Table display with sorting/filtering
+- **BPMN** - Diagram rendering with BPMN.js
+- **Markdown** - Rendered with syntax highlighting
+- **JSON/XML** - Syntax highlighted viewer
+- **Plain Text** - Simple text viewer
+
+**Future Types:**
+- DOCX, XLSX, PPTX (Office documents)
+- SVG, Mermaid, PlantUML (other diagrams)
+- Code files with syntax highlighting
+- Archives (ZIP, TAR, GZ)
+
+#### Database Schema (Documents)
+
 ```sql
-CREATE TABLE files (
+CREATE TABLE documents (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     slug TEXT NOT NULL UNIQUE,
     filename TEXT NOT NULL,
@@ -1098,116 +1183,68 @@ CREATE TABLE files (
     file_size INTEGER NOT NULL,
     file_path TEXT NOT NULL,
     thumbnail_path TEXT,
-    visibility TEXT NOT NULL DEFAULT 'private',
-    user_id TEXT NOT NULL,
+    is_public INTEGER NOT NULL DEFAULT 0,
+    user_id TEXT,
     group_id INTEGER,
-    version INTEGER NOT NULL DEFAULT 1,
-    parent_file_id INTEGER,
-    metadata TEXT,
+    metadata TEXT,  -- JSON for type-specific metadata
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (group_id) REFERENCES access_groups(id) ON DELETE SET NULL,
-    FOREIGN KEY (parent_file_id) REFERENCES files(id) ON DELETE SET NULL
+    FOREIGN KEY (group_id) REFERENCES access_groups(id) ON DELETE SET NULL
 );
 
-CREATE TABLE file_versions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    file_id INTEGER NOT NULL,
-    version INTEGER NOT NULL,
-    file_path TEXT NOT NULL,
-    file_size INTEGER NOT NULL,
-    changed_by TEXT NOT NULL,
-    change_description TEXT,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
-    FOREIGN KEY (changed_by) REFERENCES users(id),
-    UNIQUE(file_id, version)
-);
-
-CREATE TABLE file_tags (
-    file_id INTEGER NOT NULL,
+CREATE TABLE document_tags (
+    document_id INTEGER NOT NULL,
     tag_id INTEGER NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (file_id, tag_id),
-    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+    PRIMARY KEY (document_id, tag_id),
+    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 );
 ```
 
-**API Endpoints:**
+#### API Endpoints
+
+**Generic Media API:**
 ```
-POST   /api/files                    # Upload file
-GET    /api/files                    # List files
-GET    /api/files/:slug              # Get file details
-PUT    /api/files/:slug              # Update file metadata
-DELETE /api/files/:slug              # Delete file
-GET    /api/files/:slug/download     # Download file
-GET    /api/files/:slug/preview      # Preview file
-GET    /api/files/:slug/versions     # List versions
-POST   /api/files/:slug/versions     # Create new version
-GET    /api/files/:slug/versions/:v  # Get specific version
-POST   /api/files/:slug/tags         # Add tags
-DELETE /api/files/:slug/tags/:tag    # Remove tag
-GET    /api/files/by-tag/:tag        # List files by tag
+POST   /api/media/upload            # Handles all types
+GET    /api/media                   # List all media (mixed)
+GET    /api/media/:type             # List by type
+GET    /api/media/:type/:slug       # Get specific item
+PUT    /api/media/:type/:slug       # Update metadata
+DELETE /api/media/:type/:slug       # Delete item
 ```
 
-**File-Specific Features:**
+**Document-Specific API:**
+```
+POST   /api/documents               # Upload document
+GET    /api/documents               # List documents
+GET    /api/documents/:slug         # Get document
+GET    /api/documents/:slug/view    # Inline viewer
+GET    /api/documents/:slug/download # Download
+PUT    /api/documents/:slug         # Update
+DELETE /api/documents/:slug         # Delete
+```
 
-**BPMN Diagrams:**
-- Inline diagram rendering with bpmn.io
-- Export to PNG/SVG/PDF
-- Collaborative editing
-- Version comparison
+#### Benefits
 
-**CSV Files:**
-- Table preview with sorting/filtering
-- Export to Excel
-- Data validation
-- Charts and graphs
+**Code Reuse:**
+- 40-60% reduction in duplicate code
+- Single upload handler for all types
+- Shared storage and validation logic
+- Consistent access control
 
-**Markdown Files:**
-- Live preview with syntax highlighting
-- Collaborative editing
-- Export to HTML/PDF
-- Table of contents generation
+**Developer Experience:**
+- Add new media type in 1-2 days (vs 3-5 days)
+- Clear trait interface to implement
+- Comprehensive documentation
+- Type-safe at compile time
 
-**PDF Files:**
-- Inline viewer with zoom/pan
-- Text extraction for search
-- Annotation support
-- Page thumbnails
-
-**Version Control:**
-- Automatic versioning on updates
-- Diff visualization
-- Rollback to previous versions
-- Version comments and descriptions
-
-#### UI Components
-
-**File List:**
-- Grid and list views
-- File type icons
-- File size and date
-- Quick actions (download, share, delete)
-- Drag & drop upload
-- Bulk operations
-
-**File Viewer:**
-- File-specific rendering
-- Zoom and pan controls
-- Download button
-- Share button with access codes
-- Version history
-- Tag management
-
-**File Editor:**
-- In-browser editing for text files
-- Syntax highlighting for code
-- Markdown preview
-- Auto-save drafts
-- Collaborative editing (future)
+**User Experience:**
+- Single upload form for all media
+- Consistent UI across all types
+- Unified search and tagging
+- Same access control everywhere
 
 ---
 

@@ -90,6 +90,35 @@ endblock %} {% block content %}
                     </div>
                 </a>
 
+                <!-- Documents -->
+                <a
+                    href="/documents"
+                    class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+                >
+                    <div class="card-body items-center text-center">
+                        <div class="text-4xl mb-2">📄</div>
+                        <h2 class="card-title">Documents</h2>
+                        <p class="text-base-content/70">
+                            Browse PDFs, CSVs, and more
+                        </p>
+                    </div>
+                </a>
+
+                <!-- Media Hub (Unified) -->
+                <a
+                    href="/media"
+                    class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border-2 border-secondary"
+                >
+                    <div class="card-body items-center text-center">
+                        <div class="text-4xl mb-2">🎨</div>
+                        <h2 class="card-title text-secondary">All Media</h2>
+                        <p class="text-base-content/70">
+                            Unified view of everything
+                        </p>
+                        <div class="badge badge-secondary badge-sm">New!</div>
+                    </div>
+                </a>
+
                 <!-- Groups (only if authenticated) -->
                 {% if authenticated %}
                 <a

@@ -3,6 +3,7 @@
 This directory contains utility scripts organized by audience:
 
 - **`user/`** - Scripts for end users to prepare and manage media
+- **`run/`** - Scripts for running/deploying the server (build, Docker)
 - **`admin/`** - Scripts for server administrators (maintenance, utilities)
 - **`dev/`** - Scripts for developers (setup, testing, debugging)
 
@@ -67,28 +68,28 @@ storage/videos/public/my-awesome-video/
 
 ---
 
-## 🔧 Admin Scripts
+## 🚀 Run Scripts
 
-### 🏗️ `admin/build.sh`
+### 🏗️ `run/build.sh`
 
 **Purpose:** Complete build script for server deployment - builds CSS and Rust in one command.
 
 **Usage:**
 ```bash
 # Full production build (recommended for deployment)
-./scripts/admin/build.sh
+./scripts/run/build.sh
 
 # Development build (faster)
-./scripts/admin/build.sh --dev
+./scripts/run/build.sh --dev
 
 # Only rebuild CSS (after template changes)
-./scripts/admin/build.sh --css-only
+./scripts/run/build.sh --css-only
 
 # Only rebuild Rust (after code changes)
-./scripts/admin/build.sh --rust-only
+./scripts/run/build.sh --rust-only
 
 # Clean build (remove all artifacts first)
-./scripts/admin/build.sh --clean --release
+./scripts/run/build.sh --clean --release
 ```
 
 **What it does:**
@@ -128,6 +129,39 @@ storage/videos/public/my-awesome-video/
 - `target/debug/video-server-rs` (development)
 
 ---
+
+### 🐳 Docker Deployment
+
+**Purpose:** Run the entire stack with Docker and Docker Compose.
+
+**Quick Start:**
+```bash
+# Start everything (media-server + MediaMTX)
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop everything
+docker-compose down
+```
+
+**Services:**
+- `media-server` - Rust application (port 3000)
+- `mediamtx` - Streaming server (ports 1935, 8888, 8889, 9997, 9998)
+
+**Benefits:**
+- Separate services for better architecture
+- Easy scaling and maintenance
+- Built-in health checks
+- Isolated networking
+- Volume persistence
+
+**See:** `DOCKER.md` for complete Docker documentation
+
+---
+
+## 🔧 Admin Scripts
 
 ### 🖼️ `admin/generate_thumbnails.rs`
 
@@ -370,8 +404,9 @@ scripts/
 ├── README.md          # This file
 ├── user/              # User-facing scripts
 │   └── prepare-video.sh
+├── run/               # Running/deployment scripts
+│   └── build.sh       # Deployment build script ⭐
 ├── admin/             # Admin/maintenance scripts
-│   ├── build.sh       # Deployment build script ⭐
 │   └── generate_thumbnails.rs
 └── dev/               # Developer scripts
     ├── init-database.sh
@@ -382,11 +417,15 @@ scripts/
 
 **Last Updated:** January 2026  
 **User Scripts:** 1  
-**Admin Scripts:** 2  
+**Run Scripts:** 1  
+**Admin Scripts:** 1  
 **Dev Scripts:** 12
 
 **Quick Deploy:**
 ```bash
-# On server after git pull
-./scripts/admin/build.sh --release
+# Native deployment
+./scripts/run/build.sh --release
+
+# Docker deployment
+docker-compose up -d
 ```

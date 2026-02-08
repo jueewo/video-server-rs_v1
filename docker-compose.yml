@@ -1,0 +1,159 @@
+version: "3.8"
+
+services:
+  # MediaMTX - Streaming server
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: mediamtx
+    restart: unless-stopped
+    ports:
+      - "1935:1935" # RTMP ingest
+      - "8888:8888" # HLS output
+      - "8889:8889" # WebRTC
+      - "8554:8554" # RTSP
+      - "9997:9997" # API
+      - "9998:9998" # Metrics
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+      - ./livestreams:/recordings
+    environment:
+      - MTX_PROTOCOLS=tcp
+      - MTX_LOGLEVEL=info
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:9997/v3/config/get",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - media-network
+
+  # Media Server - Rust application
+  media-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: media-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000" # HTTP server
+    volumes:
+      # Persist storage
+      - ./storage:/app/storage
+      # Persist database
+      - ./media.db:/app/media.db
+      # Optional: Live reload templates (development)
+      # - ./templates:/app/templates:ro
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=sqlite:media.db
+
+      # MediaMTX connection (internal network)
+      - MEDIAMTX_HOST=mediamtx
+      - MEDIAMTX_API_PORT=9997
+      - MEDIAMTX_HLS_PORT=8888
+
+      # Optional: OIDC configuration
+      # - OIDC_ISSUER_URL=https://your-oidc-provider.com
+      # - OIDC_CLIENT_ID=your-client-id
+      # - OIDC_CLIENT_SECRET=your-client-secret
+      # - OIDC_REDIRECT_URL=https://yourdomain.com/auth/callback
+
+      # Optional: Emergency login (disable in production!)
+      # - ENABLE_EMERGENCY_LOGIN=false
+      # - SU_USER=admin
+      # - SU_PWD=changeme
+    depends_on:
+      mediamtx:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3000/health",
+        ]
+      interval: 30s
+      timeout: 3s
+      start-period: 10s
+      retries: 3
+    networks:
+      - media-network
+
+  # Optional: Reverse proxy with automatic HTTPS (Caddy)
+  # Uncomment to enable
+  # caddy:
+  #   image: caddy:2-alpine
+  #   container_name: caddy
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #     - "443:443/udp"  # HTTP/3
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile:ro
+  #     - caddy_data:/data
+  #     - caddy_config:/config
+  #   environment:
+  #     - DOMAIN=yourdomain.com
+  #     - EMAIL=you@example.com
+  #   depends_on:
+  #     - media-server
+  #   networks:
+  #     - media-network
+
+  # Optional: Prometheus for metrics collection
+  # Uncomment to enable
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: prometheus
+  #   restart: unless-stopped
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #     - prometheus_data:/prometheus
+  #   command:
+  #     - '--config.file=/etc/prometheus/prometheus.yml'
+  #     - '--storage.tsdb.path=/prometheus'
+  #   networks:
+  #     - media-network
+
+  # Optional: Grafana for metrics visualization
+  # Uncomment to enable
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: grafana
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3001:3000"
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+  #   environment:
+  #     - GF_SECURITY_ADMIN_USER=admin
+  #     - GF_SECURITY_ADMIN_PASSWORD=changeme
+  #   depends_on:
+  #     - prometheus
+  #   networks:
+  #     - media-network
+
+networks:
+  media-network:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
+  prometheus_data:
+  grafana_data:

@@ -2,14 +2,15 @@
 -- This sets the poster_url and thumbnail_url fields to standard paths
 -- Run with: sqlite3 video.db < scripts/update_video_posters.sql
 
--- Update poster URLs for videos (assumes posters are in /storage/videos/{slug}/poster.jpg)
+-- Update poster URLs for videos (assumes posters are in /storage/videos/{slug}/poster.webp)
 UPDATE videos
-SET poster_url = '/storage/videos/' || slug || '/poster.jpg'
+SET poster_url = '/storage/videos/' || slug || '/poster.webp'
 WHERE poster_url IS NULL OR poster_url = '';
 
--- Update thumbnail URLs for videos (assumes thumbnails are in /storage/videos/{slug}/thumbnail.jpg)
+-- Update thumbnail URLs for videos (assumes thumbnails are in /storage/videos/{slug}/thumbnail.webp)
+-- Note: Some videos may have thumbnail.jpg instead - update those manually if needed
 UPDATE videos
-SET thumbnail_url = '/storage/videos/' || slug || '/thumbnail.jpg'
+SET thumbnail_url = '/storage/videos/' || slug || '/thumbnail.webp'
 WHERE thumbnail_url IS NULL OR thumbnail_url = '';
 
 -- Show updated videos

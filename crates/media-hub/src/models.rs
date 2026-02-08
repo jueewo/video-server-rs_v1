@@ -113,10 +113,11 @@ impl UnifiedMediaItem {
         match self {
             Self::Video(v) => {
                 // Use poster (banner) first for better grid appearance, then thumbnail, then fallback
+                // Try multiple formats: .webp (most common), .jpg, .png
                 v.poster_url
                     .clone()
                     .or_else(|| v.thumbnail_url.clone())
-                    .or_else(|| Some(format!("/storage/videos/{}/thumbnail.jpg", v.slug)))
+                    .or_else(|| Some(format!("/storage/videos/{}/poster.webp", v.slug)))
             }
             Self::Image(i) => {
                 // For images, use the image itself as thumbnail, or the thumbnail field

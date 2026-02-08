@@ -6,6 +6,7 @@ members = [
     "crates/access-groups",
     "crates/video-manager",
     "crates/image-manager",
+    "crates/document-manager",
     "crates/user-auth",
     "crates/access-codes",
     "crates/access-control",
@@ -31,6 +32,7 @@ ui-components = { path = "crates/ui-components" }
 access-groups = { path = "crates/access-groups" }
 video-manager = { path = "crates/video-manager" }
 image-manager = { path = "crates/image-manager" }
+document-manager = { path = "crates/document-manager" }
 user-auth = { path = "crates/user-auth" }
 access-codes = { path = "crates/access-codes" }
 access-control = { path = "crates/access-control" }

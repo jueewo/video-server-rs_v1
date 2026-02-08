@@ -2,6 +2,7 @@
 // Phase 3: Tag models and future shared models
 // Created: January 2025
 
+pub mod document;
 pub mod image;
 pub mod tag;
 pub mod video;
@@ -26,4 +27,9 @@ pub use image::{
     CategoryStats as ImageCategoryStats, CollectionStats, Image, ImageAnalytics, ImageBulkTagDTO,
     ImageBulkUpdateDTO, ImageCreateDTO, ImageFilterOptions, ImageListDTO, ImageSummary,
     ImageTagStats, ImageUpdateDTO, RelatedImagesDTO,
+};
+
+pub use document::{
+    Document, DocumentAnalytics, DocumentCreateDTO, DocumentFilterOptions, DocumentListDTO,
+    DocumentSummary, DocumentTypeEnum, DocumentTypeStats, DocumentUpdateDTO,
 };

@@ -111,9 +111,42 @@ impl UnifiedMediaItem {
     /// Get the thumbnail URL
     pub fn thumbnail_url(&self) -> Option<String> {
         match self {
-            Self::Video(v) => v.thumbnail_url.clone(),
-            Self::Image(i) => i.thumbnail_url.clone(),
-            Self::Document(d) => d.thumbnail_url(),
+            Self::Video(v) => {
+                // Use thumbnail if available, otherwise use poster, otherwise generate placeholder
+                v.thumbnail_url
+                    .clone()
+                    .or_else(|| v.poster_url.clone())
+                    .or_else(|| Some(format!("/storage/videos/{}/thumbnail.jpg", v.slug)))
+            }
+            Self::Image(i) => {
+                // For images, use the image itself as thumbnail, or the thumbnail field
+                i.thumbnail_url.clone().or_else(|| {
+                    // Use the actual image file as thumbnail
+                    Some(format!("/storage/images/{}", i.filename))
+                })
+            }
+            Self::Document(d) => {
+                // Use thumbnail if available, otherwise generate document icon placeholder
+                d.thumbnail_url()
+                    .or_else(|| Some(self.generate_document_icon()))
+            }
+        }
+    }
+
+    /// Generate a document icon based on type
+    fn generate_document_icon(&self) -> String {
+        if let Self::Document(d) = self {
+            match d.document_type.as_deref() {
+                Some("pdf") => "/static/icons/pdf-icon.svg".to_string(),
+                Some("csv") => "/static/icons/csv-icon.svg".to_string(),
+                Some("markdown") => "/static/icons/markdown-icon.svg".to_string(),
+                Some("json") => "/static/icons/json-icon.svg".to_string(),
+                Some("xml") => "/static/icons/xml-icon.svg".to_string(),
+                Some("bpmn") => "/static/icons/bpmn-icon.svg".to_string(),
+                _ => "/static/icons/document-icon.svg".to_string(),
+            }
+        } else {
+            "/static/icons/default.svg".to_string()
         }
     }
 

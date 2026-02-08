@@ -252,6 +252,25 @@ async fn health_check() -> &'static str {
 }
 
 // -------------------------------
+// Tag Management Page Handler
+// -------------------------------
+
+#[derive(Template)]
+#[template(path = "tags/manage.html")]
+struct TagManagementPage;
+
+async fn tag_management_handler() -> Result<Html<String>, StatusCode> {
+    let template = TagManagementPage;
+    match template.render() {
+        Ok(html) => Ok(Html(html)),
+        Err(e) => {
+            eprintln!("Template error: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+// -------------------------------
 // Webhook Handlers (Optional)
 // -------------------------------
 
@@ -756,6 +775,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/", get(index_handler))
         .route("/demo", get(demo_handler))
         .route("/health", get(health_check))
+        .route("/tags", get(tag_management_handler))
         // Webhook endpoints (optional)
         .route("/api/webhooks/stream-ready", post(webhook_stream_ready))
         .route("/api/webhooks/stream-ended", post(webhook_stream_ended))

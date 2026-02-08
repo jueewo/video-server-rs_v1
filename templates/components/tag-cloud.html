@@ -1,0 +1,518 @@
+<!-- Tag Cloud Visualization Component -->
+<!-- Visual tag browser with size-based popularity and interactive filtering -->
+<!--
+Usage:
+  Include this component in any page:
+  {% include "components/tag-cloud.html" %}
+
+  Or load dynamically with JavaScript:
+  <div id="tagCloudContainer"></div>
+  <script src="/static/js/tag-cloud-init.js"></script>
+-->
+
+<div class="tag-cloud-container">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold text-gray-900">Explore Tags</h2>
+        <div class="flex items-center gap-4">
+            <select id="cloudSortBy" class="text-sm border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-indigo-500">
+                <option value="popularity">By Popularity</option>
+                <option value="alphabetical">Alphabetical</option>
+                <option value="recent">Recently Used</option>
+            </select>
+            <select id="cloudFilterCategory" class="text-sm border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-indigo-500">
+                <option value="">All Categories</option>
+                <!-- Populated dynamically -->
+            </select>
+        </div>
+    </div>
+
+    <!-- Statistics Bar -->
+    <div class="stats-bar mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="stat-card">
+            <div class="stat-value" id="totalTagsCount">0</div>
+            <div class="stat-label">Total Tags</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="activeTagsCount">0</div>
+            <div class="stat-label">Active Tags</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="totalUsageCount">0</div>
+            <div class="stat-label">Total Usage</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="categoriesCount">0</div>
+            <div class="stat-label">Categories</div>
+        </div>
+    </div>
+
+    <!-- Tag Cloud -->
+    <div id="tagCloud" class="tag-cloud">
+        <!-- Tags will be rendered here -->
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading tags...</p>
+        </div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="empty-state hidden">
+        <div class="empty-icon">🏷️</div>
+        <p class="empty-text">No tags found</p>
+        <p class="empty-subtext">Create some tags to see them here</p>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend mt-6 p-4 bg-gray-50 rounded-lg">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3">Size indicates popularity:</h3>
+        <div class="flex items-center gap-6 flex-wrap">
+            <div class="flex items-center gap-2">
+                <span class="cloud-tag" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">1-10 uses</span>
+                <span class="text-xs text-gray-600">Small</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="cloud-tag" style="font-size: 1rem; padding: 0.375rem 0.75rem;">11-50 uses</span>
+                <span class="text-xs text-gray-600">Medium</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="cloud-tag" style="font-size: 1.5rem; padding: 0.5rem 1rem;">51+ uses</span>
+                <span class="text-xs text-gray-600">Large</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style></style>
+    .tag-cloud-container {
+        background: white;
+        padding: 2rem;
+        border-radius: 0.75rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .stats-bar {
+        display: grid;
+    }
+
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        text-align: center;
+        color: white;
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+        font-size: 0.875rem;
+        opacity: 0.9;
+    }
+
+    .tag-cloud {
+        min-height: 300px;
+        padding: 2rem;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 0.75rem;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 1rem;
+        position: relative;
+    }
+
+    .cloud-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: white;
+        border: 2px solid transparent;
+        border-radius: 9999px;
+        font-weight: 600;
+        color: #374151;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        text-decoration: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        position: relative;
+    }
+
+    .cloud-tag:hover {
+        transform: translateY(-4px) scale(1.05);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        border-color: #667eea;
+        z-index: 10;
+    }
+
+    .cloud-tag:active {
+        transform: translateY(-2px) scale(1.02);
+    }
+
+    /* Size variations based on usage */
+    .cloud-tag.size-xs {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .cloud-tag.size-sm {
+        font-size: 0.875rem;
+        padding: 0.375rem 0.625rem;
+    }
+
+    .cloud-tag.size-md {
+        font-size: 1rem;
+        padding: 0.5rem 0.875rem;
+    }
+
+    .cloud-tag.size-lg {
+        font-size: 1.25rem;
+        padding: 0.625rem 1rem;
+    }
+
+    .cloud-tag.size-xl {
+        font-size: 1.5rem;
+        padding: 0.75rem 1.25rem;
+    }
+
+    .cloud-tag.size-2xl {
+        font-size: 2rem;
+        padding: 1rem 1.5rem;
+    }
+
+    /* Category colors */
+    .cloud-tag[data-category="tutorial"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .cloud-tag[data-category="course"] {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+    }
+
+    .cloud-tag[data-category="marketing"] {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+    }
+
+    .cloud-tag[data-category="product"] {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        color: white;
+    }
+
+    .cloud-tag[data-category="department"] {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        color: white;
+    }
+
+    .cloud-tag .usage-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.5rem;
+        height: 1.5rem;
+        padding: 0 0.5rem;
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+
+    .loading-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem;
+        color: #6b7280;
+    }
+
+    .spinner {
+        width: 3rem;
+        height: 3rem;
+        border: 4px solid #e5e7eb;
+        border-top-color: #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 1rem;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+    }
+
+    .empty-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+
+    .empty-text {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-subtext {
+        color: #6b7280;
+    }
+
+    .legend {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .tag-cloud-container {
+            padding: 1rem;
+        }
+
+        .tag-cloud {
+            padding: 1rem;
+            gap: 0.5rem;
+        }
+
+        .cloud-tag {
+            font-size: 0.875rem !important;
+            padding: 0.375rem 0.75rem !important;
+        }
+
+        .stat-card {
+            padding: 1rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+        }
+    }
+
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+        .tag-cloud-container {
+            background: #1f2937;
+        }
+
+        .tag-cloud {
+            background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
+        }
+
+        .cloud-tag {
+            background: #374151;
+            color: #f9fafb;
+        }
+
+        .cloud-tag:hover {
+            background: #4b5563;
+        }
+
+        .legend {
+            background: #111827;
+            border-color: #374151;
+        }
+    }
+
+    /* Animation for tag appearance */
+    @keyframes tagFadeIn {
+        from {
+            opacity: 0;
+            transform: scale(0.8);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    .cloud-tag {
+        animation: tagFadeIn 0.3s ease-out;
+    }
+
+    /* Stagger animation delay */
+    .cloud-tag:nth-child(1) { animation-delay: 0.05s; }
+    .cloud-tag:nth-child(2) { animation-delay: 0.1s; }
+    .cloud-tag:nth-child(3) { animation-delay: 0.15s; }
+    .cloud-tag:nth-child(4) { animation-delay: 0.2s; }
+    .cloud-tag:nth-child(5) { animation-delay: 0.25s; }
+    .cloud-tag:nth-child(n+6) { animation-delay: 0.3s; }
+</style>
+
+<script>
+    // Tag Cloud State
+    let tagCloudData = [];
+    let currentCloudSort = 'popularity';
+    let currentCloudCategory = '';
+
+    // Initialize tag cloud on page load
+    document.addEventListener('DOMContentLoaded', initTagCloud);
+
+    async function initTagCloud() {
+        try {
+            // Load tags and stats
+            const [tagsResponse, statsResponse, categoriesResponse] = await Promise.all([
+                fetch('/api/tags'),
+                fetch('/api/tags/stats'),
+                fetch('/api/tags/categories')
+            ]);
+
+            const tagsData = await tagsResponse.json();
+            const statsData = await statsResponse.json();
+            const categoriesData = await categoriesResponse.json();
+
+            tagCloudData = tagsData.tags || [];
+
+            // Update stats
+            updateStats(statsData);
+
+            // Populate category filter
+            populateCategories(categoriesData.categories || []);
+
+            // Render tag cloud
+            renderTagCloud(tagCloudData);
+
+            // Attach event listeners
+            attachCloudEventListeners();
+
+        } catch (error) {
+            console.error('Error initializing tag cloud:', error);
+            showEmptyState();
+        }
+    }
+
+    function attachCloudEventListeners() {
+        document.getElementById('cloudSortBy')?.addEventListener('change', (e) => {
+            currentCloudSort = e.target.value;
+            renderTagCloud(filterAndSortTags());
+        });
+
+        document.getElementById('cloudFilterCategory')?.addEventListener('change', (e) => {
+            currentCloudCategory = e.target.value;
+            renderTagCloud(filterAndSortTags());
+        });
+    }
+
+    function updateStats(stats) {
+        document.getElementById('totalTagsCount').textContent = stats.total_tags || 0;
+        document.getElementById('activeTagsCount').textContent = stats.tags_in_use || 0;
+        document.getElementById('totalUsageCount').textContent = stats.total_usage || 0;
+        document.getElementById('categoriesCount').textContent = stats.categories || 0;
+    }
+
+    function populateCategories(categories) {
+        const select = document.getElementById('cloudFilterCategory');
+        categories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat;
+            option.textContent = cat;
+            select.appendChild(option);
+        });
+    }
+
+    function filterAndSortTags() {
+        let filtered = [...tagCloudData];
+
+        // Filter by category
+        if (currentCloudCategory) {
+            filtered = filtered.filter(tag => tag.category === currentCloudCategory);
+        }
+
+        // Sort
+        if (currentCloudSort === 'alphabetical') {
+            filtered.sort((a, b) => a.name.localeCompare(b.name));
+        } else if (currentCloudSort === 'recent') {
+            filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        } else {
+            // popularity (default)
+            filtered.sort((a, b) => (b.usage_count || 0) - (a.usage_count || 0));
+        }
+
+        return filtered;
+    }
+
+    function getTagSize(usageCount) {
+        if (usageCount >= 100) return 'size-2xl';
+        if (usageCount >= 50) return 'size-xl';
+        if (usageCount >= 20) return 'size-lg';
+        if (usageCount >= 10) return 'size-md';
+        if (usageCount >= 5) return 'size-sm';
+        return 'size-xs';
+    }
+
+    function renderTagCloud(tags) {
+        const container = document.getElementById('tagCloud');
+        const emptyState = document.getElementById('emptyState');
+
+        if (tags.length === 0) {
+            showEmptyState();
+            return;
+        }
+
+        emptyState.classList.add('hidden');
+
+        container.innerHTML = tags.map(tag => {
+            const size = getTagSize(tag.usage_count || 0);
+            const icon = tag.icon || '🏷️';
+            const category = tag.category ? tag.category.toLowerCase().replace(/\s+/g, '-') : '';
+
+            return `
+                <a
+                    href="/tags/${tag.slug}"
+                    class="cloud-tag ${size}"
+                    data-category="${category}"
+                    title="${escapeHtml(tag.description || tag.name)} - ${tag.usage_count || 0} uses"
+                    onclick="handleTagClick(event, '${tag.slug}')"
+                >
+                    <span>${icon}</span>
+                    <span>${escapeHtml(tag.name)}</span>
+                    <span class="usage-badge">${tag.usage_count || 0}</span>
+                </a>
+            `;
+        }).join('');
+    }
+
+    function showEmptyState() {
+        document.getElementById('tagCloud').innerHTML = '';
+        document.getElementById('emptyState').classList.remove('hidden');
+    }
+
+    function handleTagClick(event, slug) {
+        // Allow custom handling via global callback
+        if (typeof onTagCloudClick === 'function') {
+            event.preventDefault();
+            onTagCloudClick(slug);
+        }
+        // Otherwise, default link behavior (navigate to tag page)
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Public API for external use
+    window.TagCloud = {
+        refresh: initTagCloud,
+        filter: (category) => {
+            currentCloudCategory = category;
+            renderTagCloud(filterAndSortTags());
+        },
+        sort: (sortBy) => {
+            currentCloudSort = sortBy;
+            renderTagCloud(filterAndSortTags());
+        },
+        getData: () => [...tagCloudData]
+    };
+</script>

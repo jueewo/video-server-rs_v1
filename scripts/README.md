@@ -49,6 +49,41 @@ storage/videos/public/my-awesome-video/
 └── poster.jpg
 ```
 
+**Note:** The `poster.jpg` file is the banner image used in the media grid view. The All Media page (`/media`) prioritizes showing the poster/banner image for videos for a better visual appearance.
+
+---
+
+## 🔧 Utility Scripts
+
+### `update_video_posters.sql`
+
+**Purpose:** Updates existing videos to set poster_url and thumbnail_url fields based on standard storage paths.
+
+**Usage:**
+```bash
+sqlite3 video.db < scripts/update_video_posters.sql
+```
+
+**What it does:**
+- Sets `poster_url` to `/storage/videos/{slug}/poster.jpg` for all videos
+- Sets `thumbnail_url` to `/storage/videos/{slug}/thumbnail.jpg` for all videos
+- Only updates videos where these fields are empty
+- Shows summary of updated videos
+
+**When to use:**
+- After uploading videos manually to storage
+- When poster/thumbnail images exist but database fields aren't populated
+- To standardize poster URLs across all videos
+
+**Expected Storage Structure:**
+```
+storage/videos/{slug}/
+├── poster.jpg       ← Banner image (16:9 recommended)
+├── thumbnail.jpg    ← Thumbnail image
+└── video.mp4        ← Video file
+```
+
+
 **After running:**
 1. Start the server: `cargo run`
 2. Navigate to: `http://localhost:3000/videos/new`

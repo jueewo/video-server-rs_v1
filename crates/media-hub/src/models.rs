@@ -112,10 +112,10 @@ impl UnifiedMediaItem {
     pub fn thumbnail_url(&self) -> Option<String> {
         match self {
             Self::Video(v) => {
-                // Use thumbnail if available, otherwise use poster, otherwise generate placeholder
-                v.thumbnail_url
+                // Use poster (banner) first for better grid appearance, then thumbnail, then fallback
+                v.poster_url
                     .clone()
-                    .or_else(|| v.poster_url.clone())
+                    .or_else(|| v.thumbnail_url.clone())
                     .or_else(|| Some(format!("/storage/videos/{}/thumbnail.jpg", v.slug)))
             }
             Self::Image(i) => {

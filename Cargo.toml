@@ -6,7 +6,10 @@ members = [
     "crates/video-manager",
     "crates/image-manager",
     "crates/user-auth",
-    "crates/access-codes", "crates/access-control",
+    "crates/access-codes",
+    "crates/access-control",
+    # TODO: Uncomment when implementing CLI (see MEDIA_CLI_PROGRESS.md)
+    # "crates/media-cli",
 ]
 resolver = "2"
 

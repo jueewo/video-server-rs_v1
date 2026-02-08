@@ -231,6 +231,8 @@ Once everything is working:
 For more details, see:
 - `README.md` - Complete feature documentation
 - `PROJECT_STATUS.md` - Current project status
+- `scripts/user/prepare-video.sh` - Offline video preparation tool
+- `scripts/README.md` - User scripts and tools documentation
 - `docs/LIVE_STREAMING_GUIDE.md` - Streaming guide and troubleshooting
 - `docs/MEDIAMTX_MIGRATION.md` - Architecture details and advanced configuration
 

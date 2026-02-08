@@ -514,6 +514,10 @@ video-server-rs_v1/
 - **[docs/LIVE_STREAMING_GUIDE.md](docs/LIVE_STREAMING_GUIDE.md)** - Streaming guide
 - **[docs/MEDIAMTX_MIGRATION.md](docs/MEDIAMTX_MIGRATION.md)** - Architecture details
 
+### User Tools & Scripts
+- **[scripts/user/prepare-video.sh](scripts/user/prepare-video.sh)** - Offline video preparation tool (HLS transcoding)
+- **[scripts/README.md](scripts/README.md)** - Complete scripts documentation
+
 ### Observability & Monitoring
 - **[OBSERVABILITY_QUICKSTART.md](OBSERVABILITY_QUICKSTART.md)** - Quick setup with Vector + SigNoz
 - **[VECTOR_SIGNOZ_SETUP.md](VECTOR_SIGNOZ_SETUP.md)** - Detailed Vector + SigNoz configuration

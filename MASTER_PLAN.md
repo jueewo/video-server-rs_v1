@@ -30,6 +30,7 @@
 **New to the project?** Start here:
 - [`README.md`](README.md) - Quick start (5 min setup)
 - [`RESOURCE_WORKFLOW_GUIDE.md`](RESOURCE_WORKFLOW_GUIDE.md) - Upload → Organize → Share workflow
+- [`scripts/user/`](scripts/user/) - User scripts for media preparation
 
 **Access Control & Sharing:**
 - [`GROUP_ACCESS_CODES.md`](GROUP_ACCESS_CODES.md) - Group-level access codes (technical)
@@ -2628,9 +2629,19 @@ By supporting **both** individual and group access codes simultaneously:
 
 This master plan is supported by detailed implementation guides:
 
+### User Tools & Scripts
+- **`scripts/user/prepare-video.sh`** - Offline video preparation tool for HLS transcoding
+- **`scripts/README.md`** - Complete scripts documentation
+
 ### Infrastructure & Developer Tools
 - **`API_DOCUMENTATION_PROGRESS.md`** - API documentation system implementation tracking
 - **`MEDIA_CLI_PROGRESS.md`** - Media CLI tool implementation tracking (media-cli)
+
+### Video Upload & HLS Transcoding
+- **`VIDEO_UPLOAD_HLS_PROGRESS.md`** - Video upload + HLS transcoding implementation tracking 🚧 60% Complete
+- **`VIDEO_UPLOAD_PHASE1_COMPLETE.md`** - Phase 1 completion summary (Core Upload Infrastructure) ✅
+- **`VIDEO_UPLOAD_PHASE2_COMPLETE.md`** - Phase 2 completion summary (FFmpeg Integration) ✅
+- **`VIDEO_UPLOAD_PHASE3_COMPLETE.md`** - Phase 3 completion summary (HLS Transcoding) ✅
 
 ### Core Workflow & Access Control
 - **`RESOURCE_WORKFLOW_GUIDE.md`** - Complete Upload → Organize → Share workflow

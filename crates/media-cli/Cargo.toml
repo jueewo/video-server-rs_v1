@@ -1,0 +1,101 @@
+[package]
+name = "media-cli"
+version = "0.1.0"
+edition = "2021"
+description = "Command-line interface for media-server administrative operations"
+authors = ["Media Server Team"]
+
+# Binary configuration
+[[bin]]
+name = "media-cli"
+path = "src/main.rs"
+
+[dependencies]
+# CLI framework
+clap = { version = "4.5", features = ["derive", "cargo", "env"] }
+
+# HTTP client for API calls
+reqwest = { version = "0.12", features = ["json", "cookies"] }
+
+# Async runtime
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = "1.0"
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Configuration
+toml = "0.8"
+dirs = "5.0"
+
+# Output formatting
+colored = "2.1"
+tabled = "0.15"
+indicatif = "0.17"
+dialoguer = "0.11"
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[features]
+default = []
+# Future: Local database operations without requiring web server
+local-db = ["sqlx"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+# TODO: Implementation roadmap
+#
+# Phase 1: Core Infrastructure
+#   - Configuration management (~/.media-cli/config.toml)
+#   - API client with session authentication
+#   - Basic error handling and logging
+#   - Output formatters (table, JSON)
+#
+# Phase 2: Authentication Commands
+#   - media-cli login
+#   - media-cli logout
+#   - media-cli whoami
+#
+# Phase 3: Video Commands
+#   - media-cli videos list
+#   - media-cli videos get <id>
+#   - media-cli videos update <id>
+#   - media-cli videos delete <id>
+#
+# Phase 4: Image Commands
+#   - media-cli images list
+#   - media-cli images get <slug>
+#   - media-cli images update <slug>
+#   - media-cli images delete <slug>
+#
+# Phase 5: Group Commands
+#   - media-cli groups list/create/update/delete
+#   - media-cli groups add-member/remove-member
+#
+# Phase 6: Access Code Commands
+#   - media-cli access-codes list/create/revoke
+#
+# Phase 7: Cleanup & Maintenance
+#   - media-cli cleanup orphaned-files
+#   - media-cli cleanup temp-files
+#   - media-cli db backup/check
+#
+# Phase 8: Advanced Features
+#   - media-cli batch (batch operations from file)
+#   - media-cli export/import
+#   - media-cli search
+#
+# See: MEDIA_CLI_PROGRESS.md for detailed implementation plan

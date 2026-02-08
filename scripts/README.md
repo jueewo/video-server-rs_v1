@@ -1,310 +1,286 @@
 # Scripts Directory
 
-This directory contains utility scripts for setup, testing, and maintenance of the video server.
+This directory contains utility scripts organized by audience:
 
-## 📋 Available Scripts
+- **`user/`** - Scripts for end users to prepare and manage media
+- **`dev/`** - Scripts for developers (setup, testing, debugging)
 
-### 🔧 Setup & Initialization
+---
 
-#### `init-database.sh`
-**Purpose:** Initialize the SQLite database with required tables
+## 👥 User Scripts
+
+### 📹 `user/prepare-video.sh`
+
+**Purpose:** Offline video preparation tool - transcodes videos to HLS format with multiple quality variants, exactly matching the server's upload pipeline.
 
 **Usage:**
 ```bash
-./scripts/init-database.sh
+./scripts/user/prepare-video.sh <input-video> <slug> [public|private]
+```
+
+**Example:**
+```bash
+./scripts/user/prepare-video.sh my-video.mp4 my-awesome-video public
 ```
 
 **What it does:**
-- Creates or recreates the SQLite database
-- Sets up tables for videos, images, and users
-- Initializes schema for the application
+- Transcodes video to HLS format with multiple quality variants (1080p, 720p, 480p, 360p)
+- Creates master playlist and segment files
+- Generates thumbnail and poster images
+- Organizes output in server-ready directory structure
+- Validates with FFmpeg to ensure compatibility
 
-**When to use:**
-- First time setup
-- After database corruption
-- When resetting the database
-
----
-
-#### `setup-images.sh`
-**Purpose:** Set up directory structure for image storage
-
-**Usage:**
-```bash
-./scripts/setup-images.sh
+**Output Structure:**
+```
+storage/videos/public/my-awesome-video/
+├── hls/
+│   ├── master.m3u8
+│   ├── 1080p/
+│   │   ├── index.m3u8
+│   │   ├── segment_000.ts
+│   │   ├── segment_001.ts
+│   │   └── ...
+│   ├── 720p/
+│   ├── 480p/
+│   └── 360p/
+├── thumbnail.jpg
+└── poster.jpg
 ```
 
-**What it does:**
-- Creates `storage/images/` directory
-- Sets proper permissions
-- Prepares image storage locations
-
-**When to use:**
-- First time setup
-- After storage directory issues
-- When deploying to new server
-
----
-
-#### `setup_db.sh`
-**Purpose:** Database setup utility (legacy)
-
-**Usage:**
-```bash
-./scripts/setup_db.sh
-```
-
-**Note:** Consider using `init-database.sh` for newer setups.
-
----
-
-### 🧪 Testing Scripts
-
-#### `test-emergency-login.sh`
-**Purpose:** Test the emergency login feature
-
-**Usage:**
-```bash
-./scripts/test-emergency-login.sh
-```
-
-**What it tests:**
-- Emergency login route availability
-- Login form structure
-- Invalid credentials handling
-- Configuration check
+**After running:**
+1. Start the server: `cargo run`
+2. Navigate to: `http://localhost:3000/videos/new`
+3. Select the prepared folder slug (e.g., `my-awesome-video`)
+4. Fill in metadata and click "Register Video"
 
 **Requirements:**
-- Server must be running on port 3000
-- Emergency login must be enabled in `.env`
+- FFmpeg with H.264 (libx264) support
+- Sufficient disk space (output is ~70-80% of input size)
+- Input video in any FFmpeg-supported format
 
-**Output:**
-- ✅ Green: Tests passed
-- ⚠️  Yellow: Warnings/info
-- ❌ Red: Tests failed
-
----
-
-#### `test-images.sh`
-**Purpose:** Test image upload and serving functionality
-
-**Usage:**
-```bash
-./scripts/test-images.sh
-```
-
-**What it tests:**
-- Image upload endpoint
-- Image serving/retrieval
-- Authentication requirements
-- Error handling
-
-**Requirements:**
-- Server must be running
-- Valid authentication session
+**Benefits:**
+- Process large videos offline without blocking the server
+- Consistent quality settings matching server pipeline
+- Faster registration in the UI (transcoding already done)
+- Batch processing capability
 
 ---
 
-#### `test-hls.html`
-**Purpose:** HTML test page for HLS/WebRTC streaming
+## 🛠️ Developer Scripts
 
-**Usage:**
-1. Start MediaMTX and the server
-2. Open in browser: `http://localhost:3000/test`
-3. Or open directly: `file:///.../scripts/test-hls.html`
+Developer scripts are located in `dev/` and include:
 
-**Features:**
-- HLS playback testing
-- WebRTC low-latency testing
-- Stream quality monitoring
-- Player controls and debugging
+- **Setup scripts** - Database initialization, storage setup
+- **Test scripts** - Access codes, emergency login, images, HLS
+- **Utilities** - Migration tools, thumbnail generation, transcoding
+
+See `dev/` directory for the full list of developer tools.
 
 ---
 
-#### `test-access-codes.sh`
-**Purpose:** Test access codes functionality for sharing media
+## 🚀 Quick Start for Users
 
-**Usage:**
-```bash
-./scripts/test-access-codes.sh
-```
-
-**What it tests:**
-- Creating access codes with multiple media items
-- Listing access codes
-- Accessing videos and images with access codes
-- Expiration date validation
-- Cleanup of test codes
-
-**Requirements:**
-- Server must be running on port 3000
-- Database must be initialized
-- Test media items must exist (welcome video, logo image)
-
-**Output:**
-- ✅ Green: Tests passed
-- ❌ Red: Tests failed
-- Detailed error messages for debugging
-
----
-
-### 📺 Streaming Scripts
-
-#### `live_streaming_on_macbook.sh`
-**Purpose:** Quick script to start streaming from macOS
-
-**Usage:**
-```bash
-./scripts/live_streaming_on_macbook.sh
-```
-
-**What it does:**
-- Detects available cameras and microphones
-- Starts FFmpeg streaming to RTMP endpoint
-- Configures optimal settings for macOS
-
-**Requirements:**
-- FFmpeg installed
-- Camera and microphone permissions
-- MediaMTX running
-
----
-
-#### `transcode.sh`
-**Purpose:** Video transcoding utility
-
-**Usage:**
-```bash
-./scripts/transcode.sh input.mp4 output.mp4
-```
-
-**What it does:**
-- Transcodes video files
-- Optimizes for streaming
-- Configures codecs and bitrates
-
----
-
-## 🚀 Quick Start Workflow
-
-### First Time Setup
+### Preparing Your First Video
 
 ```bash
-# 1. Initialize database
-./scripts/init-database.sh
+# 1. Make sure FFmpeg is installed
+ffmpeg -version
 
-# 2. Setup image storage
-./scripts/setup-images.sh
+# 2. Prepare your video
+./scripts/user/prepare-video.sh ~/Downloads/my-video.mp4 welcome-video public
 
-# 3. Start the server
+# 3. Start the server (if not already running)
 cargo run
 
-# 4. Test emergency login (if enabled)
-./scripts/test-emergency-login.sh
-
-# 5. Test image functionality
-./scripts/test-images.sh
+# 4. Register in the UI
+# Visit: http://localhost:3000/videos/new
+# Select folder: welcome-video
+# Fill metadata and save
 ```
 
-### Daily Development
+### Batch Processing Multiple Videos
 
 ```bash
-# Start streaming test
-./scripts/live_streaming_on_macbook.sh
-
-# Open test page
-# Visit: http://localhost:3000/test
+# Create a simple loop for multiple videos
+for video in ~/Videos/*.mp4; do
+  filename=$(basename "$video" .mp4)
+  slug=$(echo "$filename" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+  ./scripts/user/prepare-video.sh "$video" "$slug" public
+done
 ```
 
 ---
 
 ## 📝 Script Guidelines
 
-### Adding New Scripts
+### Using User Scripts
 
-1. **Create the script:**
+User scripts are designed to be:
+- ✅ **Self-contained** - Include all necessary dependencies
+- ✅ **Well-documented** - Clear usage instructions and examples
+- ✅ **Validated** - Check prerequisites before running
+- ✅ **User-friendly** - Colorized output and progress indicators
+- ✅ **Safe** - Validate inputs and handle errors gracefully
+
+### Adding New User Scripts
+
+When creating user-facing scripts:
+
+1. **Place in `user/` directory:**
    ```bash
-   touch scripts/new-script.sh
-   chmod +x scripts/new-script.sh
+   touch scripts/user/new-tool.sh
+   chmod +x scripts/user/new-tool.sh
    ```
 
-2. **Add header:**
+2. **Add comprehensive header:**
    ```bash
    #!/bin/bash
-   # Description of what this script does
-   set -e
+   #==============================================================================
+   # new-tool.sh - Brief Description
+   #==============================================================================
+   #
+   # Detailed explanation of what this script does
+   #
+   # Usage:
+   #   ./new-tool.sh <required-arg> [optional-arg]
+   #
+   # Example:
+   #   ./new-tool.sh input.txt output.txt
+   #
+   #==============================================================================
+   
+   set -e  # Exit on error
    ```
 
-3. **Update this README:**
-   - Add script to appropriate section
-   - Document usage and requirements
-   - Explain what it does
+3. **Include validation:**
+   - Check prerequisites (commands, files)
+   - Validate input parameters
+   - Provide helpful error messages
 
-### Best Practices
+4. **Add progress indicators:**
+   - Use colored output (green ✓, red ✗, yellow ⚠)
+   - Show step-by-step progress
+   - Display summary at completion
 
-- ✅ Make scripts executable: `chmod +x`
-- ✅ Use `set -e` for error handling
-- ✅ Add help text with `--help` flag
-- ✅ Print clear messages during execution
-- ✅ Check prerequisites before running
-- ✅ Provide useful error messages
+5. **Update this README:**
+   - Add to "User Scripts" section
+   - Document usage with examples
+   - Explain requirements and output
+
+6. **Link in main documentation:**
+   - Add to `README.md`
+   - Add to `MASTER_PLAN.md`
+   - Update `QUICKSTART.md` if relevant
 
 ---
 
 ## 🔍 Troubleshooting
 
-### Script Won't Run
+### User Script Issues
 
-**Problem:** Permission denied
+**Problem:** Script won't run - permission denied
 ```bash
-chmod +x scripts/script-name.sh
+chmod +x scripts/user/prepare-video.sh
 ```
 
-**Problem:** Command not found
+**Problem:** FFmpeg not found
 ```bash
-# Run from project root:
-./scripts/script-name.sh
+# macOS
+brew install ffmpeg
+
+# Ubuntu/Debian
+sudo apt-get install ffmpeg
+
+# Verify
+ffmpeg -version
 ```
 
-### Tests Failing
+**Problem:** "libx264 encoder not found"
+```bash
+# Need FFmpeg with H.264 support
+# macOS (brew version includes it)
+brew reinstall ffmpeg
 
-**Emergency Login Tests:**
-- Check server is running: `lsof -i :3000`
-- Verify `ENABLE_EMERGENCY_LOGIN=true` in `.env`
-- Check credentials are set: `SU_USER` and `SU_PWD`
+# Linux - install with x264
+sudo apt-get install ffmpeg libx264-dev
+```
 
-**Image Tests:**
-- Ensure server is running
-- Check authentication is configured
-- Verify storage directory exists
+**Problem:** Output directory already exists
+```bash
+# The script will fail if output exists to prevent overwriting
+# Remove the existing directory or choose a different slug:
+rm -rf storage/videos/public/existing-slug
+```
 
-**Streaming Tests:**
-- Confirm MediaMTX is running: `lsof -i :1935`
-- Check FFmpeg is installed: `ffmpeg -version`
-- Verify camera/mic permissions on macOS
+**Problem:** Out of disk space
+```bash
+# Check available space
+df -h storage/
+
+# Clean up old videos
+rm -rf storage/videos/*/old-video-slug/
+```
 
 ---
 
 ## 📚 Related Documentation
 
-- **Main Documentation:** `../docs/README.md`
-- **Emergency Login:** `../docs/auth/EMERGENCY_LOGIN_QUICKSTART.md`
-- **Live Streaming:** `../docs/LIVE_STREAMING_GUIDE.md`
-- **Image Serving:** `../docs/features/IMAGE_SERVING.md`
+### For Users
+- **Main README:** `../README.md` - Getting started guide
+- **Quickstart:** `../QUICKSTART.md` - Fast setup
+- **Master Plan:** `../MASTER_PLAN.md` - Complete feature overview
+
+### For Developers
+- **Setup & Testing:** `dev/` directory - Developer tools
+- **Architecture:** `../docs/architecture/` - System design
+- **Features:** `../docs/features/` - Feature documentation
 
 ---
 
 ## 🤝 Contributing
 
-When adding new scripts:
+### User Script Priorities
 
-1. Follow naming conventions (lowercase with hyphens)
-2. Add proper documentation in this README
-3. Include error handling and user feedback
-4. Test on both macOS and Linux if possible
-5. Update related documentation
+When considering new user scripts, prioritize:
+
+1. **Common workflows** - Tasks users do frequently
+2. **Time-saving tools** - Automate manual processes
+3. **Batch operations** - Process multiple items
+4. **Quality of life** - Make complex tasks simple
+5. **Error prevention** - Validate before execution
+
+### Examples of Good User Scripts
+
+- ✅ Batch video preparation
+- ✅ Media validation tools
+- ✅ Thumbnail generation
+- ✅ Metadata extraction
+- ✅ Storage cleanup utilities
+
+### Keep Developer Scripts Separate
+
+Developer scripts belong in `dev/` and include:
+- Database migrations
+- Test suites
+- Debug utilities
+- Performance profiling
+- Development setup
 
 ---
 
-**Last Updated:** January 2024  
-**Total Scripts:** 9
+**Directory Structure:**
+```
+scripts/
+├── README.md          # This file
+├── user/              # User-facing scripts
+│   └── prepare-video.sh
+└── dev/               # Developer scripts
+    ├── init-database.sh
+    ├── setup-images.sh
+    ├── test-*.sh
+    └── ...
+```
+
+**Last Updated:** January 2026  
+**User Scripts:** 1  
+**Dev Scripts:** 13

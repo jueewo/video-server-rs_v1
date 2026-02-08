@@ -82,6 +82,7 @@ use access_codes::{access_code_routes, AccessCodeState, MediaResource};
 use access_control::AccessControlService;
 use access_groups;
 use common::{create_search_routes, create_tag_routes};
+use document_manager::routes::{document_routes, DocumentManagerState};
 use image_manager::{image_routes, ImageManagerState};
 use media_hub::{routes::media_routes, MediaHubState};
 use user_auth::{auth_routes, AuthState, OidcConfig};
@@ -95,6 +96,7 @@ use video_manager::{video_routes, VideoManagerState, RTMP_PUBLISH_TOKEN};
 struct AppState {
     video_state: Arc<VideoManagerState>,
     image_state: Arc<ImageManagerState>,
+    document_state: Arc<DocumentManagerState>,
     auth_state: Arc<AuthState>,
     access_state: Arc<AccessCodeState>,
     access_control: Arc<AccessControlService>,
@@ -662,6 +664,11 @@ async fn main() -> anyhow::Result<()> {
 
     let image_state = Arc::new(ImageManagerState::new(pool.clone(), storage_dir.clone()));
 
+    let document_state = Arc::new(DocumentManagerState::new(
+        pool.clone(),
+        storage_dir.to_str().unwrap_or("storage").to_string(),
+    ));
+
     // Initialize OIDC configuration
     let oidc_config = OidcConfig::from_env();
     println!("🔐 OIDC Configuration:");
@@ -707,6 +714,7 @@ async fn main() -> anyhow::Result<()> {
     let app_state = Arc::new(AppState {
         video_state: video_state.clone(),
         image_state: image_state.clone(),
+        document_state: document_state.clone(),
         auth_state: auth_state.clone(),
         access_state: access_state.clone(),
         access_control: access_control.clone(),
@@ -744,6 +752,7 @@ async fn main() -> anyhow::Result<()> {
         .merge(auth_routes(auth_state.clone()))
         .merge(video_routes().with_state(video_state))
         .merge(image_routes().with_state(image_state))
+        .merge(document_routes().with_state((*document_state).clone()))
         .merge(access_code_routes(access_state))
         .merge(access_groups::routes::create_routes(pool.clone()))
         .merge(create_tag_routes(pool.clone()))
@@ -804,6 +813,7 @@ async fn main() -> anyhow::Result<()> {
     println!("📦 MODULES LOADED:");
     println!("   ✅ video-manager    (Video streaming & HLS proxy)");
     println!("   ✅ image-manager    (Image upload & serving)");
+    println!("   ✅ document-manager (Document storage & viewing)");
     println!("   ✅ media-hub        (Unified media management UI)");
     println!("   ✅ user-auth        (Session management, OIDC ready)");
     println!("   ✅ access-codes     (Shared media access)");
@@ -817,6 +827,7 @@ async fn main() -> anyhow::Result<()> {
     println!("   • OIDC Login:    http://{}/oidc/authorize", addr);
     println!("   • Emergency:     http://{}/login/emergency", addr);
     println!("   • Images:        http://{}/images", addr);
+    println!("   • Documents:     http://{}/documents", addr);
     println!("   • Upload:        http://{}/upload", addr);
     println!("   • All Media:     http://{}/media", addr);
     println!("   • Media Upload:  http://{}/media/upload", addr);

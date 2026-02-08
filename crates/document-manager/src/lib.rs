@@ -32,6 +32,7 @@
 //! ```
 
 pub mod media_item_impl;
+pub mod routes;
 pub mod storage;
 
 // Re-export commonly used types

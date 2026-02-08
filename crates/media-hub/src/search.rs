@@ -135,11 +135,13 @@ impl MediaSearchService {
             bindings.push(user_id.clone());
         }
 
-        // Add ordering
-        query.push_str(&format!(
-            " ORDER BY {} {}",
-            options.sort_by, options.sort_order
-        ));
+        // Add ordering - videos use upload_date instead of created_at
+        let sort_field = if options.sort_by == "created_at" {
+            "upload_date"
+        } else {
+            &options.sort_by
+        };
+        query.push_str(&format!(" ORDER BY {} {}", sort_field, options.sort_order));
 
         // Note: We fetch all here and paginate in memory for cross-type sorting
         // In production, consider implementing database-level pagination
@@ -214,9 +216,20 @@ impl MediaSearchService {
             bindings.push(user_id.clone());
         }
 
+        // Images use created_at
+        let sort_field = if options.sort_by.is_empty() {
+            "created_at"
+        } else {
+            &options.sort_by
+        };
         query.push_str(&format!(
             " ORDER BY {} {}",
-            options.sort_by, options.sort_order
+            sort_field,
+            if options.sort_order.is_empty() {
+                "desc"
+            } else {
+                &options.sort_order
+            }
         ));
 
         let mut sqlx_query = sqlx::query_as::<_, Image>(&query);
@@ -291,9 +304,20 @@ impl MediaSearchService {
             bindings.push(user_id.clone());
         }
 
+        // Documents use created_at
+        let sort_field = if options.sort_by.is_empty() {
+            "created_at"
+        } else {
+            &options.sort_by
+        };
         query.push_str(&format!(
             " ORDER BY {} {}",
-            options.sort_by, options.sort_order
+            sort_field,
+            if options.sort_order.is_empty() {
+                "desc"
+            } else {
+                &options.sort_order
+            }
         ));
 
         let mut sqlx_query = sqlx::query_as::<_, Document>(&query);

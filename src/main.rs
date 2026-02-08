@@ -635,10 +635,10 @@ async fn main() -> anyhow::Result<()> {
         .await?;
 
     // Run migrations (skip if already applied or modified)
-    // if let Err(e) = sqlx::migrate!("./migrations").run(&pool).await {
-    //     println!("⚠️  Migration warning: {}", e);
-    //     println!("   Continuing with existing database schema...");
-    // }
+    if let Err(e) = sqlx::migrate!("./migrations").run(&pool).await {
+        println!("⚠️  Migration warning: {}", e);
+        println!("   Continuing with existing database schema...");
+    }
 
     let storage_dir = std::env::current_dir()?.join("storage");
     std::fs::create_dir_all(&storage_dir)?;

@@ -446,33 +446,56 @@ async fn save_to_temp_file(
     storage_config: &StorageConfig,
 ) -> Result<PathBuf> {
     let temp_filename = format!("upload_{}.tmp", Uuid::new_v4());
-    let temp_path = storage_config.get_temp_path(&temp_filename);
 
-    debug!("Saving upload to temp file: {:?}", temp_path);
+    // Try to use media-core StorageManager if available
+    if let Some(storage) = storage_config.storage_manager() {
+        debug!(
+            "Saving upload to temp file using media-core: {}",
+            temp_filename
+        );
 
-    // Ensure temp directory exists
-    if let Some(parent) = temp_path.parent() {
-        tokio::fs::create_dir_all(parent)
+        let relative_path = format!("temp/{}", temp_filename);
+        let path = storage
+            .save_bytes(&relative_path, &request.file_data)
             .await
-            .context("Failed to create temp directory")?;
+            .map_err(|e| anyhow::anyhow!("Failed to save temp file: {}", e))?;
+
+        info!(
+            "Saved {} bytes to temp file (media-core): {}",
+            request.file_size, temp_filename
+        );
+
+        Ok(path)
+    } else {
+        // Fallback to original implementation
+        let temp_path = storage_config.get_temp_path(&temp_filename);
+
+        debug!("Saving upload to temp file: {:?}", temp_path);
+
+        // Ensure temp directory exists
+        if let Some(parent) = temp_path.parent() {
+            tokio::fs::create_dir_all(parent)
+                .await
+                .context("Failed to create temp directory")?;
+        }
+
+        let mut file = File::create(&temp_path)
+            .await
+            .context("Failed to create temp file")?;
+
+        file.write_all(&request.file_data)
+            .await
+            .context("Failed to write file data")?;
+
+        file.flush().await.context("Failed to flush file")?;
+
+        info!(
+            "Saved {} bytes to temp file: {}",
+            request.file_size, temp_filename
+        );
+
+        Ok(temp_path)
     }
-
-    let mut file = File::create(&temp_path)
-        .await
-        .context("Failed to create temp file")?;
-
-    file.write_all(&request.file_data)
-        .await
-        .context("Failed to write file data")?;
-
-    file.flush().await.context("Failed to flush file")?;
-
-    info!(
-        "Saved {} bytes to temp file: {}",
-        request.file_size, temp_filename
-    );
-
-    Ok(temp_path)
 }
 
 /// Create initial database record for upload

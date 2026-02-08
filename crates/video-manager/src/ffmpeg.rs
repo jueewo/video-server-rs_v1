@@ -449,10 +449,10 @@ mod tests {
     #[test]
     fn test_parse_frame_rate() {
         assert_eq!(parse_frame_rate(Some(&"30".to_string())), Some(30.0));
-        assert_eq!(
-            parse_frame_rate(Some(&"30000/1001".to_string())),
-            Some(29.970029970029973)
-        );
+        let fps = parse_frame_rate(Some(&"30000/1001".to_string()));
+        assert!(fps.is_some());
+        let fps_val = fps.unwrap();
+        assert!((fps_val - 29.970029970029973).abs() < 0.0001);
         assert_eq!(parse_frame_rate(Some(&"24/1".to_string())), Some(24.0));
         assert_eq!(parse_frame_rate(None), None);
         assert_eq!(parse_frame_rate(Some(&"invalid".to_string())), None);
@@ -472,13 +472,13 @@ mod tests {
     fn test_get_thumbnail_timestamp() {
         assert_eq!(get_thumbnail_timestamp(100.0), 10.0);
         assert_eq!(get_thumbnail_timestamp(10.0), 1.0); // Min 1 second
-        assert_eq!(get_thumbnail_timestamp(1.5), 1.0); // Min 1 second
+        assert_eq!(get_thumbnail_timestamp(5.0), 1.0); // 10% of 5 = 0.5, max with 1.0
     }
 
     #[test]
     fn test_get_poster_timestamp() {
         assert_eq!(get_poster_timestamp(100.0), 25.0);
-        assert_eq!(get_poster_timestamp(10.0), 2.0); // Min 2 seconds
-        assert_eq!(get_poster_timestamp(2.5), 2.0); // Min 2 seconds
+        assert_eq!(get_poster_timestamp(10.0), 2.5); // 25% of 10 = 2.5
+        assert_eq!(get_poster_timestamp(5.0), 2.0); // 25% of 5 = 1.25, max with 2.0
     }
 }

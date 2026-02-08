@@ -5,14 +5,18 @@
 //! - File operations (move, copy, delete)
 //! - Path validation and sanitization
 //! - Cleanup utilities
+//!
+//! Phase 2.4: Integrated with media-core StorageManager
 
 use anyhow::{Context, Result};
+use media_core::storage::StorageManager;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 
 /// Storage configuration
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct StorageConfig {
     /// Base storage directory for videos
     pub videos_dir: PathBuf,
@@ -20,6 +24,19 @@ pub struct StorageConfig {
     pub temp_dir: PathBuf,
     /// Maximum file size in bytes (default: 2GB)
     pub max_file_size: u64,
+    /// Media-core storage manager (wrapped in Arc for Clone)
+    storage_manager: Option<Arc<StorageManager>>,
+}
+
+impl std::fmt::Debug for StorageConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StorageConfig")
+            .field("videos_dir", &self.videos_dir)
+            .field("temp_dir", &self.temp_dir)
+            .field("max_file_size", &self.max_file_size)
+            .field("storage_manager", &self.storage_manager.is_some())
+            .finish()
+    }
 }
 
 impl StorageConfig {
@@ -27,12 +44,19 @@ impl StorageConfig {
     pub fn new(base_dir: PathBuf) -> Self {
         let videos_dir = base_dir.join("videos");
         let temp_dir = base_dir.join("temp");
+        let storage_manager = Some(Arc::new(StorageManager::new(&base_dir)));
 
         Self {
             videos_dir,
             temp_dir,
             max_file_size: 2 * 1024 * 1024 * 1024, // 2GB
+            storage_manager,
         }
+    }
+
+    /// Get the media-core storage manager
+    pub fn storage_manager(&self) -> Option<Arc<StorageManager>> {
+        self.storage_manager.clone()
     }
 
     /// Initialize storage directories
@@ -49,6 +73,37 @@ impl StorageConfig {
 
         info!("Storage directories initialized successfully");
         Ok(())
+    }
+
+    /// Initialize storage directories (async version using media-core)
+    pub async fn initialize_async(&self) -> Result<()> {
+        if let Some(storage) = &self.storage_manager {
+            info!("Initializing storage directories (async)");
+
+            // Create main directories using media-core
+            storage
+                .ensure_directory("videos")
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to create videos directory: {}", e))?;
+            storage
+                .ensure_directory("temp")
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to create temp directory: {}", e))?;
+            storage
+                .ensure_directory("videos/public")
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to create public directory: {}", e))?;
+            storage
+                .ensure_directory("videos/private")
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to create private directory: {}", e))?;
+
+            info!("Storage directories initialized successfully (async)");
+            Ok(())
+        } else {
+            // Fallback to sync version
+            self.initialize()
+        }
     }
 
     /// Get the path for a video directory
@@ -134,6 +189,22 @@ pub fn move_file(source: &Path, destination: &Path) -> Result<()> {
     }
 }
 
+/// Move a file atomically (async version using media-core)
+///
+/// This is a bridge function that uses media-core's StorageManager
+pub async fn move_file_async(
+    storage: &StorageManager,
+    source: &Path,
+    destination: &Path,
+) -> Result<PathBuf> {
+    debug!("Moving file (async) from {:?} to {:?}", source, destination);
+
+    storage
+        .move_file(source, destination)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to move file: {}", e))
+}
+
 /// Copy a file
 pub fn copy_file(source: &Path, destination: &Path) -> Result<()> {
     debug!("Copying file from {:?} to {:?}", source, destination);
@@ -154,6 +225,23 @@ pub fn copy_file(source: &Path, destination: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Copy a file (async version using media-core)
+pub async fn copy_file_async(
+    storage: &StorageManager,
+    source: &Path,
+    destination: &Path,
+) -> Result<PathBuf> {
+    debug!(
+        "Copying file (async) from {:?} to {:?}",
+        source, destination
+    );
+
+    storage
+        .copy_file(source, destination)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to copy file: {}", e))
+}
+
 /// Delete a file if it exists
 pub fn delete_file(path: &Path) -> Result<()> {
     if path.exists() {
@@ -164,6 +252,16 @@ pub fn delete_file(path: &Path) -> Result<()> {
         debug!("File does not exist, skipping deletion: {:?}", path);
     }
     Ok(())
+}
+
+/// Delete a file (async version using media-core)
+pub async fn delete_file_async(storage: &StorageManager, path: &Path) -> Result<()> {
+    debug!("Deleting file (async): {:?}", path);
+
+    storage
+        .delete_file(path)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to delete file: {}", e))
 }
 
 /// Delete a directory and all its contents
@@ -177,6 +275,16 @@ pub fn delete_directory(path: &Path) -> Result<()> {
         debug!("Directory does not exist, skipping deletion: {:?}", path);
     }
     Ok(())
+}
+
+/// Delete a directory (async version using media-core)
+pub async fn delete_directory_async(storage: &StorageManager, path: &Path) -> Result<()> {
+    info!("Deleting directory (async): {:?}", path);
+
+    storage
+        .delete_directory(path)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to delete directory: {}", e))
 }
 
 /// Get the size of a file in bytes

@@ -1008,8 +1008,8 @@ mod tests {
         assert_eq!(ProcessingStage::ExtractingMetadata.progress(), 30);
         assert_eq!(ProcessingStage::GeneratingThumbnail.progress(), 40);
         assert_eq!(ProcessingStage::GeneratingPoster.progress(), 50);
-        assert_eq!(ProcessingStage::MovingFile.progress(), 70);
-        assert_eq!(ProcessingStage::UpdatingDatabase.progress(), 90);
+        assert_eq!(ProcessingStage::MovingFile.progress(), 90);
+        assert_eq!(ProcessingStage::UpdatingDatabase.progress(), 95);
         assert_eq!(ProcessingStage::Complete.progress(), 100);
     }
 

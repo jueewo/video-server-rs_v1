@@ -189,11 +189,7 @@ impl VideoManagerState {
         progress_tracker.start_cleanup_task(300);
 
         // Initialize storage configuration
-        let storage_config = storage::StorageConfig {
-            videos_dir: storage_dir.clone(),
-            temp_dir: storage_dir.join("temp"),
-            max_file_size: 2 * 1024 * 1024 * 1024, // 2GB
-        };
+        let storage_config = storage::StorageConfig::new(storage_dir.clone());
 
         // Initialize FFmpeg configuration
         let ffmpeg_config = ffmpeg::FFmpegConfig {

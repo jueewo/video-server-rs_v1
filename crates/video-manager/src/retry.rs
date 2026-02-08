@@ -299,7 +299,7 @@ mod tests {
         let counter = Arc::new(AtomicU32::new(0));
         let counter_clone = counter.clone();
 
-        let result = retry("test_op", move || {
+        let result: Result<(), TestError> = retry("test_op", move || {
             let counter = counter_clone.clone();
             async move {
                 counter.fetch_add(1, Ordering::SeqCst);
@@ -319,7 +319,7 @@ mod tests {
         let counter_clone = counter.clone();
 
         let policy = RetryPolicy::with_attempts(2);
-        let result = retry_with_policy(policy, "test_op", move || {
+        let result: Result<(), TestError> = retry_with_policy(policy, "test_op", move || {
             let counter = counter_clone.clone();
             async move {
                 counter.fetch_add(1, Ordering::SeqCst);

@@ -1,3 +1,6 @@
+pub mod media_item_impl;
+pub mod storage;
+
 use serde_json;
 
 use askama::Template;
@@ -183,15 +186,19 @@ pub struct ImageManagerState {
     pub pool: Pool<Sqlite>,
     pub storage_dir: PathBuf,
     pub access_control: Arc<AccessControlService>,
+    pub storage_config: storage::ImageStorageConfig,
 }
 
 impl ImageManagerState {
     pub fn new(pool: Pool<Sqlite>, storage_dir: PathBuf) -> Self {
         let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));
+        let storage_config = storage::ImageStorageConfig::new(storage_dir.clone());
+
         Self {
             pool,
             storage_dir,
             access_control,
+            storage_config,
         }
     }
 }

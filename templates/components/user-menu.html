@@ -1,0 +1,22 @@
+<!-- User Menu Component -->
+{% if authenticated %}
+<div class="dropdown dropdown-end ml-2">
+    <label tabindex="0" class="btn btn-ghost btn-circle avatar placeholder">
+        <div class="bg-primary text-primary-content rounded-full w-10">
+            <span>U</span>
+        </div>
+    </label>
+    <ul
+        tabindex="0"
+        class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-200 rounded-box w-52"
+    >
+        <li><a href="/profile">👤 Profile</a></li>
+        <li><a href="/groups">👥 Groups</a></li>
+        <li><a href="/tags/cloud">🏷️ Tags Cloud</a></li>
+        <li>---</li>
+        <li><a href="/logout">🚪 Logout</a></li>
+    </ul>
+</div>
+{% else %}
+<a href="/login" class="btn btn-primary ml-2"> 🔐 Login </a>
+{% endif %}

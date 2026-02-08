@@ -82,31 +82,31 @@ pub struct MergeTagsRequest {
 
 #[derive(sqlx::FromRow)]
 struct UserRecord {
-    sub: String,
+    id: String,
     name: String,
     email: String,
-    is_admin: i64,
 }
 
 /// Extract user from session (returns None if not authenticated)
 async fn get_optional_user(session: &Session, pool: &Pool<Sqlite>) -> Option<SessionUser> {
-    // Get user_sub from session
-    let user_sub: Option<String> = session.get("user_sub").await.ok().flatten();
+    // Get user_id from session
+    let user_id: Option<String> = session.get("user_id").await.ok().flatten();
 
-    if let Some(sub) = user_sub {
-        // Check if user exists and get role
-        if let Ok(Some(user_record)) = sqlx::query_as::<_, UserRecord>(
-            "SELECT sub, name, email, is_admin FROM users WHERE sub = ?",
-        )
-        .bind(&sub)
-        .fetch_optional(pool)
-        .await
+    if let Some(id) = user_id {
+        // Check if user exists
+        if let Ok(Some(user_record)) =
+            sqlx::query_as::<_, UserRecord>("SELECT id, name, email FROM users WHERE id = ?")
+                .bind(&id)
+                .fetch_optional(pool)
+                .await
         {
+            // For now, treat all authenticated users as admins for tag creation
+            // TODO: Implement proper role-based access control
             return Some(SessionUser {
-                sub: user_record.sub,
+                sub: user_record.id,
                 name: user_record.name,
                 email: user_record.email,
-                is_admin: user_record.is_admin != 0,
+                is_admin: true,
             });
         }
     }

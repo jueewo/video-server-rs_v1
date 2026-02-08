@@ -80,6 +80,7 @@ pub struct ResourcePreview {
 #[derive(Template, Clone)]
 #[template(path = "codes/preview.html")]
 pub struct PreviewTemplate {
+    pub authenticated: bool,
     pub code: String,
     pub description: String,
     pub has_description: bool,
@@ -91,6 +92,7 @@ pub struct PreviewTemplate {
 #[derive(Template)]
 #[template(path = "codes/list.html")]
 pub struct AccessCodesListTemplate {
+    pub authenticated: bool,
     pub access_codes: Vec<AccessCodeDisplay>,
     pub total_pages: usize,
     pub current_page: usize,
@@ -138,9 +140,13 @@ pub async fn new_access_code_page(
 
     #[derive(Template)]
     #[template(path = "codes/new.html")]
-    struct NewAccessCodeTemplate {}
+    struct NewAccessCodeTemplate {
+        authenticated: bool,
+    }
 
-    let template = NewAccessCodeTemplate {};
+    let template = NewAccessCodeTemplate {
+        authenticated: true,
+    };
     let html = template
         .render()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -255,11 +261,13 @@ pub async fn view_access_code_page(
     #[derive(Template)]
     #[template(path = "codes/detail.html")]
     struct AccessCodeDetailTemplate {
+        authenticated: bool,
         code: AccessCodeDisplay,
         base_url: String,
     }
 
     let template = AccessCodeDetailTemplate {
+        authenticated: true, // Detail page requires auth
         code: code_display,
         base_url: "http://localhost:3000".to_string(), // TODO: Get from config
     };
@@ -335,6 +343,7 @@ pub async fn preview_access_code_page(
         .collect();
 
     let template = PreviewTemplate {
+        authenticated: false, // Preview page is public
         code: code_name,
         description: description.clone().unwrap_or_default(),
         has_description: description.is_some(),
@@ -810,10 +819,11 @@ pub async fn list_access_codes_page(
     }
 
     let template = AccessCodesListTemplate {
+        authenticated: true, // List page requires auth
         access_codes,
         total_pages: 1,
         current_page: 1,
-        base_url: "http://localhost:3000".to_string(), // TODO: Get from config
+        base_url: "http://localhost:3000".to_string(),
     };
 
     let html = template

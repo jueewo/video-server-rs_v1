@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base-tailwind.html" %}
 
 {% block title %}{{ page_title }} - Image Gallery{% endblock %}
 
@@ -62,7 +62,7 @@
             {% else %}
                 <div>
                     <span class="status-badge guest">👋 Guest Mode</span>
-                    <a href="/login" class="btn btn-primary">Login</a>
+                    <!--<a href="/login" class="btn btn-primary">Login</a>-->
                 </div>
             {% endif %}
         </div>

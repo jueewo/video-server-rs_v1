@@ -144,29 +144,39 @@ pub fn auth_routes(state: Arc<AuthState>) -> Router {
 #[derive(Template)]
 #[template(path = "auth/login.html")]
 struct LoginTemplate {
+    authenticated: bool,
     oidc_available: bool,
     emergency_enabled: bool,
 }
 
 #[derive(Template)]
 #[template(path = "auth/already_logged_in.html")]
-struct AlreadyLoggedInTemplate;
+struct AlreadyLoggedInTemplate {
+    authenticated: bool,
+}
 
 #[derive(Template)]
 #[template(path = "auth/emergency_login.html")]
-struct EmergencyLoginTemplate;
+struct EmergencyLoginTemplate {
+    authenticated: bool,
+}
 
 #[derive(Template)]
 #[template(path = "auth/emergency_success.html")]
-struct EmergencySuccessTemplate;
+struct EmergencySuccessTemplate {
+    authenticated: bool,
+}
 
 #[derive(Template)]
 #[template(path = "auth/emergency_failed.html")]
-struct EmergencyFailedTemplate;
+struct EmergencyFailedTemplate {
+    authenticated: bool,
+}
 
 #[derive(Template)]
 #[template(path = "auth/error.html")]
 struct AuthErrorTemplate {
+    authenticated: bool,
     reason: String,
     detail: Option<String>,
 }
@@ -174,6 +184,7 @@ struct AuthErrorTemplate {
 #[derive(Template)]
 #[template(path = "auth/profile.html")]
 struct UserProfileTemplate {
+    authenticated: bool,
     user_id: String,
     name: String,
     email: String,
@@ -215,6 +226,7 @@ pub async fn user_profile_handler(
         .unwrap_or_else(|| "unknown".to_string());
 
     let template = UserProfileTemplate {
+        authenticated: true, // User must be authenticated to see profile
         user_id,
         name,
         email,
@@ -234,7 +246,9 @@ pub async fn login_page_handler(
 ) -> Result<Html<String>, StatusCode> {
     // Check if already authenticated
     if is_authenticated(&session).await {
-        let template = AlreadyLoggedInTemplate;
+        let template = AlreadyLoggedInTemplate {
+            authenticated: true,
+        };
         return Ok(Html(template.render().unwrap()));
     }
 
@@ -242,6 +256,7 @@ pub async fn login_page_handler(
     let emergency_enabled = state.config.enable_emergency_login;
 
     let template = LoginTemplate {
+        authenticated: false,
         oidc_available,
         emergency_enabled,
     };
@@ -559,6 +574,7 @@ pub struct AuthErrorQuery {
 #[tracing::instrument(skip(query))]
 pub async fn auth_error_handler(Query(query): Query<AuthErrorQuery>) -> Html<String> {
     let template = AuthErrorTemplate {
+        authenticated: false,
         reason: query.reason,
         detail: query.detail,
     };
@@ -577,11 +593,15 @@ pub async fn emergency_login_form_handler(
 ) -> Result<Html<String>, StatusCode> {
     // Check if already authenticated
     if is_authenticated(&session).await {
-        let template = AlreadyLoggedInTemplate;
+        let template = AlreadyLoggedInTemplate {
+            authenticated: true,
+        };
         return Ok(Html(template.render().unwrap()));
     }
 
-    let template = EmergencyLoginTemplate;
+    let template = EmergencyLoginTemplate {
+        authenticated: false,
+    };
     Ok(Html(template.render().unwrap()))
 }
 
@@ -655,7 +675,9 @@ pub async fn emergency_login_auth_handler(
             "User authenticated via emergency login"
         );
 
-        let template = EmergencySuccessTemplate;
+        let template = EmergencySuccessTemplate {
+            authenticated: true,
+        };
         Ok(Html(template.render().unwrap()))
     } else {
         warn!(
@@ -666,7 +688,9 @@ pub async fn emergency_login_auth_handler(
             "Failed emergency login attempt"
         );
 
-        let template = EmergencyFailedTemplate;
+        let template = EmergencyFailedTemplate {
+            authenticated: false,
+        };
         Ok(Html(template.render().unwrap()))
     }
 }

@@ -119,6 +119,7 @@ struct IndexTemplate {
 #[derive(Template)]
 #[template(path = "demo.html")]
 struct DemoTemplate {
+    authenticated: bool,
     code: String,
     error: String,
     #[allow(dead_code)]
@@ -232,6 +233,7 @@ async fn demo_handler(
 
     let resource_count = resources.len();
     let template = DemoTemplate {
+        authenticated: false,
         code: code.unwrap_or_default(),
         error,
         resources,
@@ -257,10 +259,19 @@ async fn health_check() -> &'static str {
 
 #[derive(Template)]
 #[template(path = "tags/manage.html")]
-struct TagManagementPage;
+struct TagManagementPage {
+    authenticated: bool,
+}
 
-async fn tag_management_handler() -> Result<Html<String>, StatusCode> {
-    let template = TagManagementPage;
+async fn tag_management_handler(session: Session) -> Result<Html<String>, StatusCode> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    let template = TagManagementPage { authenticated };
     match template.render() {
         Ok(html) => Ok(Html(html)),
         Err(e) => {
@@ -272,10 +283,19 @@ async fn tag_management_handler() -> Result<Html<String>, StatusCode> {
 
 #[derive(Template)]
 #[template(path = "tags/cloud.html")]
-struct TagCloudPage;
+struct TagCloudPage {
+    authenticated: bool,
+}
 
-async fn tag_cloud_handler() -> Result<Html<String>, StatusCode> {
-    let template = TagCloudPage;
+async fn tag_cloud_handler(session: Session) -> Result<Html<String>, StatusCode> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    let template = TagCloudPage { authenticated };
     match template.render() {
         Ok(html) => Ok(Html(html)),
         Err(e) => {

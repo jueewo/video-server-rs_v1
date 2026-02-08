@@ -1,31 +1,136 @@
-{% extends "base.html" %}
+{% extends "base-tailwind.html" %} {% block title %}Emergency Login{% endblock
+%} {% block content %}
+<div
+    class="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-base-200 px-4"
+>
+    <div class="card w-full max-w-md bg-base-100 shadow-2xl">
+        <div class="card-body">
+            <!-- Header -->
+            <div class="text-center mb-6">
+                <div
+                    class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-warning/10 mb-4"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-8 w-8 text-warning"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
+                    </svg>
+                </div>
+                <h1 class="text-3xl font-bold">⚠️ Emergency Login</h1>
+            </div>
 
-{% block title %}Emergency Login{% endblock %}
+            <!-- Warning Alert -->
+            <div class="alert alert-warning shadow-lg mb-6">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="stroke-current shrink-0 h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                </svg>
+                <div>
+                    <h3 class="font-bold">Warning</h3>
+                    <div class="text-sm">
+                        This is an emergency login option for system
+                        administrators only. All login attempts are logged.
+                    </div>
+                </div>
+            </div>
 
-{% block content %}
-<div class="container">
-    <h1>⚠️ Emergency Login</h1>
+            <!-- Login Form -->
+            <form
+                method="POST"
+                action="/login/emergency/auth"
+                class="space-y-4"
+            >
+                <div class="form-control w-full">
+                    <label class="label" for="username">
+                        <span class="label-text font-semibold">Username</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        placeholder="Enter your username"
+                        class="input input-bordered w-full"
+                        required
+                        autofocus
+                    />
+                </div>
 
-    <div class="warning">
-        <strong>Warning:</strong> This is an emergency login option for system administrators only.
-        All login attempts are logged.
+                <div class="form-control w-full">
+                    <label class="label" for="password">
+                        <span class="label-text font-semibold">Password</span>
+                    </label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        placeholder="Enter your password"
+                        class="input input-bordered w-full"
+                        required
+                    />
+                </div>
+
+                <div class="form-control mt-6 space-y-3">
+                    <button
+                        type="submit"
+                        class="btn btn-primary btn-lg w-full gap-2"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"
+                            />
+                        </svg>
+                        Login
+                    </button>
+                    <a
+                        href="/login"
+                        class="btn btn-secondary btn-outline w-full gap-2"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                            />
+                        </svg>
+                        Back to Login
+                    </a>
+                </div>
+            </form>
+        </div>
     </div>
-
-    <form method="POST" action="/login/emergency/auth">
-        <div class="form-group">
-            <label for="username">Username:</label>
-            <input type="text" id="username" name="username" required autofocus>
-        </div>
-
-        <div class="form-group">
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required>
-        </div>
-
-        <div class="buttons">
-            <button type="submit" class="btn btn-primary">Login</button>
-            <a href="/login" class="btn btn-secondary">← Back to Login</a>
-        </div>
-    </form>
 </div>
 {% endblock %}

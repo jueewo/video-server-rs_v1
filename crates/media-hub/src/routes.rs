@@ -121,6 +121,7 @@ async fn list_media_html(
     match search_service.search(filter).await {
         Ok(response) => {
             let template = MediaListTemplate {
+                authenticated,
                 items: response.items,
                 total: response.total,
                 page: response.page,

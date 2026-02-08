@@ -30,6 +30,7 @@ async fn get_user_id(session: &Session) -> Result<String> {
 #[derive(Template)]
 #[template(path = "groups/list.html")]
 struct GroupsListTemplate {
+    authenticated: bool,
     groups: Vec<GroupWithMetadata>,
 }
 
@@ -41,7 +42,10 @@ pub async fn groups_list_page_handler(
     let user_id = get_user_id(&session).await?;
     let groups = get_user_groups(&pool, &user_id).await?;
 
-    let template = GroupsListTemplate { groups };
+    let template = GroupsListTemplate {
+        authenticated: true,
+        groups,
+    };
     Ok(Html(
         template
             .render()
@@ -53,14 +57,18 @@ pub async fn groups_list_page_handler(
 /// Group creation page template
 #[derive(Template)]
 #[template(path = "groups/create.html")]
-struct CreateGroupTemplate {}
+struct CreateGroupTemplate {
+    authenticated: bool,
+}
 
 /// Group creation page handler
 pub async fn create_group_page_handler(session: Session) -> Result<Response> {
     // Verify user is authenticated
     let _user_id = get_user_id(&session).await?;
 
-    let template = CreateGroupTemplate {};
+    let template = CreateGroupTemplate {
+        authenticated: true,
+    };
     Ok(Html(
         template
             .render()
@@ -73,6 +81,7 @@ pub async fn create_group_page_handler(session: Session) -> Result<Response> {
 #[derive(Template)]
 #[template(path = "groups/detail.html")]
 struct GroupDetailTemplate {
+    authenticated: bool,
     group: crate::models::AccessGroup,
     members: Vec<MemberWithUser>,
     member_count: usize,
@@ -172,6 +181,7 @@ pub async fn group_detail_page_handler(
     }
 
     let template = GroupDetailTemplate {
+        authenticated: true,
         group,
         members,
         member_count,
@@ -194,6 +204,7 @@ pub async fn group_detail_page_handler(
 #[derive(Template)]
 #[template(path = "invitations/accept.html")]
 struct AcceptInvitationTemplate {
+    authenticated: bool,
     invitation: InvitationDetailsView,
     error: String,
     error_type: String,
@@ -219,6 +230,7 @@ pub async fn accept_invitation_page_handler(
             // Check if expired
             if invitation.is_expired() {
                 let template = AcceptInvitationTemplate {
+                    authenticated: true,
                     invitation: InvitationDetailsView {
                         group_name: String::new(),
                         group_slug: String::new(),
@@ -242,6 +254,7 @@ pub async fn accept_invitation_page_handler(
             // Check if already accepted
             if invitation.is_accepted() {
                 let template = AcceptInvitationTemplate {
+                    authenticated: true,
                     invitation: InvitationDetailsView {
                         group_name: String::new(),
                         group_slug: String::new(),
@@ -269,6 +282,7 @@ pub async fn accept_invitation_page_handler(
             let invited_by_name = invitation.invited_by.clone();
 
             let template = AcceptInvitationTemplate {
+                authenticated: true,
                 invitation: InvitationDetailsView {
                     group_name: group.name,
                     group_slug: group.slug,
@@ -291,6 +305,7 @@ pub async fn accept_invitation_page_handler(
         }
         Err(_) => {
             let template = AcceptInvitationTemplate {
+                authenticated: true,
                 invitation: InvitationDetailsView {
                     group_name: String::new(),
                     group_slug: String::new(),
@@ -317,6 +332,7 @@ pub async fn accept_invitation_page_handler(
 #[derive(Template)]
 #[template(path = "groups/settings.html")]
 struct GroupSettingsTemplate {
+    authenticated: bool,
     group: crate::models::AccessGroup,
     can_admin: bool,
 }
@@ -340,7 +356,11 @@ pub async fn group_settings_page_handler(
         ));
     }
 
-    let template = GroupSettingsTemplate { group, can_admin };
+    let template = GroupSettingsTemplate {
+        authenticated: true,
+        group,
+        can_admin,
+    };
 
     Ok(Html(
         template

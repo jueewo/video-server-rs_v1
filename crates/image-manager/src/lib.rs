@@ -1225,8 +1225,15 @@ pub async fn update_image_handler(
             // Handle tags if provided
             if let Some(tags) = update_req.tags {
                 let tag_service = TagService::new(&state.pool);
-                if let Err(e) = tag_service.replace_image_tags(id as i32, tags, None).await {
+                if let Err(e) = tag_service
+                    .replace_image_tags(id as i32, tags, Some(&user_sub))
+                    .await
+                {
                     tracing::error!("Error updating tags for image {}: {}", id, e);
+                    return Err((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("Failed to update tags: {}", e),
+                    ));
                 }
             }
 

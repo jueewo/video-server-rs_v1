@@ -19,86 +19,17 @@
             src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
         ></script>
 
+        <style>
+            [x-cloak] {
+                display: none !important;
+            }
+        </style>
+
         {% block extra_head %}{% endblock %}
     </head>
     <body class="bg-base-100 min-h-screen flex flex-col">
         <!-- Navbar -->
-        <div class="navbar bg-base-300 shadow-lg sticky top-0 z-50">
-            <div class="flex-1">
-                <a href="/" class="btn btn-ghost normal-case text-xl">
-                    <span class="text-2xl">🎬</span>
-                    <span class="ml-2">Media Server</span>
-                </a>
-            </div>
-
-            <div class="flex-none">
-                <ul class="menu menu-horizontal px-1">
-                    <li><a href="/">🏠 Home</a></li>
-                    <li><a href="/videos">🎥 Videos</a></li>
-                    <li><a href="/images">🖼️ Images</a></li>
-                    <li><a href="/documents">📄 Documents</a></li>
-                    <li><a href="/media">🎨 All Media</a></li>
-                    <li><a href="/groups">👥 Groups</a></li>
-                    <li><a href="/test">📡 Live</a></li>
-                </ul>
-
-                <!-- Theme Toggle -->
-                <button
-                    id="themeToggle"
-                    class="btn btn-ghost btn-circle ml-2"
-                    onclick="toggleTheme()"
-                    title="Toggle theme"
-                >
-                    <!-- Moon icon (shown in light mode) -->
-                    <svg
-                        id="moonIcon"
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-5 w-5"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                    >
-                        <path
-                            d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"
-                        />
-                    </svg>
-                    <!-- Sun icon (shown in dark mode) -->
-                    <svg
-                        id="sunIcon"
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-5 w-5 hidden"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
-                            clip-rule="evenodd"
-                        />
-                    </svg>
-                </button>
-
-                <!-- User Menu -->
-                <div class="dropdown dropdown-end ml-2">
-                    <label
-                        tabindex="0"
-                        class="btn btn-ghost btn-circle avatar placeholder"
-                    >
-                        <div
-                            class="bg-primary text-primary-content rounded-full w-10"
-                        >
-                            <span>U</span>
-                        </div>
-                    </label>
-                    <ul
-                        tabindex="0"
-                        class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-200 rounded-box w-52"
-                    >
-                        <li><a href="/profile">👤 Profile</a></li>
-                        <li><a href="/logout">🚪 Logout</a></li>
-                    </ul>
-                </div>
-            </div>
-        </div>
+        {% include "components/navbar.html" %}
 
         <!-- Main Content -->
         <main class="flex-1">{% block content %}{% endblock %}</main>

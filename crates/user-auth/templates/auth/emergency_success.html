@@ -1,17 +1,72 @@
-{% extends "base.html" %}
+{% extends "base-tailwind.html" %} {% block title %}Emergency Login Successful{%
+endblock %} {% block extra_head %}
+<meta http-equiv="refresh" content="2;url=/" />
+{% endblock %} {% block content %}
+<div
+    class="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-base-200 px-4"
+>
+    <div class="card w-full max-w-md bg-base-100 shadow-2xl">
+        <div class="card-body">
+            <!-- Header -->
+            <div class="text-center mb-6">
+                <div
+                    class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success/10 mb-4"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-8 w-8 text-success"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                    </svg>
+                </div>
+                <h1 class="text-3xl font-bold mb-4">
+                    ✅ Emergency Login Successful
+                </h1>
+            </div>
 
-{% block title %}Emergency Login Successful{% endblock %}
+            <!-- Success Alert -->
+            <div class="alert alert-success shadow-lg mb-6">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="stroke-current shrink-0 h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                </svg>
+                <div>
+                    <h3 class="font-bold">Login Successful!</h3>
+                    <div class="text-sm">Redirecting to home page...</div>
+                </div>
+            </div>
 
-{% block extra_styles %}
-<meta http-equiv="refresh" content="2;url=/">
-{% endblock %}
+            <!-- Loading Animation -->
+            <div class="flex justify-center mb-6">
+                <span
+                    class="loading loading-spinner loading-lg text-primary"
+                ></span>
+            </div>
 
-{% block content %}
-<div class="container">
-    <div class="success">
-        <h2>✅ Emergency Login Successful</h2>
-        <p></p>Redirecting to home page...</p>
-        <p><a href="/">Click here if not redirected automatically</a></p>
+            <!-- Manual Link -->
+            <div class="text-center">
+                <a href="/" class="link link-primary"
+                    >Click here if not redirected automatically</a
+                >
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

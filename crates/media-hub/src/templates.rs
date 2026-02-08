@@ -10,6 +10,9 @@ use askama::Template;
 #[derive(Template)]
 #[template(path = "media_list_tailwind.html")]
 pub struct MediaListTemplate {
+    /// Whether user is authenticated
+    pub authenticated: bool,
+
     /// List of media items (mixed types)
     pub items: Vec<UnifiedMediaItem>,
 
@@ -140,6 +143,7 @@ mod tests {
     #[test]
     fn test_media_list_pagination() {
         let template = MediaListTemplate {
+            authenticated: true,
             items: vec![],
             total: 100,
             page: 2,
@@ -149,10 +153,10 @@ mod tests {
             search_query: None,
             sort_by: "created_at".to_string(),
             sort_order: "desc".to_string(),
-            video_count: 50,
-            image_count: 30,
-            document_count: 20,
-            total_count: 100,
+            video_count: 0,
+            image_count: 0,
+            document_count: 0,
+            total_count: 0,
         };
 
         assert!(!template.is_first_page());
@@ -164,6 +168,7 @@ mod tests {
     #[test]
     fn test_media_list_first_page() {
         let template = MediaListTemplate {
+            authenticated: true,
             items: vec![],
             total: 100,
             page: 0,
@@ -173,10 +178,10 @@ mod tests {
             search_query: None,
             sort_by: "created_at".to_string(),
             sort_order: "desc".to_string(),
-            video_count: 50,
-            image_count: 30,
-            document_count: 20,
-            total_count: 100,
+            video_count: 0,
+            image_count: 0,
+            document_count: 0,
+            total_count: 0,
         };
 
         assert!(template.is_first_page());
@@ -187,6 +192,7 @@ mod tests {
     #[test]
     fn test_media_list_last_page() {
         let template = MediaListTemplate {
+            authenticated: true,
             items: vec![],
             total: 100,
             page: 9,
@@ -196,10 +202,10 @@ mod tests {
             search_query: None,
             sort_by: "created_at".to_string(),
             sort_order: "desc".to_string(),
-            video_count: 50,
-            image_count: 30,
-            document_count: 20,
-            total_count: 100,
+            video_count: 0,
+            image_count: 0,
+            document_count: 0,
+            total_count: 0,
         };
 
         assert!(!template.is_first_page());
@@ -210,6 +216,7 @@ mod tests {
     #[test]
     fn test_filter_active() {
         let template = MediaListTemplate {
+            authenticated: true,
             items: vec![],
             total: 100,
             page: 0,
@@ -219,10 +226,10 @@ mod tests {
             search_query: None,
             sort_by: "created_at".to_string(),
             sort_order: "desc".to_string(),
-            video_count: 50,
-            image_count: 30,
-            document_count: 20,
-            total_count: 100,
+            video_count: 0,
+            image_count: 0,
+            document_count: 0,
+            total_count: 0,
         };
 
         assert!(template.is_filter_active("video"));

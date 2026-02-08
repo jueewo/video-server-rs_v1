@@ -117,6 +117,7 @@ struct IndexTemplate {
 struct DemoTemplate {
     code: String,
     error: String,
+    #[allow(dead_code)]
     resources: Vec<MediaResource>,
     resource_count: usize,
     app_title: String,

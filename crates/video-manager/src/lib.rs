@@ -1,6 +1,18 @@
+// Module declarations
+pub mod cleanup;
+pub mod errors;
+pub mod ffmpeg;
+pub mod hls;
+pub mod metrics;
+pub mod processing;
+pub mod progress;
+pub mod retry;
+pub mod storage;
+pub mod upload;
+
 use askama::Template;
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Multipart, Path, Query, State},
     http::{header, StatusCode},
     response::{Html, IntoResponse, Response},
     routing::{delete, get, post, put},
@@ -25,6 +37,13 @@ use common::{
     models::tag::{AddTagsRequest, Tag},
     services::tag_service::TagService,
 };
+
+// Import upload module types
+use crate::ffmpeg::FFmpegConfig;
+use crate::hls::HlsConfig;
+use crate::progress::{ProgressTracker, UploadProgress};
+use crate::storage::StorageConfig;
+use crate::upload::{handle_video_upload, UploadState};
 
 // -------------------------------
 // Template Structs
@@ -57,6 +76,7 @@ pub struct LiveTestTemplate {
 #[derive(Template)]
 #[template(path = "videos/edit.html")]
 pub struct VideoEditTemplate {
+    #[allow(dead_code)]
     authenticated: bool,
     video: VideoDetail,
 }
@@ -64,6 +84,14 @@ pub struct VideoEditTemplate {
 #[derive(Template)]
 #[template(path = "videos/new.html")]
 pub struct VideoNewTemplate {
+    #[allow(dead_code)]
+    authenticated: bool,
+}
+
+#[derive(Template)]
+#[template(path = "videos/upload-enhanced.html")]
+pub struct VideoUploadTemplate {
+    #[allow(dead_code)]
     authenticated: bool,
 }
 
@@ -142,16 +170,60 @@ pub struct VideoManagerState {
     pub storage_dir: PathBuf,
     pub http_client: Client,
     pub access_control: Arc<AccessControlService>,
+    pub progress_tracker: ProgressTracker,
+    pub storage_config: storage::StorageConfig,
+    pub ffmpeg_config: ffmpeg::FFmpegConfig,
+    pub hls_config: hls::HlsConfig,
+    pub metrics_store: metrics::MetricsStore,
+    pub audit_logger: metrics::AuditLogger,
 }
 
 impl VideoManagerState {
     pub fn new(pool: Pool<Sqlite>, storage_dir: PathBuf, http_client: Client) -> Self {
         let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));
+        let progress_tracker = ProgressTracker::default();
+
+        // Start automatic cleanup task (runs every 5 minutes)
+        progress_tracker.start_cleanup_task(300);
+
+        // Initialize storage configuration
+        let storage_config = storage::StorageConfig {
+            videos_dir: storage_dir.clone(),
+            temp_dir: storage_dir.join("temp"),
+            max_file_size: 2 * 1024 * 1024 * 1024, // 2GB
+        };
+
+        // Initialize FFmpeg configuration
+        let ffmpeg_config = ffmpeg::FFmpegConfig {
+            ffmpeg_path: std::path::PathBuf::from("ffmpeg"),
+            ffprobe_path: std::path::PathBuf::from("ffprobe"),
+            threads: 0, // 0 = auto
+        };
+
+        // Initialize HLS configuration
+        let hls_config = hls::HlsConfig {
+            segment_duration: 6,
+            auto_quality_selection: true,
+            delete_original: false,
+        };
+
+        // Initialize metrics store
+        let metrics_store = metrics::ProcessingMetrics::new_store();
+
+        // Initialize audit logger
+        let audit_logger = metrics::AuditLogger::new();
+
         Self {
             pool,
             storage_dir,
             http_client,
             access_control,
+            progress_tracker,
+            storage_config,
+            ffmpeg_config,
+            hls_config,
+            metrics_store,
+            audit_logger,
         }
     }
 }
@@ -163,6 +235,7 @@ pub fn video_routes() -> Router<Arc<VideoManagerState>> {
     Router::new()
         .route("/videos", get(videos_list_handler))
         .route("/videos/new", get(video_new_page_handler))
+        .route("/videos/upload", get(video_upload_page_handler))
         .route("/videos/:slug/edit", get(video_edit_page_handler))
         .route("/watch/:slug", get(video_player_handler))
         .route("/test", get(live_test_handler))
@@ -173,6 +246,16 @@ pub fn video_routes() -> Router<Arc<VideoManagerState>> {
         // Video CRUD API
         .route("/api/videos", get(list_videos_api_handler))
         .route("/api/videos", post(register_video_handler))
+        .route("/api/videos/upload", post(video_upload_handler))
+        .route(
+            "/api/videos/upload/:upload_id/progress",
+            get(get_upload_progress_handler),
+        )
+        .route("/api/videos/metrics", get(get_metrics_handler))
+        .route(
+            "/api/videos/metrics/detailed",
+            get(get_detailed_metrics_handler),
+        )
         .route(
             "/api/videos/available-folders",
             get(available_folders_handler),
@@ -502,7 +585,7 @@ pub async fn hls_proxy_handler(
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let (video_id, is_public_int) = video.ok_or(StatusCode::NOT_FOUND)?;
-    let is_public = is_public_int == 1;
+    let _is_public = is_public_int == 1;
 
     // Get user_id from session if authenticated
     let authenticated: bool = session
@@ -767,11 +850,143 @@ pub async fn video_new_page_handler(
 }
 
 // -------------------------------
-// Available Folders API
+// Video Upload Page Handler
+// -------------------------------
+
+#[tracing::instrument(skip(session))]
+pub async fn video_upload_page_handler(
+    session: Session,
+) -> Result<Html<String>, (StatusCode, String)> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()));
+    }
+
+    let template = VideoUploadTemplate { authenticated };
+    match template.render() {
+        Ok(html) => Ok(Html(html)),
+        Err(e) => {
+            tracing::error!("Template render error: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Template error: {}", e),
+            ))
+        }
+    }
+}
+
+// -------------------------------
+// Video Upload Handler (API)
+// -------------------------------
+
+#[tracing::instrument(skip(session, state, multipart))]
+pub async fn video_upload_handler(
+    session: Session,
+    State(state): State<Arc<VideoManagerState>>,
+    multipart: Multipart,
+) -> Result<Json<upload::UploadResponse>, (StatusCode, Json<upload::UploadErrorResponse>)> {
+    // Create upload state from video manager state
+    let upload_state = Arc::new(UploadState::new(
+        state.pool.clone(),
+        state.storage_config.clone(),
+        state.ffmpeg_config.clone(),
+        state.hls_config.clone(),
+        state.progress_tracker.clone(),
+        state.metrics_store.clone(),
+        state.audit_logger.clone(),
+    ));
+
+    // Call the upload handler
+    handle_video_upload(session, State(upload_state), multipart).await
+}
+
+// -------------------------------
+// Upload Progress API Handler
+// -------------------------------
+
+#[tracing::instrument(skip(state))]
+pub async fn get_upload_progress_handler(
+    Path(upload_id): Path<String>,
+    State(state): State<Arc<VideoManagerState>>,
+) -> Result<Json<UploadProgress>, StatusCode> {
+    // Get progress from tracker
+    match state.progress_tracker.get(&upload_id) {
+        Some(progress) => Ok(Json(progress)),
+        None => {
+            // Check if video exists in database (might be old/completed)
+            match sqlx::query(
+                "SELECT slug, processing_status, processing_progress FROM videos WHERE upload_id = ?"
+            )
+            .bind(&upload_id)
+            .fetch_optional(&state.pool)
+            .await
+            {
+                Ok(Some(row)) => {
+                    // Return progress from database
+                    let processing_status: Option<String> = row.try_get("processing_status").ok();
+                    let status = match processing_status.as_deref() {
+                        Some("complete") => crate::progress::ProgressStatus::Complete,
+                        Some("error") => crate::progress::ProgressStatus::Error,
+                        _ => crate::progress::ProgressStatus::Processing,
+                    };
+
+                    let slug: String = row.try_get("slug").unwrap_or_default();
+                    let processing_progress: Option<i32> = row.try_get("processing_progress").ok();
+
+                    Ok(Json(UploadProgress {
+                        upload_id: upload_id.clone(),
+                        slug,
+                        status,
+                        progress: processing_progress.unwrap_or(0) as u8,
+                        stage: "See database for details".to_string(),
+                        started_at: 0,
+                        completed_at: None,
+                        estimated_completion: None,
+                        error: None,
+                        metadata: None,
+                    }))
+                }
+                Ok(None) => Err(StatusCode::NOT_FOUND),
+                Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+            }
+        }
+    }
+}
+
+// -------------------------------
+// Metrics API Handler
+// -------------------------------
+
+/// GET /api/videos/metrics - Get processing metrics
+#[tracing::instrument(skip(state))]
+pub async fn get_metrics_handler(
+    State(state): State<Arc<VideoManagerState>>,
+) -> Json<metrics::MetricsSummary> {
+    let metrics = state.metrics_store.read().await;
+    Json(metrics.summary())
+}
+
+/// GET /api/videos/metrics/detailed - Get detailed metrics
+#[tracing::instrument(skip(state))]
+pub async fn get_detailed_metrics_handler(
+    State(state): State<Arc<VideoManagerState>>,
+) -> Json<metrics::ProcessingMetrics> {
+    let metrics = state.metrics_store.read().await;
+    Json(metrics.clone())
+}
+
+// -------------------------------
+// Available Folders Handler
 // -------------------------------
 
 #[derive(Debug, Serialize)]
-struct FolderInfo {
+pub struct FolderInfo {
     name: String,
     has_playlist: bool,
     has_poster: bool,
@@ -1390,13 +1605,13 @@ pub async fn delete_video_handler(
 // -------------------------------
 
 #[derive(Debug, Serialize)]
-struct VideoTagsResponse {
+pub struct VideoTagsResponse {
     video_id: i32,
     tags: Vec<Tag>,
 }
 
 #[derive(Debug, Serialize)]
-struct ErrorResponse {
+pub struct ErrorResponse {
     error: String,
 }
 

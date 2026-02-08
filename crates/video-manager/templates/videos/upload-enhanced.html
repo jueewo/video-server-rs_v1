@@ -1,0 +1,1218 @@
+{% extends "base-tailwind.html" %}
+{% block title %}Upload Video - Video Server{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Hide modals by default until Alpine.js initializes */
+    .modal {
+        display: none;
+    }
+
+    .modal.modal-open {
+        display: grid;
+    }
+
+    .drag-over {
+        @apply border-primary bg-primary/10 scale-105;
+    }
+
+    .upload-progress {
+        transition: width 0.3s ease;
+    }
+
+    .video-preview {
+        max-height: 400px;
+    }
+
+    .tag-input-wrapper {
+        position: relative;
+    }
+
+    .tag-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 10;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .validation-error {
+        @apply text-error text-sm mt-1;
+    }
+
+    .field-valid {
+        @apply border-success;
+    }
+
+    .field-invalid {
+        @apply border-error;
+    }
+
+    .progress-stage {
+        @apply transition-all duration-300;
+    }
+
+    .progress-stage.active {
+        @apply text-primary font-bold;
+    }
+
+    .pulse-animation {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: .5;
+        }
+    }
+
+    /* Mobile optimizations */
+    @media (max-width: 640px) {
+        .video-preview {
+            max-height: 250px;
+        }
+
+        .stats {
+            font-size: 0.875rem;
+        }
+
+        .stat-value {
+            font-size: 1rem !important;
+        }
+    }
+
+    /* Alpine.js cloak - hide elements until Alpine loads */
+    [x-cloak] {
+        display: none !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-5xl" x-data="videoUpload()">
+    <!-- Debug Panel (remove in production) -->
+    <div class="alert alert-info mb-4 text-xs" x-show="false" x-init="setTimeout(() => $el.style.display = 'block', 500)">
+        <div>
+            <strong>Debug Info:</strong>
+            <div>Alpine loaded: <span x-text="typeof Alpine !== 'undefined' ? 'Yes' : 'No'"></span></div>
+            <div>Upload error: <span x-text="uploadError"></span></div>
+            <div>Current step: <span x-text="step"></span></div>
+            <div>Groups loaded: <span x-text="groups.length"></span></div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center gap-4 mb-4">
+            <a href="/videos" class="btn btn-ghost btn-sm gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+                </svg>
+                Back to Videos
+            </a>
+        </div>
+        <h1 class="text-3xl md:text-4xl font-bold text-base-content mb-2">📤 Upload Video</h1>
+        <p class="text-base md:text-lg text-base-content/70">Share your content with the world</p>
+    </div>
+
+    <!-- Progress Steps -->
+    <div class="mb-8">
+        <ul class="steps steps-horizontal w-full text-xs md:text-sm">
+            <li class="step" :class="step >= 1 ? 'step-primary' : ''">Select Video</li>
+            <li class="step" :class="step >= 2 ? 'step-primary' : ''">Add Details</li>
+            <li class="step" :class="step >= 3 ? 'step-primary' : ''">Review & Upload</li>
+        </ul>
+    </div>
+
+    <form @submit.prevent="handleSubmit" class="space-y-6">
+        <!-- Step 1: File Selection -->
+        <div x-show="step === 1" class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title text-xl md:text-2xl mb-4">Choose Your Video</h2>
+
+                <!-- Validation Alert -->
+                <div x-show="validationErrors.file" class="alert alert-error mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span x-text="validationErrors.file"></span>
+                </div>
+
+                <!-- Drag and Drop Zone -->
+                <div
+                    class="border-4 border-dashed border-base-300 rounded-xl p-8 md:p-12 text-center transition-all duration-300"
+                    :class="{ 'drag-over': isDragging }"
+                    @dragover.prevent="isDragging = true"
+                    @dragleave.prevent="isDragging = false"
+                    @drop.prevent="handleDrop"
+                    x-show="!selectedFile"
+                >
+                    <div class="text-4xl md:text-6xl mb-4">🎬</div>
+                    <h3 class="text-xl md:text-2xl font-bold mb-2">Drag & Drop Your Video</h3>
+                    <p class="text-sm md:text-base text-base-content/60 mb-4">or click to browse</p>
+                    <input
+                        type="file"
+                        id="videoFile"
+                        accept="video/*,.mp4,.webm,.mov,.avi,.mkv"
+                        @change="handleFileSelect"
+                        class="hidden"
+                    >
+                    <label for="videoFile" class="btn btn-primary btn-md md:btn-lg gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 md:h-6 w-5 md:w-6" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                        </svg>
+                        Choose File
+                    </label>
+                    <p class="text-xs md:text-sm text-base-content/50 mt-4">
+                        Supported: MP4, WebM, AVI, MOV, MKV • Max 2GB
+                    </p>
+                </div>
+
+                <!-- File Preview -->
+                <div x-show="selectedFile" class="space-y-4">
+                    <!-- Video Preview Player -->
+                    <div class="bg-base-300 rounded-xl overflow-hidden video-preview">
+                        <video
+                            x-ref="videoPreview"
+                            controls
+                            class="w-full"
+                            @loadedmetadata="extractMetadata"
+                        >
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+
+                    <!-- File Info Card -->
+                    <div class="stats stats-vertical lg:stats-horizontal shadow w-full">
+                        <div class="stat">
+                            <div class="stat-title">File Name</div>
+                            <div class="stat-value text-sm md:text-lg truncate" x-text="selectedFile?.name"></div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-title">Size</div>
+                            <div class="stat-value text-sm md:text-lg" x-text="formatFileSize(selectedFile?.size)"></div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-title">Duration</div>
+                            <div class="stat-value text-sm md:text-lg" x-text="metadata.duration || 'Calculating...'"></div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-title">Resolution</div>
+                            <div class="stat-value text-sm md:text-lg" x-text="metadata.resolution || 'Detecting...'"></div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <button type="button" @click="clearFile" class="btn btn-outline gap-2 order-2 md:order-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                            Remove & Choose Another
+                        </button>
+                        <button type="button" @click="validateAndNext(2)" class="btn btn-primary flex-1 gap-2 order-1 md:order-2">
+                            Next: Add Details
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Metadata Form -->
+        <div x-show="step === 2" class="space-y-6">
+            <!-- Basic Information -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title text-xl md:text-2xl mb-4">Basic Information</h2>
+
+                    <!-- Title -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Title <span class="text-error">*</span></span>
+                            <span class="label-text-alt" x-text="`${formData.title.length}/100`"></span>
+                        </label>
+                        <input
+                            type="text"
+                            x-model="formData.title"
+                            placeholder="Enter video title"
+                            maxlength="100"
+                            class="input input-bordered w-full"
+                            :class="{ 'field-invalid': validationErrors.title, 'field-valid': formData.title.length > 0 && !validationErrors.title }"
+                            @input="validateField('title')"
+                        >
+                        <div x-show="validationErrors.title" class="validation-error" x-text="validationErrors.title"></div>
+                    </div>
+
+                    <!-- Slug -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">URL Slug <span class="text-error">*</span></span>
+                            <span class="label-text-alt text-xs">Auto-generated, edit if needed</span>
+                        </label>
+                        <input
+                            type="text"
+                            x-model="formData.slug"
+                            placeholder="video-url-slug"
+                            class="input input-bordered w-full font-mono text-sm"
+                            :class="{ 'field-invalid': validationErrors.slug, 'field-valid': formData.slug.length > 0 && !validationErrors.slug }"
+                            @input="validateField('slug')"
+                        >
+                        <label class="label">
+                            <span class="label-text-alt text-xs">
+                                URL: <span class="font-mono" x-text="`/watch/${formData.slug || 'your-slug'}`"></span>
+                            </span>
+                        </label>
+                        <div x-show="validationErrors.slug" class="validation-error" x-text="validationErrors.slug"></div>
+                    </div>
+
+                    <!-- Short Description -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Short Description</span>
+                            <span class="label-text-alt" x-text="`${formData.shortDescription.length}/200`"></span>
+                        </label>
+                        <input
+                            type="text"
+                            x-model="formData.shortDescription"
+                            placeholder="Brief description for thumbnails and previews"
+                            maxlength="200"
+                            class="input input-bordered w-full"
+                        >
+                    </div>
+
+                    <!-- Full Description -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Full Description</span>
+                            <span class="label-text-alt" x-text="`${formData.description.length}/5000`"></span>
+                        </label>
+                        <textarea
+                            x-model="formData.description"
+                            placeholder="Detailed description of your video content..."
+                            rows="6"
+                            maxlength="5000"
+                            class="textarea textarea-bordered w-full"
+                        ></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tags -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title text-xl md:text-2xl mb-4">Tags & Categories</h2>
+
+                    <!-- Tags Input -->
+                    <div class="form-control tag-input-wrapper">
+                        <label class="label">
+                            <span class="label-text font-semibold">Tags</span>
+                            <span class="label-text-alt" x-text="`${formData.tags.length} tags`"></span>
+                        </label>
+                        <div class="flex gap-2">
+                            <input
+                                type="text"
+                                x-model="tagInput"
+                                @input="searchTags"
+                                @keydown.enter.prevent="addTag"
+                                placeholder="Type a tag and press Enter"
+                                class="input input-bordered flex-1"
+                            >
+                            <button type="button" @click="addTag" class="btn btn-primary">Add</button>
+                        </div>
+
+                        <!-- Tag Suggestions -->
+                        <div x-show="tagSuggestions.length > 0" class="tag-suggestions bg-base-200 rounded-lg shadow-lg mt-2">
+                            <template x-for="tag in tagSuggestions" :key="tag">
+                                <div
+                                    @click="addTagFromSuggestion(tag)"
+                                    class="px-4 py-2 hover:bg-base-300 cursor-pointer"
+                                    x-text="tag"
+                                ></div>
+                            </template>
+                        </div>
+
+                        <!-- Selected Tags -->
+                        <div x-show="formData.tags.length > 0" class="flex flex-wrap gap-2 mt-3">
+                            <template x-for="(tag, index) in formData.tags" :key="index">
+                                <div class="badge badge-primary badge-lg gap-2">
+                                    <span x-text="tag"></span>
+                                    <button type="button" @click="removeTag(index)" class="btn btn-xs btn-ghost btn-circle">×</button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Category and Language -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text font-semibold">Category</span>
+                            </label>
+                            <select x-model="formData.category" class="select select-bordered w-full">
+                                <option value="">Select category</option>
+                                <option value="education">Education</option>
+                                <option value="entertainment">Entertainment</option>
+                                <option value="music">Music</option>
+                                <option value="gaming">Gaming</option>
+                                <option value="technology">Technology</option>
+                                <option value="sports">Sports</option>
+                                <option value="news">News</option>
+                                <option value="howto">How-to & DIY</option>
+                                <option value="vlog">Vlog</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text font-semibold">Language</span>
+                            </label>
+                            <select x-model="formData.language" class="select select-bordered w-full">
+                                <option value="en">English</option>
+                                <option value="es">Spanish</option>
+                                <option value="fr">French</option>
+                                <option value="de">German</option>
+                                <option value="it">Italian</option>
+                                <option value="pt">Portuguese</option>
+                                <option value="ru">Russian</option>
+                                <option value="ja">Japanese</option>
+                                <option value="zh">Chinese</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title text-xl md:text-2xl mb-4">Settings</h2>
+
+                    <div class="space-y-3">
+                        <!-- Visibility -->
+                        <div class="form-control">
+                            <label class="label cursor-pointer justify-start gap-4">
+                                <input type="checkbox" x-model="formData.isPublic" class="toggle toggle-primary">
+                                <div></div>
+                                    <div class="font-semibold">Public Visibility</div>
+                                    <p class="text-sm text-base-content/60">Make this video visible to everyone</p>
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- Featured -->
+                        <div class="form-control">
+                            <label class="label cursor-pointer justify-start gap-4">
+                                <input type="checkbox" x-model="formData.featured" class="toggle toggle-secondary">
+                                <div>
+                                    <div class="font-semibold">Featured</div>
+                                    <p class="text-sm text-base-content/60">Highlight this video on homepage</p>
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- Comments -->
+                        <div class="form-control">
+                            <label class="label cursor-pointer justify-start gap-4">
+                                <input type="checkbox" x-model="formData.allowComments" class="toggle toggle-accent">
+                                <div>
+                                    <div class="font-semibold">Allow Comments</div>
+                                    <p class="text-sm text-base-content/60">Users can comment on this video</p>
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- Download -->
+                        <div class="form-control">
+                            <label class="label cursor-pointer justify-start gap-4">
+                                <input type="checkbox" x-model="formData.allowDownload" class="toggle toggle-info">
+                                <div>
+                                    <div class="font-semibold">Allow Download</div>
+                                    <p class="text-sm text-base-content/60">Users can download this video</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Access Control -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title text-xl md:text-2xl mb-4">Access Control</h2>
+
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Access Group</span>
+                            <span class="label-text-alt text-xs">Optional - restrict access to group members</span>
+                        </label>
+                        <select x-model="formData.groupId" class="select select-bordered w-full">
+                            <option value="">Public (No Group)</option>
+                            <template x-for="group in groups" :key="group.id">
+                                <option :value="group.id" x-text="group.name"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <div class="alert alert-info mt-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div class="text-sm">
+                            <strong>Access Group:</strong> If selected, only members of this group can view the video.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="flex flex-col md:flex-row gap-4">
+                <button type="button" @click="step = 1" class="btn btn-outline gap-2 order-2 md:order-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+                    </svg>
+                    Back
+                </button>
+                <button type="button" @click="validateAndNext(3)" class="btn btn-primary flex-1 gap-2 order-1 md:order-2">
+                    Next: Review & Upload
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 3: Review & Submit -->
+        <div x-show="step === 3" class="space-y-6">
+            <!-- Review Card -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title text-xl md:text-2xl mb-4">Review Your Upload</h2>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Video Preview -->
+                        <div>
+                            <h3 class="font-semibold mb-2">Video Preview</h3>
+                            <div class="bg-base-300 rounded-lg overflow-hidden">
+                                <video x-ref="reviewPreview" controls class="w-full"></video>
+                            </div>
+                        </div>
+
+                        <!-- Details Summary -->
+                        <div class="space-y-4">
+                            <div>
+                                <h4 class="font-semibold text-sm text-base-content/60">Title</h4>
+                                <p x-text="formData.title" class="text-lg"></p>
+                            </div>
+
+                            <div>
+                                <h4 class="font-semibold text-sm text-base-content/60">Slug</h4>
+                                <p x-text="formData.slug" class="font-mono text-sm"></p>
+                            </div>
+
+                            <div>
+                                <h4 class="font-semibold text-sm text-base-content/60">Description</h4>
+                                <p x-text="formData.description || 'No description provided'" class="text-sm line-clamp-3"></p>
+                            </div>
+
+                            <div x-show="formData.tags.length > 0">
+                                <h4 class="font-semibold text-sm text-base-content/60 mb-2">Tags</h4>
+                                <div class="flex flex-wrap gap-2">
+                                    <template x-for="tag in formData.tags" :key="tag">
+                                        <span class="badge badge-primary" x-text="tag"></span>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <div class="divider"></div>
+
+                            <!-- File Info -->
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <span class="text-base-content/60">File Size:</span>
+                                    <span x-text="formatFileSize(selectedFile?.size)" class="font-semibold ml-2"></span>
+                                </div>
+                                <div>
+                                    <span class="text-base-content/60">Duration:</span>
+                                    <span x-text="metadata.duration" class="font-semibold ml-2"></span>
+                                </div>
+                                <div>
+                                    <span class="text-base-content/60">Resolution:</span>
+                                    <span x-text="metadata.resolution" class="font-semibold ml-2"></span>
+                                </div>
+                                <div>
+                                    <span class="text-base-content/60">Visibility:</span>
+                                    <span x-text="formData.isPublic ? 'Public' : 'Private'" class="font-semibold ml-2"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="flex flex-col md:flex-row gap-4">
+                <button type="button" @click="step = 2" class="btn btn-outline gap-2 order-2 md:order-1" :disabled="uploading">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+                    </svg>
+                    Back to Edit
+                </button>
+                <button type="submit" class="btn btn-primary flex-1 gap-2 order-1 md:order-2" :disabled="uploading">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+                        <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1v-5a1 1 0 00-.293-.707l-2-2A1 1 0 0015 7h-1z" />
+                    </svg>
+                    <span x-text="uploading ? 'Uploading...' : 'Upload Video'"></span>
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Upload Progress Modal -->
+    <div x-show="uploading" x-cloak class="modal" :class="{ 'modal-open': uploading }">
+        <div class="modal-box max-w-2xl">
+            <h3 class="font-bold text-xl mb-4">
+                <span x-show="!processingProgress.processing">📤 Uploading Video...</span>
+                <span x-show="processingProgress.processing">⚙️ Processing Video...</span>
+            </h3>
+
+            <div class="space-y-4">
+                <!-- Upload Progress -->
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <span class="text-sm font-semibold" x-text="uploadStatus"></span>
+                        <span class="text-sm font-semibold" x-text="`${uploadProgress}%`"></span>
+                    </div>
+                    <progress class="progress progress-primary w-full" :value="uploadProgress" max="100"></progress>
+                    <p class="text-xs text-base-content/60 mt-1" x-text="processingProgress.stage || 'Preparing...'"></p>
+                </div>
+
+                <!-- Processing Stages -->
+                <div x-show="processingProgress.processing" class="space-y-2">
+                    <div class="text-sm font-semibold">Processing Stages:</div>
+                    <div class="space-y-1 text-sm">
+                        <div class="flex items-center gap-2 progress-stage" :class="{ 'active': processingProgress.stage?.includes('Upload') }">
+                            <span x-show="processingProgress.progress >= 20">✓</span>
+                            <span x-show="processingProgress.progress < 20">⏳</span>
+                            <span>1. Uploading file</span>
+                        </div>
+                        <div class="flex items-center gap-2 progress-stage" :class="{ 'active': processingProgress.stage?.includes('Validat') }">
+                            <span x-show="processingProgress.progress >= 25">✓</span>
+                            <span x-show="processingProgress.progress < 25 && processingProgress.progress >= 20">⏳</span>
+                            <span x-show="processingProgress.progress < 20">⏺</span>
+                            <span>2. Validating video</span>
+                        </div>
+                        <div class="flex items-center gap-2 progress-stage" :class="{ 'active': processingProgress.stage?.includes('Metadata') }">
+                            <span x-show="processingProgress.progress >= 30">✓</span>
+                            <span x-show="processingProgress.progress < 30 && processingProgress.progress >= 25">⏳</span>
+                            <span x-show="processingProgress.progress < 25">⏺</span>
+                            <span>3. Extracting metadata</span>
+                        </div>
+                        <div class="flex items-center gap-2 progress-stage" :class="{ 'active': processingProgress.stage?.includes('Thumbnail') }">
+                            <span x-show="processingProgress.progress >= 40">✓</span>
+                            <span x-show="processingProgress.progress < 40 && processingProgress.progress >= 30">⏳</span>
+                            <span x-show="processingProgress.progress < 30">⏺</span>
+                            <span>4. Generating thumbnails</span>
+                        </div>
+                        <div class="flex items-center gap-2 progress-stage" :class="{ 'active': processingProgress.stage?.includes('HLS') || processingProgress.stage?.includes('Transcod') }">
+                            <span x-show="processingProgress.progress >= 90">✓</span>
+                            <span x-show="processingProgress.progress < 90 && processingProgress.progress >= 50">⏳</span>
+                            <span x-show="processingProgress.progress < 50">⏺</span>
+                            <span>5. Transcoding to HLS</span>
+                        </div>
+                        <div class="flex items-center gap-2 progress-stage" :class="{ 'active': processingProgress.stage?.includes('Database') }">
+                            <span x-show="processingProgress.progress >= 95">✓</span>
+                            <span x-show="processingProgress.progress < 95 && processingProgress.progress >= 90">⏳</span>
+                            <span x-show="processingProgress.progress < 90">⏺</span>
+                            <span>6. Finalizing</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ETA -->
+                <div x-show="processingProgress.estimated_completion" class="text-sm text-base-content/60">
+                    <span>Estimated completion: </span>
+                    <span x-text="formatETA(processingProgress.estimated_completion)"></span>
+                </div>
+
+                <!-- Cancel Button -->
+                <div class="modal-action">
+                    <button type="button" @click="cancelUpload" class="btn btn-error btn-outline" :disabled="cancelling || uploadProgress === 100">
+                        <span x-show="!cancelling">Cancel Upload</span>
+                        <span x-show="cancelling" class="loading loading-spinner"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div x-show="uploadSuccess" x-cloak class="modal" :class="{ 'modal-open': uploadSuccess }">
+        <div class="modal-box">
+            <div class="text-center">
+                <div class="text-6xl mb-4">🎉</div>
+                <h3 class="font-bold text-2xl mb-2">Upload Successful!</h3>
+                <p class="text-base-content/70 mb-6">
+                    Your video has been uploaded and is being processed. You can view it now or continue uploading.
+                </p>
+                <div class="flex flex-col gap-3">
+                    <a :href="`/watch/${formData.slug}`" class="btn btn-primary gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                            <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
+                        </svg>
+                        View Video
+                    </a>
+                    <button type="button" @click="resetForm" class="btn btn-outline">
+                        Upload Another Video
+                    </button>
+                    <a href="/videos" class="btn btn-ghost">Back to Videos</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Modal -->
+    <div x-show="uploadError" x-cloak class="modal" :class="{ 'modal-open': uploadError }">
+        <div class="modal-box">
+            <div class="text-center">
+                <div class="text-6xl mb-4">❌</div>
+                <h3 class="font-bold text-2xl mb-2">Upload Failed</h3>
+                <p class="text-error mb-6" x-text="errorMessage || 'An unknown error occurred'"></p>
+                <div class="text-xs text-base-content/60 mb-4">
+                    <p>Check the browser console (F12) for more details</p>
+                </div>
+                <div class="flex flex-col gap-3">
+                    <button type="button" @click="uploadError = false; step = 1" class="btn btn-primary">
+                        Try Again
+                    </button>
+                    <a href="/videos" class="btn btn-ghost">Back to Videos</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function videoUpload() {
+    return {
+        step: 1,
+        selectedFile: null,
+        isDragging: false,
+        metadata: {
+            duration: '',
+            resolution: '',
+            fileSize: 0
+        },
+        formData: {
+            title: '',
+            slug: '',
+            description: '',
+            shortDescription: '',
+            category: '',
+            language: 'en',
+            tags: [],
+            isPublic: true,
+            featured: false,
+            allowComments: true,
+            allowDownload: false,
+            groupId: ''
+        },
+        validationErrors: {},
+        groups: [],
+        tagInput: '',
+        tagSuggestions: [],
+        uploading: false,
+        uploadProgress: 0,
+        uploadStatus: '',
+        uploadSuccess: false,
+        uploadError: false,
+        errorMessage: '',
+        uploadId: null,
+        progressInterval: null,
+        cancelling: false,
+        processingProgress: {
+            processing: false,
+            progress: 0,
+            stage: '',
+            estimated_completion: null
+        },
+
+        init() {
+            console.log('Upload page initializing...');
+
+            // Simple watchers - delay to ensure Alpine is ready
+            setTimeout(() => {
+                try {
+                    // Auto-generate slug from title
+                    this.$watch('formData.title', value => {
+                        if (!this.formData.slug || this.formData.slug === this.slugify(this.lastTitle || '')) {
+                            this.formData.slug = this.slugify(value);
+                        }
+                        this.lastTitle = value;
+                        this.validateField('title');
+                    });
+
+                    // Validate slug changes
+                    this.$watch('formData.slug', () => {
+                        this.validateField('slug');
+                    });
+
+                    // Update review video when step changes
+                    this.$watch('step', value => {
+                        if (value === 3 && this.selectedFile) {
+                            this.$nextTick(() => {
+                                if (this.$refs.reviewPreview && this.$refs.videoPreview) {
+                                    this.$refs.reviewPreview.src = this.$refs.videoPreview.src;
+                                }
+                            });
+                        }
+                    });
+
+                    console.log('Upload page watchers initialized');
+                } catch (error) {
+                    console.error('Watcher initialization error:', error);
+                }
+            }, 100);
+
+            // Load groups asynchronously
+            this.loadGroups().then(() => {
+                console.log('Upload page initialized successfully');
+            }).catch(error => {
+                console.error('Groups loading error:', error);
+                // Don't fail the page
+            });
+        },
+
+        async loadGroups() {
+            console.log('Loading groups...');
+            try {
+                const response = await fetch('/api/groups', {
+                    credentials: 'same-origin'
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    this.groups = Array.isArray(data) ? data : [];
+                    console.log('Groups loaded:', this.groups.length);
+                } else {
+                    console.warn('Groups API returned non-OK status:', response.status);
+                    // Groups API not available, use empty array
+                    this.groups = [];
+                }
+            } catch (error) {
+                console.error('Failed to load groups:', error);
+                // Don't fail, just use empty groups list
+                this.groups = [];
+            }
+        },
+
+        validateField(field) {
+            switch(field) {
+                case 'title':
+                    if (!this.formData.title || this.formData.title.trim().length === 0) {
+                        this.validationErrors.title = 'Title is required';
+                    } else if (this.formData.title.length < 3) {
+                        this.validationErrors.title = 'Title must be at least 3 characters';
+                    } else {
+                        delete this.validationErrors.title;
+                    }
+                    break;
+                case 'slug':
+                    if (!this.formData.slug || this.formData.slug.trim().length === 0) {
+                        this.validationErrors.slug = 'URL slug is required';
+                    } else if (!/^[a-z0-9-]+$/.test(this.formData.slug)) {
+                        this.validationErrors.slug = 'Slug can only contain lowercase letters, numbers, and hyphens';
+                    } else if (this.formData.slug.length < 3) {
+                        this.validationErrors.slug = 'Slug must be at least 3 characters';
+                    } else {
+                        delete this.validationErrors.slug;
+                    }
+                    break;
+                case 'file':
+                    if (!this.selectedFile) {
+                        this.validationErrors.file = 'Please select a video file';
+                    } else {
+                        delete this.validationErrors.file;
+                    }
+                    break;
+            }
+        },
+
+        validateAndNext(nextStep) {
+            // Clear previous errors
+            this.validationErrors = {};
+
+            if (nextStep === 2) {
+                this.validateField('file');
+                if (Object.keys(this.validationErrors).length === 0) {
+                    this.step = nextStep;
+                }
+            } else if (nextStep === 3) {
+                this.validateField('title');
+                this.validateField('slug');
+                if (Object.keys(this.validationErrors).length === 0) {
+                    this.step = nextStep;
+                } else {
+                    showToast('Please fix validation errors', 'error');
+                }
+            }
+        },
+
+        handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                this.setFile(file);
+            }
+        },
+
+        handleDrop(event) {
+            this.isDragging = false;
+            const file = event.dataTransfer.files[0];
+            if (file && file.type.startsWith('video/')) {
+                this.setFile(file);
+            } else {
+                this.validationErrors.file = 'Please drop a valid video file';
+                showToast('Please drop a valid video file', 'error');
+            }
+        },
+
+        setFile(file) {
+            // Validate file size
+            if (file.size > 2 * 1024 * 1024 * 1024) {
+                this.validationErrors.file = 'File size exceeds 2GB limit';
+                showToast('File size exceeds 2GB limit', 'error');
+                return;
+            }
+
+            // Validate file type
+            const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska'];
+            if (!validTypes.includes(file.type) && !file.name.match(/\.(mp4|webm|mov|avi|mkv)$/i)) {
+                this.validationErrors.file = 'Unsupported file type. Please use MP4, WebM, MOV, AVI, or MKV';
+                showToast('Unsupported file type', 'error');
+                return;
+            }
+
+            this.selectedFile = file;
+            this.metadata.fileSize = file.size;
+            delete this.validationErrors.file;
+
+            // Set default title from filename if empty
+            if (!this.formData.title) {
+                const filename = file.name.replace(/\.[^/.]+$/, '');
+                this.formData.title = filename.replace(/[-_]/g, ' ').trim();
+            }
+
+            // Load video for preview
+            const videoUrl = URL.createObjectURL(file);
+            this.$refs.videoPreview.src = videoUrl;
+        },
+
+        clearFile() {
+            this.selectedFile = null;
+            this.metadata = { duration: '', resolution: '', fileSize: 0 };
+            this.$refs.videoPreview.src = '';
+            document.getElementById('videoFile').value = '';
+            delete this.validationErrors.file;
+        },
+
+        extractMetadata(event) {
+            const video = event.target;
+
+            // Duration
+            const duration = Math.floor(video.duration);
+            const hours = Math.floor(duration / 3600);
+            const minutes = Math.floor((duration % 3600) / 60);
+            const seconds = duration % 60;
+
+            if (hours > 0) {
+                this.metadata.duration = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                this.metadata.duration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+
+            // Resolution
+            this.metadata.resolution = `${video.videoWidth}x${video.videoHeight}`;
+        },
+
+        formatFileSize(bytes) {
+            if (!bytes) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        },
+
+        formatETA(timestamp) {
+            if (!timestamp) return '';
+            const now = Math.floor(Date.now() / 1000);
+            const remaining = timestamp - now;
+
+            if (remaining <= 0) return 'Almost done...';
+
+            const minutes = Math.floor(remaining / 60);
+            const seconds = remaining % 60;
+
+            if (minutes > 0) {
+                return `~${minutes}m ${seconds}s`;
+            }
+            return `~${seconds}s`;
+        },
+
+        slugify(text) {
+            return text
+                .toLowerCase()
+                .replace(/[^\w\s-]/g, '')
+                .replace(/[\s_-]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+        },
+
+        searchTags() {
+            const query = this.tagInput.toLowerCase();
+            if (query.length < 2) {
+                this.tagSuggestions = [];
+                return;
+            }
+
+            const allTags = ['tutorial', 'education', 'entertainment', 'music', 'gaming',
+                           'technology', 'programming', 'rust', 'web-development', 'coding',
+                           'vlog', 'comedy', 'review', 'documentary', 'animation', 'news',
+                           'sports', 'travel', 'food', 'fitness', 'science', 'art'];
+
+            this.tagSuggestions = allTags
+                .filter(tag => tag.includes(query) && !this.formData.tags.includes(tag))
+                .slice(0, 5);
+        },
+
+        addTag() {
+            const tag = this.tagInput.trim().toLowerCase();
+            if (!tag) return;
+
+            if (this.formData.tags.includes(tag)) {
+                showToast('Tag already added', 'warning');
+                return;
+            }
+
+            if (this.formData.tags.length >= 10) {
+                showToast('Maximum 10 tags allowed', 'warning');
+                return;
+            }
+
+            this.formData.tags.push(tag);
+            this.tagInput = '';
+            this.tagSuggestions = [];
+            showToast(`Tag "${tag}" added`, 'success');
+        },
+
+        addTagFromSuggestion(tag) {
+            this.tagInput = tag;
+            this.addTag();
+        },
+
+        removeTag(index) {
+            this.formData.tags.splice(index, 1);
+        },
+
+        async handleSubmit() {
+            // Final validation
+            this.validateField('file');
+            this.validateField('title');
+            this.validateField('slug');
+
+            if (Object.keys(this.validationErrors).length > 0) {
+                showToast('Please fix all validation errors', 'error');
+                return;
+            }
+
+            this.uploading = true;
+            this.uploadProgress = 0;
+            this.uploadStatus = 'Preparing upload...';
+            this.uploadError = false;
+            this.uploadSuccess = false;
+            this.processingProgress = {
+                processing: false,
+                progress: 0,
+                stage: '',
+                estimated_completion: null
+            };
+
+            try {
+                const formData = new FormData();
+                formData.append('video', this.selectedFile);
+                formData.append('title', this.formData.title);
+                formData.append('slug', this.formData.slug);
+                formData.append('description', this.formData.description || '');
+                formData.append('short_description', this.formData.shortDescription || '');
+                formData.append('category', this.formData.category || '');
+                formData.append('language', this.formData.language);
+                formData.append('tags', JSON.stringify(this.formData.tags));
+                formData.append('is_public', this.formData.isPublic);
+                formData.append('featured', this.formData.featured);
+                formData.append('allow_comments', this.formData.allowComments);
+                formData.append('allow_download', this.formData.allowDownload);
+                if (this.formData.groupId) {
+                    formData.append('group_id', this.formData.groupId);
+                }
+
+                const xhr = new XMLHttpRequest();
+
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const progress = Math.round((e.loaded / e.total) * 20);
+                        this.uploadProgress = progress;
+                        this.uploadStatus = `Uploading... ${Math.round((e.loaded / e.total) * 100)}%`;
+                    }
+                });
+
+                xhr.addEventListener('load', () => {
+                    if (xhr.status === 200) {
+                        const response = JSON.parse(xhr.responseText);
+                        this.uploadId = response.upload_id;
+                        this.uploadProgress = 20;
+                        this.uploadStatus = 'Upload complete, processing...';
+                        this.processingProgress.processing = true;
+
+                        // Start polling for progress
+                        this.startProgressPolling();
+                    } else {
+                        const error = JSON.parse(xhr.responseText);
+                        throw new Error(error.error || 'Upload failed');
+                    }
+                });
+
+                xhr.addEventListener('error', () => {
+                    throw new Error('Network error during upload');
+                });
+
+                xhr.addEventListener('abort', () => {
+                    throw new Error('Upload cancelled');
+                });
+
+                xhr.open('POST', '/api/videos/upload', true);
+                xhr.send(formData);
+
+                // Store XHR for cancellation
+                this.currentXHR = xhr;
+
+            } catch (error) {
+                this.uploading = false;
+                this.uploadError = true;
+                this.errorMessage = error.message || 'An error occurred during upload';
+                showToast('Upload failed: ' + this.errorMessage, 'error');
+            }
+        },
+
+        startProgressPolling() {
+            this.progressInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/videos/upload/${this.uploadId}/progress`);
+                    if (!response.ok) throw new Error('Failed to fetch progress');
+
+                    const data = await response.json();
+
+                    this.processingProgress.progress = data.progress;
+                    this.processingProgress.stage = data.stage;
+                    this.processingProgress.estimated_completion = data.estimated_completion;
+                    this.uploadProgress = data.progress;
+
+                    if (data.status === 'complete') {
+                        clearInterval(this.progressInterval);
+                        this.uploading = false;
+                        this.uploadSuccess = true;
+                        showToast('Video uploaded successfully!', 'success');
+                    } else if (data.status === 'failed') {
+                        clearInterval(this.progressInterval);
+                        throw new Error(data.error || 'Processing failed');
+                    }
+                } catch (error) {
+                    clearInterval(this.progressInterval);
+                    this.uploading = false;
+                    this.uploadError = true;
+                    this.errorMessage = error.message;
+                    showToast('Error: ' + error.message, 'error');
+                }
+            }, 2000); // Poll every 2 seconds
+        },
+
+        async cancelUpload() {
+            if (this.cancelling) return;
+
+            this.cancelling = true;
+
+            try {
+                // Cancel XHR if still uploading
+                if (this.currentXHR) {
+                    this.currentXHR.abort();
+                }
+
+                // Stop progress polling
+                if (this.progressInterval) {
+                    clearInterval(this.progressInterval);
+                }
+
+                // TODO: Call cancel API endpoint when implemented
+                // await fetch(`/api/videos/upload/${this.uploadId}/cancel`, { method: 'POST' });
+
+                this.uploading = false;
+                this.cancelling = false;
+                this.uploadProgress = 0;
+                showToast('Upload cancelled', 'info');
+            } catch (error) {
+                this.cancelling = false;
+                showToast('Failed to cancel upload', 'error');
+            }
+        },
+
+        resetForm() {
+            this.step = 1;
+            this.selectedFile = null;
+            this.metadata = { duration: '', resolution: '', fileSize: 0 };
+            this.formData = {
+                title: '',
+                slug: '',
+                description: '',
+                shortDescription: '',
+                category: '',
+                language: 'en',
+                tags: [],
+                isPublic: true,
+                featured: false,
+                allowComments: true,
+                allowDownload: false,
+                groupId: ''
+            };
+            this.validationErrors = {};
+            this.uploadSuccess = false;
+            this.uploadError = false;
+            this.errorMessage = '';
+            this.uploadId = null;
+            this.clearFile();
+        }
+    }
+}
+
+// Toast notification helper
+function showToast(message, type = 'info') {
+    // Simple toast implementation - you can replace with a proper toast library
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type} fixed top-4 right-4 z-50 max-w-sm shadow-lg`;
+    toast.innerHTML = `<span>${message}</span>`;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+</script>
+{% endblock %}

@@ -437,6 +437,8 @@ endblock %} {% block content %}
                     }
                 } catch (error) {
                     console.error("Failed to load folders:", error);
+                } finally {
+                    this.loadingFolders = false;
                 }
             },
 

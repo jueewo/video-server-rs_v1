@@ -39,3 +39,6 @@ tracing = { workspace = true }
 
 # Utilities
 time = { workspace = true }
+uuid = { version = "1.6", features = ["v4"] }
+dashmap = "5.5"
+rand = "0.8"

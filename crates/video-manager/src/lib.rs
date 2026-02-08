@@ -10,6 +10,7 @@ pub mod progress;
 pub mod retry;
 pub mod storage;
 pub mod upload;
+pub mod upload_v2;
 
 use askama::Template;
 use axum::{

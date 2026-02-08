@@ -21,7 +21,7 @@ default-run = "video-server-rs"
 
 [[bin]]
 name = "generate-thumbnails"
-path = "scripts/generate_thumbnails.rs"
+path = "scripts/admin/generate_thumbnails.rs"
 
 [dependencies]
 # Local crates

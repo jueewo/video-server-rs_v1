@@ -3,6 +3,7 @@
 This directory contains utility scripts organized by audience:
 
 - **`user/`** - Scripts for end users to prepare and manage media
+- **`admin/`** - Scripts for server administrators (maintenance, utilities)
 - **`dev/`** - Scripts for developers (setup, testing, debugging)
 
 ---
@@ -66,13 +67,48 @@ storage/videos/public/my-awesome-video/
 
 ---
 
+## 🔧 Admin Scripts
+
+### 🖼️ `admin/generate_thumbnails.rs`
+
+**Purpose:** Maintenance tool to regenerate thumbnails for all images in the database.
+
+**Usage:**
+```bash
+cargo run --bin generate-thumbnails
+```
+
+**What it does:**
+- Connects to the database and finds all images
+- Generates 400x400 thumbnails maintaining aspect ratio
+- Saves thumbnails as WebP format
+- Skips SVG files (vector format)
+- Provides detailed progress and error reporting
+
+**When to use:**
+- After bulk image imports
+- When thumbnail generation failed during upload
+- After changing thumbnail size settings
+- Database migration or recovery
+
+**Requirements:**
+- Database must be accessible (video.db)
+- Original images must exist in storage directory
+- Write permissions to storage directory
+
+**Output:**
+- Creates `{slug}_thumb.webp` for each image
+- Shows progress and summary statistics
+
+---
+
 ## 🛠️ Developer Scripts
 
 Developer scripts are located in `dev/` and include:
 
 - **Setup scripts** - Database initialization, storage setup
 - **Test scripts** - Access codes, emergency login, images, HLS
-- **Utilities** - Migration tools, thumbnail generation, transcoding
+- **Utilities** - Migration tools, transcoding
 
 See `dev/` directory for the full list of developer tools.
 
@@ -274,6 +310,8 @@ scripts/
 ├── README.md          # This file
 ├── user/              # User-facing scripts
 │   └── prepare-video.sh
+├── admin/             # Admin/maintenance scripts
+│   └── generate_thumbnails.rs
 └── dev/               # Developer scripts
     ├── init-database.sh
     ├── setup-images.sh
@@ -283,4 +321,5 @@ scripts/
 
 **Last Updated:** January 2026  
 **User Scripts:** 1  
-**Dev Scripts:** 13
+**Admin Scripts:** 1  
+**Dev Scripts:** 12

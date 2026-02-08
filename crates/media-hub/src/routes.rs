@@ -5,7 +5,7 @@
 
 use crate::models::MediaFilterOptions;
 use crate::search::MediaSearchService;
-use crate::templates::MediaListTemplate;
+use crate::templates::{MediaListTemplate, MediaUploadTemplate};
 use crate::MediaHubState;
 use askama::Template;
 use axum::{
@@ -68,6 +68,7 @@ pub fn media_routes() -> Router<MediaHubState> {
         .route("/api/media", get(list_media_json))
         .route("/media/search", get(search_media_html))
         .route("/api/media/search", get(search_media_json))
+        .route("/media/upload", get(show_upload_form))
 }
 
 /// List all media (HTML view)
@@ -182,6 +183,43 @@ async fn search_media_json(
 ) -> impl IntoResponse {
     // Same as list_media_json
     list_media_json(State(state), Query(query)).await
+}
+
+/// Show unified upload form
+async fn show_upload_form(Query(params): Query<UploadFormQuery>) -> impl IntoResponse {
+    debug!("Show upload form request");
+
+    let template = MediaUploadTemplate {
+        max_file_size: 100 * 1024 * 1024, // 100MB
+        success_message: params
+            .success
+            .map(|_| "File uploaded successfully!".to_string()),
+        error_message: params.error,
+    };
+
+    match template.render() {
+        Ok(html) => Html(html).into_response(),
+        Err(e) => {
+            error!("Template rendering error: {}", e);
+            (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Template error: {}", e),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// Query parameters for upload form
+#[derive(Debug, Deserialize)]
+pub struct UploadFormQuery {
+    /// Success indicator
+    #[serde(default)]
+    pub success: Option<String>,
+
+    /// Error message
+    #[serde(default)]
+    pub error: Option<String>,
 }
 
 #[cfg(test)]

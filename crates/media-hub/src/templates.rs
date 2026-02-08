@@ -90,29 +90,10 @@ impl MediaListTemplate {
     }
 }
 
-// Commented out until template files are created
-/*
-/// Template for unified media card component
-#[derive(Template)]
-#[template(path = "components/media_card.html")]
-pub struct MediaCardTemplate {
-    /// The media item to render
-    pub item: UnifiedMediaItem,
-
-    /// Whether to show actions (edit, delete)
-    pub show_actions: bool,
-
-    /// Whether the current user can edit
-    pub can_edit: bool,
-}
-
 /// Template for unified upload form
 #[derive(Template)]
 #[template(path = "media_upload.html")]
 pub struct MediaUploadTemplate {
-    /// Supported file types
-    pub supported_types: Vec<String>,
-
     /// Maximum file size in bytes
     pub max_file_size: u64,
 
@@ -127,18 +108,6 @@ impl MediaUploadTemplate {
     /// Create a new upload template with defaults
     pub fn new() -> Self {
         Self {
-            supported_types: vec![
-                "video/mp4".to_string(),
-                "video/webm".to_string(),
-                "image/jpeg".to_string(),
-                "image/png".to_string(),
-                "image/webp".to_string(),
-                "application/pdf".to_string(),
-                "text/csv".to_string(),
-                "application/xml".to_string(),
-                "text/markdown".to_string(),
-                "application/json".to_string(),
-            ],
             max_file_size: 100 * 1024 * 1024, // 100MB
             success_message: None,
             error_message: None,
@@ -163,12 +132,10 @@ impl Default for MediaUploadTemplate {
         Self::new()
     }
 }
-*/
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use common::models::video::Video;
 
     #[test]
     fn test_media_list_pagination() {
@@ -263,13 +230,10 @@ mod tests {
         assert!(!template.is_all_active());
     }
 
-    // Commented out until template is uncommented
-    /*
     #[test]
     fn test_upload_template_defaults() {
         let template = MediaUploadTemplate::new();
 
-        assert!(!template.supported_types.is_empty());
         assert_eq!(template.max_file_size, 100 * 1024 * 1024);
         assert!(template.success_message.is_none());
         assert!(template.error_message.is_none());
@@ -282,5 +246,4 @@ mod tests {
 
         assert!(formatted.contains("MB"));
     }
-    */
 }

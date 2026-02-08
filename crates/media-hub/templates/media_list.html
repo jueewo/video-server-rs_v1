@@ -372,9 +372,9 @@
                     name="q"
                     class="search-input"
                     placeholder="Search across all media types..."
-                    value="{{ search_query.unwrap_or(String::new()) }}"
+                    value="{% match search_query %}{% when Some with (q) %}{{ q }}{% when None %}{% endmatch %}"
                 >
-                <input type="hidden" name="type_filter" value="{{ current_filter.unwrap_or(String::new()) }}">
+                <input type="hidden" name="type_filter" value="{% match current_filter %}{% when Some with (f) %}{{ f }}{% when None %}{% endmatch %}">
                 <input type="hidden" name="sort_by" value="{{ sort_by }}">
                 <input type="hidden" name="sort_order" value="{{ sort_order }}">
                 <button type="submit" class="search-button">Search</button>
@@ -383,19 +383,19 @@
             <div class="filters">
                 <span class="filter-label">Filter by type:</span>
                 <a href="/media?sort_by={{ sort_by }}&sort_order={{ sort_order }}"
-                   class="filter-btn {% if self.is_all_active() %}active{% endif %}">
+                   class="filter-btn {% if current_filter.is_none() %}active{% endif %}">
                     All <span class="count">({{ total_count }})</span>
                 </a>
                 <a href="/media?type_filter=video&sort_by={{ sort_by }}&sort_order={{ sort_order }}"
-                   class="filter-btn {% if self.is_filter_active("video") %}active{% endif %}">
+                   class="filter-btn {% match current_filter %}{% when Some with (f) %}{% if f == "video" %}active{% endif %}{% when None %}{% endmatch %}">
                     Videos <span class="count">({{ video_count }})</span>
                 </a>
                 <a href="/media?type_filter=image&sort_by={{ sort_by }}&sort_order={{ sort_order }}"
-                   class="filter-btn {% if self.is_filter_active("image") %}active{% endif %}">
+                   class="filter-btn {% match current_filter %}{% when Some with (f) %}{% if f == "image" %}active{% endif %}{% when None %}{% endmatch %}">
                     Images <span class="count">({{ image_count }})</span>
                 </a>
                 <a href="/media?type_filter=document&sort_by={{ sort_by }}&sort_order={{ sort_order }}"
-                   class="filter-btn {% if self.is_filter_active("document") %}active{% endif %}">
+                   class="filter-btn {% match current_filter %}{% when Some with (f) %}{% if f == "document" %}active{% endif %}{% when None %}{% endmatch %}">
                     Documents <span class="count">({{ document_count }})</span>
                 </a>
             </div>
@@ -423,7 +423,7 @@
             {% for item in items %}
             <div class="media-card {{ item.type_class() }}" data-media-id="{{ item.id() }}" data-media-type="{{ item.type_label() }}">
                 <div class="media-card__thumbnail">
-                    <img src="{{ item.thumbnail_url().unwrap_or(String::from("/static/icons/default.svg")) }}"
+                    <img src="{% match item.thumbnail_url() %}{% when Some with (url) %}{{ url }}{% when None %}/static/icons/default.svg{% endmatch %}"
                          alt="{{ item.title() }}"
                          loading="lazy">
                     <div class="media-card__type-badge">{{ item.type_label() }}</div>
@@ -433,7 +433,7 @@
                         <a href="{{ item.public_url() }}">{{ item.title() }}</a>
                     </h3>
                     <p class="media-card__description">
-                        {{ item.description().unwrap_or("No description available") }}
+                        {% match item.description() %}{% when Some with (desc) %}{{ desc }}{% when None %}No description available{% endmatch %}
                     </p>
                     <div class="media-card__meta">
                         <span>📦 {{ item.file_size_formatted() }}</span>
@@ -450,8 +450,8 @@
         </div>
 
         <div class="pagination">
-            {% if !self.is_first_page() %}
-            <a href="/media?page={{ self.prev_page() }}&page_size={{ page_size }}&type_filter={{ current_filter.clone().unwrap_or(String::new()) }}&sort_by={{ sort_by }}&sort_order={{ sort_order }}&q={{ search_query.clone().unwrap_or(String::new()) }}"
+            {% if page > 0 %}
+            <a href="/media?page={% if page > 0 %}{{ page - 1 }}{% else %}0{% endif %}&page_size={{ page_size }}&type_filter={% match current_filter %}{% when Some with (f) %}{{ f }}{% when None %}{% endmatch %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}&q={% match search_query %}{% when Some with (q) %}{{ q }}{% when None %}{% endmatch %}"
                class="pagination-btn">← Previous</a>
             {% else %}
             <span class="pagination-btn disabled">← Previous</span>
@@ -461,8 +461,8 @@
                 Page {{ page + 1 }} of {{ total_pages }}
             </span>
 
-            {% if !self.is_last_page() %}
-            <a href="/media?page={{ self.next_page() }}&page_size={{ page_size }}&type_filter={{ current_filter.clone().unwrap_or(String::new()) }}&sort_by={{ sort_by }}&sort_order={{ sort_order }}&q={{ search_query.clone().unwrap_or(String::new()) }}"
+            {% if page < total_pages - 1 %}
+            <a href="/media?page={% if page < total_pages - 1 %}{{ page + 1 }}{% else %}{{ page }}{% endif %}&page_size={{ page_size }}&type_filter={% match current_filter %}{% when Some with (f) %}{{ f }}{% when None %}{% endmatch %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}&q={% match search_query %}{% when Some with (q) %}{{ q }}{% when None %}{% endmatch %}"
                class="pagination-btn">Next →</a>
             {% else %}
             <span class="pagination-btn disabled">Next →</span>

@@ -1,0 +1,523 @@
+{% extends "base-tailwind.html" %}
+{% block title %}{{ page_title }} - Video Server{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+    <!-- Page Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div></div>
+            <h1 class="text-4xl font-bold text-gray-900 mb-2">
+                🎥 {{ page_title }}
+            </h1>
+            <p class="text-lg text-gray-600">
+                {% if authenticated %}
+                Browse your entire video collection
+                {% else %}
+                Discover our public video content
+                {% endif %}
+            </p>
+        </div>
+        <div class="flex items-center gap-3">
+            {% if authenticated %}
+            <a href="/videos/upload" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium">
+                📤 Upload Video
+            </a>
+            <a href="/videos/new" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
+                ➕ Register Video
+            </a>
+            {% else %}
+            <a href="/login" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium">
+                🔐 Login to Upload
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <!-- Sidebar: Tag Filter -->
+        <div class="lg:col-span-1">
+            <div class="tag-filter-widget">
+                <!-- Filter Header -->
+                <div class="filter-header">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            <span></span>🏷️</span>
+                            <span>Filter by Tags</span>
+                        </h3>
+                        <button
+                            id="clearTagFilters"
+                            class="text-sm text-indigo-600 hover:text-indigo-800 font-medium hidden"
+                            onclick="clearAllTagFilters()"
+                        >
+                            Clear All
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Filters Display -->
+                <div id="activeTagFilters" class="active-filters mb-4 hidden">
+                    <div class="flex flex-wrap gap-2"></div>
+                </div>
+
+                <!-- Search Tags -->
+                <div class="mb-4">
+                    <div class="relative">
+                        <input
+                            type="text"
+                            id="tagSearchInput"
+                            placeholder="Search tags..."
+                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                        />
+                        <span class="absolute left-3 top-2.5 text-gray-400">🔍</span>
+                    </div>
+                </div>
+
+                <!-- Filter Mode Toggle -->
+                <div class="mb-4 flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                    <span class="text-sm font-medium text-gray-700">Match:</span>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="filterMode" value="any" checked class="text-indigo-600 focus:ring-indigo-500" />
+                        <span class="text-sm text-gray-700">Any tag</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="filterMode" value="all" class="text-indigo-600 focus:ring-indigo-500" />
+                        <span class="text-sm text-gray-700">All tags</span>
+                    </label>
+                </div>
+
+                <!-- Popular Tags -->
+                <div id="popularTags" class="mb-4">
+                    <h4 class="text-sm font-medium text-gray-700 mb-3">Popular Tags</h4>
+                    <div class="flex flex-wrap gap-2" id="popularTagsList">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- All Tags List -->
+                <div id="allTagsList">
+                    <h4 class="text-sm font-medium text-gray-700 mb-3">All Tags</h4>
+                    <div class="max-h-64 overflow-y-auto space-y-1 border border-gray-200 rounded-lg p-2">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content: Video Grid -->
+        <div class="lg:col-span-3">
+            <!-- Filter Status -->
+            <div id="filterStatus" class="mb-4 p-4 bg-white rounded-lg shadow-sm">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-600">
+                        Showing <span id="itemCount" class="font-semibold text-gray-900">0</span> videos
+                    </span>
+                    <div class="flex gap-2">
+                        <select id="sortBy" class="text-sm border border-gray-300 rounded px-3 py-1 focus:ring-2 focus:ring-indigo-500">
+                            <option value="recent">Most Recent</option>
+                            <option value="title">Title A-Z</option>
+                            <option value="popular">Most Popular</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Video Grid -->
+            <div id="videoGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <!-- Loading state -->
+                <div class="col-span-full text-center py-12">
+                    <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-indigo-600"></div>
+                    <p class="mt-4 text-gray-600">Loading videos...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .tag-filter-widget {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        position: sticky;
+        top: 1rem;
+    }
+
+    .filter-tag-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.5rem 0.875rem;
+        background: #f3f4f6;
+        border: 2px solid transparent;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #374151;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .filter-tag-button:hover {
+        background: #e5e7eb;
+        transform: translateY(-1px);
+    }
+
+    .filter-tag-button.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: #667eea;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .active-filter-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.375rem 0.75rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .active-filter-badge button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.125rem;
+        height: 1.125rem;
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        border-radius: 50%;
+        color: white;
+        cursor: pointer;
+    }
+
+    .tag-list-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.625rem 0.875rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+
+    .tag-list-item:hover {
+        background: #f9fafb;
+    }
+
+    .tag-list-item.active {
+        background: #ede9fe;
+        font-weight: 600;
+        color: #5b21b6;
+    }
+
+    .video-card {
+        background: white;
+        border-radius: 0.5rem;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
+    }
+
+    .video-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
+    }
+
+    .video-thumbnail {
+        position: relative;
+        width: 100%;
+        padding-bottom: 56.25%; /* 16:9 aspect ratio */
+        background: #f3f4f6;
+        overflow: hidden;
+    }
+
+    .video-thumbnail img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .video-thumbnail .placeholder {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        color: #9ca3af;
+    }
+
+    .tag-badge {
+        display: inline-block;
+        padding: 0.25rem 0.625rem;
+        background: #ede9fe;
+        color: #5b21b6;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+</style>
+
+<script>
+    // State
+    let allVideos = [];
+    let allTagsData = [];
+    let activeTagFilters = new Set();
+    let currentFilterMode = 'any';
+    let currentSort = 'recent';
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        initTagFilter();
+        loadVideos();
+        attachEventListeners();
+    });
+
+    function attachEventListeners() {
+        document.getElementById('tagSearchInput')?.addEventListener('input', handleTagSearch);
+        document.querySelectorAll('input[name="filterMode"]').forEach(radio => {
+            radio.addEventListener('change', applyFilters);
+        });
+        document.getElementById('sortBy')?.addEventListener('change', (e) => {
+            currentSort = e.target.value;
+            renderVideos(getFilteredVideos());
+        });
+    }
+
+    async function initTagFilter() {
+        try {
+            const [popularResponse, allResponse] = await Promise.all([
+                fetch('/api/tags/popular?limit=20'),
+                fetch('/api/tags')
+            ]);
+
+            const popularData = await popularResponse.json();
+            const allData = await allResponse.json();
+
+            allTagsData = allData.tags || [];
+            renderPopularTags(popularData.tags || []);
+            renderAllTags(allTagsData);
+        } catch (error) {
+            console.error('Error loading tags:', error);
+        }
+    }
+
+    function renderPopularTags(tags) {
+        const container = document.getElementById('popularTagsList');
+        if (tags.length === 0) {
+            container.innerHTML = '<p class="text-sm text-gray-500">No popular tags yet</p>';
+            return;
+        }
+
+        container.innerHTML = tags.slice(0, 10).map(tag => `
+            <button
+                class="filter-tag-button ${activeTagFilters.has(tag.slug) ? 'active' : ''}"
+                onclick="toggleTagFilter('${tag.slug}')"
+                data-tag-slug="${tag.slug}"
+            >
+                ${tag.icon || '🏷️'}
+                <span>${escapeHtml(tag.name)}</span>
+                <span style="font-size: 0.75rem; opacity: 0.8;">${tag.usage_count || 0}</span>
+            </button>
+        `).join('');
+    }
+
+    function renderAllTags(tags) {
+        const container = document.getElementById('allTagsList').querySelector('div');
+        if (tags.length === 0) {
+            container.innerHTML = '<p class="text-sm text-gray-500 p-4 text-center">No tags available</p>';
+            return;
+        }
+
+        container.innerHTML = tags.map(tag => `
+            <div
+                class="tag-list-item ${activeTagFilters.has(tag.slug) ? 'active' : ''}"
+                onclick="toggleTagFilter('${tag.slug}')"
+                data-tag-slug="${tag.slug}"
+            >
+                <div class="flex items-center gap-2">
+                    <span>${tag.icon || '🏷️'}</span>
+                    <span class="text-sm">${escapeHtml(tag.name)}</span>
+                </div>
+                <span class="text-xs text-gray-500">${tag.usage_count || 0}</span>
+            </div>
+        `).join('');
+    }
+
+    function handleTagSearch(e) {
+        const query = e.target.value.toLowerCase();
+        const filtered = allTagsData.filter(tag =>
+            tag.name.toLowerCase().includes(query) ||
+            tag.slug.toLowerCase().includes(query)
+        );
+        renderAllTags(filtered);
+    }
+
+    function toggleTagFilter(slug) {
+        if (activeTagFilters.has(slug)) {
+            activeTagFilters.delete(slug);
+        } else {
+            activeTagFilters.add(slug);
+        }
+        updateFilterUI();
+        applyFilters();
+    }
+
+    function updateFilterUI() {
+        const activeContainer = document.getElementById('activeTagFilters');
+        const clearButton = document.getElementById('clearTagFilters');
+
+        if (activeTagFilters.size === 0) {
+            activeContainer.classList.add('hidden');
+            clearButton.classList.add('hidden');
+        } else {
+            activeContainer.classList.remove('hidden');
+            clearButton.classList.remove('hidden');
+
+            activeContainer.querySelector('div').innerHTML = Array.from(activeTagFilters).map(slug => {
+                const tag = allTagsData.find(t => t.slug === slug);
+                if (!tag) return '';
+                return `
+                    <span class="active-filter-badge">
+                        <span>${tag.icon || '🏷️'} ${escapeHtml(tag.name)}</span>
+                        <button onclick="toggleTagFilter('${slug}')">×</button>
+                    </span>
+                `;
+            }).join('');
+        }
+
+        document.querySelectorAll('[data-tag-slug]').forEach(el => {
+            const slug = el.dataset.tagSlug;
+            if (activeTagFilters.has(slug)) {
+                el.classList.add('active');
+            } else {
+                el.classList.remove('active');
+            }
+        });
+    }
+
+    function clearAllTagFilters() {
+        activeTagFilters.clear();
+        updateFilterUI();
+        applyFilters();
+    }
+
+    function applyFilters() {
+        currentFilterMode = document.querySelector('input[name="filterMode"]:checked').value;
+        const filtered = getFilteredVideos();
+        renderVideos(filtered);
+    }
+
+    function getFilteredVideos() {
+        if (activeTagFilters.size === 0) {
+            return allVideos;
+        }
+
+        return allVideos.filter(video => {
+            const videoTags = video.tags || [];
+            const activeTags = Array.from(activeTagFilters);
+
+            if (currentFilterMode === 'any') {
+                return activeTags.some(tag => videoTags.includes(tag));
+            } else {
+                return activeTags.every(tag => videoTags.includes(tag));
+            }
+        });
+    }
+
+    async function loadVideos() {
+        try {
+            const response = await fetch('/api/videos');
+            const data = await response.json();
+            allVideos = data || [];
+            renderVideos(allVideos);
+        } catch (error) {
+            console.error('Error loading videos:', error);
+            document.getElementById('videoGrid').innerHTML = `
+                <div class="col-span-full text-center py-12">
+                    <p class="text-red-600">Failed to load videos</p>
+                </div>
+            `;
+        }
+    }
+
+    function renderVideos(videos) {
+        const grid = document.getElementById('videoGrid');
+        const count = document.getElementById('itemCount');
+
+        // Sort videos
+        let sorted = [...videos];
+        if (currentSort === 'title') {
+            sorted.sort((a, b) => a.title.localeCompare(b.title));
+        } else if (currentSort === 'popular') {
+            sorted.sort((a, b) => (b.view_count || 0) - (a.view_count || 0));
+        } else {
+            sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        }
+
+        count.textContent = sorted.length;
+
+        if (sorted.length === 0) {
+            grid.innerHTML = `
+                <div class="col-span-full text-center py-12">
+                    <div class="text-6xl mb-4">🎬</div>
+                    <p class="text-gray-600">No videos found</p>
+                    ${activeTagFilters.size > 0 ? '<button onclick="clearAllTagFilters()" class="mt-4 text-indigo-600 hover:text-indigo-800">Clear filters</button>' : ''}
+                </div>
+            `;
+            return;
+        }
+
+        grid.innerHTML = sorted.map(video => `
+            <div class="video-card">
+                <a href="/watch/${video.slug}">
+                    <div class="video-thumbnail">
+                        ${video.poster_url || video.thumbnail_url ?
+                            `<img src="${video.poster_url || video.thumbnail_url}" alt="${escapeHtml(video.title)}" loading="lazy">` :
+                            `<div class="placeholder">🎬</div>`
+                        }
+                    </div>
+                    <div class="p-4">
+                        <h3 class="font-semibold text-gray-900 mb-2 line-clamp-2">${escapeHtml(video.title)}</h3>
+                        ${video.description ?
+                            `<p class="text-sm text-gray-600 line-clamp-2 mb-3">${escapeHtml(video.description)}</p>` :
+                            ''
+                        }
+                        ${video.tags && video.tags.length > 0 ? `
+                            <div class="flex flex-wrap gap-1 mb-2">
+                                ${video.tags.slice(0, 3).map(tag => `
+                                    <span class="tag-badge">${tag}</span>
+                                `).join('')}
+                                ${video.tags.length > 3 ?
+                                    `<span class="tag-badge" style="background: #f3f4f6; color: #6b7280;">+${video.tags.length - 3}</span>` :
+                                    ''
+                                }
+                            </div>
+                        ` : ''}
+                        <div class="text-xs text-gray-500">
+                            ${new Date(video.created_at).toLocaleDateString()}
+                        </div>
+                    </div>
+                </a>
+            </div>
+        `).join('');
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
+{% endblock %}

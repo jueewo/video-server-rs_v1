@@ -762,9 +762,23 @@ pub async fn list_videos_api_handler(
 
     let uid = user_id.unwrap();
 
-    // Fetch user's videos
-    let videos = sqlx::query_as::<_, (i64, String, String)>(
-        "SELECT id, slug, title FROM videos WHERE user_id = ? ORDER BY title",
+    // Fetch user's videos with tags
+    let videos = sqlx::query(
+        "SELECT
+            v.id,
+            v.slug,
+            v.title,
+            v.description,
+            v.poster_url,
+            v.thumbnail_url,
+            v.created_at,
+            GROUP_CONCAT(t.slug) as tags
+         FROM videos v
+         LEFT JOIN video_tags vt ON v.id = vt.video_id
+         LEFT JOIN tags t ON vt.tag_id = t.id
+         WHERE v.user_id = ?
+         GROUP BY v.id
+         ORDER BY v.created_at DESC",
     )
     .bind(&uid)
     .fetch_all(&state.pool)
@@ -773,11 +787,29 @@ pub async fn list_videos_api_handler(
 
     let result: Vec<serde_json::Value> = videos
         .into_iter()
-        .map(|(id, slug, title)| {
+        .map(|row| {
+            let id: i64 = row.get("id");
+            let slug: String = row.get("slug");
+            let title: String = row.get("title");
+            let description: Option<String> = row.get("description");
+            let poster_url: Option<String> = row.get("poster_url");
+            let thumbnail_url: Option<String> = row.get("thumbnail_url");
+            let created_at: String = row.get("created_at");
+            let tags_str: Option<String> = row.get("tags");
+
+            let tags: Vec<String> = tags_str
+                .map(|s| s.split(',').map(|t| t.to_string()).collect())
+                .unwrap_or_default();
+
             serde_json::json!({
                 "id": id,
                 "slug": slug,
                 "title": title,
+                "description": description,
+                "poster_url": poster_url,
+                "thumbnail_url": thumbnail_url,
+                "created_at": created_at,
+                "tags": tags,
                 "type": "video"
             })
         })

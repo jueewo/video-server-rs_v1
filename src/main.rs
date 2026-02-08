@@ -83,6 +83,7 @@ use access_control::AccessControlService;
 use access_groups;
 use common::{create_search_routes, create_tag_routes};
 use image_manager::{image_routes, ImageManagerState};
+use media_hub::{routes::media_routes, MediaHubState};
 use user_auth::{auth_routes, AuthState, OidcConfig};
 use video_manager::{video_routes, VideoManagerState, RTMP_PUBLISH_TOKEN};
 
@@ -97,6 +98,7 @@ struct AppState {
     auth_state: Arc<AuthState>,
     access_state: Arc<AccessCodeState>,
     access_control: Arc<AccessControlService>,
+    media_hub_state: MediaHubState,
     config: AppConfig,
 }
 
@@ -644,6 +646,7 @@ async fn main() -> anyhow::Result<()> {
     // Create storage directories (single folder structure)
     std::fs::create_dir_all(storage_dir.join("videos"))?;
     std::fs::create_dir_all(storage_dir.join("images"))?;
+    std::fs::create_dir_all(storage_dir.join("documents"))?;
 
     // Create HTTP client for MediaMTX communication
     let http_client = Client::builder()
@@ -688,6 +691,13 @@ async fn main() -> anyhow::Result<()> {
     let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));
     println!("🔐 Access Control Service initialized with audit logging enabled");
 
+    // Initialize Media Hub state
+    let media_hub_state = MediaHubState::new(
+        pool.clone(),
+        storage_dir.to_str().unwrap_or("storage").to_string(),
+    );
+    println!("🎨 Media Hub initialized (unified media management)");
+
     // Load application configuration
     let app_config = AppConfig::load();
     println!("📋 Application Configuration:");
@@ -700,6 +710,7 @@ async fn main() -> anyhow::Result<()> {
         auth_state: auth_state.clone(),
         access_state: access_state.clone(),
         access_control: access_control.clone(),
+        media_hub_state: media_hub_state.clone(),
         config: app_config,
     });
 
@@ -737,6 +748,7 @@ async fn main() -> anyhow::Result<()> {
         .merge(access_groups::routes::create_routes(pool.clone()))
         .merge(create_tag_routes(pool.clone()))
         .merge(create_search_routes(pool.clone()))
+        .merge(media_routes().with_state(media_hub_state))
         // Serve static files from storage directory
         .nest_service("/storage", ServeDir::new(&storage_dir))
         // Serve static CSS and assets
@@ -792,6 +804,7 @@ async fn main() -> anyhow::Result<()> {
     println!("📦 MODULES LOADED:");
     println!("   ✅ video-manager    (Video streaming & HLS proxy)");
     println!("   ✅ image-manager    (Image upload & serving)");
+    println!("   ✅ media-hub        (Unified media management UI)");
     println!("   ✅ user-auth        (Session management, OIDC ready)");
     println!("   ✅ access-codes     (Shared media access)");
     println!("   ✅ access-control   (4-layer access with audit logging)");
@@ -805,6 +818,8 @@ async fn main() -> anyhow::Result<()> {
     println!("   • Emergency:     http://{}/login/emergency", addr);
     println!("   • Images:        http://{}/images", addr);
     println!("   • Upload:        http://{}/upload", addr);
+    println!("   • All Media:     http://{}/media", addr);
+    println!("   • Media Upload:  http://{}/media/upload", addr);
     println!("   • Health:        http://{}/health", addr);
     println!("   • MediaMTX API:  http://{}/api/mediamtx/status", addr);
     println!("   • Access Codes:  http://{}/api/access-codes", addr);

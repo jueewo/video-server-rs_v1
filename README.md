@@ -45,6 +45,33 @@ Features:
 
 ## Quick Start
 
+### Option 1: Docker (Recommended)
+
+**Easiest way to get started:**
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/video-server-rs_v1.git
+cd video-server-rs_v1/docker
+
+# Start both services (media-server + mediamtx)
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Access the application
+open http://localhost:3000
+```
+
+**That's it!** Both the media server and MediaMTX are running.
+
+See `docker/README.md` and `docker/DOCKER.md` for complete Docker documentation.
+
+---
+
+### Option 2: Native Installation
+
 ### Prerequisites
 
 1. **Rust** (already installed ✓)
@@ -517,6 +544,12 @@ video-server-rs_v1/
 ### User Tools & Scripts
 - **[scripts/user/prepare-video.sh](scripts/user/prepare-video.sh)** - Offline video preparation tool (HLS transcoding)
 - **[scripts/README.md](scripts/README.md)** - Complete scripts documentation
+
+### Docker Deployment
+- **[docker/](docker/)** - Docker deployment files
+- **[docker/README.md](docker/README.md)** - Docker quick start guide
+- **[docker/DOCKER.md](docker/DOCKER.md)** - Complete Docker documentation
+- **[docker/docker-compose.yml](docker/docker-compose.yml)** - Two-service orchestration
 
 ### Observability & Monitoring
 - **[OBSERVABILITY_QUICKSTART.md](OBSERVABILITY_QUICKSTART.md)** - Quick setup with Vector + SigNoz

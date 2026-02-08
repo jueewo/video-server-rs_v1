@@ -134,8 +134,13 @@ storage/videos/public/my-awesome-video/
 
 **Purpose:** Run the entire stack with Docker and Docker Compose.
 
+**Location:** All Docker files are in the `../docker/` directory
+
 **Quick Start:**
 ```bash
+# Navigate to docker directory
+cd docker
+
 # Start everything (media-server + MediaMTX)
 docker-compose up -d
 
@@ -157,7 +162,10 @@ docker-compose down
 - Isolated networking
 - Volume persistence
 
-**See:** `DOCKER.md` for complete Docker documentation
+**Documentation:**
+- `../docker/README.md` - Docker quick start
+- `../docker/DOCKER.md` - Complete Docker guide (700+ lines)
+- `../docker/docker-compose.yml` - Two-service orchestration
 
 ---
 
@@ -426,6 +434,6 @@ scripts/
 # Native deployment
 ./scripts/run/build.sh --release
 
-# Docker deployment
-docker-compose up -d
+# Docker deployment (from project root)
+cd docker && docker-compose up -d
 ```

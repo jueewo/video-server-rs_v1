@@ -20,7 +20,27 @@ This guide covers deploying the media server to production or staging environmen
 
 ## 🚀 Quick Deploy
 
-### Option 1: Using Build Script (Recommended)
+### Option 1: Docker (Easiest)
+
+```bash
+# 1. Pull latest code
+git pull origin main
+
+# 2. Start with Docker Compose
+cd docker
+docker-compose up -d
+
+# 3. View logs
+docker-compose logs -f
+
+# Access at http://localhost:3000
+```
+
+**See:** `docker/README.md` for complete Docker documentation.
+
+---
+
+### Option 2: Using Build Script (Native)
 
 ```bash
 # 1. Pull latest code
@@ -36,7 +56,7 @@ git pull origin main
 ./target/release/video-server-rs
 ```
 
-### Option 2: Manual Build
+### Option 3: Manual Build (Native)
 
 ```bash
 # 1. Pull latest code
@@ -56,7 +76,11 @@ cargo build --release
 ./target/release/video-server-rs
 ```
 
-**Note:** The build script (`scripts/admin/build.sh`) automates steps 2-3 and includes verification.
+**Note:** The build script (`scripts/run/build.sh`) automates steps 2-3 and includes verification.
+
+**Docker vs Native:**
+- Docker: Easiest, includes all dependencies, isolated environment
+- Native: More control, direct access to system, no Docker required
 
 ---
 

@@ -69,6 +69,66 @@ storage/videos/public/my-awesome-video/
 
 ## 🔧 Admin Scripts
 
+### 🏗️ `admin/build.sh`
+
+**Purpose:** Complete build script for server deployment - builds CSS and Rust in one command.
+
+**Usage:**
+```bash
+# Full production build (recommended for deployment)
+./scripts/admin/build.sh
+
+# Development build (faster)
+./scripts/admin/build.sh --dev
+
+# Only rebuild CSS (after template changes)
+./scripts/admin/build.sh --css-only
+
+# Only rebuild Rust (after code changes)
+./scripts/admin/build.sh --rust-only
+
+# Clean build (remove all artifacts first)
+./scripts/admin/build.sh --clean --release
+```
+
+**What it does:**
+- Checks prerequisites (Node.js, Rust, FFmpeg)
+- Installs Node dependencies
+- Builds Tailwind CSS (REQUIRED - not in git)
+- Compiles Rust application (debug or release)
+- Verifies all build artifacts exist
+- Creates storage directories if missing
+- Shows helpful next steps
+
+**Options:**
+- `--dev` - Development build (faster, larger binary)
+- `--release` - Production build (default, optimized)
+- `--css-only` - Only build CSS, skip Rust
+- `--rust-only` - Only build Rust, skip CSS
+- `--clean` - Clean artifacts before building
+- `--help` - Show usage information
+
+**When to use:**
+- Every deployment (CSS must be rebuilt)
+- After pulling code updates
+- When CSS is broken/missing
+- Setting up new server
+- After modifying templates
+
+**Benefits:**
+- Single command for complete build
+- Automatic prerequisite checking
+- Colored output with progress indicators
+- Build verification and error detection
+- Helpful error messages and next steps
+
+**Output:**
+- `static/css/tailwind.css` (~90KB minified)
+- `target/release/video-server-rs` (production)
+- `target/debug/video-server-rs` (development)
+
+---
+
 ### 🖼️ `admin/generate_thumbnails.rs`
 
 **Purpose:** Maintenance tool to regenerate thumbnails for all images in the database.
@@ -311,6 +371,7 @@ scripts/
 ├── user/              # User-facing scripts
 │   └── prepare-video.sh
 ├── admin/             # Admin/maintenance scripts
+│   ├── build.sh       # Deployment build script ⭐
 │   └── generate_thumbnails.rs
 └── dev/               # Developer scripts
     ├── init-database.sh
@@ -321,5 +382,11 @@ scripts/
 
 **Last Updated:** January 2026  
 **User Scripts:** 1  
-**Admin Scripts:** 1  
+**Admin Scripts:** 2  
 **Dev Scripts:** 12
+
+**Quick Deploy:**
+```bash
+# On server after git pull
+./scripts/admin/build.sh --release
+```

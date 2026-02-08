@@ -20,6 +20,24 @@ This guide covers deploying the media server to production or staging environmen
 
 ## 🚀 Quick Deploy
 
+### Option 1: Using Build Script (Recommended)
+
+```bash
+# 1. Pull latest code
+git pull origin main
+
+# 2. Run build script (builds CSS + Rust)
+./scripts/admin/build.sh --release
+
+# 3. Run migrations (if any)
+# sqlx migrate run
+
+# 4. Start the server
+./target/release/video-server-rs
+```
+
+### Option 2: Manual Build
+
 ```bash
 # 1. Pull latest code
 git pull origin main
@@ -37,6 +55,8 @@ cargo build --release
 # 5. Start the server
 ./target/release/video-server-rs
 ```
+
+**Note:** The build script (`scripts/admin/build.sh`) automates steps 2-3 and includes verification.
 
 ---
 
@@ -469,6 +489,33 @@ Before deploying to production:
 
 For updating an existing deployment:
 
+### Option 1: Using Build Script (Recommended)
+
+```bash
+# 1. Stop the server
+sudo systemctl stop video-server
+
+# 2. Backup database
+cp video.db video.db.backup-$(date +%Y%m%d-%H%M%S)
+
+# 3. Pull latest code
+git pull origin main
+
+# 4. Build everything
+./scripts/admin/build.sh --release
+
+# 5. Run migrations (if any)
+# sqlx migrate run
+
+# 6. Restart server
+sudo systemctl start video-server
+
+# 7. Check logs
+sudo journalctl -u video-server -f
+```
+
+### Option 2: Manual Update
+
 ```bash
 # 1. Stop the server
 sudo systemctl stop video-server
@@ -512,9 +559,15 @@ If you encounter issues:
 
 **Remember:** The CSS file is NOT in git and MUST be built on every deployment!
 
-```
+```bash
+# Quick way: Use the build script
+./scripts/admin/build.sh --release
+
+# Or manually:
 npm install && npm run build:css
 ```
+
+**See also:** `scripts/README.md` for build script documentation
 
 ---
 

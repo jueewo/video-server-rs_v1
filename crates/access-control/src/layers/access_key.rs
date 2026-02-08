@@ -229,7 +229,7 @@ mod tests {
         sqlx::query(
             "CREATE TABLE access_codes (
                 id INTEGER PRIMARY KEY,
-                key TEXT NOT NULL UNIQUE,
+                code TEXT NOT NULL UNIQUE,
                 description TEXT NOT NULL,
                 permission_level TEXT NOT NULL DEFAULT 'read',
                 access_group_id INTEGER,
@@ -278,7 +278,7 @@ mod tests {
 
         // Create access key
         sqlx::query(
-            "INSERT INTO access_codes (id, key, description, permission_level, is_active)
+            "INSERT INTO access_codes (id, code, description, permission_level, is_active)
              VALUES (?, ?, ?, ?, ?)",
         )
         .bind(1)
@@ -329,7 +329,7 @@ mod tests {
 
         // Create expired key
         sqlx::query(
-            "INSERT INTO access_codes (id, key, description, permission_level, expires_at, is_active)
+            "INSERT INTO access_codes (id, code, description, permission_level, expires_at, is_active)
              VALUES (?, ?, ?, ?, ?, ?)",
         )
         .bind(1)
@@ -365,17 +365,18 @@ mod tests {
             .unwrap();
 
         // Create key with limit reached
+        // Create access key with download limit
         sqlx::query(
-            "INSERT INTO access_codes (id, key, description, permission_level, max_downloads, current_downloads, is_active)
+            "INSERT INTO access_codes (id, code, description, permission_level, is_active, max_downloads, current_downloads)
              VALUES (?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(1)
         .bind("limited-key")
         .bind("Limited Key")
         .bind("download")
-        .bind(10)
-        .bind(10)
         .bind(true)
+        .bind(10)
+        .bind(10)
         .execute(&pool)
         .await
         .unwrap();
@@ -408,15 +409,15 @@ mod tests {
 
         // Create group-wide access key
         sqlx::query(
-            "INSERT INTO access_codes (id, key, description, permission_level, access_group_id, share_all_group_resources, is_active)
+            "INSERT INTO access_codes (id, code, description, permission_level, is_active, access_group_id, share_all_group_resources)
              VALUES (?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(1)
         .bind("group-key")
         .bind("Group Access")
         .bind("read")
-        .bind(5)
         .bind(true)
+        .bind(5)
         .bind(true)
         .execute(&pool)
         .await
@@ -446,8 +447,9 @@ mod tests {
             .unwrap();
 
         // Key only grants Read permission
+        // Create access key with insufficient permission
         sqlx::query(
-            "INSERT INTO access_codes (id, key, description, permission_level, is_active)
+            "INSERT INTO access_codes (id, code, description, permission_level, is_active)
              VALUES (?, ?, ?, ?, ?)",
         )
         .bind(1)
@@ -522,8 +524,9 @@ mod tests {
             .unwrap();
 
         // Create key but don't grant it access to the resource
+        // Create access key (no permission for this resource)
         sqlx::query(
-            "INSERT INTO access_codes (id, key, description, permission_level, is_active)
+            "INSERT INTO access_codes (id, code, description, permission_level, is_active)
              VALUES (?, ?, ?, ?, ?)",
         )
         .bind(1)
@@ -554,7 +557,7 @@ mod tests {
 
         // Create valid key
         sqlx::query(
-            "INSERT INTO access_codes (id, key, description, permission_level, is_active)
+            "INSERT INTO access_codes (id, code, description, permission_level, is_active)
              VALUES (?, ?, ?, ?, ?)",
         )
         .bind(1)
@@ -578,7 +581,7 @@ mod tests {
 
         // Create inactive key
         sqlx::query(
-            "INSERT INTO access_codes (id, key, description, permission_level, is_active)
+            "INSERT INTO access_codes (id, code, description, permission_level, is_active)
              VALUES (?, ?, ?, ?, ?)",
         )
         .bind(1)

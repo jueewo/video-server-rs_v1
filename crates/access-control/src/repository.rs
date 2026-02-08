@@ -617,7 +617,7 @@ mod tests {
         sqlx::query(
             "CREATE TABLE access_codes (
                 id INTEGER PRIMARY KEY,
-                key TEXT NOT NULL UNIQUE,
+                code TEXT NOT NULL UNIQUE,
                 description TEXT NOT NULL,
                 permission_level TEXT NOT NULL DEFAULT 'read',
                 access_group_id INTEGER,
@@ -737,7 +737,7 @@ mod tests {
 
         sqlx::query(
             "INSERT INTO access_codes
-             (id, key, description, permission_level, is_active)
+             (id, code, description, permission_level, is_active)
              VALUES (?, ?, ?, ?, ?)",
         )
         .bind(1)

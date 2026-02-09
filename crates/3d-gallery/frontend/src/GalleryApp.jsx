@@ -33,6 +33,7 @@ export default function GalleryApp({
   const [galleryData, setGalleryData] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [cameraReady, setCameraReady] = useState(false);
+  const [minimapVisible, setMinimapVisible] = useState(true);
 
   // Fetch gallery data on mount
   useEffect(() => {
@@ -353,6 +354,12 @@ export default function GalleryApp({
     const keysPressed = {};
 
     const handleKeyDown = (event) => {
+      // M key to toggle minimap
+      if (event.key === "m" || event.key === "M") {
+        setMinimapVisible((prev) => !prev);
+        return;
+      }
+
       // ESC key to close overlay
       if (event.key === "Escape" && selectedImage) {
         setSelectedImage(null);
@@ -391,11 +398,11 @@ export default function GalleryApp({
 
       // A/D - Turn left/right
       if (keysPressed["a"]) {
-        camera.rotation.y += 0.05; // Turn left
+        camera.rotation.y -= 0.05; // Turn left
         moved = true;
       }
       if (keysPressed["d"]) {
-        camera.rotation.y -= 0.05; // Turn right
+        camera.rotation.y += 0.05; // Turn right
         moved = true;
       }
 
@@ -458,9 +465,13 @@ export default function GalleryApp({
       />
 
       {/* Minimap */}
-      {!loading && cameraReady && cameraRef.current && !selectedImage && (
-        <Minimap camera={cameraRef.current} roomWidth={20} roomDepth={20} />
-      )}
+      {!loading &&
+        cameraReady &&
+        cameraRef.current &&
+        !selectedImage &&
+        minimapVisible && (
+          <Minimap camera={cameraRef.current} roomWidth={20} roomDepth={20} />
+        )}
 
       {/* Image overlay when clicked */}
       {selectedImage && (

@@ -81,7 +81,7 @@ export function createImageFrame(scene, imageData, options = {}) {
 
   texture.hasAlpha = false;
   texture.vScale = -1; // Flip vertically to correct upside-down images
-  texture.uScale = 1;
+  texture.uScale = -1; // Flip horizontally to correct mirroring
 
   imageMaterial.diffuseTexture = texture;
   imageMaterial.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);

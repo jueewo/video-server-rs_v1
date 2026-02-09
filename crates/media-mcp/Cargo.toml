@@ -1,0 +1,54 @@
+[package]
+name = "media-mcp"
+version = "0.1.0"
+edition = "2021"
+authors = ["Media Server Team"]
+description = "Model Context Protocol (MCP) server for Media Server integration with Claude Desktop"
+license = "MIT OR Apache-2.0"
+
+[[bin]]
+name = "media-mcp"
+path = "src/main.rs"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "cookies"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+
+# Configuration
+config = "0.14"
+directories = "5"
+
+# CLI parsing (for config and arguments)
+clap = { version = "4", features = ["derive", "env"] }
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# URL handling
+url = "2"
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockito = "1"
+tempfile = "3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

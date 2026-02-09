@@ -2133,6 +2133,7 @@ Line Heights:
 > **📋 Detailed Implementation Tracking:**
 > - [API Documentation Progress](API_DOCUMENTATION_PROGRESS.md)
 > - [Media CLI Tool Progress](MEDIA_CLI_PROGRESS.md)
+> - [MCP Server Documentation](crates/media-mcp/README.md)
 
 ### API Documentation System ⭐ HIGH VALUE
 
@@ -2424,7 +2425,306 @@ color = true
    - Thoroughly tests all documented endpoints
    - Adds massive value for administrators
 
-**Total Investment:** ~2 weeks, very high ROI
+3. **Third: MCP Server (3-4 weeks)** ⭐ NEW
+   - Uses API docs as authoritative reference
+   - Leverages CLI tool patterns
+   - Enables AI-powered media management
+
+**Total Investment:** ~4-5 weeks, very high ROI
+
+---
+
+### MCP Server (Model Context Protocol) ⭐ NEW - HIGH VALUE
+
+**Goal:** AI-powered media management through Claude Desktop integration
+
+**Why This Matters:**
+- **Natural Language Interface:** Manage media using conversational commands
+- **AI Assistant Integration:** Claude Desktop can directly interact with your media library
+- **Power User Tool:** Combines convenience of UI with power of CLI
+- **Automation Potential:** AI can handle complex multi-step operations
+- **Future-Ready:** Positions server for AI-first workflows
+- **Reduced Friction:** No need to switch between chat and web UI
+
+**What is MCP?**
+
+Model Context Protocol (MCP) is an open protocol developed by Anthropic that standardizes how AI assistants connect to data sources and tools. It allows Claude Desktop (and other MCP clients) to:
+- Access your media library as contextual data
+- Execute operations on your behalf
+- Provide intelligent assistance based on real data
+- Bridge the gap between conversation and action
+
+Learn more: https://modelcontextprotocol.io
+
+**Primary Use Cases:**
+
+1. **Conversational Media Management**
+   ```
+   User: "Show me all videos about Rust from last month"
+   Claude: *queries MCP* → Lists videos with filters
+   
+   User: "Tag them all with 'tutorial' and 'rust-lang'"
+   Claude: *calls bulk tag tool* → Operation completed
+   ```
+
+2. **Intelligent Search & Discovery**
+   - Natural language queries across all metadata
+   - Semantic understanding of requests
+   - Contextual recommendations based on content
+
+3. **Bulk Operations Made Easy**
+   - "Archive all webinar recordings older than 6 months"
+   - "Generate access codes for all videos in the 'client-demos' group"
+   - Complex multi-step operations in single conversation
+
+4. **Analytics & Reporting**
+   - "What are my most popular videos this quarter?"
+   - "Show me engagement trends for tutorial content"
+   - AI-generated insights from raw data
+
+5. **Guided Workflows**
+   - Claude can walk you through complex operations
+   - Validate inputs before execution
+   - Explain results and suggest next steps
+
+**MCP Features:**
+
+**Resources (Read-Only Access):**
+- List videos, images, groups, access codes
+- Search across all content
+- View detailed metadata
+- Tag clouds and statistics
+
+**Tools (Actions):**
+- Upload media
+- Update metadata (title, description, tags)
+- Manage visibility (public/private)
+- Create/manage groups
+- Generate access codes
+- Bulk operations (tag, delete, update)
+- Analytics and reporting
+
+**Architecture:**
+
+```
+┌─────────────────┐
+│  Claude Desktop │  Natural language commands
+│   (MCP Client)  │  "Show me videos about X"
+└────────┬────────┘
+         │ MCP Protocol (stdio/JSON-RPC)
+         ↓
+┌─────────────────┐
+│ Media MCP Server│  Tool & Resource handlers
+│  (media-mcp)    │  Authentication & validation
+└────────┬────────┘
+         │ HTTP REST API
+         ↓
+┌─────────────────┐
+│  Media Server   │  Existing API endpoints
+│  (Axum/Rust)    │  Authentication & authorization
+└─────────────────┘
+```
+
+**Technical Implementation:**
+
+```
+crates/
+├── media-mcp/               # New MCP server crate
+│   ├── src/
+│   │   ├── main.rs          # MCP protocol handler
+│   │   ├── resources/       # Resource implementations
+│   │   │   ├── videos.rs
+│   │   │   ├── images.rs
+│   │   │   ├── groups.rs
+│   │   │   └── search.rs
+│   │   ├── tools/           # Tool implementations
+│   │   │   ├── upload.rs
+│   │   │   ├── metadata.rs
+│   │   │   ├── tags.rs
+│   │   │   ├── groups.rs
+│   │   │   ├── access_codes.rs
+│   │   │   └── bulk.rs
+│   │   ├── api/             # Media server API client
+│   │   │   ├── client.rs
+│   │   │   └── models.rs
+│   │   ├── protocol/        # MCP protocol handling
+│   │   │   ├── handler.rs
+│   │   │   ├── schemas.rs
+│   │   │   └── transport.rs
+│   │   └── config.rs        # Configuration
+│   ├── README.md            # Detailed documentation
+│   └── Cargo.toml
+```
+
+**Key Dependencies:**
+```toml
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.11", features = ["json"] }
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+# MCP SDK when available, or custom JSON-RPC implementation
+```
+
+**Configuration Example:**
+
+Claude Desktop config (`claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "media-server": {
+      "command": "/path/to/media-mcp",
+      "args": [],
+      "env": {
+        "MEDIA_SERVER_URL": "http://localhost:3000",
+        "MEDIA_SERVER_TOKEN": "your-session-token"
+      }
+    }
+  }
+}
+```
+
+Server config (`~/.media-mcp/config.toml`):
+```toml
+[server]
+url = "http://localhost:3000"
+timeout_seconds = 30
+
+[auth]
+token = "your-session-token"
+
+[features]
+enable_dangerous_operations = false  # Requires confirmation
+enable_bulk_operations = true
+max_batch_size = 100
+```
+
+**Implementation Phases:**
+
+**Phase 1: Core MCP Infrastructure (Week 1)**
+- MCP protocol handler (stdio transport, JSON-RPC)
+- HTTP client for media server API
+- Authentication and token management
+- Configuration management
+- Basic error handling and logging
+
+**Phase 2: Resources (Week 1-2)**
+- Video list resource
+- Image list resource
+- Group list resource
+- Access code list resource
+- Search functionality
+- Tag cloud resource
+- Proper schema definitions
+
+**Phase 3: Core Tools (Week 2-3)**
+- Upload media tool
+- Update metadata tool
+- Tag management tools
+- Visibility control tool
+- Delete media tool (with confirmation)
+- Input validation
+
+**Phase 4: Advanced Tools (Week 3-4)**
+- Group management tools
+- Access code generation/revocation
+- Bulk operations (tag, update, delete)
+- Analytics and statistics tools
+- Report generation
+
+**Phase 5: Safety & Polish (Week 4)**
+- Confirmation prompts for dangerous operations
+- Dry-run mode for testing
+- Comprehensive error messages
+- Rate limiting
+- Audit logging
+- Documentation and examples
+- Integration tests
+
+**Security Considerations:**
+- Token-based authentication (environment variables)
+- Never log or expose tokens
+- All operations use user's permissions
+- Confirmation required for destructive operations
+- Rate limiting to prevent abuse
+- Audit trail of all operations
+- No caching of sensitive data
+
+**User Experience Example:**
+
+```
+User: Show me my most recent videos
+
+Claude: [Calls list_videos resource with sort=recent, limit=10]
+Here are your 10 most recent videos:
+1. "Tutorial: Building MCP Servers" (2 days ago)
+2. "Weekly Team Sync Recording" (5 days ago)
+...
+
+User: Tag the tutorial video with "mcp" and "rust"
+
+Claude: [Calls update_metadata tool]
+Done! Tagged "Tutorial: Building MCP Servers" with "mcp" and "rust".
+
+User: Make it public and generate a shareable link
+
+Claude: [Calls update_visibility tool, then generate_access_code tool]
+The video is now public. Here's a shareable link:
+https://media.example.com/watch/tutorial-mcp?code=abc123xyz
+This link expires in 7 days.
+```
+
+**Benefits:**
+
+✅ **Natural Language:** No need to remember CLI commands or navigate UI
+✅ **Contextual:** Claude has full visibility into your media library
+✅ **Intelligent:** AI can suggest actions and validate operations
+✅ **Efficient:** Complex workflows in single conversation
+✅ **Safe:** Confirmation prompts and dry-run options
+✅ **Flexible:** Works alongside CLI and web UI
+✅ **Future-Ready:** Foundation for AI-first media management
+
+**Comparison to CLI Tool:**
+
+| Feature | CLI Tool | MCP Server |
+|---------|----------|------------|
+| Interface | Commands + flags | Natural language |
+| Use Case | Scripts, automation | Interactive management |
+| Learning Curve | Must learn syntax | Conversational |
+| Power | Full control | Guided assistance |
+| Batch Ops | Yes | Yes (AI-assisted) |
+| Context | Stateless | Conversational context |
+| Best For | Developers, scripts | All users |
+
+**Both tools complement each other:**
+- CLI for automation and scripts
+- MCP for interactive, AI-assisted operations
+- Both use same underlying API
+
+**Estimated Effort:** 3-4 weeks for full implementation
+
+**Deliverables:**
+- ✅ MCP server binary (`media-mcp`)
+- ✅ Complete documentation
+- ✅ Claude Desktop integration guide
+- ✅ Example configurations
+- ✅ Safety features and confirmations
+- ✅ Comprehensive testing
+
+**Prerequisites:**
+- API Documentation (for reference)
+- Media CLI (for patterns and API client code)
+
+**Status:** 📋 PLANNED - Design complete, ready for implementation
+
+**Priority:** Medium-High (High value for power users and AI-first workflows)
+
+**Resources:**
+- [MCP Specification](https://spec.modelcontextprotocol.io/)
+- [Claude Desktop MCP Guide](https://claude.ai/docs/mcp)
+- [Detailed Implementation Plan](crates/media-mcp/README.md)
 
 ---
 

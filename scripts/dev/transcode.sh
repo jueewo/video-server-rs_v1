@@ -16,9 +16,9 @@ echo $OUTPUTDIR
 mkdir $OUTPUTDIR
 mkdir $OUTPUTDIR/segments
 
-# Extract a poster image as fallback (WebP format)
-echo "Extracting poster image..."
-ffmpeg -i $MP4FILE -ss 00:00:01 -vframes 1 -q:v 2 $OUTPUTDIR/poster.webp
+# Extract a thumbnail image as fallback (WebP format)
+echo "Extracting thumbnail image..."
+ffmpeg -i $MP4FILE -ss 00:00:01 -vframes 1 -q:v 2 $OUTPUTDIR/thumbnail.webp
 
 
 # Transcode to HLS

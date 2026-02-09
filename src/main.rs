@@ -255,6 +255,26 @@ async fn health_check() -> &'static str {
 }
 
 // -------------------------------
+// Favicon Handler
+// -------------------------------
+
+async fn favicon_handler() -> Result<
+    (
+        StatusCode,
+        [(axum::http::header::HeaderName, &'static str); 1],
+        &'static [u8],
+    ),
+    StatusCode,
+> {
+    const FAVICON_SVG: &[u8] = include_bytes!("../static/favicon.svg");
+    Ok((
+        StatusCode::OK,
+        [(axum::http::header::CONTENT_TYPE, "image/svg+xml")],
+        FAVICON_SVG,
+    ))
+}
+
+// -------------------------------
 // Tag Management Page Handler
 // -------------------------------
 
@@ -811,6 +831,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/", get(index_handler))
         .route("/demo", get(demo_handler))
         .route("/health", get(health_check))
+        .route("/favicon.ico", get(favicon_handler))
         .route("/tags", get(tag_management_handler))
         .route("/tags/cloud", get(tag_cloud_handler))
         // Webhook endpoints (optional)
@@ -827,7 +848,7 @@ async fn main() -> anyhow::Result<()> {
         .merge(create_tag_routes(pool.clone()))
         .merge(create_search_routes(pool.clone()))
         .merge(media_routes().with_state(media_hub_state))
-        .merge(gallery3d::router())
+        .merge(gallery3d::router(Arc::new(pool.clone())))
         // Serve static files from storage directory
         .nest_service("/storage", ServeDir::new(&storage_dir))
         // Serve static CSS and assets

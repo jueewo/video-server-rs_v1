@@ -1,10 +1,10 @@
--- Script to update video poster URLs for existing videos
+-- Script to update video thumbnail URLs for existing videos
 -- This sets the poster_url and thumbnail_url fields to standard paths
 -- Run with: sqlite3 video.db < scripts/update_video_posters.sql
 
--- Update poster URLs for videos (assumes posters are in /storage/videos/{slug}/poster.webp)
+-- Update thumbnail URLs for videos (assumes thumbnails are in /storage/videos/{slug}/thumbnail.webp)
 UPDATE videos
-SET poster_url = '/storage/videos/' || slug || '/poster.webp'
+SET poster_url = '/storage/videos/' || slug || '/thumbnail.webp'
 WHERE poster_url IS NULL OR poster_url = '';
 
 -- Update thumbnail URLs for videos (assumes thumbnails are in /storage/videos/{slug}/thumbnail.webp)

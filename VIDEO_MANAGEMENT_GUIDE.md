@@ -70,14 +70,14 @@ The "Edit Video" feature allows you to modify metadata for existing videos.
    storage/videos/public/{slug}/
    ├── master.m3u8
    ├── segment-*.ts
-   └── poster.webp (optional)
+   └── thumbnail.webp (optional)
    ```
    Or for private videos:
    ```
    storage/videos/private/{slug}/
    ├── master.m3u8
    ├── segment-*.ts
-   └── poster.webp (optional)
+   └── thumbnail.webp (optional)
    ```
 
 2. **Register the video:**
@@ -131,7 +131,7 @@ When authenticated, the video list page includes a **"Quick Actions"** section w
 ## 💡 Tips
 
 1. **Video Slugs:** The slug (folder name) becomes the video's permanent identifier
-2. **Poster Images:** Add a `poster.webp` file to each video folder for thumbnails
+2. **Thumbnail Images:** Add a `thumbnail.webp` file to each video folder for thumbnails
 3. **Group Assignment:** Assign videos to groups for team collaboration
 4. **Public vs Private:** Public videos are visible to everyone; private videos require authentication
 5. **HLS Format:** Videos must be in HLS format (master.m3u8 + segments)

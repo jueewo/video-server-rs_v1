@@ -165,7 +165,7 @@ pub async fn group_detail_page_handler(
     for (slug, title, resource_type) in videos {
         resources.push(ResourceItem {
             title,
-            thumbnail: format!("/storage/videos/{}/poster.webp", slug),
+            thumbnail: format!("/storage/videos/{}/thumbnail.webp", slug),
             url: format!("/watch/{}", slug),
             resource_type,
         });

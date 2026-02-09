@@ -26,15 +26,15 @@ storage/videos/
 ├── public/
 │   ├── bbb/
 │   │   ├── master.m3u8          # HLS manifest
-│   │   ├── poster.webp          # Poster image
+│   │   ├── thumbnail.webp          # Poster image
 │   │   └── *.ts                 # Video segments
 │   └── welcome/
 │       ├── master.m3u8
-│       └── poster.webp
+│       └── thumbnail.webp
 └── private/
     └── lesson1/
         ├── master.m3u8
-        └── poster.webp
+        └── thumbnail.webp
 ```
 
 ---
@@ -57,7 +57,7 @@ storage/videos/
 **After (Fixed):**
 ```html
 <video id="video" controls autoplay 
-       poster="/storage/videos/{% if is_public %}public{% else %}private{% endif %}/{{ slug }}/poster.webp">
+       poster="/storage/videos/{% if is_public %}public{% else %}private{% endif %}/{{ slug }}/thumbnail.webp">
     Your browser does not support the video tag.
 </video>
 
@@ -81,7 +81,7 @@ storage/videos/
 - ✅ **HLS Streaming:** Uses `/hls/{{ slug }}/master.m3u8` endpoint
 - ✅ **HLS.js Integration:** Full HLS.js support with error recovery
 - ✅ **Native HLS Support:** Safari/iOS native HLS playback
-- ✅ **Poster Images:** Shows `poster.webp` before video plays
+- ✅ **Poster Images:** Shows `thumbnail.webp` before video plays
 - ✅ **Player Status:** Visual feedback for player state
 - ✅ **Error Handling:** Graceful error recovery
 - ✅ **Keyboard Shortcuts:** Space, arrows, F, M, J, L, K
@@ -96,7 +96,7 @@ storage/videos/
 #### Public Video Cards:
 ```html
 <div class="video-thumbnail">
-    <img src="/storage/videos/public/{{ video.0 }}/poster.webp"
+    <img src="/storage/videos/public/{{ video.0 }}/thumbnail.webp"
          alt="{{ video.1 }}"
          onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
     <span class="fallback-icon" style="display: none;">🎬</span>
@@ -106,7 +106,7 @@ storage/videos/
 #### Private Video Cards:
 ```html
 <div class="video-thumbnail">
-    <img src="/storage/videos/private/{{ video.0 }}/poster.webp"
+    <img src="/storage/videos/private/{{ video.0 }}/thumbnail.webp"
          alt="{{ video.1 }}"
          onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
     <span class="fallback-icon" style="display: none;">🎥</span>
@@ -171,7 +171,7 @@ let app = Router::new()
 
 **What This Does:**
 - ✅ Serves files from `storage/` directory at `/storage` endpoint
-- ✅ Enables poster image access: `/storage/videos/public/bbb/poster.webp`
+- ✅ Enables poster image access: `/storage/videos/public/bbb/thumbnail.webp`
 - ✅ Enables any static content from storage
 - ✅ Proper MIME type detection
 - ✅ Range request support for partial downloads
@@ -204,7 +204,7 @@ let image_state = Arc::new(ImageManagerState::new(pool.clone(), storage_dir.clon
 
 ### Storage Endpoint Test
 ```bash
-curl -I http://localhost:3000/storage/videos/public/bbb/poster.webp
+curl -I http://localhost:3000/storage/videos/public/bbb/thumbnail.webp
 ```
 
 **Result:**
@@ -217,14 +217,14 @@ content-length: 9814
 
 ### Video List Test
 ```bash
-curl -s http://localhost:3000/videos | grep -o "poster.webp"
+curl -s http://localhost:3000/videos | grep -o "thumbnail.webp"
 ```
 
 **Result:**
 ```
-poster.webp
-poster.webp
-poster.webp
+thumbnail.webp
+thumbnail.webp
+thumbnail.webp
 ✅ All video cards have poster images
 ```
 
@@ -257,7 +257,7 @@ poster.webp
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| Poster Thumbnails | ✅ | Displays poster.webp in cards |
+| Poster Thumbnails | ✅ | Displays thumbnail.webp in cards |
 | Fallback Icons | ✅ | Shows emoji if image missing |
 | Graceful Degradation | ✅ | Handles missing images |
 | Hover Effects | ✅ | Card lifts on hover |
@@ -274,12 +274,12 @@ storage/videos/
 ├── public/               # Public videos (no auth required)
 │   └── {slug}/
 │       ├── master.m3u8   # HLS manifest (required)
-│       ├── poster.webp   # Poster image (optional)
+│       ├── thumbnail.webp   # Poster image (optional)
 │       └── *.ts          # Video segments
 └── private/              # Private videos (auth required)
     └── {slug}/
         ├── master.m3u8   # HLS manifest (required)
-        ├── poster.webp   # Poster image (optional)
+        ├── thumbnail.webp   # Poster image (optional)
         └── *.ts          # Video segments
 ```
 
@@ -289,7 +289,7 @@ storage/videos/
 - `master.m3u8` - HLS manifest file for streaming
 
 #### Optional Files
-- `poster.webp` - Thumbnail image (recommended)
+- `thumbnail.webp` - Thumbnail image (recommended)
 - Can also use: `poster.jpg`, `poster.png`
 
 ### Poster Image Specifications
@@ -410,20 +410,20 @@ curl http://localhost:3000/hls/bbb/master.m3u8
 **Symptom:** Emoji icon instead of poster
 
 **Possible Causes:**
-1. Missing `poster.webp` file
+1. Missing `thumbnail.webp` file
 2. Incorrect file path
 3. File permissions
 
 **Solutions:**
 ```bash
 # Verify poster exists
-ls storage/videos/public/bbb/poster.webp
+ls storage/videos/public/bbb/thumbnail.webp
 
 # Test storage endpoint
-curl -I http://localhost:3000/storage/videos/public/bbb/poster.webp
+curl -I http://localhost:3000/storage/videos/public/bbb/thumbnail.webp
 
 # Check file permissions
-chmod 644 storage/videos/public/bbb/poster.webp
+chmod 644 storage/videos/public/bbb/thumbnail.webp
 ```
 
 ### HLS.js Not Loading

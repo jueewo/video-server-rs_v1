@@ -119,7 +119,7 @@
 ## 📋 TODO: Phase 2 - Video Management & Group Assignment
 
 ### Context
-- **Videos are NOT uploaded through the UI.** Video folders (containing `master.m3u8`, `segments/*.ts`, optionally `poster.webp`) are placed manually on disk at `storage/videos/{slug}/`.
+- **Videos are NOT uploaded through the UI.** Video folders (containing `master.m3u8`, `segments/*.ts`, optionally `thumbnail.webp`) are placed manually on disk at `storage/videos/{slug}/`.
 - A **"Register Video" form** is needed to create a DB entry for a video folder that already exists on disk.
 - A **Video Edit page** is needed to modify metadata and assign to groups (similar to image edit).
 - The image manager has a fully working edit flow (`PUT /api/images/:id`) as a reference.
@@ -129,7 +129,7 @@
 ```
 storage/videos/{slug}/
 ├── master.m3u8          # HLS playlist (required)
-├── poster.webp          # Thumbnail (optional)
+├── thumbnail.webp       # Thumbnail (optional)
 └── segments/            # Video segments
     ├── 000.ts
     ├── 001.ts

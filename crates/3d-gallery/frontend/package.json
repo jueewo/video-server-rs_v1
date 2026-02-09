@@ -9,9 +9,10 @@
     "clean": "rm -f ../static/bundle.js ../static/bundle.js.map"
   },
   "dependencies": {
-    "preact": "^10.19.3",
     "@babylonjs/core": "^6.42.0",
-    "@babylonjs/loaders": "^6.42.0"
+    "@babylonjs/loaders": "^6.42.0",
+    "hls.js": "^1.6.15",
+    "preact": "^10.19.3"
   },
   "devDependencies": {
     "esbuild": "^0.19.11"

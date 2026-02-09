@@ -7,10 +7,12 @@ use crate::models::{
     MediaType, Position3D, Rotation3D,
 };
 use axum::{
-    extract::Query,
+    extract::{Query, State},
     http::StatusCode,
     response::{IntoResponse, Json, Response},
 };
+use sqlx::{Row, SqlitePool};
+use std::sync::Arc;
 
 /// Handler for GET /api/3d/gallery
 ///
@@ -19,41 +21,210 @@ use axum::{
 ///
 /// # Example
 /// GET /api/3d/gallery?code=abc123xyz
-///
-/// # TODO
-/// - Implement actual access code validation
-/// - Fetch real media from database
-/// - Apply permissions based on access code
-pub async fn get_gallery_data(Query(query): Query<GalleryQuery>) -> Response {
-    // TODO: Validate access code
-    // For now, return mock data for testing
-
+pub async fn get_gallery_data(
+    Query(query): Query<GalleryQuery>,
+    State(pool): State<Arc<SqlitePool>>,
+) -> Response {
     tracing::info!("Gallery data requested with code: {}", query.code);
 
-    // Mock validation - in real implementation, check database
+    // Validate access code
     if query.code.is_empty() {
         return error_response(ErrorResponse::invalid_code());
     }
 
-    // Mock data - will be replaced with real database queries
-    let items = create_mock_media_items();
+    // Fetch access code from database using raw query
+    let access_code_row = match sqlx::query(
+        "SELECT id, code, expires_at, permission_level FROM access_codes WHERE code = ? AND is_active = 1"
+    )
+    .bind(&query.code)
+    .fetch_optional(pool.as_ref())
+    .await
+    {
+        Ok(Some(row)) => row,
+        Ok(None) => {
+            tracing::warn!("Access code not found: {}", query.code);
+            return error_response(ErrorResponse::invalid_code());
+        }
+        Err(e) => {
+            tracing::error!("Database error fetching access code: {}", e);
+            return error_response(ErrorResponse {
+                error: "Database error".to_string(),
+                message: "Failed to validate access code".to_string(),
+                code: "DATABASE_ERROR".to_string(),
+            });
+        }
+    };
+
+    let access_code_id: i64 = access_code_row.get(0);
+    let permission_level: Option<String> = access_code_row.get(3);
+    let expires_at: Option<String> = access_code_row.get(2);
+
+    // Check if code is expired
+    if let Some(expires_str) = &expires_at {
+        let now = chrono::Utc::now().naive_utc();
+        if let Ok(expires) = chrono::NaiveDateTime::parse_from_str(expires_str, "%Y-%m-%d %H:%M:%S")
+        {
+            if expires < now {
+                tracing::warn!("Access code expired: {}", query.code);
+                return error_response(ErrorResponse {
+                    error: "Access Denied".to_string(),
+                    message: "This access code has expired".to_string(),
+                    code: "EXPIRED_CODE".to_string(),
+                });
+            }
+        }
+    }
+
+    // Fetch media items for this access code
+    let items = match fetch_media_for_access_code(access_code_id, &pool).await {
+        Ok(items) => items,
+        Err(e) => {
+            tracing::error!("Error fetching media: {}", e);
+            return error_response(ErrorResponse {
+                error: "Database error".to_string(),
+                message: "Failed to fetch media items".to_string(),
+                code: "DATABASE_ERROR".to_string(),
+            });
+        }
+    };
+
+    let total_items = items.len();
 
     let response = GalleryResponse {
         items,
         scene: query.scene.unwrap_or_else(|| "classic".to_string()),
-        permissions: AccessPermissions::default(),
+        permissions: AccessPermissions {
+            can_download: permission_level.as_deref() == Some("download"),
+            can_share: false,
+            access_level: permission_level.unwrap_or_else(|| "view_only".to_string()),
+        },
         metadata: GalleryMetadata {
-            total_items: 5, // 3 images + 2 videos
-            code_expires_at: None,
+            total_items,
+            code_expires_at: expires_at,
         },
     };
 
     Json(response).into_response()
 }
 
-/// Create mock media items for testing
-///
-/// This will be replaced with actual database queries
+/// Fetch media items for an access code from the database
+async fn fetch_media_for_access_code(
+    access_code_id: i64,
+    pool: &SqlitePool,
+) -> Result<Vec<MediaItem3D>, sqlx::Error> {
+    let mut items = Vec::new();
+    let mut position_index = 0;
+
+    // Fetch images
+    let image_rows = sqlx::query(
+        "SELECT i.id, i.slug, i.filename, i.title, i.description, i.thumbnail_url, i.width, i.height
+         FROM images i
+         INNER JOIN access_code_permissions acp ON acp.media_slug = i.slug AND acp.media_type = 'image'
+         WHERE acp.access_code_id = ?
+         ORDER BY i.id"
+    )
+    .bind(access_code_id)
+    .fetch_all(pool)
+    .await?;
+
+    for row in image_rows {
+        let id: i64 = row.get(0);
+        let slug: String = row.get(1);
+        let filename: String = row.get(2);
+        let title: String = row.get(3);
+        let description: Option<String> = row.get(4);
+        let thumbnail_url: Option<String> = row.get(5);
+
+        let pos = get_position_for_index(position_index);
+        items.push(MediaItem3D {
+            id: id as i32,
+            media_type: MediaType::Image,
+            url: format!("/storage/images/{}", filename),
+            thumbnail_url: thumbnail_url
+                .unwrap_or_else(|| format!("/storage/images/{}_thumb.webp", slug)),
+            title,
+            description,
+            position: pos.0,
+            rotation: pos.1,
+            scale: 1.0,
+        });
+        position_index += 1;
+    }
+
+    // Fetch videos
+    let video_rows = sqlx::query(
+        "SELECT v.id, v.slug, v.filename, v.title, v.description, v.thumbnail_url, v.width, v.height, v.duration
+         FROM videos v
+         INNER JOIN access_code_permissions acp ON acp.media_slug = v.slug AND acp.media_type = 'video'
+         WHERE acp.access_code_id = ?
+         ORDER BY v.id"
+    )
+    .bind(access_code_id)
+    .fetch_all(pool)
+    .await?;
+
+    for row in video_rows {
+        let id: i64 = row.get(0);
+        let slug: String = row.get(1);
+        let filename: Option<String> = row.get(2);
+        let title: String = row.get(3);
+        let description: Option<String> = row.get(4);
+        let thumbnail_url: Option<String> = row.get(5);
+
+        let pos = get_position_for_index(position_index);
+
+        // Use filename if available, otherwise fallback to master.m3u8
+        let video_url = if let Some(fname) = filename {
+            if fname.is_empty() {
+                format!("/storage/videos/{}/master.m3u8", slug)
+            } else {
+                format!("/storage/videos/{}/{}", slug, fname)
+            }
+        } else {
+            format!("/storage/videos/{}/master.m3u8", slug)
+        };
+
+        // Use thumbnail.webp as fallback if thumbnail_url is not available
+        let final_thumbnail = if let Some(thumb) = thumbnail_url {
+            thumb
+        } else {
+            format!("/storage/videos/{}/thumbnail.webp", slug)
+        };
+
+        items.push(MediaItem3D {
+            id: id as i32,
+            media_type: MediaType::Video,
+            url: video_url,
+            thumbnail_url: final_thumbnail,
+            title,
+            description,
+            position: pos.0,
+            rotation: pos.1,
+            scale: 1.0,
+        });
+        position_index += 1;
+    }
+
+    Ok(items)
+}
+
+/// Get position and rotation for media item based on index
+/// Distributes items across the 4 walls
+fn get_position_for_index(index: usize) -> (Position3D, Rotation3D) {
+    // Simple distribution across walls (will be overridden by frontend wall positions)
+    match index % 4 {
+        0 => (Position3D::new(-3.0, 1.8, -8.0), Rotation3D::zero()), // North wall
+        1 => (Position3D::new(0.0, 1.8, -8.0), Rotation3D::zero()),  // North wall
+        2 => (Position3D::new(3.0, 1.8, -8.0), Rotation3D::zero()),  // North wall
+        _ => (
+            Position3D::new(-3.0, 1.8, 8.0),
+            Rotation3D::new(0.0, std::f32::consts::PI, 0.0),
+        ), // South wall
+    }
+}
+
+/// Create mock media items for testing (kept for fallback)
+#[allow(dead_code)]
 fn create_mock_media_items() -> Vec<MediaItem3D> {
     vec![
         MediaItem3D {
@@ -124,8 +295,8 @@ fn error_response(error: ErrorResponse) -> Response {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_mock_media_items() {
+    #[tokio::test]
+    async fn test_mock_media_items() {
         let items = create_mock_media_items();
         assert_eq!(items.len(), 5); // 3 images + 2 videos
         assert_eq!(items[0].title, "AI Types");

@@ -54,7 +54,7 @@ sqlite3 media.db "DELETE FROM videos WHERE slug='lesson1';"
 2. Add required files:
    - `master.m3u8` (HLS playlist)
    - `segments/` directory with `.ts` files
-   - `poster.webp` (optional thumbnail)
+   - `thumbnail.webp` (optional thumbnail)
 3. Go to `/videos/new`
 4. Select "my-new-video" from dropdown
 5. Fill in metadata and register
@@ -64,7 +64,7 @@ sqlite3 media.db "DELETE FROM videos WHERE slug='lesson1';"
 ```
 storage/videos/{slug}/
 ├── master.m3u8          # Required - HLS playlist
-├── poster.webp          # Optional - thumbnail image
+├── thumbnail.webp       # Optional - thumbnail image
 └── segments/            # Required - video segments
     ├── segment-0.ts
     ├── segment-1.ts

@@ -11,35 +11,79 @@ import Hls from "hls.js";
 /**
  * Create a play button overlay plane for video screens
  */
-function createPlayButtonOverlay(scene, width, height, videoId) {
+function createPlayButtonOverlay(scene, width, height, videoId, rotation) {
   const overlayPlane = BABYLON.MeshBuilder.CreatePlane(
     `playOverlay_${videoId}`,
-    { width: width * 0.5, height: height * 0.5 },
+    { width: width * 0.3, height: height * 0.3 },
     scene,
   );
 
-  // Simple bright red material for testing
+  // Check if the screen is rotated 180 degrees (π radians) on Y axis
+  const isRotated180 =
+    Math.abs(rotation.y - Math.PI) < 0.1 ||
+    Math.abs(rotation.y + Math.PI) < 0.1;
+
+  // Create canvas for play button
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d");
+
+  // Draw semi-transparent background circle
+  ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+  ctx.beginPath();
+  ctx.arc(256, 256, 200, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Draw white play triangle - mirror direction for 180° walls
+  ctx.fillStyle = "white";
+  ctx.beginPath();
+  if (isRotated180) {
+    // Mirrored triangle (pointing left)
+    ctx.moveTo(312, 150);
+    ctx.lineTo(312, 362);
+    ctx.lineTo(142, 256);
+  } else {
+    // Normal triangle (pointing right)
+    ctx.moveTo(200, 150);
+    ctx.lineTo(200, 362);
+    ctx.lineTo(370, 256);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // Create dynamic texture from canvas
+  const overlayTexture = new BABYLON.DynamicTexture(
+    `playButtonTexture_${videoId}`,
+    canvas,
+    scene,
+    false,
+  );
+  overlayTexture.hasAlpha = true;
+  overlayTexture.update();
+
+  // Don't flip the play button - keep it always facing forward
+  overlayTexture.vScale = 1;
+  overlayTexture.uScale = 1;
+
   const overlayMaterial = new BABYLON.StandardMaterial(
     `playButtonMat_${videoId}`,
     scene,
   );
-  overlayMaterial.diffuseColor = new BABYLON.Color3(1, 0, 0); // Bright red
-  overlayMaterial.emissiveColor = new BABYLON.Color3(1, 0, 0); // Self-illuminated red
+  overlayMaterial.diffuseTexture = overlayTexture;
+  overlayMaterial.emissiveTexture = overlayTexture;
+  overlayMaterial.opacityTexture = overlayTexture;
   overlayMaterial.backFaceCulling = false;
-  overlayMaterial.needDepthPrePass = true;
+  overlayMaterial.useAlphaFromDiffuseTexture = true;
+  overlayMaterial.transparencyMode = BABYLON.Material.MATERIAL_ALPHABLEND;
+  overlayMaterial.disableDepthWrite = true;
+  overlayMaterial.forceDepthWrite = false;
+  overlayMaterial.zOffset = -10;
 
   overlayPlane.material = overlayMaterial;
   overlayPlane.renderingGroupId = 3; // Render after everything else
-  overlayPlane.alphaIndex = 1000; // Force to render last within group
   overlayPlane.isPickable = false; // Don't block clicks to video
-
-  console.log("Play button overlay created (TEST RED):", {
-    name: overlayPlane.name,
-    width: width * 0.5,
-    height: height * 0.5,
-    renderingGroupId: overlayPlane.renderingGroupId,
-    material: overlayMaterial.name,
-  });
+  overlayPlane.alwaysSelectAsActiveMesh = true;
 
   return overlayPlane;
 }
@@ -47,13 +91,18 @@ function createPlayButtonOverlay(scene, width, height, videoId) {
 /**
  * Create a progress bar overlay for video playback
  */
-function createProgressBarOverlay(scene, width, videoId) {
+function createProgressBarOverlay(scene, width, videoId, rotation) {
   const barHeight = 0.05;
   const barPlane = BABYLON.MeshBuilder.CreatePlane(
     `progressBar_${videoId}`,
     { width: width, height: barHeight },
     scene,
   );
+
+  // Check if the screen is rotated 180 degrees (π radians) on Y axis
+  const isRotated180 =
+    Math.abs(rotation.y - Math.PI) < 0.1 ||
+    Math.abs(rotation.y + Math.PI) < 0.1;
 
   // Create canvas for progress bar
   const canvas = document.createElement("canvas");
@@ -67,6 +116,10 @@ function createProgressBarOverlay(scene, width, videoId) {
     true,
   );
   progressTexture.hasAlpha = true;
+
+  // Don't flip - keep progress bar normal for all walls
+  progressTexture.uScale = 1;
+  progressTexture.vScale = 1;
 
   const progressMaterial = new BABYLON.StandardMaterial(
     `progressMat_${videoId}`,
@@ -83,7 +136,7 @@ function createProgressBarOverlay(scene, width, videoId) {
   barPlane.renderingGroupId = 2; // Render on top of video
   barPlane.isPickable = false;
 
-  return { plane: barPlane, texture: progressTexture, canvas };
+  return { plane: barPlane, texture: progressTexture, canvas, isRotated180 };
 }
 
 /**
@@ -98,18 +151,26 @@ function updateProgressBar(progressBar, currentTime, duration) {
   // Clear canvas
   ctx.clearRect(0, 0, progressBar.canvas.width, progressBar.canvas.height);
 
-  // Draw background bar
-  ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+  // Draw background bar (white/gray)
+  ctx.fillStyle = "rgba(128, 128, 128, 0.5)"; // Gray background
   ctx.fillRect(0, 0, progressBar.canvas.width, progressBar.canvas.height);
 
-  // Draw progress bar
-  ctx.fillStyle = "rgba(59, 130, 246, 0.9)"; // Blue
-  ctx.fillRect(
-    0,
-    0,
-    progressBar.canvas.width * progress,
-    progressBar.canvas.height,
-  );
+  // Draw progress bar - reverse direction for 180° walls
+  const progressWidth = progressBar.canvas.width * progress;
+  ctx.fillStyle = "rgba(59, 130, 246, 0.9)"; // Blue progress
+
+  if (progressBar.isRotated180) {
+    // Draw from RIGHT to LEFT for 180° walls
+    ctx.fillRect(
+      progressBar.canvas.width - progressWidth,
+      0,
+      progressWidth,
+      progressBar.canvas.height,
+    );
+  } else {
+    // Draw from LEFT to RIGHT for normal walls
+    ctx.fillRect(0, 0, progressWidth, progressBar.canvas.height);
+  }
 
   // Update texture
   progressBar.texture.update();
@@ -158,72 +219,60 @@ export function createVideoScreen(scene, videoData, options = {}) {
     videoElement.muted = true; // Browsers require muted for autoplay
   }
 
-  // Setup HLS.js for .m3u8 streams - but only if autoPlay is true
-  // Otherwise, lazy load on first play
+  // Setup HLS.js for .m3u8 streams
   let hls = null;
-  let isInitialized = false;
 
-  const initializeVideo = () => {
-    if (isInitialized) return;
-    isInitialized = true;
+  if (videoData.url.includes(".m3u8")) {
+    if (Hls.isSupported()) {
+      hls = new Hls({
+        debug: false,
+        enableWorker: true,
+        lowLatencyMode: false,
+        backBufferLength: 90,
+      });
+      hls.loadSource(videoData.url);
+      hls.attachMedia(videoElement);
 
-    if (videoData.url.includes(".m3u8")) {
-      if (Hls.isSupported()) {
-        hls = new Hls({
-          debug: false,
-          enableWorker: true,
-          lowLatencyMode: false,
-          backBufferLength: 90,
-        });
-        hls.loadSource(videoData.url);
-        hls.attachMedia(videoElement);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        console.log(`✓ HLS manifest loaded for: ${videoData.title}`);
+        if (autoPlay) {
+          videoElement
+            .play()
+            .catch((err) => console.warn("Autoplay prevented:", err));
+        }
+      });
 
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          console.log(`✓ HLS manifest loaded for: ${videoData.title}`);
-          if (autoPlay) {
-            videoElement
-              .play()
-              .catch((err) => console.warn("Autoplay prevented:", err));
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        console.error("HLS error:", data.type, data.details);
+        if (data.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.error("Fatal network error, trying to recover...");
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.error("Fatal media error, trying to recover...");
+              hls.recoverMediaError();
+              break;
+            default:
+              console.error(
+                "Cannot recover from fatal error, destroying HLS instance",
+              );
+              hls.destroy();
+              break;
           }
-        });
-
-        hls.on(Hls.Events.ERROR, (event, data) => {
-          console.error("HLS error:", data.type, data.details);
-          if (data.fatal) {
-            switch (data.type) {
-              case Hls.ErrorTypes.NETWORK_ERROR:
-                console.error("Fatal network error, trying to recover...");
-                hls.startLoad();
-                break;
-              case Hls.ErrorTypes.MEDIA_ERROR:
-                console.error("Fatal media error, trying to recover...");
-                hls.recoverMediaError();
-                break;
-              default:
-                console.error(
-                  "Cannot recover from fatal error, destroying HLS instance",
-                );
-                hls.destroy();
-                break;
-            }
-          }
-        });
-      } else if (videoElement.canPlayType("application/vnd.apple.mpegurl")) {
-        // Safari native HLS support
-        videoElement.src = videoData.url;
-        console.log(`✓ Using native HLS for: ${videoData.title}`);
-      } else {
-        console.error("HLS not supported in this browser");
-      }
-    } else {
-      // Direct video file (mp4, webm, etc.)
+        }
+      });
+    } else if (videoElement.canPlayType("application/vnd.apple.mpegurl")) {
+      // Safari native HLS support
       videoElement.src = videoData.url;
+      console.log(`✓ Using native HLS for: ${videoData.title}`);
+    } else {
+      console.error("HLS not supported in this browser");
     }
-  };
-
-  // Only initialize immediately if autoPlay is true
-  if (autoPlay) {
-    initializeVideo();
+  } else {
+    // Direct video file (mp4, webm, etc.) - set source immediately
+    videoElement.src = videoData.url;
   }
 
   // Add error event listeners for debugging
@@ -260,40 +309,34 @@ export function createVideoScreen(scene, videoData, options = {}) {
   screenPlane.parent = screenParent;
   screenPlane.position.z = 0.01; // Slight offset from frame
 
-  // Create poster texture (shown before video loads)
-  const posterTexture = new BABYLON.Texture(
-    videoData.thumbnail_url || "/storage/images/video_placeholder.webp",
-    scene,
-  );
-
-  // Create video texture
-  const videoTexture = new BABYLON.VideoTexture(
-    `videoTexture_${videoData.id}`,
-    videoElement,
-    scene,
-    false, // generateMipMaps
-    false, // invertY
-    BABYLON.Texture.TRILINEAR_SAMPLINGMODE,
-  );
-
   // Video orientation - flip horizontally for 180° rotated walls (South wall)
   // Check if the screen is rotated 180 degrees (π radians) on Y axis
   const isRotated180 =
     Math.abs(rotation.y - Math.PI) < 0.1 ||
     Math.abs(rotation.y + Math.PI) < 0.1;
 
-  videoTexture.vScale = 1; // Keep normal vertical orientation
-  videoTexture.uScale = isRotated180 ? -1 : 1; // Flip horizontally only for 180° walls
+  // Create poster/thumbnail texture (shown initially)
+  const thumbnailUrl =
+    videoData.thumbnail_url || "/storage/images/video_placeholder.webp";
+  console.log(`Loading thumbnail for ${videoData.title}:`, thumbnailUrl);
 
-  // Apply same orientation to poster texture
+  const posterTexture = new BABYLON.Texture(thumbnailUrl, scene);
   posterTexture.vScale = 1;
   posterTexture.uScale = isRotated180 ? -1 : 1;
+
+  // Debug: Check if texture loaded successfully
+  posterTexture.onLoadObservable.add(() => {
+    console.log(`✓ Poster texture loaded for: ${videoData.title}`);
+  });
+
+  // Video texture will be created lazily when video first plays
+  let videoTexture = null;
 
   console.log(
     `Video ${videoData.title} - Rotation Y: ${rotation.y}, Flipped: ${isRotated180}`,
   );
 
-  // Create screen material - start with poster
+  // Create screen material - START with poster texture
   const screenMaterial = new BABYLON.StandardMaterial(
     `screenMat_${videoData.id}`,
     scene,
@@ -304,15 +347,43 @@ export function createVideoScreen(scene, videoData, options = {}) {
   screenMaterial.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
   screenMaterial.backFaceCulling = false;
 
-  // Switch to video texture when video starts playing
-  videoElement.addEventListener("playing", () => {
-    screenMaterial.diffuseTexture = videoTexture;
-    screenMaterial.emissiveTexture = videoTexture;
-    console.log(`Switched to video texture for: ${videoData.title}`);
+  console.log(`Material created for ${videoData.title}:`, {
+    diffuseTexture: screenMaterial.diffuseTexture?.name,
+    emissiveTexture: screenMaterial.emissiveTexture?.name,
+    isPoster: screenMaterial.diffuseTexture === posterTexture,
   });
 
   screenPlane.material = screenMaterial;
   screenPlane.renderingGroupId = 1;
+
+  // Switch from poster to video texture when video starts playing
+  videoElement.addEventListener("playing", () => {
+    // Create video texture on first play
+    if (!videoTexture) {
+      videoTexture = new BABYLON.VideoTexture(
+        `videoTexture_${videoData.id}`,
+        videoElement,
+        scene,
+        false, // generateMipMaps
+        false, // invertY
+        BABYLON.Texture.TRILINEAR_SAMPLINGMODE,
+      );
+      videoTexture.vScale = 1;
+      videoTexture.uScale = isRotated180 ? -1 : 1;
+      console.log(`✓ VideoTexture created on play for: ${videoData.title}`);
+    }
+
+    screenMaterial.diffuseTexture = videoTexture;
+    screenMaterial.emissiveTexture = videoTexture;
+    console.log(`Switched to video texture: ${videoData.title}`);
+  });
+
+  // Switch back to poster when video ends
+  videoElement.addEventListener("ended", () => {
+    screenMaterial.diffuseTexture = posterTexture;
+    screenMaterial.emissiveTexture = posterTexture;
+    console.log(`Switched back to poster: ${videoData.title}`);
+  });
 
   // Create play button overlay
   const playButtonOverlay = createPlayButtonOverlay(
@@ -320,44 +391,33 @@ export function createVideoScreen(scene, videoData, options = {}) {
     width,
     height,
     videoData.id,
+    rotation,
   );
-  console.log(
-    "Created play button overlay:",
-    playButtonOverlay.name,
-    "isVisible:",
-    playButtonOverlay.isVisible,
-  );
-  // Parent back to screenParent for correct positioning
+
+  // Parent to screenParent for correct positioning
   playButtonOverlay.parent = screenParent;
   playButtonOverlay.position.x = 0;
   playButtonOverlay.position.y = 0;
-  playButtonOverlay.position.z = 0.1; // In front of video plane
-  playButtonOverlay.isVisible = true; // Show initially
+  playButtonOverlay.position.z = 0.2; // Well in front of video plane
+  playButtonOverlay.isVisible = true; // Always show initially
+  playButtonOverlay.setEnabled(true); // Ensure it's enabled
 
-  // Force the overlay to be refreshed on the next render
-  scene.onAfterRenderObservable.addOnce(() => {
-    playButtonOverlay.isVisible = true;
-    console.log("Forced overlay visible on first render");
-  });
-
-  // Add callback to force overlay visible after poster loads
-  posterTexture.onLoadObservable.add(() => {
-    console.log(
-      `Poster texture loaded for: ${videoData.title}, forcing overlay visible`,
-    );
-    playButtonOverlay.isVisible = true;
-  });
-
-  console.log("Play button overlay after setup:", {
+  console.log("Play button overlay created:", {
     name: playButtonOverlay.name,
     position: playButtonOverlay.position,
     isVisible: playButtonOverlay.isVisible,
+    isEnabled: playButtonOverlay.isEnabled(),
     renderingGroupId: playButtonOverlay.renderingGroupId,
     parent: playButtonOverlay.parent?.name,
   });
 
   // Create progress bar
-  const progressBar = createProgressBarOverlay(scene, width, videoData.id);
+  const progressBar = createProgressBarOverlay(
+    scene,
+    width,
+    videoData.id,
+    rotation,
+  );
   progressBar.plane.parent = screenParent;
   progressBar.plane.position.y = -height / 2 - 0.1; // Below screen
   progressBar.plane.position.z = 0.05;
@@ -422,7 +482,6 @@ export function createVideoScreen(scene, videoData, options = {}) {
     isPlaying: autoPlay,
     playButtonOverlay: playButtonOverlay,
     progressBar: progressBar,
-    initializeVideo: initializeVideo, // Store for lazy loading
   };
 
   // Make the screen clickable
@@ -449,7 +508,6 @@ export function createVideoScreen(scene, videoData, options = {}) {
     progressBar,
     metadata: screenPlane.metadata,
     hls, // Store HLS instance for cleanup
-    initializeVideo, // Store initialization function for lazy loading
   };
 }
 
@@ -532,6 +590,7 @@ function setupVideoInteractions(
   }
 
   let hoverTimeout = null;
+  let wasAutoPlayed = false; // Track if video was auto-started by hover
 
   // Hover effect - increase emissive and start video preview
   screenPlane.actionManager.registerAction(
@@ -540,17 +599,24 @@ function setupVideoInteractions(
       () => {
         material.emissiveColor = new BABYLON.Color3(1.0, 1.0, 1.0);
 
-        // Start video after 500ms hover
+        // Start video preview after 500ms hover (muted autoplay)
         hoverTimeout = setTimeout(() => {
           if (videoElement.paused && screenPlane.metadata) {
-            // Initialize if needed
-            const metadata = screenPlane.metadata;
-            const screen = {
-              videoElement: videoElement,
-              initializeVideo: metadata.initializeVideo || (() => {}),
-              metadata: metadata,
-            };
-            playVideo(screen);
+            // Mute and play for preview
+            videoElement.muted = true;
+            wasAutoPlayed = true; // Mark as auto-played
+            videoElement
+              .play()
+              .then(() => {
+                screenPlane.metadata.isPlaying = true;
+                console.log(
+                  `▶ Preview playing (hover): ${screenPlane.metadata.title}`,
+                );
+              })
+              .catch((err) => {
+                console.warn("Hover autoplay prevented:", err);
+                wasAutoPlayed = false;
+              });
           }
         }, 500);
       },
@@ -563,10 +629,20 @@ function setupVideoInteractions(
       () => {
         material.emissiveColor = new BABYLON.Color3(0.8, 0.8, 0.8);
 
-        // Cancel hover autoplay
+        // Cancel hover autoplay timeout
         if (hoverTimeout) {
           clearTimeout(hoverTimeout);
           hoverTimeout = null;
+        }
+
+        // Pause video if it was auto-started by hover
+        if (wasAutoPlayed && !videoElement.paused) {
+          videoElement.pause();
+          screenPlane.metadata.isPlaying = false;
+          wasAutoPlayed = false;
+          console.log(
+            `⏸ Paused preview (mouse out): ${screenPlane.metadata.title}`,
+          );
         }
       },
     ),
@@ -640,11 +716,7 @@ export function setupScreenInteractions(screens, onVideoClick) {
       new BABYLON.ExecuteCodeAction(
         BABYLON.ActionManager.OnPickDownTrigger,
         () => {
-          toggleVideoPlayback(
-            videoElement,
-            screen.metadata,
-            screen.initializeVideo,
-          );
+          toggleVideoPlayback(videoElement, screen.metadata);
 
           // Also call the overlay callback if provided
           if (onVideoClick) {
@@ -662,12 +734,8 @@ export function setupScreenInteractions(screens, onVideoClick) {
 /**
  * Toggle video playback (play/pause)
  */
-function toggleVideoPlayback(videoElement, metadata, initializeVideo) {
+function toggleVideoPlayback(videoElement, metadata) {
   if (videoElement.paused) {
-    // Initialize video on first play (lazy loading)
-    if (initializeVideo) {
-      initializeVideo();
-    }
     videoElement
       .play()
       .then(() => {
@@ -689,10 +757,6 @@ function toggleVideoPlayback(videoElement, metadata, initializeVideo) {
  */
 export function playVideo(screen) {
   if (screen.videoElement && screen.videoElement.paused) {
-    // Initialize video on first play (lazy loading)
-    if (screen.initializeVideo) {
-      screen.initializeVideo();
-    }
     screen.videoElement
       .play()
       .then(() => {

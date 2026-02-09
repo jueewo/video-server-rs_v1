@@ -262,19 +262,26 @@ export default function GalleryApp({
 
         // Update all video screens
         videoScreens.forEach((screen) => {
+          const inFrustum = screen.screenPlane && screen.screenPlane.isInFrustum(
+            scene.frustumPlanes,
+          );
+
           if (screen.screenPlane) {
-            screen.screenPlane.isVisible = screen.screenPlane.isInFrustum(
-              scene.frustumPlanes,
-            );
+            screen.screenPlane.isVisible = inFrustum;
           }
-          // Hide overlays too
+
+          // Update overlays based on frustum AND video state
           if (screen.playButtonOverlay) {
-            screen.playButtonOverlay.isVisible =
-              screen.screenPlane.isVisible && screen.videoElement.paused;
+            const shouldShow = inFrustum &&
+                              (screen.videoElement.paused || screen.videoElement.ended);
+            screen.playButtonOverlay.isVisible = shouldShow;
           }
+
           if (screen.progressBar && screen.progressBar.plane) {
-            screen.progressBar.plane.isVisible =
-              screen.screenPlane.isVisible && !screen.videoElement.paused;
+            const shouldShow = inFrustum &&
+                              !screen.videoElement.paused &&
+                              !screen.videoElement.ended;
+            screen.progressBar.plane.isVisible = shouldShow;
           }
         });
       }

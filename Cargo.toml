@@ -10,7 +10,9 @@ members = [
     "crates/media-hub",
     "crates/user-auth",
     "crates/access-codes",
-    "crates/access-control", "crates/media-mcp",
+    "crates/access-control",
+    "crates/media-mcp",
+    "crates/3d-gallery",
     # TODO: Uncomment when implementing CLI (see MEDIA_CLI_PROGRESS.md)
     # "crates/media-cli",
 ]

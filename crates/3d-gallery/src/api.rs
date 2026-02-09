@@ -43,7 +43,7 @@ pub async fn get_gallery_data(Query(query): Query<GalleryQuery>) -> Response {
         scene: query.scene.unwrap_or_else(|| "classic".to_string()),
         permissions: AccessPermissions::default(),
         metadata: GalleryMetadata {
-            total_items: 3,
+            total_items: 5, // 3 images + 2 videos
             code_expires_at: None,
         },
     };
@@ -89,6 +89,29 @@ fn create_mock_media_items() -> Vec<MediaItem3D> {
             rotation: Rotation3D::zero(),
             scale: 1.0,
         },
+        // Add video items for Phase 3
+        MediaItem3D {
+            id: 4,
+            media_type: MediaType::Video,
+            url: "/storage/videos/live/2025-12-30_14-42-08.mp4".to_string(),
+            thumbnail_url: "/storage/images/banner_thumb.webp".to_string(), // Use image as placeholder
+            title: "Live Demo Video 1".to_string(),
+            description: Some("A recorded live session demonstration".to_string()),
+            position: Position3D::new(-3.0, 1.5, -5.0),
+            rotation: Rotation3D::zero(),
+            scale: 1.0,
+        },
+        MediaItem3D {
+            id: 5,
+            media_type: MediaType::Video,
+            url: "/storage/videos/live/2025-12-30_14-43-52.mp4".to_string(),
+            thumbnail_url: "/storage/images/cluster-demo_thumb.webp".to_string(), // Use image as placeholder
+            title: "Live Demo Video 2".to_string(),
+            description: Some("Another live session recording".to_string()),
+            position: Position3D::new(3.0, 1.5, -5.0),
+            rotation: Rotation3D::zero(),
+            scale: 1.0,
+        },
     ]
 }
 
@@ -104,8 +127,8 @@ mod tests {
     #[test]
     fn test_mock_media_items() {
         let items = create_mock_media_items();
-        assert_eq!(items.len(), 3);
-        assert_eq!(items[0].title, "Sample Image 1");
+        assert_eq!(items.len(), 5); // 3 images + 2 videos
+        assert_eq!(items[0].title, "AI Types");
     }
 
     #[test]

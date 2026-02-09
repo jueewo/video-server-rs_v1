@@ -11,6 +11,12 @@ import {
   setupFrameInteractions,
   disposeFrames,
 } from "./scene/ImageFrame";
+import {
+  createVideoScreens,
+  setupScreenInteractions,
+  disposeVideoScreens,
+  pauseAllVideos,
+} from "./scene/VideoScreen";
 
 export default function GalleryApp({
   accessCode,
@@ -109,6 +115,10 @@ export default function GalleryApp({
       height: 3.5,
     });
 
+    // Store ceiling reference for dynamic transparency
+    const ceiling = room.ceiling;
+    const ceilingHeight = 3.5;
+
     // Get positions on walls for placing images
     const wallPositions = getWallPositions(room.walls, {
       itemsPerWall: 3,
@@ -118,33 +128,72 @@ export default function GalleryApp({
 
     console.log(`Available wall positions: ${wallPositions.length}`);
 
-    // Create image frames if we have images
+    // Separate images and videos
     let frames = [];
+    let videoScreens = [];
+
     if (galleryData.items && galleryData.items.length > 0) {
-      console.log(`Creating frames for ${galleryData.items.length} images`);
+      console.log(`Processing ${galleryData.items.length} media items`);
 
-      // Transform API data to include full URLs
-      const images = galleryData.items.map((item) => ({
-        id: item.id,
-        title: item.title || "Untitled",
-        description: item.description || "",
-        url: item.url || item.thumbnail_url || "/placeholder.jpg",
-        thumbnail_url: item.thumbnail_url || item.url,
-        width: item.width,
-        height: item.height,
-        tags: item.tags || [],
-        type: item.type || "image",
-      }));
+      // Separate images and videos
+      const images = galleryData.items
+        .filter((item) => item.media_type === "image")
+        .map((item) => ({
+          id: item.id,
+          title: item.title || "Untitled",
+          description: item.description || "",
+          url: item.url || item.thumbnail_url || "/placeholder.jpg",
+          thumbnail_url: item.thumbnail_url || item.url,
+          width: item.width,
+          height: item.height,
+          tags: item.tags || [],
+          type: "image",
+        }));
 
-      frames = createImageFrames(scene, images, wallPositions, {
+      const videos = galleryData.items
+        .filter((item) => item.media_type === "video")
+        .map((item) => ({
+          id: item.id,
+          title: item.title || "Untitled Video",
+          description: item.description || "",
+          url: item.url,
+          thumbnail_url: item.thumbnail_url || item.url,
+          width: item.width,
+          height: item.height,
+          tags: item.tags || [],
+          duration: item.duration,
+          type: "video",
+        }));
+
+      console.log(`Found ${images.length} images and ${videos.length} videos`);
+
+      // Create image frames for images
+      const imagePositions = wallPositions.slice(0, images.length);
+      frames = createImageFrames(scene, images, imagePositions, {
         frameWidth: 2.5,
         frameThickness: 0.12,
       });
 
-      // Setup click interactions
+      // Create video screens for videos
+      const videoPositions = wallPositions.slice(
+        images.length,
+        images.length + videos.length,
+      );
+      videoScreens = createVideoScreens(scene, videos, videoPositions, {
+        screenWidth: 3.2,
+        frameThickness: 0.15,
+      });
+
+      // Setup click interactions for images
       setupFrameInteractions(frames, (imageMetadata) => {
         console.log("Image clicked:", imageMetadata);
         setSelectedImage(imageMetadata);
+      });
+
+      // Setup click interactions for videos
+      setupScreenInteractions(videoScreens, (videoMetadata) => {
+        console.log("Video clicked:", videoMetadata);
+        setSelectedImage(videoMetadata);
       });
 
       // Setup scene pointer observable to handle clicks before camera
@@ -153,8 +202,11 @@ export default function GalleryApp({
           const pickResult = pointerInfo.pickInfo;
           if (pickResult.hit && pickResult.pickedMesh) {
             const metadata = pickResult.pickedMesh.metadata;
-            if (metadata && metadata.type === "image") {
-              console.log("Image picked via observable:", metadata.title);
+            if (
+              metadata &&
+              (metadata.type === "image" || metadata.type === "video")
+            ) {
+              console.log("Media picked via observable:", metadata.title);
               // Prevent camera from handling this click
               pointerInfo.event.preventDefault();
               pointerInfo.event.stopPropagation();
@@ -164,15 +216,34 @@ export default function GalleryApp({
         }
       });
     } else {
-      console.warn("No images in gallery data");
+      console.warn("No media items in gallery data");
     }
 
     // Enable proper clearing
     scene.autoClear = true;
     scene.autoClearDepthAndStencil = true;
 
-    // Start render loop
+    // Start render loop with dynamic ceiling transparency
     engine.runRenderLoop(() => {
+      // Check camera height and adjust ceiling transparency
+      if (camera && ceiling) {
+        const cameraHeight = camera.position.y;
+
+        if (cameraHeight > ceilingHeight) {
+          // Above ceiling - make it semi-transparent
+          if (ceiling.material.alpha !== 0.3) {
+            ceiling.material.alpha = 0.3;
+            ceiling.material.needAlphaBlending = () => true;
+          }
+        } else {
+          // Below ceiling - make it opaque
+          if (ceiling.material.alpha !== 1.0) {
+            ceiling.material.alpha = 1.0;
+            ceiling.material.needAlphaBlending = () => false;
+          }
+        }
+      }
+
       scene.render();
     });
 
@@ -191,7 +262,9 @@ export default function GalleryApp({
     }
 
     console.log("Gallery scene initialized successfully!");
-    console.log(`Gallery contains ${frames.length} images`);
+    console.log(
+      `Gallery contains ${frames.length} images and ${videoScreens.length} videos`,
+    );
 
     // Cleanup function
     return () => {
@@ -199,9 +272,19 @@ export default function GalleryApp({
       window.removeEventListener("resize", handleResize);
       engine.stopRenderLoop();
 
+      // Pause all videos first
+      if (videoScreens.length > 0) {
+        pauseAllVideos(videoScreens);
+      }
+
       // Dispose frames
       if (frames.length > 0) {
         disposeFrames(frames);
+      }
+
+      // Dispose video screens
+      if (videoScreens.length > 0) {
+        disposeVideoScreens(videoScreens);
       }
 
       // Dispose room
@@ -299,17 +382,32 @@ export default function GalleryApp({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <img
-              src={selectedImage.url}
-              alt={selectedImage.title}
-              style={{
-                maxWidth: "100%",
-                maxHeight: "80vh",
-                objectFit: "contain",
-                borderRadius: "8px",
-                boxShadow: "0 4px 20px rgba(0, 0, 0, 0.5)",
-              }}
-            />
+            {selectedImage.type === "video" ? (
+              <video
+                src={selectedImage.url}
+                controls
+                autoPlay
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "80vh",
+                  objectFit: "contain",
+                  borderRadius: "8px",
+                  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.5)",
+                }}
+              />
+            ) : (
+              <img
+                src={selectedImage.url}
+                alt={selectedImage.title}
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "80vh",
+                  objectFit: "contain",
+                  borderRadius: "8px",
+                  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.5)",
+                }}
+              />
+            )}
             <div
               style={{
                 marginTop: "20px",

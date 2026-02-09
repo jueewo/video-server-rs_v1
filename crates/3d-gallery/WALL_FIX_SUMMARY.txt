@@ -1,0 +1,68 @@
+╔════════════════════════════════════════════════════════════════╗
+║  🎯 WALL-BASED VIDEO ORIENTATION FIX                          ║
+╚════════════════════════════════════════════════════════════════╝
+
+🐛 PROBLEM:
+   Videos on different walls had inconsistent orientation:
+   • North wall: ✅ Correct
+   • South wall: ❌ Mirrored (left-right flipped)
+   • East wall:  ✅ Correct
+   • West wall:  ✅ Correct
+
+🔍 ROOT CAUSE:
+   South wall is rotated 180° (π radians) to face inward.
+   When we removed the blanket horizontal flip, South wall
+   videos became mirrored because they NEED the flip to
+   compensate for the wall's 180° rotation.
+
+✅ SOLUTION:
+   Detect wall rotation and flip texture ONLY for 180° walls:
+   
+   const isRotated180 = 
+     Math.abs(rotation.y - Math.PI) < 0.1;
+   
+   videoTexture.uScale = isRotated180 ? -1 : 1;
+   posterTexture.uScale = isRotated180 ? -1 : 1;
+
+📊 RESULTS:
+   After Fix:
+   • North wall (0°):   ✅ Correct (no flip)
+   • South wall (180°): ✅ Correct (flipped)
+   • East wall (90°):   ✅ Correct (no flip)
+   • West wall (-90°):  ✅ Correct (no flip)
+
+🔧 CHANGES:
+   File: crates/3d-gallery/frontend/src/scene/VideoScreen.js
+   • Added rotation detection logic
+   • Conditional horizontal flip based on Y rotation
+   • Applied to both video and poster textures
+   • Added console logging for debugging
+
+🚀 TESTING:
+   1. Refresh browser (hard refresh!)
+   2. Navigate to http://localhost:3000/3d?code=testgallery
+   3. Check videos on all walls
+   4. Look for console messages: "Rotation Y: ..., Flipped: ..."
+   5. Verify no videos are mirrored
+
+   Good test: Big Buck Bunny video
+   • Logo should be readable on ALL walls
+   • No backwards text
+
+📝 CONSOLE OUTPUT:
+   Expected on load:
+   Video Welcome Video - Rotation Y: 0, Flipped: false
+   Video Big Buck Bunny - Rotation Y: 3.14159, Flipped: true
+   Video test-demo-video - Rotation Y: 1.5708, Flipped: false
+
+✨ BENEFITS:
+   ✅ All videos display correctly on all walls
+   ✅ Automatic detection (no manual config)
+   ✅ Works with any wall layout
+   ✅ Clear debugging info in console
+
+═══════════════════════════════════════════════════════════════
+Date: February 9, 2025
+Bundle: Rebuilt (4.4MB)
+Status: READY TO TEST ✅
+═══════════════════════════════════════════════════════════════

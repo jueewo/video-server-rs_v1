@@ -40,6 +40,7 @@ media-hub = { path = "crates/media-hub" }
 user-auth = { path = "crates/user-auth" }
 access-codes = { path = "crates/access-codes" }
 access-control = { path = "crates/access-control" }
+gallery3d = { path = "crates/3d-gallery" }
 
 # Web framework
 axum = { version = "0.7", features = ["multipart"] }

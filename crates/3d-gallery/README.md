@@ -8,8 +8,12 @@
 
 The 3D Gallery transforms your media library into an interactive 3D experience. Walk through virtual gallery rooms where your photos hang on walls and videos play on screens, all rendered in real-time with WebGL.
 
+**🔑 No Login Required!** Share galleries via access codes - perfect for client presentations, exhibitions, and public showcases.
+
 ### Key Features
 
+- 🔓 **Anonymous Access** - View galleries with just an access code (no account needed)
+- 🔗 **Easy Sharing** - Share a link, anyone can view
 - 🖼️ **Virtual Gallery Rooms** - Explore 3D spaces with realistic lighting and materials
 - 📸 **Image Walls** - Photos displayed as framed artworks on gallery walls
 - 🎬 **Video Screens** - Videos play on 3D screens with full playback controls
@@ -17,7 +21,15 @@ The 3D Gallery transforms your media library into an interactive 3D experience. 
 - 🏛️ **Multiple Scenes** - Classic gallery, modern space, outdoor plaza, office
 - 📱 **Mobile Support** - Touch controls and responsive design
 - ⚡ **Performance** - Optimized with texture streaming, LOD, and culling
-- 🔐 **Integrated** - Uses existing auth, permissions, and APIs
+- 🔐 **Secure** - Access codes can expire and be revoked
+
+### Perfect For
+
+- 📸 **Photographers** - Share portfolios with clients
+- 🎨 **Artists** - Create public exhibitions
+- 🏢 **Companies** - Share project galleries with stakeholders
+- 🎉 **Events** - Share photos with attendees
+- 🎓 **Educators** - Share media with students
 
 ---
 
@@ -51,7 +63,9 @@ cargo run
 
 ### Access
 
-Navigate to: `http://localhost:3000/3d`
+With an access code: `http://localhost:3000/3d?code=your-access-code`
+
+**Note:** Access codes must be generated first via the main media server interface.
 
 ---
 
@@ -63,6 +77,7 @@ crates/3d-gallery/
 ├── package.json            # Frontend dependencies and build scripts
 ├── README.md               # This file
 ├── IMPLEMENTATION_PLAN.md  # Detailed roadmap (520+ lines)
+├── ACCESS_MODEL.md         # Access control documentation (600+ lines)
 │
 ├── src/                    # Rust backend
 │   ├── lib.rs             # Main module, exports router
@@ -176,20 +191,22 @@ Use the scene selector in the top-right to switch between:
 - Hover to see scrubber
 - Volume controls in overlay
 
+**Note:** Available actions depend on access code permissions.
+
 ---
 
 ## 🔌 API Integration
 
 ### Endpoints
 
-#### `GET /api/3d/gallery`
+#### `GET /api/3d/gallery?code=xyz`
 
-Fetch media items formatted for 3D rendering.
+Fetch media items formatted for 3D rendering (access code required).
 
 **Query Parameters:**
+- `code` - Access code (required)
 - `scene` - Scene ID (optional)
-- `group` - Group filter (optional)
-- `tags` - Tag filter (optional)
+- `quality` - Texture quality: high, medium, low (optional)
 - `limit` - Max items (default: 50)
 
 **Response:**
@@ -208,7 +225,15 @@ Fetch media items formatted for 3D rendering.
       "scale": 1.0
     }
   ],
-  "total": 123
+  "total": 123,
+  "permissions": {
+    "can_download": false,
+    "can_share": false,
+    "access_level": "view_only"
+  },
+  "metadata": {
+    "code_expires_at": "2024-12-31T23:59:59Z"
+  }
 }
 ```
 
@@ -256,11 +281,20 @@ let app = Router::new()
 ENABLE_3D_GALLERY=true           # Enable/disable feature
 3D_GALLERY_MAX_ITEMS=100         # Max items per scene
 3D_GALLERY_TEXTURE_QUALITY=high  # high, medium, low
+3D_GALLERY_RATE_LIMIT=10         # Max attempts per IP per 15min
 
 # Frontend (injected into template)
 BABYLON_DEBUG=false              # Enable Babylon.js inspector
 WEBGL_POWER_PREFERENCE=high      # high-performance, low-power
 ```
+
+### Access Code Requirements
+
+Access codes must be generated via the main media server:
+1. Upload media to the server
+2. Create a group (optional) or select individual items
+3. Generate access code with expiration (optional)
+4. Share link: `https://your-server.com/3d?code=abc123xyz`
 
 ### Scene Configuration
 
@@ -425,6 +459,7 @@ See [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) for detailed roadmap.
 ### Documentation
 
 - [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) - Complete roadmap
+- [`ACCESS_MODEL.md`](./ACCESS_MODEL.md) - Access control & security
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) - Technical architecture (TODO)
 - [`USER_GUIDE.md`](./USER_GUIDE.md) - User documentation (TODO)
 - [`API.md`](./API.md) - API reference (TODO)
@@ -456,9 +491,16 @@ See [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) for detailed roadmap.
 
 **Assets not loading:**
 - Check network tab for 404s
+- Verify access code is valid
+- Check if code has expired
 - Verify storage paths in config
 - Check file permissions
 - Clear browser cache
+
+**Invalid access code:**
+- Verify code is correct (case-sensitive)
+- Check if code has expired
+- Contact gallery owner for new code
 
 **Controls not working:**
 - Click canvas to activate pointer lock

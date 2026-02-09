@@ -4,15 +4,40 @@
 
 A 3D virtual gallery using Preact and Babylon.js to display images and videos from the media server in an immersive 3D environment. Users can explore a virtual space where media items are displayed on walls, screens, and interactive surfaces.
 
+**Key Feature:** Anonymous access via access codes - no login required!
+
 ---
 
 ## Goals
 
-1. **Immersive Media Viewing** - Browse media library in a 3D environment
-2. **Integration with Existing System** - Use media server's authentication, permissions, and APIs
-3. **Performance** - Smooth 60fps rendering with lazy loading
-4. **Interactivity** - Click, navigate, and interact with media in 3D space
-5. **Extensibility** - Foundation for future VR/AR features
+1. **Frictionless Viewing** - Access galleries via access codes (no authentication needed)
+2. **Immersive Media Viewing** - Browse media in a 3D environment
+3. **Seamless Sharing** - Share galleries with clients, stakeholders, or public
+4. **Performance** - Smooth 60fps rendering with lazy loading
+5. **Interactivity** - Click, navigate, and interact with media in 3D space
+6. **Extensibility** - Foundation for future VR/AR features
+
+---
+
+## Access Model
+
+**Primary Use Case:** Presentation/viewing, not management
+
+**Access Method:** Access codes (no user account required)
+- URL format: `/3d?code=abc123xyz`
+- Validates access code
+- Fetches permitted media
+- Renders 3D gallery
+- No login, no ownership checks
+
+**Perfect For:**
+- 📸 Photographers sharing portfolios with clients
+- 🎨 Artists creating public exhibitions
+- 🏢 Companies sharing project galleries
+- 🎉 Event organizers sharing photos with attendees
+- 🎓 Educators sharing media with students
+
+See [`ACCESS_MODEL.md`](./ACCESS_MODEL.md) for complete access control documentation.
 
 ---
 
@@ -24,10 +49,36 @@ A 3D virtual gallery using Preact and Babylon.js to display images and videos fr
 - [ ] Create `crates/3d-gallery` module
 - [ ] Basic Cargo.toml with dependencies
 - [ ] Module registration in main router
-- [ ] API endpoint: `GET /api/3d/gallery` - Returns media items optimized for 3D
+- [ ] API endpoint: `GET /api/3d/gallery?code=xyz` - Returns media items for access code
 - [ ] API endpoint: `GET /api/3d/scenes` - Available scene layouts
-- [ ] Template: `viewer.html` - Main 3D viewer page
+- [ ] Template: `viewer.html` - Main 3D viewer page (no auth required)
 - [ ] Static file serving for bundled JS
+- [ ] Access code validation middleware
+- [ ] Error pages (invalid/expired codes)
+
+**API Request Structure:**
+```rust
+// Query parameters
+struct GalleryQuery {
+    code: String,              // Required: access code
+    scene: Option<String>,     // Optional: scene type
+    quality: Option<String>,   // Optional: texture quality
+}
+
+// No Session, no User - just the code!
+async fn get_gallery_data(
+    Query(query): Query<GalleryQuery>,
+) -> Result<Json<GalleryResponse>> {
+    // Validate access code
+    let permissions = validate_access_code(&query.code).await?;
+    
+    // Fetch media based on code permissions
+    let media = fetch_media_for_code(&query.code).await?;
+    
+    // Return gallery data
+    Ok(Json(transform_for_3d(media)))
+}
+```
 
 **API Response Structure:**
 ```rust
@@ -37,6 +88,7 @@ struct GalleryScene {
     environment: EnvironmentType,
     media_items: Vec<MediaItem3D>,
     camera_presets: Vec<CameraPosition>,
+    permissions: AccessPermissions,  // What code allows
 }
 
 struct MediaItem3D {
@@ -49,6 +101,13 @@ struct MediaItem3D {
     position: Position3D,
     rotation: Rotation3D,
     scale: f32,
+}
+
+struct AccessPermissions {
+    can_download: bool,
+    can_share: bool,
+    access_level: String,  // "view_only", "download", etc.
+    expires_at: Option<DateTime>,
 }
 
 struct Position3D {
@@ -64,7 +123,8 @@ struct Position3D {
 common = { path = "../common" }
 video-manager = { path = "../video-manager" }
 image-manager = { path = "../image-manager" }
-access-control = { path = "../access-control" }
+access-codes = { path = "../access-codes" }      # For code validation
+access-control = { path = "../access-control" }  # For permissions
 axum = { workspace = true }
 sqlx = { workspace = true }
 serde = { workspace = true }
@@ -334,14 +394,17 @@ scenes: [
 
 ## Integration Points
 
-### Authentication & Authorization
-- Use existing session system
-- Respect group permissions
-- Only show accessible media
+### Access Control (Code-Based)
+- Use existing access code system
+- Validate codes before rendering gallery
+- Respect code permissions (group/individual media)
+- No authentication required (anonymous viewing)
+- Track usage for analytics
 
 ### Media Server APIs
-- Leverage existing `/api/videos` endpoints
-- Leverage existing `/api/images` endpoints
+- Leverage existing access code validation
+- Fetch media based on code permissions
+- No user-specific endpoints needed
 - Transform data for 3D format
 
 ### Navigation Integration
@@ -402,8 +465,9 @@ scenes: [
 
 ### Integration
 - Works with all existing media types
-- Respects all permissions
-- Compatible with existing auth
+- Respects access code permissions
+- No authentication required (code-based access)
+- Leverages existing access code infrastructure
 
 ---
 

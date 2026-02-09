@@ -1,193 +1,127 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Gallery</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>3D Gallery</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
 
-        body, html {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        }
+            body,
+            html {
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    "Helvetica Neue", Arial, sans-serif;
+            }
 
-        #gallery-root {
-            width: 100%;
-            height: 100%;
-        }
+            #gallery-root {
+                width: 100%;
+                height: 100%;
+            }
 
-        /* Loading screen */
-        #loading-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            transition: opacity 0.5s ease;
-        }
+            /* Loading screen */
+            #loading-screen {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                z-index: 9999;
+                transition: opacity 0.5s ease;
+            }
 
-        #loading-screen.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
+            #loading-screen.hidden {
+                opacity: 0;
+                pointer-events: none;
+            }
 
-        .loading-spinner {
-            width: 60px;
-            height: 60px;
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
+            .loading-spinner {
+                width: 60px;
+                height: 60px;
+                border: 4px solid rgba(255, 255, 255, 0.3);
+                border-top-color: white;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+            }
 
-        .loading-text {
-            margin-top: 20px;
-            color: white;
-            font-size: 18px;
-            font-weight: 500;
-        }
+            .loading-text {
+                margin-top: 20px;
+                color: white;
+                font-size: 18px;
+                font-weight: 500;
+            }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
 
-        /* Help overlay */
-        #help-overlay {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            z-index: 1000;
-            max-width: 300px;
-            backdrop-filter: blur(10px);
-        }
+            /* Error message */
+            .error-container {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 40px;
+                border-radius: 12px;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+                text-align: center;
+                max-width: 500px;
+                z-index: 10000;
+            }
 
-        #help-overlay h3 {
-            margin-bottom: 10px;
-            font-size: 16px;
-        }
+            .error-icon {
+                font-size: 48px;
+                margin-bottom: 20px;
+            }
 
-        #help-overlay ul {
-            list-style: none;
-            padding: 0;
-        }
+            .error-title {
+                font-size: 24px;
+                font-weight: 600;
+                margin-bottom: 10px;
+                color: #333;
+            }
 
-        #help-overlay li {
-            margin: 5px 0;
-            padding-left: 20px;
-            position: relative;
-        }
+            .error-message {
+                font-size: 16px;
+                color: #666;
+                line-height: 1.5;
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Loading screen -->
+        <div id="loading-screen">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading 3D Gallery...</div>
+        </div>
 
-        #help-overlay li::before {
-            content: "→";
-            position: absolute;
-            left: 0;
-        }
+        <!-- Main 3D gallery container -->
+        <div id="gallery-root"></div>
 
-        #help-overlay button {
-            margin-top: 10px;
-            padding: 5px 10px;
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
+        <!-- Pass access code to frontend -->
+        <script>
+            window.GALLERY_CONFIG = {
+                accessCode: "{{ access_code }}",
+                apiEndpoint: "/api/3d/gallery",
+            };
+        </script>
 
-        #help-overlay button:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        #help-overlay.hidden {
-            display: none;
-        }
-
-        /* Error message */
-        .error-container {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-            text-align: center;
-            max-width: 500px;
-            z-index: 10000;
-        }
-
-        .error-icon {
-            font-size: 48px;
-            margin-bottom: 20px;
-        }
-
-        .error-title {
-            font-size: 24px;
-            font-weight: 600;
-            margin-bottom: 10px;
-            color: #333;
-        }
-
-        .error-message {
-            font-size: 16px;
-            color: #666;
-            line-height: 1.5;
-        }
-    </style>
-</head>
-<body>
-    <!-- Loading screen -->
-    <div id="loading-screen">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">Loading 3D Gallery...</div>
-    </div>
-
-    <!-- Help overlay -->
-    <div id="help-overlay">
-        <h3>🎮 Controls</h3>
-        <ul>
-            <li><strong>Mouse</strong> - Look around</li>
-            <li><strong>WASD</strong> - Move</li>
-            <li><strong>Scroll</strong></strong> - Zoom</li>
-            <li><strong>Click</strong> - Interact</li>
-            <li><strong>ESC</strong> - Exit pointer lock</li>
-        </ul>
-        <button onclick="document.getElementById('help-overlay').classList.add('hidden')">
-            Got it!
-        </button>
-    </div>
-
-    <!-- Main 3D gallery container -->
-    <div id="gallery-root"></div>
-
-    <!-- Pass access code to frontend -->
-    <script>
-        window.GALLERY_CONFIG = {
-            accessCode: "{{ access_code }}",
-            apiEndpoint: "/api/3d/gallery"
-        };
-    </script>
-
-    <!-- Load the bundled frontend app -->
-    <script type="module" src="/static/3d-gallery/bundle.js"></script>
-</body>
+        <!-- Load the bundled frontend app -->
+        <script type="module" src="/static/3d-gallery/bundle.js"></script>
+    </body>
 </html>

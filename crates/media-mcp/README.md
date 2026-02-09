@@ -63,6 +63,8 @@ MCP Tools allow Claude to perform operations on your behalf:
 
 ## Architecture
 
+The MCP server runs alongside the web server and **directly accesses the shared database and storage**, using the same library crates for consistency and performance.
+
 ```
 ┌─────────────────┐
 │  Claude Desktop │
@@ -71,16 +73,31 @@ MCP Tools allow Claude to perform operations on your behalf:
          │ MCP Protocol (stdio/SSE)
          ↓
 ┌─────────────────┐
-│ Media MCP Server│
-│   (This Crate)  │
-└────────┬────────┘
-         │ HTTP/REST API
-         ↓
-┌─────────────────┐
-│  Media Server   │
-│  (Axum/Rust)    │
+│ Media MCP Server│  ←─────┐
+│   (This Crate)  │        │
+└────────┬────────┘        │
+         │                 │
+         │ Direct DB/File  │ Shared Library Crates:
+         │ Access          │ • video-manager
+         ↓                 │ • image-manager
+┌─────────────────┐        │ • media-core
+│ SQLite Database │←───────┤ • access-control
+│ + Storage Files │        │ • common
+└─────────────────┘        │
+         ↑                 │
+         │                 │
+┌─────────────────┐        │
+│ Media Web Server│  ←─────┘
+│  (video-server) │
 └─────────────────┘
 ```
+
+**Benefits:**
+- **Fast:** No HTTP overhead, direct SQL queries
+- **Consistent:** Uses the exact same business logic and validation
+- **Reliable:** Works even if web server is restarting
+- **Simple:** No API authentication complexity
+- **Docker-friendly:** Shares volumes in docker-compose setup
 
 ## Installation
 
@@ -110,8 +127,9 @@ Add the MCP server:
       "command": "/path/to/media-mcp",
       "args": [],
       "env": {
-        "MEDIA_SERVER_URL": "http://localhost:3000",
-        "MEDIA_SERVER_TOKEN": "your-session-token-here"
+        "DATABASE_PATH": "/path/to/media.db",
+        "STORAGE_PATH": "/path/to/storage",
+        "MCP_LOG_LEVEL": "info"
       }
     }
   }
@@ -126,24 +144,23 @@ Claude will automatically connect to the MCP server on startup.
 
 ### Environment Variables
 
-- `MEDIA_SERVER_URL` - Base URL of your media server (default: `http://localhost:3000`)
-- `MEDIA_SERVER_TOKEN` - Authentication token or session cookie
-- `MEDIA_SERVER_USER_ID` - User ID for authentication (optional)
+- `DATABASE_PATH` - Path to SQLite database file (default: `./media.db`)
+- `STORAGE_PATH` - Path to media storage directory (default: `./storage`)
 - `MCP_LOG_LEVEL` - Logging level: `debug`, `info`, `warn`, `error` (default: `info`)
-- `MCP_TIMEOUT_SECONDS` - Request timeout in seconds (default: `30`)
+- `MCP_READ_ONLY` - Set to `true` to only allow read operations (default: `false`)
 
 ### Config File (Optional)
 
 Create `~/.media-mcp/config.toml`:
 
 ```toml
-[server]
-url = "http://localhost:3000"
-timeout_seconds = 30
+[database]
+path = "/path/to/media.db"
+# Use read-only mode for safety (prevents accidental writes)
+read_only = false
 
-[auth]
-token = "your-session-token"
-user_id = "optional-user-id"
+[storage]
+path = "/path/to/storage"
 
 [logging]
 level = "info"
@@ -201,30 +218,154 @@ Once configured, you can ask Claude natural language questions and commands:
 "Generate a report of video views for the last 30 days"
 ```
 
+## Docker Compose Deployment
+
+The MCP server is designed to run alongside the web server in docker-compose, sharing the same database and storage volumes:
+
+```yaml
+# From docker/docker-compose.yml
+
+services:
+  media-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: media-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../storage:/app/storage
+      - ../media.db:/app/media.db
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=sqlite:media.db
+    networks:
+      - media-network
+
+  media-mcp:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.mcp
+    container_name: media-mcp
+    restart: unless-stopped
+    volumes:
+      - ../media.db:/app/media.db      # Shared database
+      - ../storage:/app/storage        # Shared storage
+    environment:
+      - DATABASE_PATH=/app/media.db
+      - STORAGE_PATH=/app/storage
+      - MCP_LOG_LEVEL=info
+      - MCP_READ_ONLY=false
+      - RUST_LOG=info
+    stdin_open: true
+    tty: true
+    depends_on:
+      media-server:
+        condition: service_healthy
+    networks:
+      - media-network
+
+networks:
+  media-network:
+    driver: bridge
+```
+
+**Key Points:**
+- Both services share the same `media-db` and `media-storage` volumes
+- No network communication needed between services
+- SQLite handles concurrent access via WAL mode
+- MCP server can be scaled independently if needed
+
+**Connecting Claude Desktop to Docker:**
+
+Option 1: Via docker compose exec (recommended):
+
+```json
+{
+  "mcpServers": {
+    "media-server": {
+      "command": "docker",
+      "args": [
+        "compose",
+        "exec",
+        "-T",
+        "media-mcp",
+        "/app/media-mcp"
+      ],
+      "cwd": "/path/to/your/media-server/docker"
+    }
+  }
+}
+```
+
+Option 2: Run MCP server outside Docker (for development):
+
+```json
+{
+  "mcpServers": {
+    "media-server": {
+      "command": "/path/to/media-server/target/release/media-mcp",
+      "args": [],
+      "env": {
+        "DATABASE_PATH": "/path/to/media-server/media.db",
+        "STORAGE_PATH": "/path/to/media-server/storage",
+        "MCP_LOG_LEVEL": "info"
+      }
+    }
+  }
+}
+```
+
+**Starting the services:**
+
+```bash
+cd docker
+docker compose up -d
+```
+
+**Viewing MCP logs:**
+
+```bash
+docker compose logs -f media-mcp
+```
+
 ## Implementation Roadmap
 
 ### Phase 1: Core Infrastructure (Week 1)
 
 **Goals:**
 - Basic MCP server setup with protocol handling
-- Authentication and API client
+- Direct database connection via shared library crates
 - Error handling and logging
 
 **Deliverables:**
 - [ ] MCP protocol implementation (stdio transport)
-- [ ] HTTP client for media server API
-- [ ] Token-based authentication
-- [ ] Configuration management
-- [ ] Basic error handling
+- [ ] SQLite database connection with connection pool
+- [ ] Integration with shared library crates (video-manager, image-manager, etc.)
+- [ ] Configuration management (database path, storage path)
+- [ ] Basic error handling and logging
 
 **Dependencies:**
 ```toml
-tokio = { version = "1", features = ["full"] }
-serde = { version = "1", features = ["derive"] }
+# Shared library crates
+common = { path = "../common" }
+media-core = { path = "../media-core" }
+video-manager = { path = "../video-manager" }
+image-manager = { path = "../image-manager" }
+document-manager = { path = "../document-manager" }
+access-groups = { path = "../access-groups" }
+access-control = { path = "../access-control" }
+
+# Database
+sqlx = { workspace = true }
+
+# MCP & Async
+tokio = { workspace = true }
+serde = { workspace = true }
 serde_json = "1"
-reqwest = { version = "0.11", features = ["json"] }
-anyhow = "1"
-tracing = "0.1"
+anyhow = { workspace = true }
+tracing = { workspace = true }
 tracing-subscriber = "0.3"
 ```
 

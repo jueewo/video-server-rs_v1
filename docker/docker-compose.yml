@@ -91,6 +91,57 @@ services:
     networks:
       - media-network
 
+  # Media MCP - AI Assistant Integration Server
+  # Enables Claude Desktop and other AI tools to interact with the media library
+  #
+  # To connect Claude Desktop:
+  # 1. Edit: ~/Library/Application Support/Claude/claude_desktop_config.json (macOS)
+  #          %APPDATA%\Claude\claude_desktop_config.json (Windows)
+  #          ~/.config/Claude/claude_desktop_config.json (Linux)
+  #
+  # 2. Add this configuration:
+  #    {
+  #      "mcpServers": {
+  #        "media-server": {
+  #          "command": "docker",
+  #          "args": ["compose", "exec", "-T", "media-mcp", "/app/media-mcp"],
+  #          "cwd": "/path/to/your/media-server/docker"
+  #        }
+  #      }
+  #    }
+  #
+  # 3. Restart Claude Desktop
+  #
+  # Alternative: Run MCP server outside Docker and connect to shared volumes
+  # See: crates/media-mcp/README.md for details
+  media-mcp:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.mcp
+    container_name: media-mcp
+    restart: unless-stopped
+    volumes:
+      # Shared database with media-server
+      - ../media.db:/app/media.db
+      # Shared storage with media-server
+      - ../storage:/app/storage
+    environment:
+      - DATABASE_PATH=/app/media.db
+      - STORAGE_PATH=/app/storage
+      - MCP_LOG_LEVEL=info
+      - MCP_READ_ONLY=false
+      - RUST_LOG=info
+    # MCP communicates via stdio, so we need these for proper I/O
+    stdin_open: true
+    tty: true
+    depends_on:
+      media-server:
+        condition: service_healthy
+    networks:
+      - media-network
+    # Note: This service runs in background. Access is via Claude Desktop or MCP clients,
+    # not via HTTP endpoints. See comments above for connection instructions.
+
   # Optional: Reverse proxy with automatic HTTPS (Caddy)
   # Uncomment to enable
   # caddy:

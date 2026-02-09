@@ -39,17 +39,21 @@ docker-compose up -d
 
 ## 🏗️ Architecture
 
-### Two-Service Design
+### Three-Service Design
 
 ```
 ┌─────────────────┐         ┌──────────────────┐
 │   media-server  │ ◄─────► │    mediamtx      │
 │  (Rust + FFmpeg)│         │ (Streaming Server)│
 │   Port: 3000    │         │  Ports: 1935-9998│
-└─────────────────┘         └──────────────────┘
-        │                            │
-        └────────────┬───────────────┘
-                     ▼
+└────────┬────────┘         └──────────────────┘
+         │                            │
+         │  ┌─────────────────┐       │
+         └─►│   media-mcp     │◄──────┘
+            │ (AI Integration)│
+            │  (stdio/MCP)    │
+            └─────────────────┘
+                     │
               Docker Network
               (media-network)
 ```
@@ -60,20 +64,22 @@ docker-compose up -d
 |---------|-------|---------|-------|
 | **media-server** | Custom (Alpine + Rust) | Web UI, API, transcoding | 3000 |
 | **mediamtx** | bluenviron/mediamtx:latest | RTMP/HLS/WebRTC streaming | 1935, 8888, 8889, 9997, 9998 |
+| **media-mcp** | Custom (Alpine + Rust) | AI assistant integration (Claude Desktop) | None (stdio) |
 
 ---
 
 ## 📦 Building
 
 ```bash
-# Build media-server image
+# Build all custom images (media-server + media-mcp)
 docker-compose build
 
 # Build with no cache
 docker-compose build --no-cache
 
-# Build only media-server (mediamtx uses official image)
+# Build specific service
 docker-compose build media-server
+docker-compose build media-mcp
 ```
 
 ---
@@ -89,10 +95,12 @@ docker-compose up -d
 # Specific service
 docker-compose up -d media-server
 docker-compose up -d mediamtx
+docker-compose up -d media-mcp
 
 # View logs
 docker-compose logs -f
 docker-compose logs -f media-server
+docker-compose logs -f media-mcp
 ```
 
 ### Stop Services
@@ -136,6 +144,16 @@ environment:
   - MEDIAMTX_HLS_PORT=8888
 ```
 
+**Media MCP (AI Integration):**
+```yaml
+environment:
+  - DATABASE_PATH=/app/media.db
+  - STORAGE_PATH=/app/storage
+  - MCP_LOG_LEVEL=info
+  - MCP_READ_ONLY=false             # Set to true for read-only mode
+  - RUST_LOG=info
+```
+
 **MediaMTX:**
 ```yaml
 environment:
@@ -147,12 +165,20 @@ environment:
 
 **Required volumes** (persisted data):
 ```yaml
+# Media Server
 volumes:
   - ../storage:/app/storage          # Media files
   - ../media.db:/app/media.db        # Database
   - ../livestreams:/recordings       # Live stream recordings
   - ../mediamtx.yml:/mediamtx.yml:ro # MediaMTX config
+
+# Media MCP (shares volumes with media-server)
+volumes:
+  - ../media.db:/app/media.db        # Shared database
+  - ../storage:/app/storage          # Shared storage
 ```
+
+**Note:** The MCP server shares the same database and storage volumes as the main server, enabling direct access without network communication.
 
 ---
 
@@ -167,6 +193,9 @@ volumes:
 | 8554 | mediamtx | RTSP | RTSP streaming |
 | 9997 | mediamtx | HTTP | Control API |
 | 9998 | mediamtx | HTTP | Prometheus metrics |
+| N/A  | media-mcp | stdio | MCP protocol (no network ports) |
+
+**Note:** The MCP server uses stdio for communication and does not expose network ports. Access is via Claude Desktop or other MCP clients.
 
 ---
 
@@ -200,6 +229,7 @@ docker-compose logs -f
 # Specific service
 docker-compose logs -f media-server
 docker-compose logs -f mediamtx
+docker-compose logs -f media-mcp
 
 # Last 100 lines
 docker-compose logs --tail=100
@@ -213,6 +243,9 @@ docker-compose exec media-server /bin/sh
 
 # MediaMTX
 docker-compose exec mediamtx /bin/sh
+
+# Media MCP
+docker-compose exec media-mcp /bin/sh
 
 # As root
 docker-compose exec -u root media-server /bin/sh
@@ -313,6 +346,68 @@ curl http://localhost:9997/v3/paths/list
 
 ---
 
+## 🤖 AI Integration (MCP Server)
+
+The `media-mcp` service enables Claude Desktop and other AI tools to interact with your media library.
+
+### Connecting Claude Desktop
+
+1. **Edit Claude Desktop config:**
+   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+   - Linux: `~/.config/Claude/claude_desktop_config.json`
+
+2. **Add this configuration:**
+   ```json
+   {
+     "mcpServers": {
+       "media-server": {
+         "command": "docker",
+         "args": ["compose", "exec", "-T", "media-mcp", "/app/media-mcp"],
+         "cwd": "/path/to/your/media-server/docker"
+       }
+     }
+   }
+   ```
+
+3. **Restart Claude Desktop**
+
+### What You Can Do
+
+Once connected, ask Claude:
+- "Show me all videos in the 'tutorials' group"
+- "List recent images tagged with 'vacation'"
+- "Search for videos about 'rust programming'"
+- "Add tags 'webinar' and 'recording' to video abc123"
+- "Create a new group called 'Team Alpha'"
+
+### Viewing MCP Logs
+
+```bash
+# Follow MCP server logs
+docker-compose logs -f media-mcp
+
+# Check if MCP is running
+docker-compose ps media-mcp
+```
+
+### Read-Only Mode
+
+For safety, you can run the MCP server in read-only mode:
+
+```yaml
+# In docker-compose.yml
+environment:
+  - MCP_READ_ONLY=true  # Prevents write operations
+```
+
+### Documentation
+
+- Full MCP documentation: `../crates/media-mcp/README.md`
+- Architecture details: `../crates/media-mcp/ARCHITECTURE.md`
+
+---
+
 ## 🔄 Updates
 
 ### Update Application
@@ -322,7 +417,16 @@ curl http://localhost:9997/v3/paths/list
 cd docker
 git pull origin main
 docker-compose build media-server
-docker-compose up -d
+docker-compose up -d media-server
+```
+
+### Update MCP Server
+
+```bash
+cd docker
+git pull origin main
+docker-compose build media-mcp
+docker-compose up -d media-mcp
 ```
 
 ### Update MediaMTX
@@ -349,6 +453,8 @@ docker-compose up -d
 - **`DOCKER.md`** - Complete Docker guide (in this directory)
 - **`../DEPLOYMENT.md`** - General deployment guide
 - **`../README.md`** - Main project README
+- **`../crates/media-mcp/README.md`** - MCP server documentation
+- **`../docs/STANDALONE_BINARIES.md`** - Architecture of standalone binaries
 
 ---
 
@@ -365,10 +471,12 @@ docker-compose up -d
 
 ✅ **Isolated Services** - Independent scaling and updates  
 ✅ **Official MediaMTX** - Always up-to-date streaming server  
+✅ **AI Integration** - Claude Desktop and MCP support built-in  
 ✅ **Small Images** - ~300MB total (Alpine-based)  
 ✅ **Health Checks** - Automatic restart on failure  
 ✅ **Easy Deployment** - One command to start everything  
 ✅ **Production Ready** - Non-root users, secure defaults  
+✅ **Shared Storage** - Efficient volume sharing between services  
 
 ---
 

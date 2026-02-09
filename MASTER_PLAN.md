@@ -2048,9 +2048,74 @@ Line Heights:
 
 ## 🚀 Future Considerations
 
-### Phase 6: Learning Platform (Planned)
+### Phase 6: 3D Gallery - Immersive Media Viewing (Planned)
 
-**Timeline:** 6+ weeks after Phase 5
+**Timeline:** 7-8 weeks  
+**Status:** 📋 Planning  
+**Branch:** `feature/3d-gallery`
+
+**Overview:**
+Integrate a 3D virtual gallery using Preact and Babylon.js to display images and videos in an immersive 3D environment. Users can explore virtual spaces where media items are displayed on walls, screens, and interactive surfaces.
+
+**Key Features:**
+- **3D Gallery Rooms** - Virtual spaces with walls, floors, and proper lighting
+- **Image Frames** - Photos displayed on gallery walls with proper spacing
+- **Video Screens** - Videos playing on 3D screens (supports HLS streaming)
+- **Interactive Navigation** - WASD + mouse controls, click interactions
+- **Multiple Scenes** - Classic gallery, modern space, outdoor plaza, virtual office
+- **Performance Optimized** - Texture streaming, LOD, frustum culling
+- **Mobile Support** - Touch controls and responsive layouts
+- **Integration** - Uses existing auth, permissions, and media APIs
+
+**Technical Stack:**
+- **Backend:** New `crates/3d-gallery` module (Rust/Axum)
+- **Frontend:** Preact (UI) + Babylon.js (3D engine)
+- **Build:** esbuild for bundling
+- **APIs:** JSON endpoints for scene data
+
+**API Endpoints:**
+- `GET /api/3d/gallery` - Media items optimized for 3D rendering
+- `GET /api/3d/scenes` - Available scene layouts and configurations
+- `GET /3d` - Main 3D viewer page
+- `GET /digital-twin` - Alternative route
+
+**Implementation Phases:**
+1. **Week 1:** Core infrastructure, basic scene setup
+2. **Week 2:** Gallery room, image display on walls
+3. **Week 3:** Video integration, texture playback
+4. **Week 4:** Multiple scenes and layouts
+5. **Week 5-6:** Advanced features (lighting, effects, optimization)
+6. **Week 7:** UX polish, mobile support, accessibility
+7. **Week 8+:** VR/AR support (WebXR - optional)
+
+**Future Enhancements:**
+- VR headset support (Quest, PSVR, WebXR)
+- AR mode for mobile devices
+- Multiplayer/social viewing
+- Custom scene editor
+- AI-powered auto-layout (via MCP integration)
+- Spatial audio
+- Animated transitions
+- User-created exhibitions
+
+**Benefits:**
+- Unique, immersive media browsing experience
+- Showcase for modern web technologies
+- Foundation for VR/AR features
+- Engaging way to present portfolios and galleries
+- Differentiator from traditional media servers
+
+**Documentation:**
+- `crates/3d-gallery/IMPLEMENTATION_PLAN.md` - Complete roadmap (520+ lines)
+- `crates/3d-gallery/README.md` - Overview and quick start
+- `crates/3d-gallery/ARCHITECTURE.md` - Technical architecture
+- `crates/3d-gallery/USER_GUIDE.md` - User documentation
+
+---
+
+### Phase 7: Learning Platform (Planned)
+
+**Timeline:** 6+ weeks after Phase 6
 
 **Features:**
 - Course creation and management
@@ -2062,7 +2127,7 @@ Line Heights:
 - Discussion forums
 - Live sessions integration
 
-### Phase 7: Advanced Features
+### Phase 8: Advanced Features
 
 **AI Integration:**
 - Auto-tagging for images and videos
@@ -2097,7 +2162,14 @@ Line Heights:
 - Storage quotas
 - Per-user pricing
 
-### Scalability Considerations
+**3D Gallery Integration:**
+- Babylon.js scene optimization
+- WebGL performance profiling
+- Texture memory management
+- Progressive asset loading
+- WebXR API for VR/AR
+
+**Scalability Considerations
 
 **Current: Modular Monolith**
 - Single Rust application

@@ -1,0 +1,88 @@
+[package]
+name = "3d-gallery"
+version = "0.1.0"
+edition = "2021"
+authors = ["Media Server Team"]
+description = "3D virtual gallery for immersive media viewing using Babylon.js"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+# Local crates
+common = { path = "../common" }
+video-manager = { path = "../video-manager" }
+image-manager = { path = "../image-manager" }
+access-control = { path = "../access-control" }
+
+# Web framework
+axum = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = "1.0"
+
+# Templates
+askama = { workspace = true }
+askama_axum = { workspace = true }
+
+# Database
+sqlx = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Utilities
+time = { workspace = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
+tower = { workspace = true, features = ["util"] }
+http-body-util = "0.1"
+
+[features]
+default = []
+# Enable VR/WebXR features (future)
+vr = []
+# Enable advanced rendering features (future)
+advanced-rendering = []
+
+# TODO: Implementation roadmap
+#
+# Phase 1: Core Infrastructure (Week 1)
+#   - Basic module setup and routes
+#   - API endpoints for scene data
+#   - Template for 3D viewer
+#   - Babylon.js scene initialization
+#
+# Phase 2: Gallery Scene (Week 2)
+#   - 3D room environment
+#   - Image frames on walls
+#   - Basic lighting
+#   - Click interactions
+#
+# Phase 3: Video Integration (Week 3)
+#   - Video textures
+#   - Playback controls
+#   - HLS streaming support
+#
+# Phase 4: Multiple Scenes (Week 4)
+#   - Scene configurations
+#   - Scene switching
+#   - Custom layouts
+#
+# Phase 5-7: Advanced Features (Week 5-7)
+#   - Performance optimization
+#   - Mobile support
+#   - UX polish
+#
+# Phase 8+: VR/AR (Future)
+#   - WebXR integration
+#   - VR headset support
+#
+# See: IMPLEMENTATION_PLAN.md for complete details

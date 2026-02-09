@@ -83,6 +83,7 @@ use access_control::AccessControlService;
 use access_groups;
 use common::{create_search_routes, create_tag_routes};
 use document_manager::routes::{document_routes, DocumentManagerState};
+use gallery3d;
 use image_manager::{image_routes, ImageManagerState};
 use media_hub::{routes::media_routes, MediaHubState};
 use user_auth::{auth_routes, AuthState, OidcConfig};
@@ -826,6 +827,7 @@ async fn main() -> anyhow::Result<()> {
         .merge(create_tag_routes(pool.clone()))
         .merge(create_search_routes(pool.clone()))
         .merge(media_routes().with_state(media_hub_state))
+        .merge(gallery3d::router())
         // Serve static files from storage directory
         .nest_service("/storage", ServeDir::new(&storage_dir))
         // Serve static CSS and assets

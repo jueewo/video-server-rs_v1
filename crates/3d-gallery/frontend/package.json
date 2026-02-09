@@ -1,0 +1,28 @@
+{
+  "name": "3d-gallery-frontend",
+  "version": "0.1.0",
+  "description": "Frontend for 3D Gallery immersive media viewer",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/index.jsx --bundle --outfile=../static/bundle.js --format=esm --minify --sourcemap --jsx=automatic --jsx-import-source=preact",
+    "dev": "esbuild src/index.jsx --bundle --outfile=../static/bundle.js --format=esm --watch --sourcemap --jsx=automatic --jsx-import-source=preact",
+    "clean": "rm -f ../static/bundle.js ../static/bundle.js.map"
+  },
+  "dependencies": {
+    "preact": "^10.19.3",
+    "@babylonjs/core": "^6.42.0",
+    "@babylonjs/loaders": "^6.42.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.19.11"
+  },
+  "keywords": [
+    "3d",
+    "gallery",
+    "babylonjs",
+    "preact",
+    "webgl"
+  ],
+  "author": "",
+  "license": "MIT"
+}

@@ -34,6 +34,7 @@ export default function GalleryApp({
   const [selectedImage, setSelectedImage] = useState(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [minimapVisible, setMinimapVisible] = useState(true);
+  const [helpVisible, setHelpVisible] = useState(false);
 
   // Fetch gallery data on mount
   useEffect(() => {
@@ -354,6 +355,12 @@ export default function GalleryApp({
     const keysPressed = {};
 
     const handleKeyDown = (event) => {
+      // H key to toggle help panel
+      if (event.key === "h" || event.key === "H") {
+        setHelpVisible((prev) => !prev);
+        return;
+      }
+
       // M key to toggle minimap
       if (event.key === "m" || event.key === "M") {
         setMinimapVisible((prev) => !prev);
@@ -472,6 +479,72 @@ export default function GalleryApp({
         minimapVisible && (
           <Minimap camera={cameraRef.current} roomWidth={20} roomDepth={20} />
         )}
+
+      {/* Help Panel */}
+      {helpVisible && (
+        <div
+          style={{
+            position: "fixed",
+            top: "20px",
+            left: "20px",
+            background: "rgba(0, 0, 0, 0.85)",
+            backdropFilter: "blur(10px)",
+            borderRadius: "12px",
+            padding: "20px",
+            border: "1px solid rgba(255, 255, 255, 0.2)",
+            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.5)",
+            zIndex: 100,
+            color: "white",
+            maxWidth: "300px",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "16px",
+              fontWeight: "bold",
+              marginBottom: "15px",
+              textAlign: "center",
+              borderBottom: "1px solid rgba(255, 255, 255, 0.2)",
+              paddingBottom: "10px",
+            }}
+          >
+            🎮 CONTROLS
+          </div>
+          <div style={{ fontSize: "13px", lineHeight: "1.8" }}>
+            <div style={{ marginBottom: "10px" }}>
+              <strong>Movement:</strong>
+            </div>
+            <div style={{ marginLeft: "10px", marginBottom: "15px" }}>
+              <div>W - Move forward</div>
+              <div>S - Move backward</div>
+              <div>A - Turn left</div>
+              <div>D - Turn right</div>
+            </div>
+            <div style={{ marginBottom: "10px" }}>
+              <strong>View:</strong>
+            </div>
+            <div style={{ marginLeft: "10px", marginBottom: "15px" }}>
+              <div>Mouse - Look around</div>
+              <div>Scroll - Zoom in/out</div>
+            </div>
+            <div style={{ marginBottom: "10px" }}>
+              <strong>Interaction:</strong>
+            </div>
+            <div style={{ marginLeft: "10px", marginBottom: "15px" }}>
+              <div>Click - View media</div>
+              <div>Hover - Preview video</div>
+            </div>
+            <div style={{ marginBottom: "10px" }}>
+              <strong>Toggles:</strong>
+            </div>
+            <div style={{ marginLeft: "10px" }}>
+              <div>M - Toggle minimap</div>
+              <div>H - Toggle this help</div>
+              <div>ESC - Close overlay</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Image overlay when clicked */}
       {selectedImage && (

@@ -32,6 +32,7 @@ export default function GalleryApp({
   const [loading, setLoading] = useState(true);
   const [galleryData, setGalleryData] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [cameraReady, setCameraReady] = useState(false);
 
   // Fetch gallery data on mount
   useEffect(() => {
@@ -78,27 +79,30 @@ export default function GalleryApp({
     // Store scene ref for pointer event control
     sceneRef.current = scene;
 
-    // Create camera - positioned inside the room
-    const camera = new BABYLON.ArcRotateCamera(
+    // Create camera - FPS style camera for walking around
+    const camera = new BABYLON.UniversalCamera(
       "camera",
-      -Math.PI / 2, // Alpha (horizontal rotation) - facing north wall
-      Math.PI / 2.5, // Beta (vertical rotation) - slight downward angle
-      8, // Radius (distance from target) - closer to center
-      new BABYLON.Vector3(0, 1.8, 0), // Target (look at eye level)
+      new BABYLON.Vector3(0, 1.8, -5), // Start position - eye level, facing north
       scene,
     );
+    camera.setTarget(new BABYLON.Vector3(0, 1.8, 0)); // Look at center
     camera.attachControl(canvasRef.current, true);
-    camera.lowerRadiusLimit = 3;
-    camera.upperRadiusLimit = 12;
-    camera.wheelPrecision = 50;
-    camera.lowerBetaLimit = 0.1;
-    camera.upperBetaLimit = Math.PI / 2 - 0.1;
 
-    // Don't prevent default on pick - allows clicking through to meshes
-    camera.inputs.attached.pointers.buttons = [0, 1, 2]; // Left, middle, right
+    // Camera movement settings
+    camera.speed = 0.3;
+    camera.angularSensibility = 2000;
+    camera.keysUp = []; // Disable default WASD
+    camera.keysDown = [];
+    camera.keysLeft = [];
+    camera.keysRight = [];
+
+    // Limit vertical look angle
+    camera.upperBetaLimit = Math.PI / 2 - 0.1;
+    camera.lowerBetaLimit = 0.1;
 
     // Store camera ref for later control detachment
     cameraRef.current = camera;
+    setCameraReady(true); // Trigger re-render to show minimap
 
     // Fix aspect ratio
     camera.mode = BABYLON.Camera.PERSPECTIVE_CAMERA;
@@ -262,9 +266,9 @@ export default function GalleryApp({
 
         // Update all video screens
         videoScreens.forEach((screen) => {
-          const inFrustum = screen.screenPlane && screen.screenPlane.isInFrustum(
-            scene.frustumPlanes,
-          );
+          const inFrustum =
+            screen.screenPlane &&
+            screen.screenPlane.isInFrustum(scene.frustumPlanes);
 
           if (screen.screenPlane) {
             screen.screenPlane.isVisible = inFrustum;
@@ -272,15 +276,17 @@ export default function GalleryApp({
 
           // Update overlays based on frustum AND video state
           if (screen.playButtonOverlay) {
-            const shouldShow = inFrustum &&
-                              (screen.videoElement.paused || screen.videoElement.ended);
+            const shouldShow =
+              inFrustum &&
+              (screen.videoElement.paused || screen.videoElement.ended);
             screen.playButtonOverlay.isVisible = shouldShow;
           }
 
           if (screen.progressBar && screen.progressBar.plane) {
-            const shouldShow = inFrustum &&
-                              !screen.videoElement.paused &&
-                              !screen.videoElement.ended;
+            const shouldShow =
+              inFrustum &&
+              !screen.videoElement.paused &&
+              !screen.videoElement.ended;
             screen.progressBar.plane.isVisible = shouldShow;
           }
         });
@@ -369,28 +375,27 @@ export default function GalleryApp({
 
       let moved = false;
 
+      // Get camera forward direction (already normalized)
+      const forward = camera.getDirection(BABYLON.Axis.Z);
+      const right = camera.getDirection(BABYLON.Axis.X);
+
+      // W/S - Move forward/backward
       if (keysPressed["w"]) {
-        camera.position.addInPlace(
-          camera.getDirection(BABYLON.Vector3.Forward()).scale(moveSpeed),
-        );
+        camera.position.addInPlace(forward.scale(moveSpeed));
         moved = true;
       }
       if (keysPressed["s"]) {
-        camera.position.addInPlace(
-          camera.getDirection(BABYLON.Vector3.Forward()).scale(-moveSpeed),
-        );
+        camera.position.addInPlace(forward.scale(-moveSpeed));
         moved = true;
       }
+
+      // A/D - Turn left/right
       if (keysPressed["a"]) {
-        camera.position.addInPlace(
-          camera.getDirection(BABYLON.Vector3.Left()).scale(moveSpeed),
-        );
+        camera.rotation.y += 0.05; // Turn left
         moved = true;
       }
       if (keysPressed["d"]) {
-        camera.position.addInPlace(
-          camera.getDirection(BABYLON.Vector3.Right()).scale(moveSpeed),
-        );
+        camera.rotation.y -= 0.05; // Turn right
         moved = true;
       }
 
@@ -398,7 +403,7 @@ export default function GalleryApp({
       if (moved) {
         camera.position.x = Math.max(-9, Math.min(9, camera.position.x));
         camera.position.z = Math.max(-9, Math.min(9, camera.position.z));
-        camera.position.y = Math.max(0.5, Math.min(6, camera.position.y));
+        camera.position.y = Math.max(1.5, Math.min(3, camera.position.y)); // Keep at eye level
       }
     }, 16); // ~60fps
 
@@ -410,7 +415,7 @@ export default function GalleryApp({
       window.removeEventListener("keyup", handleKeyUp);
       clearInterval(moveInterval);
     };
-  }, [selectedImage]);
+  }, [selectedImage, cameraReady]);
 
   // Handle camera controls based on overlay state
   useEffect(() => {
@@ -453,7 +458,7 @@ export default function GalleryApp({
       />
 
       {/* Minimap */}
-      {!loading && cameraRef.current && !selectedImage && (
+      {!loading && cameraReady && cameraRef.current && !selectedImage && (
         <Minimap camera={cameraRef.current} roomWidth={20} roomDepth={20} />
       )}
 

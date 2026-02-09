@@ -9,7 +9,7 @@ Videos assigned to groups now display correctly on the group detail page at `/gr
 ### 1. Fixed Video Thumbnail Path
 **Problem:** The handler was looking for non-existent thumbnail files
 - ❌ Old: `/storage/videos/{slug}_thumb.jpg`
-- ✅ New: `/storage/videos/{slug}/poster.webp`
+- ✅ New: `/storage/videos/{slug}/thumbnail.webp`
 
 ### 2. Fixed Database Query
 **Problem:** Query used non-existent `created_at` column
@@ -34,7 +34,7 @@ When you visit a group page (e.g., `http://localhost:3000/groups/group1`):
    ```
 3. **For each video**, creates a ResourceItem with:
    - Title: Video title
-   - Thumbnail: `/storage/videos/{slug}/poster.webp`
+   - Thumbnail: `/storage/videos/{slug}/thumbnail.webp`
    - URL: `/watch/{slug}`
 
 4. **Template displays** resources in a grid with:
@@ -90,7 +90,7 @@ Resources Tab:
 
 4. **Verify thumbnail loads:**
    - Check browser console for 404 errors
-   - Thumbnail URL should be: `/storage/videos/test-demo-video/poster.webp`
+   - Thumbnail URL should be: `/storage/videos/test-demo-video/thumbnail.webp`
 
 ## 🔄 Workflow: Adding Videos to Groups
 
@@ -159,25 +159,25 @@ sqlite3 media.db "SELECT * FROM group_members WHERE group_id=7 AND user_id='your
 
 **Check 3: Does the poster exist?**
 ```bash
-ls -la storage/videos/your-video/poster.webp
+ls -la storage/videos/your-video/thumbnail.webp
 ```
 - If missing, thumbnail won't load (but video will still appear with broken image)
 
 ### Thumbnail Not Loading
 
 **Check the path:**
-- Expected: `/storage/videos/{slug}/poster.webp`
+- Expected: `/storage/videos/{slug}/thumbnail.webp`
 - Open browser DevTools → Network tab
 - Look for 404 errors on image requests
 
 **Fix missing poster:**
 ```bash
 # Copy from another video
-cp storage/videos/welcome/poster.webp storage/videos/your-video/
+cp storage/videos/welcome/thumbnail.webp storage/videos/your-video/
 
 # Or create a placeholder
 # (requires imagemagick)
-convert -size 640x360 xc:gray storage/videos/your-video/poster.webp
+convert -size 640x360 xc:gray storage/videos/your-video/thumbnail.webp
 ```
 
 ## 📝 Database Schema Reference

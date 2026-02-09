@@ -17,6 +17,8 @@ import {
   disposeVideoScreens,
   pauseAllVideos,
 } from "./scene/VideoScreen";
+import { VideoPlayer } from "./components/VideoPlayer";
+import { Minimap } from "./components/Minimap";
 
 export default function GalleryApp({
   accessCode,
@@ -223,7 +225,10 @@ export default function GalleryApp({
     scene.autoClear = true;
     scene.autoClearDepthAndStencil = true;
 
-    // Start render loop with dynamic ceiling transparency
+    // Enable frustum culling for better performance
+    scene.frustumCullingEnabled = true;
+
+    // Start render loop with dynamic ceiling transparency and frustum culling
     engine.runRenderLoop(() => {
       // Check camera height and adjust ceiling transparency
       if (camera && ceiling) {
@@ -242,6 +247,36 @@ export default function GalleryApp({
             ceiling.material.needAlphaBlending = () => false;
           }
         }
+      }
+
+      // Frustum culling - hide objects not in camera view
+      if (camera && scene.frustumPlanes) {
+        // Update all image frames
+        frames.forEach((frame) => {
+          if (frame.framePlane) {
+            frame.framePlane.isVisible = frame.framePlane.isInFrustum(
+              scene.frustumPlanes,
+            );
+          }
+        });
+
+        // Update all video screens
+        videoScreens.forEach((screen) => {
+          if (screen.screenPlane) {
+            screen.screenPlane.isVisible = screen.screenPlane.isInFrustum(
+              scene.frustumPlanes,
+            );
+          }
+          // Hide overlays too
+          if (screen.playButtonOverlay) {
+            screen.playButtonOverlay.isVisible =
+              screen.screenPlane.isVisible && screen.videoElement.paused;
+          }
+          if (screen.progressBar && screen.progressBar.plane) {
+            screen.progressBar.plane.isVisible =
+              screen.screenPlane.isVisible && !screen.videoElement.paused;
+          }
+        });
       }
 
       scene.render();
@@ -296,16 +331,78 @@ export default function GalleryApp({
     };
   }, [loading, galleryData, onReady]);
 
-  // Handle ESC key to close image overlay
+  // Handle WASD keyboard movement
   useEffect(() => {
+    if (!cameraRef.current) return;
+
+    const camera = cameraRef.current;
+    const moveSpeed = 0.3;
+    const keysPressed = {};
+
     const handleKeyDown = (event) => {
+      // ESC key to close overlay
       if (event.key === "Escape" && selectedImage) {
         setSelectedImage(null);
+        return;
       }
+
+      // Don't handle movement when overlay is open
+      if (selectedImage) return;
+
+      keysPressed[event.key.toLowerCase()] = true;
     };
 
+    const handleKeyUp = (event) => {
+      keysPressed[event.key.toLowerCase()] = false;
+    };
+
+    // Movement loop
+    const moveInterval = setInterval(() => {
+      if (selectedImage) return; // Don't move when overlay is open
+
+      let moved = false;
+
+      if (keysPressed["w"]) {
+        camera.position.addInPlace(
+          camera.getDirection(BABYLON.Vector3.Forward()).scale(moveSpeed),
+        );
+        moved = true;
+      }
+      if (keysPressed["s"]) {
+        camera.position.addInPlace(
+          camera.getDirection(BABYLON.Vector3.Forward()).scale(-moveSpeed),
+        );
+        moved = true;
+      }
+      if (keysPressed["a"]) {
+        camera.position.addInPlace(
+          camera.getDirection(BABYLON.Vector3.Left()).scale(moveSpeed),
+        );
+        moved = true;
+      }
+      if (keysPressed["d"]) {
+        camera.position.addInPlace(
+          camera.getDirection(BABYLON.Vector3.Right()).scale(moveSpeed),
+        );
+        moved = true;
+      }
+
+      // Clamp camera position to stay inside gallery
+      if (moved) {
+        camera.position.x = Math.max(-9, Math.min(9, camera.position.x));
+        camera.position.z = Math.max(-9, Math.min(9, camera.position.z));
+        camera.position.y = Math.max(0.5, Math.min(6, camera.position.y));
+      }
+    }, 16); // ~60fps
+
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      clearInterval(moveInterval);
+    };
   }, [selectedImage]);
 
   // Handle camera controls based on overlay state
@@ -348,6 +445,11 @@ export default function GalleryApp({
         }}
       />
 
+      {/* Minimap */}
+      {!loading && cameraRef.current && !selectedImage && (
+        <Minimap camera={cameraRef.current} roomWidth={20} roomDepth={20} />
+      )}
+
       {/* Image overlay when clicked */}
       {selectedImage && (
         <div
@@ -383,18 +485,7 @@ export default function GalleryApp({
             onClick={(e) => e.stopPropagation()}
           >
             {selectedImage.type === "video" ? (
-              <video
-                src={selectedImage.url}
-                controls
-                autoPlay
-                style={{
-                  maxWidth: "100%",
-                  maxHeight: "80vh",
-                  objectFit: "contain",
-                  borderRadius: "8px",
-                  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.5)",
-                }}
-              />
+              <VideoPlayer url={selectedImage.url} autoPlay={true} />
             ) : (
               <img
                 src={selectedImage.url}

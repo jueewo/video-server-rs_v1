@@ -102,7 +102,7 @@
                         <h3 class="font-bold mb-2">Current Thumbnail</h3>
                         <div class="bg-base-300 rounded-xl overflow-hidden aspect-video">
                             <img
-                                :src="formData.thumbnailUrl || '/hls/{{ video.slug }}/poster.webp'"
+                                :src="formData.thumbnailUrl || '/hls/{{ video.slug }}/thumbnail.webp'"
                                 alt="Video thumbnail"
                                 class="w-full h-full thumbnail-preview"
                                 onerror="this.src='/static/placeholder-video.png'"

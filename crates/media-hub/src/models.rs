@@ -117,7 +117,7 @@ impl UnifiedMediaItem {
                 v.poster_url
                     .clone()
                     .or_else(|| v.thumbnail_url.clone())
-                    .or_else(|| Some(format!("/storage/videos/{}/poster.webp", v.slug)))
+                    .or_else(|| Some(format!("/storage/videos/{}/thumbnail.webp", v.slug)))
             }
             Self::Image(i) => {
                 // For images, use the image itself as thumbnail, or the thumbnail field

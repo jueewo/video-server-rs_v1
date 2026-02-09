@@ -1075,7 +1075,7 @@ pub async fn available_folders_handler(
 
         let folder_path = videos_dir.join(&folder);
         let has_playlist = folder_path.join("master.m3u8").exists();
-        let has_poster = folder_path.join("poster.webp").exists();
+        let has_poster = folder_path.join("thumbnail.webp").exists();
 
         // Count segments
         let mut segment_count = 0;

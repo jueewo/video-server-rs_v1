@@ -112,7 +112,7 @@ Successfully migrated the `video-manager` crate from inline HTML strings to **As
 ### After (Fixed)
 ```html
 <!-- Correct HLS streaming -->
-<video id="video" poster="/storage/.../poster.webp">
+<video id="video" poster="/storage/.../thumbnail.webp">
 </video>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script>
@@ -128,12 +128,12 @@ storage/videos/
 ├── public/
 │   └── {slug}/
 │       ├── master.m3u8    # HLS manifest (required)
-│       ├── poster.webp    # Thumbnail (optional)
+│       ├── thumbnail.webp    # Thumbnail (optional)
 │       └── *.ts           # Video segments
 └── private/
     └── {slug}/
         ├── master.m3u8
-        ├── poster.webp
+        ├── thumbnail.webp
         └── *.ts
 ```
 
@@ -237,15 +237,15 @@ cargo build --release
 
 ### Storage Endpoint
 ```bash
-curl -I http://localhost:3000/storage/videos/public/bbb/poster.webp
+curl -I http://localhost:3000/storage/videos/public/bbb/thumbnail.webp
 ✅ HTTP/1.1 200 OK
 ✅ content-type: image/webp
 ```
 
 ### Video List
 ```bash
-curl -s http://localhost:3000/videos | grep poster.webp
-✅ poster.webp (3 matches)
+curl -s http://localhost:3000/videos | grep thumbnail.webp
+✅ thumbnail.webp (3 matches)
 ```
 
 ### Server Launch

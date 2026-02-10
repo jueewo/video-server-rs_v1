@@ -58,10 +58,12 @@ export function Minimap({ camera, roomWidth = 20, roomDepth = 20 }) {
       const camZ = ((camera.position.z + roomDepth / 2) / roomDepth) * mapDepth;
 
       // Camera direction indicator
+      // In Babylon.js, rotation.y increases clockwise (right turn)
+      // For minimap top-down view: +X is right, +Z is down
       const camRotY = camera.rotation.y;
       const dirLength = 15;
-      const dirX = Math.sin(camRotY) * dirLength;
-      const dirZ = Math.cos(camRotY) * dirLength;
+      const dirX = -Math.sin(camRotY) * dirLength;
+      const dirZ = -Math.cos(camRotY) * dirLength;
 
       // Draw view cone
       ctx.fillStyle = "rgba(59, 130, 246, 0.2)";

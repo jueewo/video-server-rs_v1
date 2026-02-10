@@ -473,12 +473,19 @@ export function mapMediaToSlots(gallery, mediaMapping, mediaItems) {
   gallery.slots.forEach((slot) => {
     const mapping = mediaMapping[slot.id];
     if (mapping && mapping.media_id) {
-      const mediaItem = mediaItems.find((item) => item.id === mapping.media_id);
+      // Find media item by ID and type (to distinguish between image ID 1 and video ID 1)
+      const mediaItem = mediaItems.find((item) => {
+        const idMatch = item.id === mapping.media_id;
+        const typeMatch = mapping.type ? item.type === mapping.type : true;
+        return idMatch && typeMatch;
+      });
       if (mediaItem) {
         mappedSlots.push({
           slot,
           media: mediaItem,
         });
+      } else {
+        console.warn(`No media found for slot ${slot.id}: media_id=${mapping.media_id}, type=${mapping.type}`);
       }
     }
   });

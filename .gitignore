@@ -30,3 +30,7 @@ package-lock.json
 
 # Generated CSS
 static/css/tailwind.css
+
+# Generated JavaScript bundles
+bundle.js
+bundle.js.map

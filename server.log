@@ -1,17 +1,429 @@
-warning: unused import: `collections::HashMap`
-  --> crates/video-manager/src/lib.rs:12:11
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /Users/juergen/MyDev/MyProjects/video-server-rs_v1/crates/media-mcp/Cargo.toml
+workspace: /Users/juergen/MyDev/MyProjects/video-server-rs_v1/Cargo.toml
+warning: unused import: `AddTagsRequest`
+  --> crates/common/src/handlers/tag_handlers.rs:15:5
    |
-12 | use std::{collections::HashMap, path::PathBuf, sync::Arc};
-   |           ^^^^^^^^^^^^^^^^^^^^
+15 |     AddTagsRequest, CreateTagRequest, Tag, Tag...
+   |     ^^^^^^^^^^^^^^
    |
    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
 
-warning: `video-manager` (lib) generated 1 warning (run `cargo fix --lib -p video-manager` to apply 1 suggestion)
-   Compiling video-server-rs v0.1.0 (/Users/juergen/MyDev/MyProjects/video-server-rs_v1)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.32s
-     Running `target/debug/video-server-rs`
+warning: unused imports: `AddTagRequest`, `AddTagsRequest`, `CategoryStats`, `TagFilterRequest`, `TagSearchResult`, `TagWithCount`, and `TaggedResource`
+ --> crates/common/src/services/tag_service.rs:7:5
+  |
+7 |     AddTagRequest, AddTagsRequest, CategoryStats, CreateTagRequest, Popula...
+  |     ^^^^^^^^^^^^^  ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^
+8 |     TagAutocompleteResponse, TagDeleteResponse, TagFilterRequest, TagRespo...
+  |                                                 ^^^^^^^^^^^^^^^^
+9 |     TagSearchResult, TagStats, TagSummary, TagWithCount, TaggedResource, U...
+  |     ^^^^^^^^^^^^^^^                        ^^^^^^^^^^^^  ^^^^^^^^^^^^^^
 
-🚀 Initializing Modular Video Server...
+warning: unused import: `ImageFormat`
+ --> crates/common/src/utils/image_metadata.rs:5:45
+  |
+5 | ...nericImageView, ImageFormat};
+  |                    ^^^^^^^^^^^
+
+warning: unused import: `error`
+ --> crates/common/src/utils/image_metadata.rs:8:22
+  |
+8 | use tracing::{debug, error, warn};
+  |                      ^^^^^
+
+warning: unused import: `Serialize`
+ --> crates/common/src/utils/video_metadata.rs:8:26
+  |
+8 | use serde::{Deserialize, Serialize};
+  |                          ^^^^^^^^^
+
+warning: unused imports: `debug` and `error`
+  --> crates/common/src/utils/video_metadata.rs:11:15
+   |
+11 | use tracing::{debug, error, info, warn};
+   |               ^^^^^  ^^^^^
+
+warning: ambiguous glob re-exports
+  --> crates/common/src/lib.rs:14:9
+   |
+14 | pub use db::*;
+   |         ^^^^^ the name `tags` in the type namespace is first re-exported here
+...
+18 | pub use routes::*;
+   |         --------- but the name `tags` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: unused variable: `status`
+   --> crates/common/src/services/video_service.rs:199:21
+    |
+199 |         if let Some(status) = &params.status {
+    |                     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_status`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `where_sql`
+   --> crates/common/src/services/video_service.rs:272:13
+    |
+272 |         let where_sql = if where_clauses.is_e...
+    |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_where_sql`
+
+warning: fields `filename`, `format_long_name`, and `size` are never read
+  --> crates/common/src/utils/video_metadata.rs:26:5
+   |
+25 | struct FFprobeFormat {
+   |        ------------- fields in this struct
+26 |     filename: Option<String>,
+   |     ^^^^^^^^
+27 |     format_name: Option<String>,
+28 |     format_long_name: Option<String>,
+   |     ^^^^^^^^^^^^^^^^
+29 |     duration: Option<String>,
+30 |     size: Option<String>,
+   |     ^^^^
+   |
+   = note: `FFprobeFormat` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `codec_long_name` is never read
+  --> crates/common/src/utils/video_metadata.rs:38:5
+   |
+35 | struct FFprobeStream {
+   |        ------------- field in this struct
+...
+38 |     codec_long_name: Option<String>,
+   |     ^^^^^^^^^^^^^^^
+   |
+   = note: `FFprobeStream` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: `common` (lib) generated 11 warnings (run `cargo fix --lib -p common` to apply 8 suggestions)
+warning: unused import: `Permission`
+  --> crates/access-control/src/audit.rs:21:42
+   |
+21 | ...n, AccessError, Permission};
+   |                    ^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `pool` is never read
+  --> crates/access-control/src/service.rs:61:5
+   |
+60 | pub struct AccessControlService {
+   |            -------------------- field in this struct
+61 |     pool: SqlitePool,
+   |     ^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `access-control` (lib) generated 2 warnings (run `cargo fix --lib -p access-control` to apply 1 suggestion)
+warning: unused import: `error`
+  --> crates/video-manager/src/storage.rs:16:22
+   |
+16 | use tracing::{debug, error, info, warn};
+   |                      ^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Deserialize`
+  --> crates/video-manager/src/upload.rs:20:13
+   |
+20 | use serde::{Deserialize, Serialize};
+   |             ^^^^^^^^^^^
+
+warning: unused imports: `Bytes`, `UploadConfig`, and `UploadHandler`
+  --> crates/video-manager/src/upload_v2.rs:20:14
+   |
+20 |     upload::{UploadConfig, UploadHandler},
+   |              ^^^^^^^^^^^^  ^^^^^^^^^^^^^
+21 |     validation::validate_filename,
+22 |     Bytes, MediaType,
+   |     ^^^^^
+
+warning: unused import: `Deserialize`
+  --> crates/video-manager/src/upload_v2.rs:24:13
+   |
+24 | use serde::{Deserialize, Serialize};
+   |             ^^^^^^^^^^^
+
+warning: unused import: `crate::ffmpeg::FFmpegConfig`
+  --> crates/video-manager/src/lib.rs:44:5
+   |
+44 | use crate::ffmpeg::FFmpegConfig;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::hls::HlsConfig`
+  --> crates/video-manager/src/lib.rs:45:5
+   |
+45 | use crate::hls::HlsConfig;
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::storage::StorageConfig`
+  --> crates/video-manager/src/lib.rs:47:5
+   |
+47 | use crate::storage::StorageConfig;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `VideoRecord` is never constructed
+    --> crates/video-manager/src/lib.rs:1649:8
+     |
+1649 | struct VideoRecord {
+     |        ^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `total_pixels`
+   --> crates/image-manager/src/media_item_impl.rs:525:9
+    |
+525 |     let total_pixels = (width * height) as u64;
+    |         ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_total_pixels`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `is_public`
+    --> crates/image-manager/src/lib.rs:1394:9
+     |
+1394 |     let is_public = is_public_int == 1;
+     |         ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_is_public`
+
+warning: type `ImageTagsResponse` is more private than the item `get_image_tags_handler`
+    --> crates/image-manager/src/lib.rs:1645:1
+     |
+1645 | / pub async fn get_image_tags_handler(
+1646 | |     State(state): State<Arc<ImageManagerState>>,
+1647 | |     _session: Session,
+1648 | |     Path(image_id): Path<i32>,
+1649 | | ) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
+     | |_______________________________________________________________________^ function `get_image_tags_handler` is reachable at visibility `pub`
+     |
+note: but type `ImageTagsResponse` is only usable at visibility `pub(crate)`
+    --> crates/image-manager/src/lib.rs:1588:1
+     |
+1588 | struct ImageTagsResponse {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: `#[warn(private_interfaces)]` on by default
+
+warning: type `ErrorResponse` is more private than the item `get_image_tags_handler`
+    --> crates/image-manager/src/lib.rs:1645:1
+     |
+1645 | / pub async fn get_image_tags_handler(
+1646 | |     State(state): State<Arc<ImageManagerState>>,
+1647 | |     _session: Session,
+1648 | |     Path(image_id): Path<i32>,
+1649 | | ) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
+     | |_______________________________________________________________________^ function `get_image_tags_handler` is reachable at visibility `pub`
+     |
+note: but type `ErrorResponse` is only usable at visibility `pub(crate)`
+    --> crates/image-manager/src/lib.rs:1594:1
+     |
+1594 | struct ErrorResponse {
+     | ^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ImageTagsResponse` is more private than the item `add_image_tags_handler`
+    --> crates/image-manager/src/lib.rs:1690:1
+     |
+1690 | / pub async fn add_image_tags_handler(
+1691 | |     State(state): State<Arc<ImageManagerState>>,
+1692 | |     session: Session,
+1693 | |     Path(image_id): Path<i32>,
+1694 | |     Json(request): Json<AddTagsRequest>,
+1695 | | ) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
+     | |_______________________________________________________________________^ function `add_image_tags_handler` is reachable at visibility `pub`
+     |
+note: but type `ImageTagsResponse` is only usable at visibility `pub(crate)`
+    --> crates/image-manager/src/lib.rs:1588:1
+     |
+1588 | struct ImageTagsResponse {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ErrorResponse` is more private than the item `add_image_tags_handler`
+    --> crates/image-manager/src/lib.rs:1690:1
+     |
+1690 | / pub async fn add_image_tags_handler(
+1691 | |     State(state): State<Arc<ImageManagerState>>,
+1692 | |     session: Session,
+1693 | |     Path(image_id): Path<i32>,
+1694 | |     Json(request): Json<AddTagsRequest>,
+1695 | | ) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
+     | |_______________________________________________________________________^ function `add_image_tags_handler` is reachable at visibility `pub`
+     |
+note: but type `ErrorResponse` is only usable at visibility `pub(crate)`
+    --> crates/image-manager/src/lib.rs:1594:1
+     |
+1594 | struct ErrorResponse {
+     | ^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ImageTagsResponse` is more private than the item `replace_image_tags_handler`
+    --> crates/image-manager/src/lib.rs:1749:1
+     |
+1749 | / pub async fn replace_image_tags_handler(
+1750 | |     State(state): State<Arc<ImageManagerState>>,
+1751 | |     session: Session,
+1752 | |     Path(image_id): Path<i32>,
+1753 | |     Json(request): Json<AddTagsRequest>,
+1754 | | ) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
+     | |_______________________________________________________________________^ function `replace_image_tags_handler` is reachable at visibility `pub`
+     |
+note: but type `ImageTagsResponse` is only usable at visibility `pub(crate)`
+    --> crates/image-manager/src/lib.rs:1588:1
+     |
+1588 | struct ImageTagsResponse {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ErrorResponse` is more private than the item `replace_image_tags_handler`
+    --> crates/image-manager/src/lib.rs:1749:1
+     |
+1749 | / pub async fn replace_image_tags_handler(
+1750 | |     State(state): State<Arc<ImageManagerState>>,
+1751 | |     session: Session,
+1752 | |     Path(image_id): Path<i32>,
+1753 | |     Json(request): Json<AddTagsRequest>,
+1754 | | ) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
+     | |_______________________________________________________________________^ function `replace_image_tags_handler` is reachable at visibility `pub`
+     |
+note: but type `ErrorResponse` is only usable at visibility `pub(crate)`
+    --> crates/image-manager/src/lib.rs:1594:1
+     |
+1594 | struct ErrorResponse {
+     | ^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ImageTagsResponse` is more private than the item `remove_image_tag_handler`
+    --> crates/image-manager/src/lib.rs:1812:1
+     |
+1812 | / pub async fn remove_image_tag_handler(
+1813 | |     State(state): State<Arc<ImageManagerState>>,
+1814 | |     session: Session,
+1815 | |     Path((image_id, tag_slug)): Path<(i32, String)>,
+1816 | | ) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
+     | |_______________________________________________________________________^ function `remove_image_tag_handler` is reachable at visibility `pub`
+     |
+note: but type `ImageTagsResponse` is only usable at visibility `pub(crate)`
+    --> crates/image-manager/src/lib.rs:1588:1
+     |
+1588 | struct ImageTagsResponse {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ErrorResponse` is more private than the item `remove_image_tag_handler`
+    --> crates/image-manager/src/lib.rs:1812:1
+     |
+1812 | / pub async fn remove_image_tag_handler(
+1813 | |     State(state): State<Arc<ImageManagerState>>,
+1814 | |     session: Session,
+1815 | |     Path((image_id, tag_slug)): Path<(i32, String)>,
+1816 | | ) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
+     | |_______________________________________________________________________^ function `remove_image_tag_handler` is reachable at visibility `pub`
+     |
+note: but type `ErrorResponse` is only usable at visibility `pub(crate)`
+    --> crates/image-manager/src/lib.rs:1594:1
+     |
+1594 | struct ErrorResponse {
+     | ^^^^^^^^^^^^^^^^^^^^
+
+warning: variant `Integer` is never constructed
+    --> crates/image-manager/src/lib.rs:1112:9
+     |
+1110 |     enum ParamValue {
+     |          ---------- variant in this enum
+1111 |         Text(String),
+1112 |         Integer(i32),
+     |         ^^^^^^^
+     |
+     = note: `ParamValue` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `ImageRecord` is never constructed
+    --> crates/image-manager/src/lib.rs:1599:8
+     |
+1599 | struct ImageRecord {
+     |        ^^^^^^^^^^^
+
+warning: methods `save`, `delete`, and `move_to` are never used
+   --> crates/image-manager/src/media_item_impl.rs:342:14
+    |
+335 | impl ImageMediaItem {
+    | ------------------- methods in this implementation
+...
+342 |     async fn save(&self, data: &[u8]) -> MediaResult<PathBuf> {
+    |              ^^^^
+...
+371 |     async fn delete(&self) -> MediaResult<()> {
+    |              ^^^^^^
+...
+402 |     async fn move_to(&mut self, new_path: PathBuf) -> MediaResult<()> {
+    |              ^^^^^^^
+
+warning: `video-manager` (lib) generated 8 warnings (run `cargo fix --lib -p video-manager` to apply 7 suggestions)
+warning: `image-manager` (lib) generated 13 warnings (run `cargo fix --lib -p image-manager` to apply 2 suggestions)
+warning: unused variable: `state`
+   --> crates/user-auth/src/lib.rs:198:11
+    |
+198 |     State(state): State<Arc<AuthState>>,
+    |           ^^^^^ help: if this is intentional, prefix it with an underscore: `_state`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling gallery3d v0.1.0 (/Users/juergen/MyDev/MyProjects/video-server-rs_v1/crates/3d-gallery)
+warning: `user-auth` (lib) generated 1 warning (run `cargo fix --lib -p user-auth` to apply 1 suggestion)
+warning: unused variable: `user_id`
+   --> crates/media-hub/src/routes.rs:699:5
+    |
+699 |     user_id: Option<&str>,
+    |     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_user_id`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `group_description` and `created_at` are never read
+   --> crates/access-groups/src/pages.rs:216:5
+    |
+213 | struct InvitationDetailsView {
+    |        --------------------- fields in this struct
+...
+216 |     group_description: String,
+    |     ^^^^^^^^^^^^^^^^^
+...
+219 |     created_at: String,
+    |     ^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `can_admin` is never read
+   --> crates/access-groups/src/pages.rs:337:5
+    |
+334 | struct GroupSettingsTemplate {
+    |        --------------------- field in this struct
+...
+337 |     can_admin: bool,
+    |     ^^^^^^^^^
+
+warning: `media-hub` (lib) generated 1 warning (run `cargo fix --lib -p media-hub` to apply 1 suggestion)
+warning: `access-groups` (lib) generated 2 warnings
+   Compiling video-server-rs v0.1.0 (/Users/juergen/MyDev/MyProjects/video-server-rs_v1)
+warning: field `app_icon` is never read
+   --> src/main.rs:130:5
+    |
+122 | struct DemoTemplate {
+    |        ------------ field in this struct
+...
+130 |     app_icon: String,
+    |     ^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `video-server-rs` (bin "video-server-rs") generated 1 warning
+    Finished `release` profile [optimized] target(s) in 13.92s
+     Running `target/release/video-server-rs`
+🔧 Initializing OpenTelemetry...
+📡 Connecting to OTLP endpoint: http://localhost:4317
+✅ Tracer installed successfully
+✅ Logger provider installed successfully
+✅ Tracing subscriber initialized
+✅ OpenTelemetry initialized successfully (traces + logs)
+📊 OTLP telemetry enabled
+
+🚀 Initializing Modular Media Server...
+📊 Database: sqlite:media.db
+⚠️  Migration warning: migration 20240116084200 was previously applied but is missing in the resolved migrations
+   Continuing with existing database schema...
+[2m2026-02-10T17:09:06.220969Z[0m [32m INFO[0m [2mvideo_manager::progress[0m[2m:[0m Progress cleanup task started (interval: 300s, TTL: 3600s)
 🔐 OIDC Configuration:
    - Issuer URL: http://localhost:8088
    - Client ID: f4e64e4265ac63ea837c
@@ -19,6 +431,11 @@ warning: `video-manager` (lib) generated 1 warning (run `cargo fix --lib -p vide
 🔍 Discovering OIDC provider: http://localhost:8088
 ✅ OIDC provider discovery successful
 ✅ OIDC authentication enabled
+🔐 Access Control Service initialized with audit logging enabled
+🎨 Media Hub initialized (unified media management)
+📋 Application Configuration:
+   - Title: Media Server | appkask
+   - Icon: /storage/icon.webp
 🍪 Session Configuration:
    - Cookie name: video_server_session
    - HTTP-only: true
@@ -27,22 +444,29 @@ warning: `video-manager` (lib) generated 1 warning (run `cargo fix --lib -p vide
 🔒 Emergency login is DISABLED
 
 ╔════════════════════════════════════════════════════════════════╗
-║   🎥  MODULAR VIDEO SERVER - READY!                           ║
+║   🎥  MODULAR MEDIA SERVER - READY!                           ║
 ╚════════════════════════════════════════════════════════════════╝
 
 📦 MODULES LOADED:
    ✅ video-manager    (Video streaming & HLS proxy)
    ✅ image-manager    (Image upload & serving)
+   ✅ document-manager (Document storage & viewing)
+   ✅ media-hub        (Unified media management UI)
    ✅ user-auth        (Session management, OIDC ready)
    ✅ access-codes     (Shared media access)
+   ✅ access-control   (4-layer access with audit logging)
 📊 SERVER ENDPOINTS:
    • Web UI:        http://0.0.0.0:3000
+   • Demo:          http://0.0.0.0:3000/demo
    • Test Player:   http://0.0.0.0:3000/test
    • Login:         http://0.0.0.0:3000/login
    • OIDC Login:    http://0.0.0.0:3000/oidc/authorize
    • Emergency:     http://0.0.0.0:3000/login/emergency
    • Images:        http://0.0.0.0:3000/images
+   • Documents:     http://0.0.0.0:3000/documents
    • Upload:        http://0.0.0.0:3000/upload
+   • All Media:     http://0.0.0.0:3000/media
+   • Media Upload:  http://0.0.0.0:3000/media/upload
    • Health:        http://0.0.0.0:3000/health
    • MediaMTX API:  http://0.0.0.0:3000/api/mediamtx/status
    • Access Codes:  http://0.0.0.0:3000/api/access-codes
@@ -95,3 +519,21 @@ warning: `video-manager` (lib) generated 1 warning (run `cargo fix --lib -p vide
 
 ════════════════════════════════════════════════════════════════
 
+[2m2026-02-10T17:10:47.428160Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/3d [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T17:10:47.428708Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/3d [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-10T17:10:47.448272Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/3d-gallery/bundle.js [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T17:10:47.448687Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/3d-gallery/bundle.js [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-10T17:10:47.569777Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/3d/gallery [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T17:10:47.570087Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/3d/gallery [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mgallery3d::api[0m[2m:[0m Gallery data requested with code: testgallery
+[2m2026-02-10T17:10:47.572696Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/3d/gallery [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m2 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-10T17:10:47.677967Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/3d-gallery/bundle.js.map [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T17:10:47.678185Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/3d-gallery/bundle.js.map [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-10T17:12:12.416397Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/3d [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T17:12:12.416520Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/3d [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-10T17:12:12.433999Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/3d-gallery/bundle.js [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T17:12:12.434285Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/3d-gallery/bundle.js [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-10T17:12:12.567467Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/3d/gallery [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T17:12:12.567513Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/3d/gallery [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mgallery3d::api[0m[2m:[0m Gallery data requested with code: testgallery
+[2m2026-02-10T17:12:12.567957Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/3d/gallery [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-10T17:12:12.669043Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/3d-gallery/bundle.js.map [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T17:12:12.669275Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/3d-gallery/bundle.js.map [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200

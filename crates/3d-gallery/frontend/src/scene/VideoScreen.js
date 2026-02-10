@@ -114,9 +114,10 @@ function createProgressBarOverlay(scene, width, videoId, rotation) {
   progressMaterial.backFaceCulling = false;
   progressMaterial.useAlphaFromDiffuseTexture = true;
   progressMaterial.transparencyMode = BABYLON.Material.MATERIAL_ALPHABLEND;
+  progressMaterial.zOffset = -5; // Ensure it renders in front of video screen
 
   barPlane.material = progressMaterial;
-  barPlane.renderingGroupId = 0; // Same group as walls so depth testing occludes properly
+  barPlane.renderingGroupId = 1; // Render in overlay group to avoid occlusion
   barPlane.isPickable = false;
 
   return { plane: barPlane, texture: progressTexture, canvas };
@@ -402,7 +403,7 @@ export function createVideoScreen(scene, videoData, options = {}) {
   );
   progressBar.plane.parent = screenParent;
   progressBar.plane.position.y = -height / 2 - 0.1; // Below screen
-  progressBar.plane.position.z = -0.03; // In front of video plane (local -Z = toward room)
+  progressBar.plane.position.z = -0.05; // In front of video plane (local -Z = toward room)
   progressBar.plane.isVisible = false; // Hidden until video plays
 
   // Update progress bar periodically

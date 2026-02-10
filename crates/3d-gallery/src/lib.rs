@@ -21,28 +21,61 @@ pub mod routes;
 
 /// Serve bundle.js with correct MIME type
 async fn serve_bundle_js() -> Response {
-    match tokio::fs::read("crates/3d-gallery/static/bundle.js").await {
-        Ok(content) => (
-            StatusCode::OK,
-            [(header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
-            content,
-        )
-            .into_response(),
-        Err(_) => (StatusCode::NOT_FOUND, "File not found").into_response(),
+    // Use GALLERY_STATIC_DIR environment variable, or fall back to common paths
+    let base_dir = std::env::var("GALLERY_STATIC_DIR")
+        .unwrap_or_else(|_| ".".to_string());
+
+    let paths = [
+        format!("{}/crates/3d-gallery/static/bundle.js", base_dir),
+        format!("{}/static/3d-gallery/bundle.js", base_dir),
+        "crates/3d-gallery/static/bundle.js".to_string(),
+        "static/3d-gallery/bundle.js".to_string(),
+    ];
+
+    for path in &paths {
+        if let Ok(content) = tokio::fs::read(path).await {
+            tracing::info!("✅ Served bundle.js from: {}", path);
+            return (
+                StatusCode::OK,
+                [(header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
+                content,
+            )
+                .into_response();
+        }
     }
+
+    let cwd = std::env::current_dir().unwrap_or_default();
+    tracing::error!("🚫 bundle.js not found. CWD: {:?}, tried paths: {:?}", cwd, paths);
+    (StatusCode::NOT_FOUND, format!("File not found. CWD: {:?}", cwd)).into_response()
 }
 
 /// Serve bundle.js.map with correct MIME type
 async fn serve_bundle_js_map() -> Response {
-    match tokio::fs::read("crates/3d-gallery/static/bundle.js.map").await {
-        Ok(content) => (
-            StatusCode::OK,
-            [(header::CONTENT_TYPE, "application/json; charset=utf-8")],
-            content,
-        )
-            .into_response(),
-        Err(_) => (StatusCode::NOT_FOUND, "File not found").into_response(),
+    // Use GALLERY_STATIC_DIR environment variable, or fall back to common paths
+    let base_dir = std::env::var("GALLERY_STATIC_DIR")
+        .unwrap_or_else(|_| ".".to_string());
+
+    let paths = [
+        format!("{}/crates/3d-gallery/static/bundle.js.map", base_dir),
+        format!("{}/static/3d-gallery/bundle.js.map", base_dir),
+        "crates/3d-gallery/static/bundle.js.map".to_string(),
+        "static/3d-gallery/bundle.js.map".to_string(),
+    ];
+
+    for path in &paths {
+        if let Ok(content) = tokio::fs::read(path).await {
+            tracing::info!("✅ Served bundle.js.map from: {}", path);
+            return (
+                StatusCode::OK,
+                [(header::CONTENT_TYPE, "application/json; charset=utf-8")],
+                content,
+            )
+                .into_response();
+        }
     }
+
+    tracing::error!("🚫 bundle.js.map not found");
+    (StatusCode::NOT_FOUND, "File not found").into_response()
 }
 
 /// Create the 3D gallery router with database pool

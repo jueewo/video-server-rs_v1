@@ -2,23 +2,15 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import * as BABYLON from "@babylonjs/core";
 import { fetchGalleryData } from "./api/galleryApi";
 import {
-  createGalleryRoom,
-  getWallPositions,
-  disposeGalleryRoom,
-} from "./scene/GalleryRoom";
-import {
-  createImageFrames,
-  setupFrameInteractions,
-  disposeFrames,
-} from "./scene/ImageFrame";
-import {
-  createVideoScreens,
-  setupScreenInteractions,
-  disposeVideoScreens,
-  pauseAllVideos,
-} from "./scene/VideoScreen";
+  createGalleryFromLayout,
+  mapMediaToSlots,
+  disposeGallery,
+} from "./scene/LayoutParser";
+import { createImageFrame } from "./scene/ImageFrame";
+import { createVideoScreen } from "./scene/VideoScreen";
 import { VideoPlayer } from "./components/VideoPlayer";
 import { Minimap } from "./components/Minimap";
+import demoLayout from "./layouts/demo-gallery.json";
 
 export default function GalleryApp({
   accessCode,
@@ -116,116 +108,128 @@ export default function GalleryApp({
     };
     updateAspectRatio();
 
-    // Create the gallery room
-    const room = createGalleryRoom(scene, {
-      width: 16,
-      depth: 16,
-      height: 3.5,
+    // Create gallery from JSON layout
+    console.log("Loading gallery layout...");
+    const gallery = createGalleryFromLayout(scene, demoLayout);
+
+    // Set camera spawn point from layout
+    if (demoLayout.spawn_point) {
+      const spawn = demoLayout.spawn_point;
+      camera.position = new BABYLON.Vector3(...spawn.position);
+      camera.rotation = new BABYLON.Vector3(...spawn.rotation);
+    }
+
+    // Store ceiling references for dynamic transparency (first room's ceiling)
+    const ceiling = gallery.rooms[0]?.ceiling;
+    const ceilingHeight = gallery.rooms[0]?.dimensions.height || 4;
+
+    // Prepare media items
+    const mediaItems = galleryData.items.map((item) => ({
+      id: item.id,
+      title: item.title || "Untitled",
+      description: item.description || "",
+      url: item.url,
+      thumbnail_url: item.thumbnail_url || item.url,
+      width: item.width,
+      height: item.height,
+      tags: item.tags || [],
+      duration: item.duration,
+      media_type: item.media_type,
+      type: item.media_type,
+    }));
+
+    // Map media to slots using the layout's media_mapping
+    const mappedSlots = mapMediaToSlots(
+      gallery,
+      demoLayout.media_mapping,
+      mediaItems,
+    );
+
+    console.log(`Mapped ${mappedSlots.length} media items to slots`);
+
+    // Create frames and screens for mapped slots
+    const frames = [];
+    const videoScreens = [];
+
+    mappedSlots.forEach(({ slot, media }) => {
+      if (media.type === "image") {
+        const frame = createImageFrame(scene, media, {
+          position: slot.position,
+          rotation: slot.rotation,
+          width: slot.width,
+          frameThickness: 0.12,
+        });
+
+        // Setup click interaction
+        if (frame.framePlane) {
+          frame.framePlane.actionManager = new BABYLON.ActionManager(scene);
+          frame.framePlane.actionManager.registerAction(
+            new BABYLON.ExecuteCodeAction(
+              BABYLON.ActionManager.OnPickDownTrigger,
+              () => {
+                console.log("Image clicked:", media.title);
+                setSelectedImage(media);
+              },
+            ),
+          );
+        }
+
+        frames.push(frame);
+      } else if (media.type === "video") {
+        const screen = createVideoScreen(scene, media, {
+          position: slot.position,
+          rotation: slot.rotation,
+          width: slot.width,
+          aspectRatio: 16 / 9,
+          frameThickness: 0.15,
+          autoPlay: false,
+        });
+
+        // Setup click interaction
+        if (screen.screenPlane) {
+          screen.screenPlane.actionManager = new BABYLON.ActionManager(scene);
+          screen.screenPlane.actionManager.registerAction(
+            new BABYLON.ExecuteCodeAction(
+              BABYLON.ActionManager.OnPickDownTrigger,
+              () => {
+                console.log("Video clicked:", media.title);
+                setSelectedImage(media);
+              },
+            ),
+          );
+        }
+
+        videoScreens.push(screen);
+      }
     });
 
-    // Store ceiling reference for dynamic transparency
-    const ceiling = room.ceiling;
-    const ceilingHeight = 3.5;
+    console.log(
+      `Created ${frames.length} frames and ${videoScreens.length} video screens`,
+    );
 
-    // Get positions on walls for placing images
-    const wallPositions = getWallPositions(room.walls, {
-      itemsPerWall: 3,
-      verticalOffset: 1.8,
-      spacing: 4,
-    });
+    // Store for cleanup
+    const allFrames = frames;
+    const allVideoScreens = videoScreens;
 
-    console.log(`Available wall positions: ${wallPositions.length}`);
-
-    // Separate images and videos
-    let frames = [];
-    let videoScreens = [];
-
-    if (galleryData.items && galleryData.items.length > 0) {
-      console.log(`Processing ${galleryData.items.length} media items`);
-
-      // Separate images and videos
-      const images = galleryData.items
-        .filter((item) => item.media_type === "image")
-        .map((item) => ({
-          id: item.id,
-          title: item.title || "Untitled",
-          description: item.description || "",
-          url: item.url || item.thumbnail_url || "/placeholder.jpg",
-          thumbnail_url: item.thumbnail_url || item.url,
-          width: item.width,
-          height: item.height,
-          tags: item.tags || [],
-          type: "image",
-        }));
-
-      const videos = galleryData.items
-        .filter((item) => item.media_type === "video")
-        .map((item) => ({
-          id: item.id,
-          title: item.title || "Untitled Video",
-          description: item.description || "",
-          url: item.url,
-          thumbnail_url: item.thumbnail_url || item.url,
-          width: item.width,
-          height: item.height,
-          tags: item.tags || [],
-          duration: item.duration,
-          type: "video",
-        }));
-
-      console.log(`Found ${images.length} images and ${videos.length} videos`);
-
-      // Create image frames for images
-      const imagePositions = wallPositions.slice(0, images.length);
-      frames = createImageFrames(scene, images, imagePositions, {
-        frameWidth: 2.5,
-        frameThickness: 0.12,
-      });
-
-      // Create video screens for videos
-      const videoPositions = wallPositions.slice(
-        images.length,
-        images.length + videos.length,
-      );
-      videoScreens = createVideoScreens(scene, videos, videoPositions, {
-        screenWidth: 3.2,
-        frameThickness: 0.15,
-      });
-
-      // Setup click interactions for images
-      setupFrameInteractions(frames, (imageMetadata) => {
-        console.log("Image clicked:", imageMetadata);
-        setSelectedImage(imageMetadata);
-      });
-
-      // Setup click interactions for videos
-      setupScreenInteractions(videoScreens, (videoMetadata) => {
-        console.log("Video clicked:", videoMetadata);
-        setSelectedImage(videoMetadata);
-      });
-
-      // Setup scene pointer observable to handle clicks before camera
-      scene.onPointerObservable.add((pointerInfo) => {
-        if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN) {
-          const pickResult = pointerInfo.pickInfo;
-          if (pickResult.hit && pickResult.pickedMesh) {
-            const metadata = pickResult.pickedMesh.metadata;
-            if (
-              metadata &&
-              (metadata.type === "image" || metadata.type === "video")
-            ) {
-              console.log("Media picked via observable:", metadata.title);
-              // Prevent camera from handling this click
-              pointerInfo.event.preventDefault();
-              pointerInfo.event.stopPropagation();
-              setSelectedImage(metadata);
-            }
+    // Setup scene pointer observable to handle clicks before camera
+    scene.onPointerObservable.add((pointerInfo) => {
+      if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN) {
+        const pickResult = pointerInfo.pickInfo;
+        if (pickResult.hit && pickResult.pickedMesh) {
+          const metadata = pickResult.pickedMesh.metadata;
+          if (
+            metadata &&
+            (metadata.type === "image" || metadata.type === "video")
+          ) {
+            console.log("Media picked via observable:", metadata.title);
+            // Prevent camera from handling this click
+            pointerInfo.event.preventDefault();
+            pointerInfo.event.stopPropagation();
+            setSelectedImage(metadata);
           }
         }
-      });
-    } else {
-      console.warn("No media items in gallery data");
-    }
+      }
+    });
 
     // Enable proper clearing
     scene.autoClear = true;
@@ -267,7 +271,7 @@ export default function GalleryApp({
         });
 
         // Update all video screens
-        videoScreens.forEach((screen) => {
+        allVideoScreens.forEach((screen) => {
           const inFrustum =
             screen.screenPlane &&
             screen.screenPlane.isInFrustum(scene.frustumPlanes);
@@ -313,7 +317,7 @@ export default function GalleryApp({
 
     console.log("Gallery scene initialized successfully!");
     console.log(
-      `Gallery contains ${frames.length} images and ${videoScreens.length} videos`,
+      `Gallery contains ${allFrames.length} images and ${allVideoScreens.length} videos`,
     );
 
     // Cleanup function
@@ -323,22 +327,31 @@ export default function GalleryApp({
       engine.stopRenderLoop();
 
       // Pause all videos first
-      if (videoScreens.length > 0) {
-        pauseAllVideos(videoScreens);
-      }
+      allVideoScreens.forEach((screen) => {
+        if (screen.videoElement && !screen.videoElement.paused) {
+          screen.videoElement.pause();
+        }
+        if (screen.hls) {
+          screen.hls.destroy();
+        }
+      });
 
       // Dispose frames
-      if (frames.length > 0) {
-        disposeFrames(frames);
-      }
+      allFrames.forEach((frame) => {
+        if (frame.framePlane) frame.framePlane.dispose();
+        if (frame.frameBorder) {
+          frame.frameBorder.forEach((piece) => piece.dispose());
+        }
+      });
 
       // Dispose video screens
-      if (videoScreens.length > 0) {
-        disposeVideoScreens(videoScreens);
-      }
+      allVideoScreens.forEach((screen) => {
+        if (screen.parent) screen.parent.dispose();
+        if (screen.screenPlane) screen.screenPlane.dispose();
+      });
 
-      // Dispose room
-      disposeGalleryRoom(room);
+      // Dispose gallery
+      disposeGallery(gallery);
 
       // Dispose scene and engine
       scene.dispose();
@@ -559,7 +572,7 @@ export default function GalleryApp({
         cameraRef.current &&
         !selectedImage &&
         minimapVisible && (
-          <Minimap camera={cameraRef.current} roomWidth={20} roomDepth={20} />
+          <Minimap camera={cameraRef.current} roomWidth={30} roomDepth={30} />
         )}
 
       {/* Help Panel */}

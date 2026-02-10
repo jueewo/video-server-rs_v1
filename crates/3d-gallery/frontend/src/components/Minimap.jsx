@@ -2,6 +2,14 @@ import { useEffect, useRef } from "preact/hooks";
 
 /**
  * Minimap component - Shows top-down view of gallery with camera position
+ *
+ * The minimap uses a flipped Z axis (+Z = UP on canvas) so that:
+ * - Forward (camera facing +Z) points UP on the minimap
+ * - Turning right (D key, rotation.y increases) rotates the arrow clockwise
+ * - The arrow always matches the actual movement direction
+ *
+ * This compensates for Babylon.js's left-handed coordinate system where
+ * positive Y rotation is counterclockwise when viewed from above.
  */
 export function Minimap({ camera, gallery }) {
   const canvasRef = useRef(null);
@@ -41,6 +49,12 @@ export function Minimap({ camera, gallery }) {
     const scaleZ = availableHeight / totalDepth;
     const scale = Math.min(scaleX, scaleZ);
 
+    // Helper: map world X to canvas X (unchanged)
+    const toCanvasX = (worldX) => (worldX - minX) * scale + padding;
+
+    // Helper: map world Z to canvas Y (FLIPPED: +Z = UP on canvas)
+    const toCanvasY = (worldZ) => (maxZ - worldZ) * scale + padding;
+
     // Update minimap at 30fps
     const updateInterval = setInterval(() => {
       // Clear canvas
@@ -49,54 +63,100 @@ export function Minimap({ camera, gallery }) {
       // Draw all rooms
       gallery.rooms.forEach((room) => {
         const { position, dimensions, name } = room;
-        const roomX =
-          (position.x - dimensions.width / 2 - minX) * scale + padding;
-        const roomZ =
-          (position.z - dimensions.depth / 2 - minZ) * scale + padding;
+
+        // Room top-left corner in canvas space (flipped Z)
+        const roomX = toCanvasX(position.x - dimensions.width / 2);
+        const roomY = toCanvasY(position.z + dimensions.depth / 2);
         const roomWidth = dimensions.width * scale;
         const roomDepth = dimensions.depth * scale;
 
         // Draw room floor
         ctx.fillStyle = "rgba(100, 100, 100, 0.3)";
-        ctx.fillRect(roomX, roomZ, roomWidth, roomDepth);
+        ctx.fillRect(roomX, roomY, roomWidth, roomDepth);
 
         // Draw room outline
         ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
         ctx.lineWidth = 2;
-        ctx.strokeRect(roomX, roomZ, roomWidth, roomDepth);
+        ctx.strokeRect(roomX, roomY, roomWidth, roomDepth);
 
         // Draw room name
         ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
         ctx.font = "9px monospace";
-        ctx.fillText(name, roomX + 5, roomZ + 15);
+        ctx.fillText(name, roomX + 5, roomY + 15);
       });
 
-      // Draw doorways
+      // Draw doorways - orientation matches the wall direction
       gallery.doorways.forEach((doorway) => {
-        if (doorway) {
-          const doorX = (doorway.position.x - minX) * scale + padding;
-          const doorZ = (doorway.position.z - minZ) * scale + padding;
-          ctx.fillStyle = "rgba(100, 255, 100, 0.5)";
-          ctx.fillRect(doorX - 2, doorZ - 2, 4, 4);
+        if (doorway && doorway.width) {
+          const doorX = toCanvasX(doorway.position.x);
+          const doorY = toCanvasY(doorway.position.z);
+          const doorWidth = doorway.width * scale;
+
+          // Find which wall this doorway belongs to (closest match)
+          let isHorizontal = true; // default: wall runs along X axis
+          let closestDist = Infinity;
+
+          gallery.walls.forEach((wall) => {
+            if (wall.startPos && wall.endPos) {
+              const wallDX = Math.abs(wall.endPos.x - wall.startPos.x);
+              const wallDZ = Math.abs(wall.endPos.z - wall.startPos.z);
+
+              // Check if doorway is close to this wall's start position
+              const distX = Math.abs(doorway.position.x - wall.startPos.x);
+              const distZ = Math.abs(doorway.position.z - wall.startPos.z);
+              const totalDist = Math.min(distX, distZ);
+
+              if (totalDist < 2 && totalDist < closestDist) {
+                // This is the closest matching wall
+                closestDist = totalDist;
+                // Wall orientation: if wall runs along X, door is horizontal; if along Z, door is vertical
+                isHorizontal = wallDX > wallDZ;
+              }
+            }
+          });
+
+          // Draw doorway along the same direction as the wall
+          ctx.fillStyle = "rgba(100, 255, 100, 0.7)";
+          if (isHorizontal) {
+            ctx.fillRect(doorX - doorWidth / 2, doorY - 2, doorWidth, 4);
+          } else {
+            ctx.fillRect(doorX - 2, doorY - doorWidth / 2, 4, doorWidth);
+          }
+
+          // Add border for better visibility
+          ctx.strokeStyle = "rgba(150, 255, 150, 0.9)";
+          ctx.lineWidth = 1;
+          if (isHorizontal) {
+            ctx.strokeRect(doorX - doorWidth / 2, doorY - 2, doorWidth, 4);
+          } else {
+            ctx.strokeRect(doorX - 2, doorY - doorWidth / 2, 4, doorWidth);
+          }
         }
       });
 
-      // Draw camera position
-      const camX = (camera.position.x - minX) * scale + padding;
-      const camZ = (camera.position.z - minZ) * scale + padding;
+      // Draw camera position (flipped Z)
+      const camX = toCanvasX(camera.position.x);
+      const camY = toCanvasY(camera.position.z);
 
       // Camera direction indicator
-      const camRotY = camera.rotation.y + Math.PI;
+      // Babylon.js left-handed: forward = (sin(rotY), 0, cos(rotY))
+      // On flipped minimap (+Z = UP): canvasDir = (sin(rotY), -cos(rotY))
+      // This gives: rotY=0 → arrow points UP, D key (rotY increases) → clockwise rotation
+      const rotY = camera.rotation.y;
       const dirLength = 12;
-      const dirX = Math.sin(camRotY) * dirLength;
-      const dirZ = -Math.cos(camRotY) * dirLength;
+      const dirX = Math.sin(rotY) * dirLength;
+      const dirY = -Math.cos(rotY) * dirLength;
+
+      // Perpendicular vector for view cone (rotate 90°)
+      const perpX = -dirY * 0.6;
+      const perpY = dirX * 0.6;
 
       // Draw view cone
       ctx.fillStyle = "rgba(59, 130, 246, 0.3)";
       ctx.beginPath();
-      ctx.moveTo(camX, camZ);
-      ctx.lineTo(camX + dirX + 8, camZ + dirZ - 8);
-      ctx.lineTo(camX + dirX - 8, camZ + dirZ + 8);
+      ctx.moveTo(camX, camY);
+      ctx.lineTo(camX + dirX + perpX, camY + dirY + perpY);
+      ctx.lineTo(camX + dirX - perpX, camY + dirY - perpY);
       ctx.closePath();
       ctx.fill();
 
@@ -105,7 +165,7 @@ export function Minimap({ camera, gallery }) {
       ctx.strokeStyle = "white";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(camX, camZ, 5, 0, Math.PI * 2);
+      ctx.arc(camX, camY, 5, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
@@ -113,8 +173,8 @@ export function Minimap({ camera, gallery }) {
       ctx.strokeStyle = "white";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(camX, camZ);
-      ctx.lineTo(camX + dirX, camZ + dirZ);
+      ctx.moveTo(camX, camY);
+      ctx.lineTo(camX + dirX, camY + dirY);
       ctx.stroke();
 
       // Draw coordinates text

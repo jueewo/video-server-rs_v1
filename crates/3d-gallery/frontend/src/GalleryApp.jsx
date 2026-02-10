@@ -114,16 +114,38 @@ export default function GalleryApp({
     const galleryObj = createGalleryFromLayout(scene, demoLayout);
     setGallery(galleryObj);
 
+    // Create player avatar for shadow casting
+    const playerAvatar = BABYLON.MeshBuilder.CreateCylinder(
+      "playerAvatar",
+      { height: 1.6, diameter: 0.5 },
+      scene,
+    );
+    playerAvatar.position.y = 0.8; // Center at camera height
+    playerAvatar.isVisible = false; // Invisible but casts shadows
+
+    // Register player avatar with all shadow generators
+    galleryObj.shadowGenerators.forEach((shadowGen) => {
+      shadowGen.addShadowCaster(playerAvatar);
+    });
+
     // Set camera spawn point from layout
     if (demoLayout.spawn_point) {
       const spawn = demoLayout.spawn_point;
       camera.position = new BABYLON.Vector3(...spawn.position);
       camera.rotation = new BABYLON.Vector3(...spawn.rotation);
+      playerAvatar.position.x = spawn.position[0];
+      playerAvatar.position.z = spawn.position[2];
     }
 
+    // Make player avatar follow camera
+    scene.registerBeforeRender(() => {
+      playerAvatar.position.x = camera.position.x;
+      playerAvatar.position.z = camera.position.z;
+    });
+
     // Store ceiling references for dynamic transparency (first room's ceiling)
-    const ceiling = gallery.rooms[0]?.ceiling;
-    const ceilingHeight = gallery.rooms[0]?.dimensions.height || 4;
+    const ceiling = galleryObj.rooms[0]?.ceiling;
+    const ceilingHeight = galleryObj.rooms[0]?.dimensions.height || 4;
 
     // Prepare media items
     const mediaItems = galleryData.items.map((item) => ({
@@ -158,6 +180,7 @@ export default function GalleryApp({
         const frame = createImageFrame(scene, media, {
           position: slot.position,
           rotation: slot.rotation,
+          facingDirection: slot.facingDirection,
           width: slot.width,
           frameThickness: 0.12,
         });
@@ -181,6 +204,7 @@ export default function GalleryApp({
         const screen = createVideoScreen(scene, media, {
           position: slot.position,
           rotation: slot.rotation,
+          facingDirection: slot.facingDirection,
           width: slot.width,
           aspectRatio: 16 / 9,
           frameThickness: 0.15,
@@ -453,9 +477,14 @@ export default function GalleryApp({
 
       let moved = false;
 
-      // Get camera forward direction (already normalized)
+      // Get camera forward direction on XZ plane only (ignore vertical look)
       const forward = camera.getDirection(BABYLON.Axis.Z);
+      forward.y = 0; // Zero out vertical component
+      forward.normalize(); // Re-normalize after modification
+
       const right = camera.getDirection(BABYLON.Axis.X);
+      right.y = 0; // Zero out vertical component
+      right.normalize(); // Re-normalize after modification
 
       // Check gamepad input
       let gamepadForward = 0;
@@ -510,10 +539,8 @@ export default function GalleryApp({
         moved = true;
       }
 
-      // Keep camera at reasonable height (don't clamp X/Z to allow multi-room movement)
-      if (moved) {
-        camera.position.y = Math.max(1.5, Math.min(5, camera.position.y)); // Keep at eye level
-      }
+      // Keep camera at constant eye level height
+      camera.position.y = 1.8; // Fixed eye level height
     }, 16); // ~60fps
 
     window.addEventListener("keydown", handleKeyDown);

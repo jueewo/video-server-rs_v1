@@ -1,0 +1,465 @@
+{
+  "name": "Demo Multi-Room Gallery",
+  "description": "A three-room gallery with entrance hall, main gallery, and side exhibition room",
+  "version": "1.0",
+  "rooms": [
+    {
+      "id": "entrance_hall",
+      "name": "Entrance Hall",
+      "position": [0, 0, 0],
+      "dimensions": {
+        "width": 12,
+        "depth": 8,
+        "height": 4
+      },
+      "floor_color": [0.3, 0.25, 0.2],
+      "ceiling_color": [0.9, 0.9, 0.9],
+      "wall_color": [0.95, 0.95, 0.95],
+      "walls": [
+        {
+          "id": "entrance_north",
+          "name": "North Wall",
+          "start": [-6, 0, -4],
+          "end": [6, 0, -4],
+          "height": 4,
+          "slots": [
+            {
+              "id": "en1",
+              "offset": 3,
+              "height": 2,
+              "width": 2.5,
+              "size_type": "medium"
+            },
+            {
+              "id": "en2",
+              "offset": 9,
+              "height": 2,
+              "width": 2.5,
+              "size_type": "medium"
+            }
+          ]
+        },
+        {
+          "id": "entrance_south",
+          "name": "South Wall (with doorway to main gallery)",
+          "start": [-6, 0, 4],
+          "end": [6, 0, 4],
+          "height": 4,
+          "slots": [
+            {
+              "id": "es1",
+              "offset": 2,
+              "height": 2,
+              "width": 2,
+              "size_type": "small"
+            }
+          ],
+          "doorway": {
+            "offset": 6,
+            "width": 2.5,
+            "height": 3
+          }
+        },
+        {
+          "id": "entrance_east",
+          "name": "East Wall",
+          "start": [6, 0, -4],
+          "end": [6, 0, 4],
+          "height": 4,
+          "slots": [
+            {
+              "id": "ee1",
+              "offset": 2,
+              "height": 2,
+              "width": 2,
+              "size_type": "small"
+            },
+            {
+              "id": "ee2",
+              "offset": 6,
+              "height": 2,
+              "width": 2,
+              "size_type": "small"
+            }
+          ]
+        },
+        {
+          "id": "entrance_west",
+          "name": "West Wall",
+          "start": [-6, 0, -4],
+          "end": [-6, 0, 4],
+          "height": 4,
+          "slots": [
+            {
+              "id": "ew1",
+              "offset": 2,
+              "height": 1.8,
+              "width": 3.2,
+              "size_type": "video"
+            },
+            {
+              "id": "ew2",
+              "offset": 6,
+              "height": 1.8,
+              "width": 3.2,
+              "size_type": "video"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "main_gallery",
+      "name": "Main Gallery",
+      "position": [0, 0, 14],
+      "dimensions": {
+        "width": 20,
+        "depth": 20,
+        "height": 5
+      },
+      "floor_color": [0.25, 0.22, 0.18],
+      "ceiling_color": [0.95, 0.95, 0.95],
+      "wall_color": [0.98, 0.98, 0.98],
+      "walls": [
+        {
+          "id": "main_north",
+          "name": "North Wall (with doorway to entrance)",
+          "start": [-10, 0, 4],
+          "end": [10, 0, 4],
+          "height": 5,
+          "slots": [
+            {
+              "id": "mn1",
+              "offset": 2,
+              "height": 2.5,
+              "width": 3,
+              "size_type": "large"
+            },
+            {
+              "id": "mn2",
+              "offset": 7,
+              "height": 2.5,
+              "width": 2.5,
+              "size_type": "medium"
+            },
+            {
+              "id": "mn3",
+              "offset": 11,
+              "height": 2.5,
+              "width": 2.5,
+              "size_type": "medium"
+            },
+            {
+              "id": "mn4",
+              "offset": 16,
+              "height": 2.5,
+              "width": 3,
+              "size_type": "large"
+            }
+          ],
+          "doorway": {
+            "offset": 10,
+            "width": 2.5,
+            "height": 3
+          }
+        },
+        {
+          "id": "main_south",
+          "name": "South Wall",
+          "start": [-10, 0, 24],
+          "end": [10, 0, 24],
+          "height": 5,
+          "slots": [
+            {
+              "id": "ms1",
+              "offset": 3,
+              "height": 2.2,
+              "width": 3.8,
+              "size_type": "video"
+            },
+            {
+              "id": "ms2",
+              "offset": 10,
+              "height": 2.2,
+              "width": 3.8,
+              "size_type": "video"
+            },
+            {
+              "id": "ms3",
+              "offset": 17,
+              "height": 2.2,
+              "width": 3.8,
+              "size_type": "video"
+            }
+          ]
+        },
+        {
+          "id": "main_east",
+          "name": "East Wall (with doorway to side room)",
+          "start": [10, 0, 4],
+          "end": [10, 0, 24],
+          "height": 5,
+          "slots": [
+            {
+              "id": "me1",
+              "offset": 3,
+              "height": 2.5,
+              "width": 2.5,
+              "size_type": "medium"
+            },
+            {
+              "id": "me2",
+              "offset": 9,
+              "height": 2.5,
+              "width": 2.5,
+              "size_type": "medium"
+            },
+            {
+              "id": "me3",
+              "offset": 17,
+              "height": 2.5,
+              "width": 2.5,
+              "size_type": "medium"
+            }
+          ],
+          "doorway": {
+            "offset": 10,
+            "width": 2.5,
+            "height": 3
+          }
+        },
+        {
+          "id": "main_west",
+          "name": "West Wall",
+          "start": [-10, 0, 4],
+          "end": [-10, 0, 24],
+          "height": 5,
+          "slots": [
+            {
+              "id": "mw1",
+              "offset": 2,
+              "height": 3,
+              "width": 3.5,
+              "size_type": "large"
+            },
+            {
+              "id": "mw2",
+              "offset": 7,
+              "height": 2,
+              "width": 2,
+              "size_type": "small"
+            },
+            {
+              "id": "mw3",
+              "offset": 11,
+              "height": 2,
+              "width": 2,
+              "size_type": "small"
+            },
+            {
+              "id": "mw4",
+              "offset": 15,
+              "height": 3,
+              "width": 3.5,
+              "size_type": "large"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "side_exhibition",
+      "name": "Side Exhibition Room",
+      "position": [20, 0, 14],
+      "dimensions": {
+        "width": 10,
+        "depth": 12,
+        "height": 4
+      },
+      "floor_color": [0.2, 0.2, 0.25],
+      "ceiling_color": [0.85, 0.85, 0.9],
+      "wall_color": [0.92, 0.92, 0.95],
+      "walls": [
+        {
+          "id": "side_north",
+          "name": "North Wall",
+          "start": [15, 0, 8],
+          "end": [25, 0, 8],
+          "height": 4,
+          "slots": [
+            {
+              "id": "sn1",
+              "offset": 2,
+              "height": 2,
+              "width": 3,
+              "size_type": "medium"
+            },
+            {
+              "id": "sn2",
+              "offset": 7,
+              "height": 2,
+              "width": 3,
+              "size_type": "medium"
+            }
+          ]
+        },
+        {
+          "id": "side_south",
+          "name": "South Wall",
+          "start": [15, 0, 20],
+          "end": [25, 0, 20],
+          "height": 4,
+          "slots": [
+            {
+              "id": "ss1",
+              "offset": 3,
+              "height": 1.8,
+              "width": 3.2,
+              "size_type": "video"
+            },
+            {
+              "id": "ss2",
+              "offset": 7,
+              "height": 1.8,
+              "width": 3.2,
+              "size_type": "video"
+            }
+          ]
+        },
+        {
+          "id": "side_east",
+          "name": "East Wall",
+          "start": [25, 0, 8],
+          "end": [25, 0, 20],
+          "height": 4,
+          "slots": [
+            {
+              "id": "se1",
+              "offset": 2,
+              "height": 2.5,
+              "width": 2.5,
+              "size_type": "medium"
+            },
+            {
+              "id": "se2",
+              "offset": 6,
+              "height": 2.5,
+              "width": 2.5,
+              "size_type": "medium"
+            },
+            {
+              "id": "se3",
+              "offset": 10,
+              "height": 2.5,
+              "width": 2.5,
+              "size_type": "medium"
+            }
+          ]
+        },
+        {
+          "id": "side_west",
+          "name": "West Wall (with doorway to main gallery)",
+          "start": [15, 0, 8],
+          "end": [15, 0, 20],
+          "height": 4,
+          "slots": [
+            {
+              "id": "sw1",
+              "offset": 2,
+              "height": 2,
+              "width": 2,
+              "size_type": "small"
+            },
+            {
+              "id": "sw2",
+              "offset": 10,
+              "height": 2,
+              "width": 2,
+              "size_type": "small"
+            }
+          ],
+          "doorway": {
+            "offset": 6,
+            "width": 2.5,
+            "height": 3
+          }
+        }
+      ]
+    }
+  ],
+  "media_mapping": {
+    "en1": {
+      "media_id": 1,
+      "type": "image"
+    },
+    "en2": {
+      "media_id": 2,
+      "type": "image"
+    },
+    "es1": {
+      "media_id": 3,
+      "type": "image"
+    },
+    "ee1": {
+      "media_id": 4,
+      "type": "image"
+    },
+    "ee2": {
+      "media_id": 5,
+      "type": "image"
+    },
+    "ew1": {
+      "media_id": 1,
+      "type": "video"
+    },
+    "ew2": {
+      "media_id": 2,
+      "type": "video"
+    },
+    "mn1": null,
+    "mn2": null,
+    "mn3": null,
+    "mn4": null,
+    "ms1": {
+      "media_id": 3,
+      "type": "video"
+    },
+    "ms2": {
+      "media_id": 4,
+      "type": "video"
+    },
+    "ms3": {
+      "media_id": 5,
+      "type": "video"
+    },
+    "me1": null,
+    "me2": null,
+    "me3": null,
+    "mw1": null,
+    "mw2": null,
+    "mw3": null,
+    "mw4": null,
+    "sn1": null,
+    "sn2": null,
+    "ss1": null,
+    "ss2": null,
+    "se1": null,
+    "se2": null,
+    "se3": null,
+    "sw1": null,
+    "sw2": null
+  },
+  "spawn_point": {
+    "position": [0, 1.8, -2],
+    "rotation": [0, 0, 0],
+    "room_id": "entrance_hall"
+  },
+  "lighting": {
+    "ambient": {
+      "intensity": 0.5,
+      "color": [1, 1, 0.98]
+    },
+    "spotlights_per_room": 4,
+    "spotlight_intensity": 0.4
+  }
+}

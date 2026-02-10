@@ -18,11 +18,6 @@ function createPlayButtonOverlay(scene, width, height, videoId, rotation) {
     scene,
   );
 
-  // Check if the screen is rotated 180 degrees (π radians) on Y axis
-  const isRotated180 =
-    Math.abs(rotation.y - Math.PI) < 0.1 ||
-    Math.abs(rotation.y + Math.PI) < 0.1;
-
   // Create canvas for play button
   const canvas = document.createElement("canvas");
   canvas.width = 512;
@@ -315,9 +310,7 @@ export function createVideoScreen(scene, videoData, options = {}) {
   // Video texture will be created lazily when video first plays
   let videoTexture = null;
 
-  console.log(
-    `Video ${videoData.title} - Rotation Y: ${rotation.y}, Flipped: ${isRotated180}`,
-  );
+  console.log(`Video ${videoData.title} - Rotation Y: ${rotation.y}`);
 
   // Create screen material - START with poster texture
   const screenMaterial = new BABYLON.StandardMaterial(

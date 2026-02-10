@@ -35,20 +35,12 @@ function createPlayButtonOverlay(scene, width, height, videoId, rotation) {
   ctx.arc(256, 256, 200, 0, Math.PI * 2);
   ctx.fill();
 
-  // Draw white play triangle - mirror direction for 180° walls
+  // Draw white play triangle (pointing right)
   ctx.fillStyle = "white";
   ctx.beginPath();
-  if (isRotated180) {
-    // Mirrored triangle (pointing left)
-    ctx.moveTo(312, 150);
-    ctx.lineTo(312, 362);
-    ctx.lineTo(142, 256);
-  } else {
-    // Normal triangle (pointing right)
-    ctx.moveTo(200, 150);
-    ctx.lineTo(200, 362);
-    ctx.lineTo(370, 256);
-  }
+  ctx.moveTo(200, 150);
+  ctx.lineTo(200, 362);
+  ctx.lineTo(370, 256);
   ctx.closePath();
   ctx.fill();
 
@@ -81,9 +73,10 @@ function createPlayButtonOverlay(scene, width, height, videoId, rotation) {
   overlayMaterial.zOffset = -10;
 
   overlayPlane.material = overlayMaterial;
-  overlayPlane.renderingGroupId = 3; // Render after everything else
+  overlayPlane.renderingGroupId = 0; // Same group as walls so depth testing occludes properly
   overlayPlane.isPickable = false; // Don't block clicks to video
   overlayPlane.alwaysSelectAsActiveMesh = true;
+  overlayMaterial.zOffset = 0; // Remove z-offset that causes bleeding
 
   return overlayPlane;
 }
@@ -133,7 +126,7 @@ function createProgressBarOverlay(scene, width, videoId, rotation) {
   progressMaterial.transparencyMode = BABYLON.Material.MATERIAL_ALPHABLEND;
 
   barPlane.material = progressMaterial;
-  barPlane.renderingGroupId = 2; // Render on top of video
+  barPlane.renderingGroupId = 0; // Same group as walls so depth testing occludes properly
   barPlane.isPickable = false;
 
   return { plane: barPlane, texture: progressTexture, canvas, isRotated180 };
@@ -188,6 +181,7 @@ export function createVideoScreen(scene, videoData, options = {}) {
   const {
     position = new BABYLON.Vector3(0, 2, -5),
     rotation = new BABYLON.Vector3(0, 0, 0),
+    facingDirection = null,
     width = 3.2,
     aspectRatio = 16 / 9,
     frameThickness = 0.15,
@@ -203,7 +197,15 @@ export function createVideoScreen(scene, videoData, options = {}) {
     scene,
   );
   screenParent.position = position;
-  screenParent.rotation = rotation;
+
+  // Compute rotation so that local -Z points toward room (into the room)
+  // For a plane with normal (0,0,-1), rotation.y = atan2(-fx, -fz) makes it face (fx, 0, fz)
+  if (facingDirection) {
+    const rotY = Math.atan2(-facingDirection.x, -facingDirection.z);
+    screenParent.rotation = new BABYLON.Vector3(0, rotY, 0);
+  } else {
+    screenParent.rotation = rotation;
+  }
 
   // Create HTML5 video element
   const videoElement = document.createElement("video");
@@ -300,14 +302,17 @@ export function createVideoScreen(scene, videoData, options = {}) {
 
   console.log(`Created video element for: ${videoData.title}`);
 
-  // Create the video plane
+  // Create the video plane as child of screenParent
+  // Frame borders at local z = -0.025 are correctly inside room,
+  // so screen at local z = -0.01 will also be inside room.
+  // FRONTSIDE: visible face normal is local -Z, which points toward room center.
   const screenPlane = BABYLON.MeshBuilder.CreatePlane(
     `videoPlane_${videoData.id}`,
-    { width, height, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
+    { width, height, sideOrientation: BABYLON.Mesh.FRONTSIDE },
     scene,
   );
   screenPlane.parent = screenParent;
-  screenPlane.position.z = 0.01; // Slight offset from frame
+  screenPlane.position.z = -0.01; // Same side as frame borders (local -Z = toward room)
 
   // Video orientation - flip horizontally for 180° rotated walls (South wall)
   // Check if the screen is rotated 180 degrees (π radians) on Y axis
@@ -321,8 +326,8 @@ export function createVideoScreen(scene, videoData, options = {}) {
   console.log(`Loading thumbnail for ${videoData.title}:`, thumbnailUrl);
 
   const posterTexture = new BABYLON.Texture(thumbnailUrl, scene);
-  posterTexture.vScale = 1;
-  posterTexture.uScale = isRotated180 ? -1 : 1;
+  posterTexture.vScale = 1; // No vertical flip needed for video thumbnails
+  posterTexture.uScale = 1; // No horizontal flip needed - orientation is correct
 
   // Debug: Check if texture loaded successfully
   posterTexture.onLoadObservable.add(() => {
@@ -342,10 +347,15 @@ export function createVideoScreen(scene, videoData, options = {}) {
     scene,
   );
   screenMaterial.diffuseTexture = posterTexture;
-  screenMaterial.emissiveTexture = posterTexture;
-  screenMaterial.emissiveColor = new BABYLON.Color3(0.8, 0.8, 0.8);
+  // No emissive texture - prevents bleeding through walls
+  screenMaterial.emissiveColor = new BABYLON.Color3(0, 0, 0); // No emissive
   screenMaterial.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
-  screenMaterial.backFaceCulling = false;
+  screenMaterial.backFaceCulling = true; // Only render front side (faces into room)
+  screenMaterial.disableDepthWrite = false;
+  screenMaterial.transparencyMode = BABYLON.Material.MATERIAL_OPAQUE;
+
+  // Small z-offset to prevent z-fighting with walls
+  screenMaterial.zOffset = 1;
 
   console.log(`Material created for ${videoData.title}:`, {
     diffuseTexture: screenMaterial.diffuseTexture?.name,
@@ -354,7 +364,8 @@ export function createVideoScreen(scene, videoData, options = {}) {
   });
 
   screenPlane.material = screenMaterial;
-  screenPlane.renderingGroupId = 1;
+  screenPlane.renderingGroupId = 0; // Same group as walls so depth testing occludes properly
+  screenPlane.checkCollisions = false;
 
   // Switch from poster to video texture when video starts playing
   videoElement.addEventListener("playing", () => {
@@ -398,7 +409,7 @@ export function createVideoScreen(scene, videoData, options = {}) {
   playButtonOverlay.parent = screenParent;
   playButtonOverlay.position.x = 0;
   playButtonOverlay.position.y = 0;
-  playButtonOverlay.position.z = 0.2; // Well in front of video plane
+  playButtonOverlay.position.z = -0.02; // In front of video plane (local -Z = toward room)
   playButtonOverlay.isVisible = true; // Always show initially
   playButtonOverlay.setEnabled(true); // Ensure it's enabled
 
@@ -420,7 +431,7 @@ export function createVideoScreen(scene, videoData, options = {}) {
   );
   progressBar.plane.parent = screenParent;
   progressBar.plane.position.y = -height / 2 - 0.1; // Below screen
-  progressBar.plane.position.z = 0.05;
+  progressBar.plane.position.z = -0.03; // In front of video plane (local -Z = toward room)
   progressBar.plane.isVisible = false; // Hidden until video plays
 
   // Update progress bar periodically

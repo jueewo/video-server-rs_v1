@@ -25,6 +25,7 @@ export function createGalleryFromLayout(scene, layout) {
     slots: [],
     doorways: [],
     lights: [],
+    shadowGenerators: [],
   };
 
   // Create each room
@@ -35,6 +36,9 @@ export function createGalleryFromLayout(scene, layout) {
     gallery.slots.push(...room.slots);
     gallery.doorways.push(...room.doorways);
     gallery.lights.push(...room.lights);
+    if (room.shadowGenerator) {
+      gallery.shadowGenerators.push(room.shadowGenerator);
+    }
   });
 
   console.log(
@@ -52,16 +56,15 @@ export function createGalleryFromLayout(scene, layout) {
  * @returns {Object} Room structure
  */
 function createRoom(scene, roomConfig) {
-  const { id, name, position, dimensions, floor_color, ceiling_color } =
-    roomConfig;
-  const [x, y, z] = position;
+  const { id, name, floor_color, ceiling_color, height } = roomConfig;
+  const dimensions = roomConfig.dimensions || { height: height || 4 };
 
-  console.log(`Creating room: ${name} at position [${x}, ${y}, ${z}]`);
+  console.log(`Creating room: ${name}`);
 
   const room = {
     id,
     name,
-    position: new BABYLON.Vector3(x, y, z),
+    position: null, // Will be calculated from wall boundaries
     dimensions,
     floor: null,
     ceiling: null,
@@ -69,36 +72,100 @@ function createRoom(scene, roomConfig) {
     slots: [],
     doorways: [],
     lights: [],
+    shadowGenerator: null,
   };
 
-  // Create floor
+  // Calculate actual room center from wall boundaries
+  let minX = Infinity,
+    maxX = -Infinity;
+  let minZ = Infinity,
+    maxZ = -Infinity;
+
+  roomConfig.walls.forEach((wall) => {
+    const [startX, startY, startZ] = wall.start;
+    const [endX, endY, endZ] = wall.end;
+    minX = Math.min(minX, startX, endX);
+    maxX = Math.max(maxX, startX, endX);
+    minZ = Math.min(minZ, startZ, endZ);
+    maxZ = Math.max(maxZ, startZ, endZ);
+  });
+
+  const actualCenterX = (minX + maxX) / 2;
+  const actualCenterZ = (minZ + maxZ) / 2;
+  const actualWidth = maxX - minX;
+  const actualDepth = maxZ - minZ;
+  const roomHeight = dimensions.height || height || 4;
+
+  console.log(
+    `  Actual bounds: X[${minX},${maxX}] Z[${minZ},${maxZ}] center=[${actualCenterX},${actualCenterZ}]`,
+  );
+
+  // Store calculated room center
+  room.position = new BABYLON.Vector3(actualCenterX, 0, actualCenterZ);
+  room.dimensions = {
+    width: actualWidth,
+    depth: actualDepth,
+    height: roomHeight,
+  };
+
+  // Create floor at actual position
   room.floor = createFloor(
     scene,
-    roomConfig,
-    new BABYLON.Vector3(x, y, z),
+    {
+      ...roomConfig,
+      dimensions: room.dimensions,
+    },
+    new BABYLON.Vector3(actualCenterX, 0, actualCenterZ),
     floor_color,
   );
 
-  // Create ceiling
+  // Create ceiling at actual position
   room.ceiling = createCeiling(
     scene,
-    roomConfig,
-    new BABYLON.Vector3(x, y + dimensions.height, z),
+    {
+      ...roomConfig,
+      dimensions: room.dimensions,
+    },
+    new BABYLON.Vector3(actualCenterX, roomHeight, actualCenterZ),
     ceiling_color,
   );
 
-  // Create walls with slots
+  // Create walls with slots - pass calculated center
   roomConfig.walls.forEach((wallConfig) => {
-    const wallData = createWall(scene, roomConfig, wallConfig);
+    const wallData = createWall(
+      scene,
+      roomConfig,
+      wallConfig,
+      actualCenterX,
+      actualCenterZ,
+      roomHeight,
+    );
     room.walls.push(wallData.wall);
     room.slots.push(...wallData.slots);
-    if (wallData.doorway) {
-      room.doorways.push(wallData.doorway);
-    }
   });
 
-  // Create lighting for the room
-  room.lights = createRoomLighting(scene, roomConfig);
+  // Create lighting for the room with calculated dimensions
+  const lightingResult = createRoomLighting(
+    scene,
+    roomConfig,
+    actualCenterX,
+    actualCenterZ,
+    actualWidth,
+    actualDepth,
+    roomHeight,
+  );
+  room.lights = lightingResult.lights;
+  room.shadowGenerator = lightingResult.shadowGenerator;
+
+  // Make walls and floor receive shadows
+  room.walls.forEach((wall) => {
+    wall.segments.forEach((segment) => {
+      segment.receiveShadows = true;
+    });
+  });
+  if (room.floor) {
+    room.floor.receiveShadows = true;
+  }
 
   return room;
 }
@@ -125,6 +192,7 @@ function createFloor(scene, roomConfig, position, color) {
   floor.material = floorMaterial;
   floor.position = new BABYLON.Vector3(position.x, position.y, position.z);
   floor.receiveShadows = true;
+  floor.renderingGroupId = 0; // Same group as walls
 
   return floor;
 }
@@ -153,15 +221,24 @@ function createCeiling(scene, roomConfig, position, color) {
   ceiling.material = ceilingMaterial;
   ceiling.position = position;
   ceiling.rotation.x = Math.PI / 2;
+  ceiling.renderingGroupId = 0; // Same group as walls
 
   return ceiling;
 }
 
 /**
- * Create a wall with slots and optional doorway
+ * Create a wall segment with slots (no doorway splitting - walls are pre-split in JSON)
  */
-function createWall(scene, roomConfig, wallConfig) {
-  const { id, name, start, end, height, slots, doorway } = wallConfig;
+function createWall(
+  scene,
+  roomConfig,
+  wallConfig,
+  roomCenterX,
+  roomCenterZ,
+  roomHeight,
+) {
+  const { id, name, start, end, slots } = wallConfig;
+  const height = roomHeight;
 
   // Calculate wall parameters
   const startPos = new BABYLON.Vector3(...start);
@@ -171,71 +248,53 @@ function createWall(scene, roomConfig, wallConfig) {
   const wallCenter = BABYLON.Vector3.Lerp(startPos, endPos, 0.5);
   wallCenter.y = height / 2;
 
-  // Calculate wall rotation (facing inward)
+  // Calculate wall rotation to face inward toward room center
   const wallDirection = wallVector.normalize();
-  const angle = Math.atan2(wallDirection.x, wallDirection.z);
+  const roomCenter = new BABYLON.Vector3(roomCenterX, 0, roomCenterZ);
 
-  // Create wall segments (if doorway exists, split the wall)
-  const wallSegments = [];
-  const wallMaterial = new BABYLON.StandardMaterial(
-    `wallMat_${id}`,
-    scene,
+  // Vector from wall center to room center
+  const toRoomCenter = roomCenter.subtract(wallCenter);
+  toRoomCenter.y = 0; // Only consider horizontal direction
+
+  // Calculate the normal direction (perpendicular to wall)
+  // Cross product of wall direction with up vector gives the normal
+  const normal = BABYLON.Vector3.Cross(
+    wallDirection,
+    new BABYLON.Vector3(0, 1, 0),
   );
+
+  // Check if normal points toward room center, if not flip it
+  const dotProduct = BABYLON.Vector3.Dot(normal, toRoomCenter);
+  const facingDirection = dotProduct > 0 ? normal : normal.scale(-1);
+
+  // Calculate angle from the facing direction
+  const angle = Math.atan2(facingDirection.x, facingDirection.z);
+
+  console.log(
+    `Creating wall ${id}: start=[${startPos.x},${startPos.y},${startPos.z}] end=[${endPos.x},${endPos.y},${endPos.z}] center=[${wallCenter.x},${wallCenter.y},${wallCenter.z}] length=${wallLength} angle=${angle} (${(angle * 180) / Math.PI}°)`,
+  );
+
+  // Create single wall segment (walls are pre-split in JSON)
+  const wallMaterial = new BABYLON.StandardMaterial(`wallMat_${id}`, scene);
   wallMaterial.diffuseColor = new BABYLON.Color3(...roomConfig.wall_color);
   wallMaterial.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
   wallMaterial.backFaceCulling = false;
+  wallMaterial.alpha = 1.0; // Fully opaque
+  wallMaterial.transparencyMode = BABYLON.Material.MATERIAL_OPAQUE;
 
-  if (doorway) {
-    // Create wall segments around doorway
-    const doorwayStart = doorway.offset - doorway.width / 2;
-    const doorwayEnd = doorway.offset + doorway.width / 2;
+  const segment = createWallSegment(
+    scene,
+    id,
+    startPos,
+    wallDirection,
+    wallLength,
+    height,
+    wallMaterial,
+    angle,
+  );
+  const wallSegments = [segment];
 
-    // Left segment
-    if (doorwayStart > 0.1) {
-      const leftSegment = createWallSegment(
-        scene,
-        `${id}_left`,
-        startPos,
-        wallDirection,
-        doorwayStart,
-        height,
-        wallMaterial,
-        angle,
-      );
-      wallSegments.push(leftSegment);
-    }
-
-    // Right segment
-    if (doorwayEnd < wallLength - 0.1) {
-      const rightStartPos = startPos.add(wallDirection.scale(doorwayEnd));
-      const rightSegment = createWallSegment(
-        scene,
-        `${id}_right`,
-        rightStartPos,
-        wallDirection,
-        wallLength - doorwayEnd,
-        height,
-        wallMaterial,
-        angle,
-      );
-      wallSegments.push(rightSegment);
-    }
-  } else {
-    // Single wall segment
-    const segment = createWallSegment(
-      scene,
-      id,
-      startPos,
-      wallDirection,
-      wallLength,
-      height,
-      wallMaterial,
-      angle,
-    );
-    wallSegments.push(segment);
-  }
-
-  // Create slot positions
+  // Create slot positions - pass wall perpendicular direction so images face inward
   const slotPositions = slots.map((slot) => {
     return calculateSlotPosition(
       startPos,
@@ -243,6 +302,7 @@ function createWall(scene, roomConfig, wallConfig) {
       angle,
       slot,
       height,
+      facingDirection,
     );
   });
 
@@ -258,14 +318,6 @@ function createWall(scene, roomConfig, wallConfig) {
       length: wallLength,
     },
     slots: slotPositions,
-    doorway: doorway
-      ? {
-          id: `doorway_${id}`,
-          position: startPos.add(wallDirection.scale(doorway.offset)),
-          width: doorway.width,
-          height: doorway.height,
-        }
-      : null,
   };
 }
 
@@ -295,6 +347,7 @@ function createWallSegment(
   segment.rotation.y = angle;
   segment.material = material;
   segment.receiveShadows = true;
+  segment.renderingGroupId = 0; // Walls in group 0, images in group 1
 
   return segment;
 }
@@ -302,27 +355,35 @@ function createWallSegment(
 /**
  * Calculate the 3D position for a media slot
  */
-function calculateSlotPosition(startPos, wallDirection, wallAngle, slot, wallHeight) {
+function calculateSlotPosition(
+  startPos,
+  wallDirection,
+  wallAngle,
+  slot,
+  wallHeight,
+  wallFacingDirection,
+) {
   const { id, offset, height, width, size_type } = slot;
 
   // Calculate position along the wall
   const slotCenter = startPos.add(wallDirection.scale(offset));
   slotCenter.y = height; // This is the height parameter from slot config
 
-  // Calculate the normal (perpendicular to wall, pointing inward)
-  const normal = new BABYLON.Vector3(
-    Math.cos(wallAngle),
-    0,
-    -Math.sin(wallAngle),
-  );
+  // Use wall perpendicular direction (always exactly perpendicular to wall surface)
+  const facingDir = wallFacingDirection.clone();
 
-  // Position slightly in front of the wall
-  const slotPosition = slotCenter.add(normal.scale(0.05));
+  // Position in front of the wall toward room center
+  const slotPosition = slotCenter.add(facingDir.scale(0.15));
+
+  console.log(
+    `📍 Slot ${id}: wall=[${slotCenter.x.toFixed(2)}, ${slotCenter.y.toFixed(2)}, ${slotCenter.z.toFixed(2)}], facingDir=[${facingDir.x.toFixed(2)}, ${facingDir.z.toFixed(2)}], final=[${slotPosition.x.toFixed(2)}, ${slotPosition.y.toFixed(2)}, ${slotPosition.z.toFixed(2)}]`,
+  );
 
   return {
     id,
     position: slotPosition,
     rotation: new BABYLON.Vector3(0, wallAngle, 0),
+    facingDirection: facingDir,
     width,
     height,
     size_type,
@@ -333,55 +394,53 @@ function calculateSlotPosition(startPos, wallDirection, wallAngle, slot, wallHei
 /**
  * Create lighting for a room
  */
-function createRoomLighting(scene, roomConfig) {
+function createRoomLighting(
+  scene,
+  roomConfig,
+  centerX,
+  centerZ,
+  width,
+  depth,
+  height,
+) {
   const lights = [];
-  const { position, dimensions } = roomConfig;
-  const [x, y, z] = position;
-  const { width, depth, height } = dimensions;
 
-  // Ambient light for the room
+  const x = centerX;
+  const y = 0;
+  const z = centerZ;
+
+  // Bright ambient light for overall illumination
   const ambient = new BABYLON.HemisphericLight(
     `ambient_${roomConfig.id}`,
     new BABYLON.Vector3(0, 1, 0),
     scene,
   );
-  ambient.intensity = 0.5;
+  ambient.intensity = 0.7;
   ambient.diffuse = new BABYLON.Color3(1, 1, 0.98);
   lights.push(ambient);
 
-  // Directional light from above
+  // Main directional light for shadow casting
   const mainLight = new BABYLON.DirectionalLight(
     `main_${roomConfig.id}`,
-    new BABYLON.Vector3(0.5, -1, 0.3),
+    new BABYLON.Vector3(0.3, -1, 0.2),
     scene,
   );
-  mainLight.position = new BABYLON.Vector3(x, y + height * 0.8, z);
-  mainLight.intensity = 0.6;
+  mainLight.position = new BABYLON.Vector3(x, y + height * 0.9, z);
+  mainLight.intensity = 0.8;
+
+  // Enable shadows for this light
+  const shadowGenerator = new BABYLON.ShadowGenerator(1024, mainLight);
+  shadowGenerator.useBlurExponentialShadowMap = true;
+  shadowGenerator.blurScale = 2;
+  shadowGenerator.setDarkness(0.3);
+  shadowGenerator.usePoissonSampling = true;
+
   lights.push(mainLight);
 
-  // Spotlights at corners
-  const spotlightPositions = [
-    new BABYLON.Vector3(x + width * 0.3, y + height * 0.9, z + depth * 0.3),
-    new BABYLON.Vector3(x - width * 0.3, y + height * 0.9, z + depth * 0.3),
-    new BABYLON.Vector3(x + width * 0.3, y + height * 0.9, z - depth * 0.3),
-    new BABYLON.Vector3(x - width * 0.3, y + height * 0.9, z - depth * 0.3),
-  ];
-
-  spotlightPositions.forEach((pos, index) => {
-    const spotlight = new BABYLON.SpotLight(
-      `spot_${roomConfig.id}_${index}`,
-      pos,
-      new BABYLON.Vector3(0, -1, 0),
-      Math.PI / 3,
-      2,
-      scene,
-    );
-    spotlight.intensity = 0.4;
-    spotlight.diffuse = new BABYLON.Color3(1, 0.98, 0.95);
-    lights.push(spotlight);
-  });
-
-  return lights;
+  return {
+    lights,
+    shadowGenerator,
+  };
 }
 
 /**

@@ -19,6 +19,7 @@ export function createImageFrame(scene, imageData, options = {}) {
   const {
     position = new BABYLON.Vector3(0, 2, -5),
     rotation = new BABYLON.Vector3(0, 0, 0),
+    facingDirection = null,
     width = 2,
     aspectRatio = 16 / 9,
     frameThickness = 0.1,
@@ -30,16 +31,39 @@ export function createImageFrame(scene, imageData, options = {}) {
   // Create parent node for the entire frame
   const frameParent = new BABYLON.TransformNode(`frame_${imageData.id}`, scene);
   frameParent.position = position;
-  frameParent.rotation = rotation;
 
-  // Create the image plane (double-sided to ensure visibility)
+  // Compute rotation so that local -Z points toward room (into the room)
+  // For a plane with normal (0,0,-1), rotation.y = atan2(-fx, -fz) makes it face (fx, 0, fz)
+  if (facingDirection) {
+    const rotY = Math.atan2(-facingDirection.x, -facingDirection.z);
+    frameParent.rotation = new BABYLON.Vector3(0, rotY, 0);
+  } else {
+    frameParent.rotation = rotation;
+  }
+
+  console.log(`🖼️ Creating image plane for ${imageData.title}:`);
+  console.log(
+    `   Position: [${position.x.toFixed(2)}, ${position.y.toFixed(2)}, ${position.z.toFixed(2)}]`,
+  );
+  console.log(
+    `   FacingDir: [${facingDirection ? facingDirection.x.toFixed(2) : "?"}, ${facingDirection ? facingDirection.z.toFixed(2) : "?"}]`,
+  );
+
+  // Create the image plane as child of frameParent
+  // Frame borders at local z = -0.025 are correctly inside room,
+  // so image at local z = -0.01 will also be inside room.
+  // FRONTSIDE: visible face normal is local -Z, which points toward room center.
   const imagePlane = BABYLON.MeshBuilder.CreatePlane(
     `image_${imageData.id}`,
-    { width, height, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
+    { width, height, sideOrientation: BABYLON.Mesh.FRONTSIDE },
     scene,
   );
   imagePlane.parent = frameParent;
-  imagePlane.position.z = 0.01; // Slight offset from frame
+  imagePlane.position.z = -0.01; // Same side as frame borders (local -Z = toward room)
+
+  console.log(
+    `   FrameParent rotation.y: ${frameParent.rotation.y.toFixed(2)} (${((frameParent.rotation.y * 180) / Math.PI).toFixed(1)}°)`,
+  );
 
   // Create image material with texture
   const imageMaterial = new BABYLON.StandardMaterial(
@@ -81,16 +105,31 @@ export function createImageFrame(scene, imageData, options = {}) {
 
   texture.hasAlpha = false;
   texture.vScale = -1; // Flip vertically to correct upside-down images
-  texture.uScale = -1; // Flip horizontally to correct mirroring
+  texture.uScale = 1; // No horizontal flip needed - orientation is correct
 
   imageMaterial.diffuseTexture = texture;
+  // No emissive texture - prevents bleeding through walls
   imageMaterial.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
-  imageMaterial.emissiveColor = new BABYLON.Color3(0.15, 0.15, 0.15); // Slight glow for visibility
-  imageMaterial.backFaceCulling = false; // Render both sides
+  imageMaterial.emissiveColor = new BABYLON.Color3(0, 0, 0); // No emissive
+  imageMaterial.backFaceCulling = true; // Only render front side (faces into room)
   imageMaterial.alphaMode = BABYLON.Engine.ALPHA_DISABLE;
+  imageMaterial.disableDepthWrite = false;
+  imageMaterial.transparencyMode = BABYLON.Material.MATERIAL_OPAQUE;
+
+  // Small z-offset to prevent z-fighting with walls
+  imageMaterial.zOffset = 1;
 
   imagePlane.material = imageMaterial;
-  imagePlane.renderingGroupId = 1; // Render after walls
+  imagePlane.renderingGroupId = 0; // Same group as walls so depth testing occludes properly
+  imagePlane.isVisible = true; // Ensure visibility
+  imagePlane.checkCollisions = false;
+
+  // Force the engine to respect backface culling
+  scene.getEngine().setDepthFunction(BABYLON.Engine.LEQUAL);
+
+  console.log(
+    `Image plane visibility: ${imagePlane.isVisible}, material applied: ${!!imagePlane.material}`,
+  );
 
   console.log(`Frame plane created:`, {
     id: imageData.id,
@@ -182,6 +221,7 @@ function createFrameBorder(scene, width, height, thickness, color, id) {
   top.position.z = -depth / 2;
   top.material = frameMaterial;
   top.isPickable = false;
+  top.renderingGroupId = 0; // Same group as walls and image plane
   border.push(top);
 
   // Bottom border
@@ -194,6 +234,7 @@ function createFrameBorder(scene, width, height, thickness, color, id) {
   bottom.position.z = -depth / 2;
   bottom.material = frameMaterial;
   bottom.isPickable = false;
+  bottom.renderingGroupId = 0; // Same group as walls and image plane
   border.push(bottom);
 
   // Left border
@@ -206,6 +247,7 @@ function createFrameBorder(scene, width, height, thickness, color, id) {
   left.position.z = -depth / 2;
   left.material = frameMaterial;
   left.isPickable = false;
+  left.renderingGroupId = 0; // Same group as walls and image plane
   border.push(left);
 
   // Right border
@@ -218,6 +260,7 @@ function createFrameBorder(scene, width, height, thickness, color, id) {
   right.position.z = -depth / 2;
   right.material = frameMaterial;
   right.isPickable = false;
+  right.renderingGroupId = 0; // Same group as walls and image plane
   border.push(right);
 
   return border;

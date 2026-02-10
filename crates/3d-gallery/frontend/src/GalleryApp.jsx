@@ -27,6 +27,7 @@ export default function GalleryApp({
   const [cameraReady, setCameraReady] = useState(false);
   const [minimapVisible, setMinimapVisible] = useState(true);
   const [helpVisible, setHelpVisible] = useState(false);
+  const [gallery, setGallery] = useState(null);
 
   // Fetch gallery data on mount
   useEffect(() => {
@@ -110,7 +111,8 @@ export default function GalleryApp({
 
     // Create gallery from JSON layout
     console.log("Loading gallery layout...");
-    const gallery = createGalleryFromLayout(scene, demoLayout);
+    const galleryObj = createGalleryFromLayout(scene, demoLayout);
+    setGallery(galleryObj);
 
     // Set camera spawn point from layout
     if (demoLayout.spawn_point) {
@@ -140,7 +142,7 @@ export default function GalleryApp({
 
     // Map media to slots using the layout's media_mapping
     const mappedSlots = mapMediaToSlots(
-      gallery,
+      galleryObj,
       demoLayout.media_mapping,
       mediaItems,
     );
@@ -351,7 +353,7 @@ export default function GalleryApp({
       });
 
       // Dispose gallery
-      disposeGallery(gallery);
+      disposeGallery(galleryObj);
 
       // Dispose scene and engine
       scene.dispose();
@@ -508,11 +510,9 @@ export default function GalleryApp({
         moved = true;
       }
 
-      // Clamp camera position to stay inside gallery
+      // Keep camera at reasonable height (don't clamp X/Z to allow multi-room movement)
       if (moved) {
-        camera.position.x = Math.max(-9, Math.min(9, camera.position.x));
-        camera.position.z = Math.max(-9, Math.min(9, camera.position.z));
-        camera.position.y = Math.max(1.5, Math.min(3, camera.position.y)); // Keep at eye level
+        camera.position.y = Math.max(1.5, Math.min(5, camera.position.y)); // Keep at eye level
       }
     }, 16); // ~60fps
 
@@ -572,7 +572,7 @@ export default function GalleryApp({
         cameraRef.current &&
         !selectedImage &&
         minimapVisible && (
-          <Minimap camera={cameraRef.current} roomWidth={30} roomDepth={30} />
+          <Minimap camera={cameraRef.current} gallery={gallery} />
         )}
 
       {/* Help Panel */}

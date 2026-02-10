@@ -5,14 +5,45 @@
 //!
 //! Access is via access codes (no authentication required).
 
-use axum::{routing::get, Router};
+use axum::{
+    body::Bytes,
+    http::{header, StatusCode},
+    response::{IntoResponse, Response},
+    routing::get,
+    Router,
+};
 use sqlx::SqlitePool;
 use std::sync::Arc;
-use tower_http::services::ServeDir;
 
 pub mod api;
 pub mod models;
 pub mod routes;
+
+/// Serve bundle.js with correct MIME type
+async fn serve_bundle_js() -> Response {
+    match tokio::fs::read("crates/3d-gallery/static/bundle.js").await {
+        Ok(content) => (
+            StatusCode::OK,
+            [(header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
+            content,
+        )
+            .into_response(),
+        Err(_) => (StatusCode::NOT_FOUND, "File not found").into_response(),
+    }
+}
+
+/// Serve bundle.js.map with correct MIME type
+async fn serve_bundle_js_map() -> Response {
+    match tokio::fs::read("crates/3d-gallery/static/bundle.js.map").await {
+        Ok(content) => (
+            StatusCode::OK,
+            [(header::CONTENT_TYPE, "application/json; charset=utf-8")],
+            content,
+        )
+            .into_response(),
+        Err(_) => (StatusCode::NOT_FOUND, "File not found").into_response(),
+    }
+}
 
 /// Create the 3D gallery router with database pool
 ///
@@ -29,11 +60,9 @@ pub fn router(pool: Arc<SqlitePool>) -> Router {
         // API endpoints (with database state)
         .route("/api/3d/gallery", get(api::get_gallery_data))
         .with_state(pool)
-        // Static file serving for frontend bundle
-        .nest_service(
-            "/static/3d-gallery",
-            ServeDir::new("crates/3d-gallery/static"),
-        )
+        // Static file serving for frontend bundle with proper MIME types
+        .route("/static/3d-gallery/bundle.js", get(serve_bundle_js))
+        .route("/static/3d-gallery/bundle.js.map", get(serve_bundle_js_map))
 }
 
 #[cfg(test)]

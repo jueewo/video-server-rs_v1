@@ -376,12 +376,61 @@ export default function GalleryApp({
       // Don't handle movement when overlay is open
       if (selectedImage) return;
 
-      keysPressed[event.key.toLowerCase()] = true;
+      // Map arrow keys to WASD
+      const key = event.key.toLowerCase();
+      if (key === "arrowup") {
+        keysPressed["w"] = true;
+      } else if (key === "arrowdown") {
+        keysPressed["s"] = true;
+      } else if (key === "arrowleft") {
+        keysPressed["a"] = true;
+      } else if (key === "arrowright") {
+        keysPressed["d"] = true;
+      } else {
+        keysPressed[key] = true;
+      }
     };
 
     const handleKeyUp = (event) => {
-      keysPressed[event.key.toLowerCase()] = false;
+      const key = event.key.toLowerCase();
+      if (key === "arrowup") {
+        keysPressed["w"] = false;
+      } else if (key === "arrowdown") {
+        keysPressed["s"] = false;
+      } else if (key === "arrowleft") {
+        keysPressed["a"] = false;
+      } else if (key === "arrowright") {
+        keysPressed["d"] = false;
+      } else {
+        keysPressed[key] = false;
+      }
     };
+
+    // Gamepad support
+    let gamepadIndex = null;
+    const checkGamepad = () => {
+      const gamepads = navigator.getGamepads();
+      for (let i = 0; i < gamepads.length; i++) {
+        if (gamepads[i]) {
+          gamepadIndex = i;
+          break;
+        }
+      }
+    };
+
+    window.addEventListener("gamepadconnected", (e) => {
+      console.log("Gamepad connected:", e.gamepad.id);
+      gamepadIndex = e.gamepad.index;
+    });
+
+    window.addEventListener("gamepaddisconnected", (e) => {
+      console.log("Gamepad disconnected");
+      if (gamepadIndex === e.gamepad.index) {
+        gamepadIndex = null;
+      }
+    });
+
+    checkGamepad();
 
     // Movement loop
     const moveInterval = setInterval(() => {
@@ -393,23 +442,56 @@ export default function GalleryApp({
       const forward = camera.getDirection(BABYLON.Axis.Z);
       const right = camera.getDirection(BABYLON.Axis.X);
 
-      // W/S - Move forward/backward
-      if (keysPressed["w"]) {
-        camera.position.addInPlace(forward.scale(moveSpeed));
+      // Check gamepad input
+      let gamepadForward = 0;
+      let gamepadStrafe = 0;
+      let gamepadTurn = 0;
+      if (gamepadIndex !== null) {
+        const gamepad = navigator.getGamepads()[gamepadIndex];
+        if (gamepad) {
+          // Left stick: movement (axis 0 = horizontal, axis 1 = vertical)
+          const leftStickX =
+            Math.abs(gamepad.axes[0]) > 0.1 ? gamepad.axes[0] : 0;
+          const leftStickY =
+            Math.abs(gamepad.axes[1]) > 0.1 ? gamepad.axes[1] : 0;
+
+          // Right stick: look/turn (axis 2 = horizontal)
+          const rightStickX =
+            Math.abs(gamepad.axes[2]) > 0.1 ? gamepad.axes[2] : 0;
+
+          gamepadForward = -leftStickY; // Inverted
+          gamepadStrafe = leftStickX;
+          gamepadTurn = rightStickX;
+        }
+      }
+
+      // W/S or Arrow Up/Down or Gamepad - Move forward/backward
+      if (keysPressed["w"] || gamepadForward > 0) {
+        camera.position.addInPlace(
+          forward.scale(moveSpeed * (gamepadForward || 1)),
+        );
         moved = true;
       }
-      if (keysPressed["s"]) {
-        camera.position.addInPlace(forward.scale(-moveSpeed));
+      if (keysPressed["s"] || gamepadForward < 0) {
+        camera.position.addInPlace(
+          forward.scale(-moveSpeed * (Math.abs(gamepadForward) || 1)),
+        );
         moved = true;
       }
 
-      // A/D - Turn left/right
-      if (keysPressed["a"]) {
-        camera.rotation.y -= 0.05; // Turn left
+      // A/D or Arrow Left/Right or Gamepad - Turn left/right
+      if (keysPressed["a"] || gamepadTurn < 0) {
+        camera.rotation.y -= 0.05 * (Math.abs(gamepadTurn) || 1); // Turn left
         moved = true;
       }
-      if (keysPressed["d"]) {
-        camera.rotation.y += 0.05; // Turn right
+      if (keysPressed["d"] || gamepadTurn > 0) {
+        camera.rotation.y += 0.05 * (gamepadTurn || 1); // Turn right
+        moved = true;
+      }
+
+      // Gamepad strafe (left stick horizontal)
+      if (Math.abs(gamepadStrafe) > 0) {
+        camera.position.addInPlace(right.scale(moveSpeed * gamepadStrafe));
         moved = true;
       }
 
@@ -515,10 +597,13 @@ export default function GalleryApp({
               <strong>Movement:</strong>
             </div>
             <div style={{ marginLeft: "10px", marginBottom: "15px" }}>
-              <div>W - Move forward</div>
-              <div>S - Move backward</div>
-              <div>A - Turn left</div>
-              <div>D - Turn right</div>
+              <div>W / ↑ - Move forward</div>
+              <div>S / ↓ - Move backward</div>
+              <div>A / ← - Turn left</div>
+              <div>D / → - Turn right</div>
+              <div style={{ fontSize: "11px", opacity: 0.7, marginTop: "5px" }}>
+                🎮 Gamepad supported
+              </div>
             </div>
             <div style={{ marginBottom: "10px" }}>
               <strong>View:</strong>

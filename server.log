@@ -100,8 +100,8 @@ warning: `common` (lib) generated 11 warnings (run `cargo fix --lib -p common` t
 warning: unused import: `Permission`
   --> crates/access-control/src/audit.rs:21:42
    |
-21 | ...n, AccessError, Permission};
-   |                    ^^^^^^^^^^
+21 | use crate::{AccessDecision, AccessError, Permission};
+   |                                          ^^^^^^^^^^
    |
    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
 
@@ -361,8 +361,16 @@ warning: unused variable: `state`
     |
     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
 
-   Compiling gallery3d v0.1.0 (/Users/juergen/MyDev/MyProjects/video-server-rs_v1/crates/3d-gallery)
+warning: unused variable: `resource_id`
+   --> crates/access-codes/src/lib.rs:527:13
+    |
+527 |         let resource_id = resource_id.ok_or_else(|| {
+    |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_resource_id`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
 warning: `user-auth` (lib) generated 1 warning (run `cargo fix --lib -p user-auth` to apply 1 suggestion)
+warning: `access-codes` (lib) generated 1 warning (run `cargo fix --lib -p access-codes` to apply 1 suggestion)
 warning: unused variable: `user_id`
    --> crates/media-hub/src/routes.rs:699:5
     |
@@ -396,7 +404,6 @@ warning: field `can_admin` is never read
 
 warning: `media-hub` (lib) generated 1 warning (run `cargo fix --lib -p media-hub` to apply 1 suggestion)
 warning: `access-groups` (lib) generated 2 warnings
-   Compiling video-server-rs v0.1.0 (/Users/juergen/MyDev/MyProjects/video-server-rs_v1)
 warning: field `app_icon` is never read
    --> src/main.rs:130:5
     |
@@ -409,7 +416,7 @@ warning: field `app_icon` is never read
     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
 
 warning: `video-server-rs` (bin "video-server-rs") generated 1 warning
-    Finished `release` profile [optimized] target(s) in 13.92s
+    Finished `release` profile [optimized] target(s) in 0.32s
      Running `target/release/video-server-rs`
 🔧 Initializing OpenTelemetry...
 📡 Connecting to OTLP endpoint: http://localhost:4317
@@ -423,7 +430,7 @@ warning: `video-server-rs` (bin "video-server-rs") generated 1 warning
 📊 Database: sqlite:media.db
 ⚠️  Migration warning: migration 20240116084200 was previously applied but is missing in the resolved migrations
    Continuing with existing database schema...
-[2m2026-02-10T17:09:06.220969Z[0m [32m INFO[0m [2mvideo_manager::progress[0m[2m:[0m Progress cleanup task started (interval: 300s, TTL: 3600s)
+[2m2026-02-10T21:46:52.111718Z[0m [32m INFO[0m [2mvideo_manager::progress[0m[2m:[0m Progress cleanup task started (interval: 300s, TTL: 3600s)
 🔐 OIDC Configuration:
    - Issuer URL: http://localhost:8088
    - Client ID: f4e64e4265ac63ea837c
@@ -519,21 +526,36 @@ warning: `video-server-rs` (bin "video-server-rs") generated 1 warning
 
 ════════════════════════════════════════════════════════════════
 
-[2m2026-02-10T17:10:47.428160Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/3d [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T17:10:47.428708Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/3d [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
-[2m2026-02-10T17:10:47.448272Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/3d-gallery/bundle.js [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T17:10:47.448687Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/3d-gallery/bundle.js [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
-[2m2026-02-10T17:10:47.569777Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/3d/gallery [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T17:10:47.570087Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/3d/gallery [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mgallery3d::api[0m[2m:[0m Gallery data requested with code: testgallery
-[2m2026-02-10T17:10:47.572696Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/3d/gallery [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m2 ms [3mstatus[0m[2m=[0m200
-[2m2026-02-10T17:10:47.677967Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/3d-gallery/bundle.js.map [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T17:10:47.678185Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/3d-gallery/bundle.js.map [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
-[2m2026-02-10T17:12:12.416397Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/3d [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T17:12:12.416520Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/3d [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
-[2m2026-02-10T17:12:12.433999Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/3d-gallery/bundle.js [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T17:12:12.434285Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/3d-gallery/bundle.js [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
-[2m2026-02-10T17:12:12.567467Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/3d/gallery [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T17:12:12.567513Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/3d/gallery [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mgallery3d::api[0m[2m:[0m Gallery data requested with code: testgallery
-[2m2026-02-10T17:12:12.567957Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/3d/gallery [3mquery[0m[2m=[0m"code=testgallery"[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
-[2m2026-02-10T17:12:12.669043Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/3d-gallery/bundle.js.map [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T17:12:12.669275Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/3d-gallery/bundle.js.map [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-10T21:47:10.123375Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T21:47:10.124050Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m401
+[2m2026-02-10T21:47:10.684887Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T21:47:10.685025Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m401
+[2m2026-02-10T21:47:22.604708Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T21:47:22.604908Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m401
+[2m2026-02-10T21:47:23.187634Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T21:47:23.187825Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m401
+[2m2026-02-10T21:47:23.669348Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T21:47:23.669482Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m401
+[2m2026-02-10T21:47:27.757233Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/ [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T21:47:27.757414Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/ [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-10T21:47:29.452893Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/login [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T21:47:29.453361Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/login [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-10T21:47:30.853643Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/oidc/authorize [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T21:47:30.853923Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/oidc/authorize [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1moidc_authorize_handler[0m[2m:[0m [2muser_auth[0m[2m:[0m OIDC authorization flow initiated [3mevent[0m[2m=[0m"auth_flow_started" [3mauth_type[0m[2m=[0m"oidc"
+[2m2026-02-10T21:47:30.854103Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/oidc/authorize [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m303
+[2m2026-02-10T21:47:30.946100Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/images/logo [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T21:47:30.948402Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/images/logo [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mserve_image_handler[0m[1m{[0m[3mslug[0m[2m=[0m"logo"[1m}[0m[2m:[0m [2maccess_control::service[0m[2m:[0m Access granted to image 1 via Public Access (permission: Some(Read))
+[2m2026-02-10T21:47:30.948609Z[0m [33m WARN[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/images/logo [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mserve_image_handler[0m[1m{[0m[3mslug[0m[2m=[0m"logo"[1m}[0m[2m:[0m [2maccess_control::audit[0m[2m:[0m Failed to write audit log: error returned from database: (code: 1) no such table: access_audit_log
+[2m2026-02-10T21:47:30.948668Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/images/logo [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mserve_image_handler[0m[1m{[0m[3mslug[0m[2m=[0m"logo"[1m}[0m[2m:[0m [2mimage_manager[0m[2m:[0m Access granted to image download [3mimage_slug[0m[2m=[0mlogo [3maccess_layer[0m[2m=[0mPublic
+📷 Serving image: logo from "/Users/juergen/MyDev/MyProjects/video-server-rs_v1/storage/images/logo.png"
+[2m2026-02-10T21:47:30.949502Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/images/logo [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m3 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-10T21:47:34.261997Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/oidc/callback [3mquery[0m[2m=[0m"code=e15eb514a8b9fd139ee5&state=ewiLaYZxdcHjo_zlpwvQeg"[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T21:47:34.270022Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/oidc/callback [3mquery[0m[2m=[0m"code=e15eb514a8b9fd139ee5&state=ewiLaYZxdcHjo_zlpwvQeg"[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1moidc_callback_handler[0m[2m:[0m [2muser_auth[0m[2m:[0m User authenticated successfully via OIDC [3mevent[0m[2m=[0m"auth_success" [3mauth_type[0m[2m=[0m"oidc" [3muser_id[0m[2m=[0m7bda815e-729a-49ea-88c5-3ca59b9ce487 [3memail[0m[2m=[0mjuergen@jueewo.com [3mname[0m[2m=[0mjueewo
+[2m2026-02-10T21:47:34.271512Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/oidc/callback [3mquery[0m[2m=[0m"code=e15eb514a8b9fd139ee5&state=ewiLaYZxdcHjo_zlpwvQeg"[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1moidc_callback_handler[0m[2m:[0m [2muser_auth[0m[2m:[0m User record created/updated in database [3mevent[0m[2m=[0m"user_upserted" [3muser_id[0m[2m=[0m7bda815e-729a-49ea-88c5-3ca59b9ce487
+[2m2026-02-10T21:47:34.271625Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/oidc/callback [3mquery[0m[2m=[0m"code=e15eb514a8b9fd139ee5&state=ewiLaYZxdcHjo_zlpwvQeg"[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m9 ms [3mstatus[0m[2m=[0m303
+[2m2026-02-10T21:47:34.273965Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/ [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T21:47:34.274070Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/ [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-10T21:47:35.826125Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T21:47:35.828072Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m1 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-10T21:47:39.435050Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-10T21:47:39.435314Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200

@@ -29,7 +29,7 @@ block content %}
     </div>
 
     <!-- Progress Indicators -->
-    <ul class="steps steps-horizontal w-full mb-8">
+    <ul class="steps steps-vertical lg:steps-horizontal w-full mb-8">
         <li class="step step-primary" data-step="1">Basic Info</li>
         <li class="step" data-step="2">Access Type</li>
         <li class="step" data-step="3">Select Resources</li>
@@ -80,14 +80,14 @@ block content %}
 
                 <!-- Code Name -->
                 <div class="form-control">
-                    <label class="label">
+                    <div class="flex items-baseline justify-between mb-1">
                         <span class="label-text font-semibold"
                             >Code Name *</span
                         >
                         <span class="label-text-alt text-base-content/60"
                             >Required</span
                         >
-                    </label>
+                    </div>
                     <input
                         type="text"
                         id="codeName"
@@ -98,27 +98,27 @@ block content %}
                         maxlength="50"
                         pattern="[a-zA-Z0-9_-]+"
                     />
-                    <label class="label">
+                    <div class="flex items-start justify-between mt-1">
                         <span class="label-text-alt text-base-content/60">
                             Letters, numbers, hyphens, and underscores only. Max
                             50 characters.
                         </span>
-                        <span class="label-text-alt" id="codeNameCount"
+                        <span class="label-text-alt whitespace-nowrap ml-2" id="codeNameCount"
                             >0/50</span
                         >
-                    </label>
+                    </div>
                 </div>
 
                 <!-- Description -->
                 <div class="form-control">
-                    <label class="label">
+                    <div class="flex items-baseline justify-between mb-1">
                         <span class="label-text font-semibold"
                             >Description</span
                         >
                         <span class="label-text-alt text-base-content/60"
                             >Optional</span
                         >
-                    </label>
+                    </div>
                     <textarea
                         id="description"
                         name="description"
@@ -126,14 +126,14 @@ block content %}
                         class="textarea textarea-bordered h-24"
                         maxlength="500"
                     ></textarea>
-                    <label class="label">
+                    <div class="flex items-start justify-between mt-1">
                         <span class="label-text-alt text-base-content/60"
                             >Help you remember the purpose of this code.</span
                         >
-                        <span class="label-text-alt" id="descriptionCount"
+                        <span class="label-text-alt whitespace-nowrap ml-2" id="descriptionCount"
                             >0/500</span
                         >
-                    </label>
+                    </div>
                 </div>
 
                 <!-- Expiration -->
@@ -142,7 +142,7 @@ block content %}
                         <span class="label-text font-semibold">Expiration</span>
                     </label>
                     <div class="flex flex-col md:flex-row gap-4">
-                        <label class="label cursor-pointer gap-2 flex-1">
+                        <label class="cursor-pointer flex items-center gap-2">
                             <input
                                 type="radio"
                                 name="expirationType"
@@ -152,7 +152,7 @@ block content %}
                             />
                             <span class="label-text">Never expires</span>
                         </label>
-                        <label class="label cursor-pointer gap-2 flex-1">
+                        <label class="cursor-pointer flex items-center gap-2">
                             <input
                                 type="radio"
                                 name="expirationType"
@@ -171,7 +171,7 @@ block content %}
                             >Expiration Date & Time</span
                         >
                     </label>
-                    <div class="flex gap-2">
+                    <div class="flex flex-col sm:flex-row gap-2">
                         <input
                             type="date"
                             id="expirationDate"
@@ -183,7 +183,7 @@ block content %}
                             id="expirationTime"
                             name="expirationTime"
                             value="23:59"
-                            class="input input-bordered w-32"
+                            class="input input-bordered sm:w-32 w-full"
                         />
                     </div>
                     <label class="label">
@@ -608,40 +608,40 @@ block content %}
                                 Access Code Details
                             </h3>
                             <div class="space-y-2 text-sm">
-                                <div class="flex justify-between">
+                                <div class="flex flex-wrap justify-between gap-2">
                                     <span class="text-base-content/70"
                                         >Code Name:</span
                                     >
                                     <span
-                                        class="font-semibold"
+                                        class="font-semibold text-right"
                                         id="reviewCodeName"
                                     ></span>
                                 </div>
-                                <div class="flex justify-between">
+                                <div class="flex flex-wrap justify-between gap-2">
                                     <span class="text-base-content/70"
                                         >Description:</span
                                     >
                                     <span
-                                        class="font-semibold"
+                                        class="font-semibold text-right"
                                         id="reviewDescription"
                                         >None</span
                                     >
                                 </div>
-                                <div class="flex justify-between">
+                                <div class="flex flex-wrap justify-between gap-2">
                                     <span class="text-base-content/70"
                                         >Expiration:</span
                                     >
                                     <span
-                                        class="font-semibold"
+                                        class="font-semibold text-right"
                                         id="reviewExpiration"
                                         >Never</span
                                     >
                                 </div>
-                                <div class="flex justify-between">
+                                <div class="flex flex-wrap justify-between gap-2">
                                     <span class="text-base-content/70"
                                         >Access Type:</span
                                     >
-                                    <span class="font-semibold"
+                                    <span class="font-semibold text-right"
                                         >Individual Resources</span
                                     >
                                 </div>

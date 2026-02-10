@@ -1,7 +1,7 @@
 use askama::Template;
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{Html, Json},
     routing::{delete, get, post},
     Router,
@@ -153,9 +153,10 @@ pub async fn new_access_code_page(
     Ok(Html(html))
 }
 
-#[tracing::instrument(skip(session, state))]
+#[tracing::instrument(skip(session, state, headers))]
 pub async fn view_access_code_page(
     Path(code): Path<String>,
+    headers: HeaderMap,
     session: Session,
     State(state): State<Arc<AccessCodeState>>,
 ) -> Result<Html<String>, StatusCode> {
@@ -195,12 +196,10 @@ pub async fn view_access_code_page(
     // Get permissions for this code
     let permissions = sqlx::query_as::<_, (String, String)>(
         "SELECT
-            akp.resource_type as media_type,
-            COALESCE(v.slug, i.slug) as media_slug
-        FROM access_key_permissions akp
-        LEFT JOIN videos v ON akp.resource_type = 'video' AND akp.resource_id = v.id
-        LEFT JOIN images i ON akp.resource_type = 'image' AND akp.resource_id = i.id
-        WHERE akp.access_key_id = ?",
+            acp.media_type,
+            acp.media_slug
+        FROM access_code_permissions acp
+        WHERE acp.access_code_id = ?",
     )
     .bind(id)
     .fetch_all(&state.pool)
@@ -269,7 +268,7 @@ pub async fn view_access_code_page(
     let template = AccessCodeDetailTemplate {
         authenticated: true, // Detail page requires auth
         code: code_display,
-        base_url: "http://localhost:3000".to_string(), // TODO: Get from config
+        base_url: get_base_url(&headers),
     };
 
     let html = template
@@ -282,6 +281,7 @@ pub async fn view_access_code_page(
 /// This is the page users land on when they click the shared access code URL
 pub async fn preview_access_code_page(
     Query(params): Query<std::collections::HashMap<String, String>>,
+    headers: HeaderMap,
     State(state): State<Arc<AccessCodeState>>,
 ) -> Result<Html<String>, StatusCode> {
     let code = params
@@ -320,13 +320,13 @@ pub async fn preview_access_code_page(
     // Get permissions for this code with full resource details
     let permissions = sqlx::query_as::<_, (String, String, String)>(
         "SELECT
-            akp.resource_type as media_type,
-            COALESCE(v.slug, i.slug) as media_slug,
+            acp.media_type,
+            acp.media_slug,
             COALESCE(v.title, i.title) as media_title
-        FROM access_key_permissions akp
-        LEFT JOIN videos v ON akp.resource_type = 'video' AND akp.resource_id = v.id
-        LEFT JOIN images i ON akp.resource_type = 'image' AND akp.resource_id = i.id
-        WHERE akp.access_key_id = ?",
+        FROM access_code_permissions acp
+        LEFT JOIN videos v ON acp.media_type = 'video' AND acp.media_slug = v.slug
+        LEFT JOIN images i ON acp.media_type = 'image' AND acp.media_slug = i.slug
+        WHERE acp.access_code_id = ?",
     )
     .bind(id)
     .fetch_all(&state.pool)
@@ -349,7 +349,7 @@ pub async fn preview_access_code_page(
         has_description: description.is_some(),
         resource_count: resources.len(),
         resources,
-        base_url: "http://localhost:3000".to_string(), // TODO: Get from config
+        base_url: get_base_url(&headers),
     };
 
     let html = template
@@ -534,13 +534,13 @@ pub async fn create_access_code(
             StatusCode::NOT_FOUND
         })?;
 
-        // Insert into access_key_permissions (used by access control system)
+        // Insert into access_code_permissions (used by access control system)
         sqlx::query(
-            "INSERT INTO access_key_permissions (access_key_id, resource_type, resource_id) VALUES (?, ?, ?)"
+            "INSERT INTO access_code_permissions (access_code_id, media_type, media_slug) VALUES (?, ?, ?)"
         )
         .bind(code_id)
         .bind(&item.media_type)
-        .bind(resource_id)
+        .bind(&item.media_slug)
         .execute(&state.pool)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -612,12 +612,10 @@ pub async fn list_access_codes(
         // Get permissions for this code
         let permissions = sqlx::query_as::<_, (String, String)>(
             "SELECT
-            akp.resource_type as media_type,
-            COALESCE(v.slug, i.slug) as media_slug
-        FROM access_key_permissions akp
-        LEFT JOIN videos v ON akp.resource_type = 'video' AND akp.resource_id = v.id
-        LEFT JOIN images i ON akp.resource_type = 'image' AND akp.resource_id = i.id
-        WHERE akp.access_key_id = ?",
+            acp.media_type,
+            acp.media_slug
+        FROM access_code_permissions acp
+        WHERE acp.access_code_id = ?",
         )
         .bind(id)
         .fetch_all(&state.pool)
@@ -713,9 +711,10 @@ pub async fn delete_access_code(
 }
 
 // UI Page Handlers
-#[tracing::instrument(skip(session, state))]
+#[tracing::instrument(skip(session, state, headers))]
 pub async fn list_access_codes_page(
     session: Session,
+    headers: HeaderMap,
     State(state): State<Arc<AccessCodeState>>,
 ) -> Result<Html<String>, StatusCode> {
     // Check authentication
@@ -753,12 +752,10 @@ pub async fn list_access_codes_page(
         // Get permissions for this code
         let permissions = sqlx::query_as::<_, (String, String)>(
             "SELECT
-            akp.resource_type as media_type,
-            COALESCE(v.slug, i.slug) as media_slug
-        FROM access_key_permissions akp
-        LEFT JOIN videos v ON akp.resource_type = 'video' AND akp.resource_id = v.id
-        LEFT JOIN images i ON akp.resource_type = 'image' AND akp.resource_id = i.id
-        WHERE akp.access_key_id = ?",
+            acp.media_type,
+            acp.media_slug
+        FROM access_code_permissions acp
+        WHERE acp.access_code_id = ?",
         )
         .bind(id)
         .fetch_all(&state.pool)
@@ -823,13 +820,31 @@ pub async fn list_access_codes_page(
         access_codes,
         total_pages: 1,
         current_page: 1,
-        base_url: "http://localhost:3000".to_string(),
+        base_url: get_base_url(&headers),
     };
 
     let html = template
         .render()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Html(html))
+}
+
+/// Extract base URL from request headers
+/// Falls back to localhost:3000 for development if headers are missing
+fn get_base_url(headers: &HeaderMap) -> String {
+    // Try to get host from headers
+    if let Some(host) = headers.get("host").and_then(|h| h.to_str().ok()) {
+        // Check if request was made over HTTPS (via X-Forwarded-Proto header from reverse proxy)
+        let scheme = headers
+            .get("x-forwarded-proto")
+            .and_then(|h| h.to_str().ok())
+            .unwrap_or("http");
+
+        return format!("{}://{}", scheme, host);
+    }
+
+    // Fallback for development
+    "http://localhost:3000".to_string()
 }
 
 fn format_human_date(date_str: &str) -> String {

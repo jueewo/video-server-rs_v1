@@ -279,17 +279,39 @@ impl AccessRepository {
         }
 
         // Otherwise, check if key has explicit permission for this resource
+        // First get the slug for this resource
+        let slug: Option<String> = match resource_type {
+            ResourceType::Video => {
+                sqlx::query_scalar("SELECT slug FROM videos WHERE id = ?")
+                    .bind(resource_id)
+                    .fetch_optional(&self.pool)
+                    .await?
+            }
+            ResourceType::Image => {
+                sqlx::query_scalar("SELECT slug FROM images WHERE id = ?")
+                    .bind(resource_id)
+                    .fetch_optional(&self.pool)
+                    .await?
+            }
+            _ => None, // Files and folders not supported yet in access_code_permissions
+        };
+
+        let Some(slug) = slug else {
+            return Ok(false);
+        };
+
+        // Check if key has permission for this resource using the new table structure
         let has_permission: bool = sqlx::query_scalar(
             "SELECT EXISTS(
-                SELECT 1 FROM access_key_permissions
-                WHERE access_key_id = ?
-                  AND resource_type = ?
-                  AND resource_id = ?
+                SELECT 1 FROM access_code_permissions
+                WHERE access_code_id = ?
+                  AND media_type = ?
+                  AND media_slug = ?
             )",
         )
         .bind(key_data.id)
-        .bind(resource_type.to_string())
-        .bind(resource_id)
+        .bind(resource_type.to_string().to_lowercase())
+        .bind(slug)
         .fetch_one(&self.pool)
         .await?;
 

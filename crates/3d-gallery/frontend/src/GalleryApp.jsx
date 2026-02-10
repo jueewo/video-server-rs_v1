@@ -211,9 +211,11 @@ export default function GalleryApp({
           autoPlay: false,
         });
 
-        // Setup click interaction
+        // Setup click interaction (don't overwrite actionManager — it already has hover/leave handlers from setupVideoInteractions)
         if (screen.screenPlane) {
-          screen.screenPlane.actionManager = new BABYLON.ActionManager(scene);
+          if (!screen.screenPlane.actionManager) {
+            screen.screenPlane.actionManager = new BABYLON.ActionManager(scene);
+          }
           screen.screenPlane.actionManager.registerAction(
             new BABYLON.ExecuteCodeAction(
               BABYLON.ActionManager.OnPickDownTrigger,

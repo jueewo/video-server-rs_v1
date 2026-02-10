@@ -3,75 +3,100 @@ import { useEffect, useRef } from "preact/hooks";
 /**
  * Minimap component - Shows top-down view of gallery with camera position
  */
-export function Minimap({ camera, roomWidth = 20, roomDepth = 20 }) {
+export function Minimap({ camera, gallery }) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
-    if (!camera || !canvasRef.current) return;
+    if (!camera || !canvasRef.current || !gallery) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    const scale = 8; // Scale factor for map
-    const mapWidth = roomWidth * scale;
-    const mapDepth = roomDepth * scale;
+
+    // Calculate bounding box for all rooms
+    let minX = Infinity,
+      maxX = -Infinity;
+    let minZ = Infinity,
+      maxZ = -Infinity;
+
+    gallery.rooms.forEach((room) => {
+      const { position, dimensions } = room;
+      const x = position.x;
+      const z = position.z;
+      const halfWidth = dimensions.width / 2;
+      const halfDepth = dimensions.depth / 2;
+
+      minX = Math.min(minX, x - halfWidth);
+      maxX = Math.max(maxX, x + halfWidth);
+      minZ = Math.min(minZ, z - halfDepth);
+      maxZ = Math.max(maxZ, z + halfDepth);
+    });
+
+    const totalWidth = maxX - minX;
+    const totalDepth = maxZ - minZ;
+    const padding = 20;
+    const availableWidth = canvas.width - padding * 2;
+    const availableHeight = canvas.height - padding * 2 - 40; // Leave space for text
+
+    const scaleX = availableWidth / totalWidth;
+    const scaleZ = availableHeight / totalDepth;
+    const scale = Math.min(scaleX, scaleZ);
 
     // Update minimap at 30fps
     const updateInterval = setInterval(() => {
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw room outline
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(10, 10, mapWidth, mapDepth);
+      // Draw all rooms
+      gallery.rooms.forEach((room) => {
+        const { position, dimensions, name } = room;
+        const roomX =
+          (position.x - dimensions.width / 2 - minX) * scale + padding;
+        const roomZ =
+          (position.z - dimensions.depth / 2 - minZ) * scale + padding;
+        const roomWidth = dimensions.width * scale;
+        const roomDepth = dimensions.depth * scale;
 
-      // Draw walls
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-      ctx.lineWidth = 1;
+        // Draw room floor
+        ctx.fillStyle = "rgba(100, 100, 100, 0.3)";
+        ctx.fillRect(roomX, roomZ, roomWidth, roomDepth);
 
-      // North wall (top)
-      ctx.beginPath();
-      ctx.moveTo(10, 10);
-      ctx.lineTo(10 + mapWidth, 10);
-      ctx.stroke();
+        // Draw room outline
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(roomX, roomZ, roomWidth, roomDepth);
 
-      // South wall (bottom)
-      ctx.beginPath();
-      ctx.moveTo(10, 10 + mapDepth);
-      ctx.lineTo(10 + mapWidth, 10 + mapDepth);
-      ctx.stroke();
+        // Draw room name
+        ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+        ctx.font = "9px monospace";
+        ctx.fillText(name, roomX + 5, roomZ + 15);
+      });
 
-      // East wall (right)
-      ctx.beginPath();
-      ctx.moveTo(10 + mapWidth, 10);
-      ctx.lineTo(10 + mapWidth, 10 + mapDepth);
-      ctx.stroke();
-
-      // West wall (left)
-      ctx.beginPath();
-      ctx.moveTo(10, 10);
-      ctx.lineTo(10, 10 + mapDepth);
-      ctx.stroke();
+      // Draw doorways
+      gallery.doorways.forEach((doorway) => {
+        if (doorway) {
+          const doorX = (doorway.position.x - minX) * scale + padding;
+          const doorZ = (doorway.position.z - minZ) * scale + padding;
+          ctx.fillStyle = "rgba(100, 255, 100, 0.5)";
+          ctx.fillRect(doorX - 2, doorZ - 2, 4, 4);
+        }
+      });
 
       // Draw camera position
-      // Map 3D coordinates to 2D minimap - adjust based on actual coordinate system
-      const camX =
-        ((-camera.position.x + roomWidth / 2) / roomWidth) * mapWidth;
-      const camZ = ((camera.position.z + roomDepth / 2) / roomDepth) * mapDepth;
+      const camX = (camera.position.x - minX) * scale + padding;
+      const camZ = (camera.position.z - minZ) * scale + padding;
 
       // Camera direction indicator
-      // Flip direction 180 degrees by adding PI
       const camRotY = camera.rotation.y + Math.PI;
-      const dirLength = 15;
+      const dirLength = 12;
       const dirX = Math.sin(camRotY) * dirLength;
       const dirZ = -Math.cos(camRotY) * dirLength;
 
       // Draw view cone
-      ctx.fillStyle = "rgba(59, 130, 246, 0.2)";
+      ctx.fillStyle = "rgba(59, 130, 246, 0.3)";
       ctx.beginPath();
-      ctx.moveTo(10 + camX, 10 + camZ);
-      ctx.lineTo(10 + camX + dirX + 10, 10 + camZ + dirZ - 10);
-      ctx.lineTo(10 + camX + dirX - 10, 10 + camZ + dirZ + 10);
+      ctx.moveTo(camX, camZ);
+      ctx.lineTo(camX + dirX + 8, camZ + dirZ - 8);
+      ctx.lineTo(camX + dirX - 8, camZ + dirZ + 8);
       ctx.closePath();
       ctx.fill();
 
@@ -80,7 +105,7 @@ export function Minimap({ camera, roomWidth = 20, roomDepth = 20 }) {
       ctx.strokeStyle = "white";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(10 + camX, 10 + camZ, 6, 0, Math.PI * 2);
+      ctx.arc(camX, camZ, 5, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
@@ -88,8 +113,8 @@ export function Minimap({ camera, roomWidth = 20, roomDepth = 20 }) {
       ctx.strokeStyle = "white";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(10 + camX, 10 + camZ);
-      ctx.lineTo(10 + camX + dirX, 10 + camZ + dirZ);
+      ctx.moveTo(camX, camZ);
+      ctx.lineTo(camX + dirX, camZ + dirZ);
       ctx.stroke();
 
       // Draw coordinates text
@@ -97,13 +122,13 @@ export function Minimap({ camera, roomWidth = 20, roomDepth = 20 }) {
       ctx.font = "10px monospace";
       ctx.fillText(
         `X: ${camera.position.x.toFixed(1)} Z: ${camera.position.z.toFixed(1)}`,
-        10,
-        mapDepth + 30,
+        padding,
+        canvas.height - 10,
       );
     }, 33); // ~30fps
 
     return () => clearInterval(updateInterval);
-  }, [camera, roomWidth, roomDepth]);
+  }, [camera, gallery]);
 
   return (
     <div

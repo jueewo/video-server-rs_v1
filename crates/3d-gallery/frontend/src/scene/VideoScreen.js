@@ -92,11 +92,6 @@ function createProgressBarOverlay(scene, width, videoId, rotation) {
     scene,
   );
 
-  // Check if the screen is rotated 180 degrees (π radians) on Y axis
-  const isRotated180 =
-    Math.abs(rotation.y - Math.PI) < 0.1 ||
-    Math.abs(rotation.y + Math.PI) < 0.1;
-
   // Create canvas for progress bar
   const canvas = document.createElement("canvas");
   canvas.width = 1024;
@@ -129,7 +124,7 @@ function createProgressBarOverlay(scene, width, videoId, rotation) {
   barPlane.renderingGroupId = 0; // Same group as walls so depth testing occludes properly
   barPlane.isPickable = false;
 
-  return { plane: barPlane, texture: progressTexture, canvas, isRotated180 };
+  return { plane: barPlane, texture: progressTexture, canvas };
 }
 
 /**
@@ -148,22 +143,11 @@ function updateProgressBar(progressBar, currentTime, duration) {
   ctx.fillStyle = "rgba(128, 128, 128, 0.5)"; // Gray background
   ctx.fillRect(0, 0, progressBar.canvas.width, progressBar.canvas.height);
 
-  // Draw progress bar - reverse direction for 180° walls
+  // Draw progress bar left to right (UV mapping rotates with the mesh,
+  // so no directional reversal is needed for any wall orientation)
   const progressWidth = progressBar.canvas.width * progress;
   ctx.fillStyle = "rgba(59, 130, 246, 0.9)"; // Blue progress
-
-  if (progressBar.isRotated180) {
-    // Draw from RIGHT to LEFT for 180° walls
-    ctx.fillRect(
-      progressBar.canvas.width - progressWidth,
-      0,
-      progressWidth,
-      progressBar.canvas.height,
-    );
-  } else {
-    // Draw from LEFT to RIGHT for normal walls
-    ctx.fillRect(0, 0, progressWidth, progressBar.canvas.height);
-  }
+  ctx.fillRect(0, 0, progressWidth, progressBar.canvas.height);
 
   // Update texture
   progressBar.texture.update();
@@ -314,12 +298,6 @@ export function createVideoScreen(scene, videoData, options = {}) {
   screenPlane.parent = screenParent;
   screenPlane.position.z = -0.01; // Same side as frame borders (local -Z = toward room)
 
-  // Video orientation - flip horizontally for 180° rotated walls (South wall)
-  // Check if the screen is rotated 180 degrees (π radians) on Y axis
-  const isRotated180 =
-    Math.abs(rotation.y - Math.PI) < 0.1 ||
-    Math.abs(rotation.y + Math.PI) < 0.1;
-
   // Create poster/thumbnail texture (shown initially)
   const thumbnailUrl =
     videoData.thumbnail_url || "/storage/images/video_placeholder.webp";
@@ -380,7 +358,7 @@ export function createVideoScreen(scene, videoData, options = {}) {
         BABYLON.Texture.TRILINEAR_SAMPLINGMODE,
       );
       videoTexture.vScale = 1;
-      videoTexture.uScale = isRotated180 ? -1 : 1;
+      videoTexture.uScale = 1; // No flip needed — UV mapping rotates with the mesh (same as images)
       console.log(`✓ VideoTexture created on play for: ${videoData.title}`);
     }
 

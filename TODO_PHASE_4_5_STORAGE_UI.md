@@ -238,19 +238,40 @@ This phase implements two critical optimizations:
     - [ ] Title (required)
     - [ ] Description (optional)
     - [ ] Tags (autocomplete)
-    - [ ] Group (dropdown)
+    - [ ] **Group selection dropdown** (NEW)
+      - [ ] Load user's groups via `/api/groups/my-groups`
+      - [ ] Add "(none) - Personal file" option
+      - [ ] Show group name with icon (📁)
+      - [ ] Optional field (can be NULL)
     - [ ] Visibility (public/private toggle)
   - [ ] Real-time upload progress bar
   - [ ] Preview before upload (for images/videos)
   - [ ] Drag-and-drop support
   - [ ] Multiple file upload (batch)
+  - [ ] Info text: "Your file will be stored in your personal vault"
+
+- [ ] Create `/api/groups/my-groups` endpoint (NEW)
+  - [ ] Returns list of groups user is member of
+  - [ ] Include: id, name, slug, member_count, user_role
+  - [ ] Filter to groups where user can contribute (not just viewer)
+  - [ ] Add tests for endpoint
 
 - [ ] Update `crates/media-hub/src/routes.rs`
   - [ ] Create/update `upload_media_handler()`
+    - [ ] Accept `group_id` parameter (optional)
+    - [ ] Verify user is member of selected group
+    - [ ] Verify user has contributor+ role in group
     - [ ] Detect media type from MIME type
     - [ ] Route to appropriate manager (video/image/document)
+    - [ ] Pass `group_id` to storage manager
     - [ ] Return unified response format
     - [ ] Handle errors consistently
+
+- [ ] Add JavaScript for group dropdown
+  - [ ] `loadUserGroups()` function to populate dropdown
+  - [ ] Call on page load
+  - [ ] Handle empty groups list
+  - [ ] Add loading state
 
 #### 2.3 Navigation Menu Updates (1 day)
 
@@ -516,6 +537,13 @@ After Phase 4.5 completes, these become easier to implement:
    - Restore from backup
    - Schedule automatic backups
 
+6. **Admin Vault Selection** (Phase 5+)
+   - Allow admins to upload to other users' vaults
+   - User selector dropdown for admins
+   - Audit logging for admin uploads
+   - Bulk import functionality
+   - See: `UPLOAD_VAULT_GROUP_SELECTION.md`
+
 ---
 
 ## Notes
@@ -556,3 +584,8 @@ After Phase 4.5 completes, these become easier to implement:
 
 **Last Updated:** 2024-02-10  
 **Next Review:** After Week 1 completion
+
+**Related Documents:**
+- `UPLOAD_VAULT_GROUP_SELECTION.md` - Vault and group selection design
+- `MASTER_PLAN.md` - Phase 4.5 architecture
+- `PHASE_4_5_QUICKSTART.md` - Quick reference guide

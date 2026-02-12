@@ -553,8 +553,38 @@ pub async fn upload_image_handler(
         ));
     }
 
-    // Determine storage location (single folder structure)
-    let file_path = state.storage_dir.join("images").join(&stored_filename);
+    // Get user_id from session (needed for vault lookup)
+    let user_id: String = session
+        .get("user_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "anonymous".to_string());
+
+    // Get or create default vault for user
+    let vault_id = common::services::vault_service::get_or_create_default_vault(
+        &state.pool,
+        &state.storage_config.user_storage,
+        &user_id,
+    )
+    .await
+    .map_err(|e| {
+        println!("❌ Vault error: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            UploadErrorTemplate {
+                authenticated: true,
+                error_message: "Failed to create user vault.".to_string(),
+            },
+        )
+    })?;
+
+    // Determine storage location (vault-based)
+    let file_path = state
+        .storage_config
+        .user_storage
+        .vault_media_dir(&vault_id, common::storage::MediaType::Image)
+        .join(&stored_filename);
 
     //... old
     // Save file to disk
@@ -626,7 +656,11 @@ pub async fn upload_image_handler(
         })?;
 
         let thumb_filename = format!("{}_thumb.webp", slug);
-        let thumb_path = state.storage_dir.join("images").join(&thumb_filename);
+        let thumb_path = state
+            .storage_config
+            .user_storage
+            .vault_thumbnails_dir(&vault_id, common::storage::MediaType::Image)
+            .join(&thumb_filename);
 
         if let Err(e) = tokio::fs::write(&thumb_path, &thumb_data).await {
             println!("❌ Error saving thumbnail: {}", e);
@@ -640,17 +674,9 @@ pub async fn upload_image_handler(
         }
     }
 
-    // Get user_id from session
-    let user_id: String = session
-        .get("user_id")
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| "anonymous".to_string());
-
     // Insert into database
     sqlx::query(
-        "INSERT INTO images (slug, filename, title, description, is_public, user_id, group_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO images (slug, filename, title, description, is_public, user_id, group_id, vault_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&slug)
     .bind(&stored_filename)
@@ -659,6 +685,7 @@ pub async fn upload_image_handler(
     .bind(is_public)
     .bind(&user_id)
     .bind(group_id)
+    .bind(&vault_id)
     .execute(&state.pool)
     .await
     .map_err(|e| {
@@ -1460,19 +1487,27 @@ pub async fn serve_image_handler(
     // Phase 4.5: Determine storage location using vault-based paths
     // Fallback chain: vault -> user -> legacy
     let full_path = if let Some(ref vid) = vault_id {
-        // Use vault-based path
-        state.storage_config.user_storage.vault_media_path(
-            vid,
-            common::storage::MediaType::Image,
-            &filename,
-        )
+        // Use vault-based path - check if it's a thumbnail or regular image
+        if is_thumb {
+            state.storage_config.user_storage
+                .vault_thumbnails_dir(vid, common::storage::MediaType::Image)
+                .join(&filename)
+        } else {
+            state.storage_config.user_storage
+                .vault_media_dir(vid, common::storage::MediaType::Image)
+                .join(&filename)
+        }
     } else if let Some(ref uid) = owner_user_id {
         // Fallback to user-based path
-        state.storage_config.user_storage.media_path(
-            uid,
-            common::storage::MediaType::Image,
-            &filename,
-        )
+        if is_thumb {
+            state.storage_config.user_storage
+                .thumbnails_dir(uid, common::storage::MediaType::Image)
+                .join(&filename)
+        } else {
+            state.storage_config.user_storage
+                .user_media_dir(uid, common::storage::MediaType::Image)
+                .join(&filename)
+        }
     } else {
         // Legacy path
         state.storage_dir.join("images").join(&filename)

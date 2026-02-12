@@ -234,6 +234,7 @@ pub fn video_routes() -> Router<Arc<VideoManagerState>> {
         .route("/videos", get(videos_list_handler))
         .route("/videos/new", get(video_new_page_handler))
         .route("/videos/upload", get(video_upload_page_handler))
+        .route("/videos/:slug", get(video_player_handler))
         .route("/videos/:slug/edit", get(video_edit_page_handler))
         .route("/watch/:slug", get(video_player_handler))
         .route("/test", get(live_test_handler))

@@ -891,22 +891,12 @@ async fn update_database_stage(
     let resolution = format!("{}x{}", metadata.width, metadata.height);
 
     // Determine thumbnail and poster URLs
-    let visibility = if context.is_public {
-        "public"
-    } else {
-        "private"
-    };
-    let thumbnail_url = format!(
-        "/storage/videos/{}/{}/thumbnail.jpg",
-        visibility, context.slug
-    );
-    let poster_url = format!("/storage/videos/{}/{}/poster.jpg", visibility, context.slug);
+    // Phase 4.5: Use HLS endpoint URLs which handle vault path resolution
+    let thumbnail_url = format!("/hls/{}/thumbnail.webp", context.slug);
+    let poster_url = format!("/hls/{}/poster.jpg", context.slug);
 
     // HLS master playlist URL
-    let hls_url = format!(
-        "/storage/videos/{}/{}/master.m3u8",
-        visibility, context.slug
-    );
+    let hls_url = format!("/hls/{}/master.m3u8", context.slug);
 
     // Update video record
     sqlx::query(

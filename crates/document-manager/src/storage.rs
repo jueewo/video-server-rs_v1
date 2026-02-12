@@ -224,19 +224,34 @@ impl DocumentStorage {
 
     /// Create a document in the database
     pub async fn create_document(&self, dto: DocumentCreateDTO) -> Result<Document> {
+        // Get or create default vault for user
+        let vault_id = if let Some(ref uid) = dto.user_id {
+            Some(
+                common::services::vault_service::get_or_create_default_vault(
+                    &self.db_pool,
+                    &self.user_storage,
+                    uid,
+                )
+                .await
+                .context("Failed to get or create vault")?,
+            )
+        } else {
+            None
+        };
+
         let document = sqlx::query_as::<_, Document>(
             r#"
             INSERT INTO documents (
                 slug, filename, title, description, mime_type, file_size,
-                file_path, thumbnail_path, is_public, user_id, group_id,
+                file_path, thumbnail_path, is_public, user_id, group_id, vault_id,
                 document_type, page_count, author, version, language,
                 word_count, character_count, row_count, column_count,
                 csv_columns, csv_delimiter, metadata, searchable_content,
                 allow_download, seo_title, seo_description, seo_keywords
             ) VALUES (
-                ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11,
-                ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20,
-                ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28
+                ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
+                ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21,
+                ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29
             )
             RETURNING *
             "#,
@@ -252,6 +267,7 @@ impl DocumentStorage {
         .bind(dto.is_public)
         .bind(&dto.user_id)
         .bind(&dto.group_id)
+        .bind(&vault_id)
         .bind(&dto.document_type)
         .bind(dto.page_count)
         .bind(&dto.author)

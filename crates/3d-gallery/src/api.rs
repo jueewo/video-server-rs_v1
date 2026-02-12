@@ -139,9 +139,10 @@ async fn fetch_media_for_access_code(
         items.push(MediaItem3D {
             id: id as i32,
             media_type: MediaType::Image,
-            url: format!("/storage/images/{}", filename),
+            // Phase 4.5: Use slug-based URLs that go through serve handlers with vault resolution
+            url: format!("/images/{}", slug),
             thumbnail_url: thumbnail_url
-                .unwrap_or_else(|| format!("/storage/images/{}_thumb.webp", slug)),
+                .unwrap_or_else(|| format!("/images/{}_thumb", slug)),
             title,
             description,
             position: pos.0,
@@ -173,22 +174,14 @@ async fn fetch_media_for_access_code(
 
         let pos = get_position_for_index(position_index);
 
-        // Use filename if available, otherwise fallback to master.m3u8
-        let video_url = if let Some(fname) = filename {
-            if fname.is_empty() {
-                format!("/storage/videos/{}/master.m3u8", slug)
-            } else {
-                format!("/storage/videos/{}/{}", slug, fname)
-            }
-        } else {
-            format!("/storage/videos/{}/master.m3u8", slug)
-        };
+        // Phase 4.5: Use HLS endpoint which handles vault path resolution
+        let video_url = format!("/hls/{}/master.m3u8", slug);
 
         // Use thumbnail.webp as fallback if thumbnail_url is not available
         let final_thumbnail = if let Some(thumb) = thumbnail_url {
             thumb
         } else {
-            format!("/storage/videos/{}/thumbnail.webp", slug)
+            format!("/hls/{}/thumbnail.webp", slug)
         };
 
         items.push(MediaItem3D {
@@ -230,8 +223,9 @@ fn create_mock_media_items() -> Vec<MediaItem3D> {
         MediaItem3D {
             id: 1,
             media_type: MediaType::Image,
-            url: "/storage/images/ai-types.webp".to_string(),
-            thumbnail_url: "/storage/images/ai-types_thumb.webp".to_string(),
+            // Phase 4.5: Use slug-based URLs
+            url: "/images/ai-types".to_string(),
+            thumbnail_url: "/images/ai-types_thumb".to_string(),
             title: "AI Types".to_string(),
             description: Some("Overview of different AI types and architectures".to_string()),
             position: Position3D::new(-3.0, 1.5, -5.0),
@@ -241,8 +235,8 @@ fn create_mock_media_items() -> Vec<MediaItem3D> {
         MediaItem3D {
             id: 2,
             media_type: MediaType::Image,
-            url: "/storage/images/banner.jpg".to_string(),
-            thumbnail_url: "/storage/images/banner_thumb.webp".to_string(),
+            url: "/images/banner".to_string(),
+            thumbnail_url: "/images/banner_thumb".to_string(),
             title: "Banner".to_string(),
             description: Some("A beautiful banner image".to_string()),
             position: Position3D::new(0.0, 1.5, -5.0),
@@ -252,22 +246,23 @@ fn create_mock_media_items() -> Vec<MediaItem3D> {
         MediaItem3D {
             id: 3,
             media_type: MediaType::Image,
-            url: "/storage/images/cluster-demo.jpg".to_string(),
-            thumbnail_url: "/storage/images/cluster-demo_thumb.webp".to_string(),
+            url: "/images/cluster-demo".to_string(),
+            thumbnail_url: "/images/cluster-demo_thumb".to_string(),
             title: "Cluster Demo".to_string(),
             description: Some("Demonstration of cluster visualization".to_string()),
             position: Position3D::new(3.0, 1.5, -5.0),
             rotation: Rotation3D::zero(),
             scale: 1.0,
         },
-        // Add video items for Phase 3
+        // Phase 4.5: Demo videos - these are hardcoded and may not exist with vaults
+        // TODO: Replace with actual video slugs from database
         MediaItem3D {
             id: 4,
             media_type: MediaType::Video,
-            url: "/storage/videos/live/2025-12-30_14-42-08.mp4".to_string(),
-            thumbnail_url: "/storage/images/banner_thumb.webp".to_string(), // Use image as placeholder
-            title: "Live Demo Video 1".to_string(),
-            description: Some("A recorded live session demonstration".to_string()),
+            url: "/hls/welcome/master.m3u8".to_string(),
+            thumbnail_url: "/hls/welcome/thumbnail.webp".to_string(),
+            title: "Welcome Video".to_string(),
+            description: Some("A welcome demonstration".to_string()),
             position: Position3D::new(-3.0, 1.5, -5.0),
             rotation: Rotation3D::zero(),
             scale: 1.0,
@@ -275,10 +270,10 @@ fn create_mock_media_items() -> Vec<MediaItem3D> {
         MediaItem3D {
             id: 5,
             media_type: MediaType::Video,
-            url: "/storage/videos/live/2025-12-30_14-43-52.mp4".to_string(),
-            thumbnail_url: "/storage/images/cluster-demo_thumb.webp".to_string(), // Use image as placeholder
-            title: "Live Demo Video 2".to_string(),
-            description: Some("Another live session recording".to_string()),
+            url: "/hls/bbb/master.m3u8".to_string(),
+            thumbnail_url: "/hls/bbb/thumbnail.webp".to_string(),
+            title: "Big Buck Bunny".to_string(),
+            description: Some("Demo video content".to_string()),
             position: Position3D::new(3.0, 1.5, -5.0),
             rotation: Rotation3D::zero(),
             scale: 1.0,

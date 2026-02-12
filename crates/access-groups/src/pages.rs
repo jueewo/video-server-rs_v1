@@ -165,7 +165,8 @@ pub async fn group_detail_page_handler(
     for (slug, title, resource_type) in videos {
         resources.push(ResourceItem {
             title,
-            thumbnail: format!("/storage/videos/{}/thumbnail.webp", slug),
+            // Phase 4.5: Use HLS endpoint for thumbnails
+            thumbnail: format!("/hls/{}/thumbnail.webp", slug),
             url: format!("/watch/{}", slug),
             resource_type,
         });
@@ -174,7 +175,8 @@ pub async fn group_detail_page_handler(
     for (slug, title, resource_type) in images {
         resources.push(ResourceItem {
             title,
-            thumbnail: format!("/storage/images/{}_thumb.webp", slug),
+            // Phase 4.5: Use slug-based URL for thumbnails
+            thumbnail: format!("/images/{}_thumb", slug),
             url: format!("/images/{}", slug),
             resource_type,
         });

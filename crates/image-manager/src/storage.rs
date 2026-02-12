@@ -7,8 +7,10 @@
 //! - Image-specific storage operations
 //!
 //! Phase 3: Integrated with media-core StorageManager
+//! Phase 4.5: User-based storage directories
 
 use anyhow::{Context, Result};
+use common::storage::{MediaType, UserStorageManager};
 use media_core::storage::StorageManager;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -26,6 +28,8 @@ pub struct ImageStorageConfig {
     pub max_file_size: u64,
     /// Media-core storage manager (wrapped in Arc for Clone)
     storage_manager: Option<Arc<StorageManager>>,
+    /// Phase 4.5: User-based storage manager
+    pub user_storage: UserStorageManager,
 }
 
 impl std::fmt::Debug for ImageStorageConfig {
@@ -35,6 +39,7 @@ impl std::fmt::Debug for ImageStorageConfig {
             .field("temp_dir", &self.temp_dir)
             .field("max_file_size", &self.max_file_size)
             .field("storage_manager", &self.storage_manager.is_some())
+            .field("user_storage", &self.user_storage)
             .finish()
     }
 }
@@ -45,12 +50,14 @@ impl ImageStorageConfig {
         let images_dir = base_dir.join("images");
         let temp_dir = base_dir.join("temp");
         let storage_manager = Some(Arc::new(StorageManager::new(&base_dir)));
+        let user_storage = UserStorageManager::new(&base_dir);
 
         Self {
             images_dir,
             temp_dir,
             max_file_size: 100 * 1024 * 1024, // 100MB
             storage_manager,
+            user_storage,
         }
     }
 
@@ -105,10 +112,43 @@ impl ImageStorageConfig {
         }
     }
 
-    /// Get the path for an image directory
+    /// Get the path for an image directory (legacy method)
     pub fn get_image_dir(&self, slug: &str, is_public: bool) -> PathBuf {
         let visibility = if is_public { "public" } else { "private" };
         self.images_dir.join(visibility).join(slug)
+    }
+
+    /// Phase 4.5: Get the path for an image file (user-based)
+    ///
+    /// Returns: `storage/users/{user_id}/images/{filename}`
+    pub fn get_user_image_path(&self, user_id: &str, filename: &str) -> PathBuf {
+        self.user_storage.media_path(user_id, MediaType::Image, filename)
+    }
+
+    /// Phase 4.5: Find image file (checks both new and legacy paths)
+    ///
+    /// This provides backward compatibility by checking:
+    /// 1. New location: `storage/users/{user_id}/images/{filename}`
+    /// 2. Legacy location: `storage/images/{filename}`
+    pub fn find_image_path(&self, user_id: &str, filename: &str) -> Option<PathBuf> {
+        // Check new user-based location first
+        let new_path = self.get_user_image_path(user_id, filename);
+        if new_path.exists() {
+            return Some(new_path);
+        }
+
+        // Check legacy location
+        let legacy_path = self.images_dir.join(filename);
+        if legacy_path.exists() {
+            return Some(legacy_path);
+        }
+
+        None
+    }
+
+    /// Phase 4.5: Ensure user storage directories exist
+    pub fn ensure_user_storage(&self, user_id: &str) -> Result<()> {
+        self.user_storage.ensure_user_storage(user_id)
     }
 
     /// Get the path for a temporary file

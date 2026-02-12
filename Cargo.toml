@@ -28,6 +28,10 @@ default-run = "video-server-rs"
 name = "generate-thumbnails"
 path = "scripts/admin/generate_thumbnails.rs"
 
+[[bin]]
+name = "migrate_storage"
+path = "scripts/migrate_storage.rs"
+
 [dependencies]
 # Local crates
 common = { path = "crates/common" }

@@ -2,43 +2,88 @@
 //!
 //! Provides async storage operations integrated with media-core's StorageManager.
 //! Handles document uploads, retrievals, deletions, and metadata updates.
+//!
+//! Phase 4.5: User-based storage directories
 
 use anyhow::{Context, Result};
 use common::models::document::{Document, DocumentCreateDTO, DocumentUpdateDTO};
+use common::storage::{MediaType, UserStorageManager};
 use media_core::storage::StorageManager;
 use sqlx::SqlitePool;
 use std::path::{Path, PathBuf};
 use tokio::fs;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 /// Document storage operations
 pub struct DocumentStorage {
     storage_manager: StorageManager,
     db_pool: SqlitePool,
+    /// Phase 4.5: User-based storage manager
+    user_storage: UserStorageManager,
 }
 
 impl DocumentStorage {
     /// Create a new DocumentStorage instance
     pub fn new(storage_manager: StorageManager, db_pool: SqlitePool) -> Self {
+        // Phase 4.5: Get base directory from absolute_path of empty string
+        let base_dir = storage_manager.absolute_path("");
+        let user_storage = UserStorageManager::new(base_dir);
+
         Self {
             storage_manager,
             db_pool,
+            user_storage,
         }
     }
 
-    /// Get the base storage directory for documents
+    /// Get the base storage directory for documents (legacy)
     pub fn documents_dir(&self) -> PathBuf {
         self.storage_manager.absolute_path("documents")
     }
 
-    /// Get the storage path for a specific document
+    /// Get the storage path for a specific document (legacy)
     pub fn document_path(&self, slug: &str) -> PathBuf {
         self.documents_dir().join(slug)
     }
 
-    /// Get the thumbnail directory for documents
+    /// Phase 4.5: Get user-based document path
+    ///
+    /// Returns: `storage/users/{user_id}/documents/{slug}/`
+    pub fn user_document_path(&self, user_id: &str, slug: &str) -> PathBuf {
+        self.user_storage.media_path(user_id, MediaType::Document, slug)
+    }
+
+    /// Phase 4.5: Find document path (checks both new and legacy paths)
+    pub fn find_document_path(&self, user_id: &str, slug: &str) -> Option<PathBuf> {
+        // Check new user-based location first
+        let new_path = self.user_document_path(user_id, slug);
+        if new_path.exists() {
+            return Some(new_path);
+        }
+
+        // Check legacy location
+        let legacy_path = self.document_path(slug);
+        if legacy_path.exists() {
+            warn!("Document found in legacy location: {:?}", legacy_path);
+            return Some(legacy_path);
+        }
+
+        None
+    }
+
+    /// Get the thumbnail directory for documents (legacy)
     pub fn thumbnails_dir(&self) -> PathBuf {
         self.storage_manager.absolute_path("thumbnails/documents")
+    }
+
+    /// Phase 4.5: Get user-based thumbnail directory
+    pub fn user_thumbnails_dir(&self, user_id: &str) -> PathBuf {
+        self.user_storage.thumbnails_dir(user_id, MediaType::Document)
+    }
+
+    /// Phase 4.5: Ensure user storage directories exist
+    pub async fn ensure_user_storage(&self, user_id: &str) -> Result<()> {
+        self.user_storage.ensure_user_storage(user_id)
     }
 
     /// Ensure storage directories exist

@@ -1371,9 +1371,9 @@ pub async fn serve_image_handler(
         (slug.clone(), false)
     };
 
-    // Lookup image in database - get id, filename, and is_public
-    let image: Result<Option<(i32, String, i32)>, sqlx::Error> =
-        sqlx::query_as("SELECT id, filename, is_public FROM images WHERE slug = ?")
+    // Lookup image in database - get id, filename, user_id, vault_id, and is_public
+    let image: Result<Option<(i32, String, Option<String>, Option<String>, i32)>, sqlx::Error> =
+        sqlx::query_as("SELECT id, filename, user_id, vault_id, is_public FROM images WHERE slug = ?")
             .bind(&lookup_slug)
             .fetch_optional(&state.pool)
             .await;
@@ -1390,7 +1390,7 @@ pub async fn serve_image_handler(
         }
     };
 
-    let (image_id, mut filename, is_public_int) = image;
+    let (image_id, mut filename, owner_user_id, vault_id, is_public_int) = image;
     let is_public = is_public_int == 1;
 
     // Adjust filename for thumbnails
@@ -1457,8 +1457,26 @@ pub async fn serve_image_handler(
         "Access granted to image download"
     );
 
-    // Determine storage location (single folder structure)
-    let full_path = state.storage_dir.join("images").join(&filename);
+    // Phase 4.5: Determine storage location using vault-based paths
+    // Fallback chain: vault -> user -> legacy
+    let full_path = if let Some(ref vid) = vault_id {
+        // Use vault-based path
+        state.storage_config.user_storage.vault_media_path(
+            vid,
+            common::storage::MediaType::Image,
+            &filename,
+        )
+    } else if let Some(ref uid) = owner_user_id {
+        // Fallback to user-based path
+        state.storage_config.user_storage.media_path(
+            uid,
+            common::storage::MediaType::Image,
+            &filename,
+        )
+    } else {
+        // Legacy path
+        state.storage_dir.join("images").join(&filename)
+    };
 
     println!("📷 Serving image: {} from {:?}", slug, full_path);
 

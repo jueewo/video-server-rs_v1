@@ -1,12 +1,20 @@
-//! Common storage utilities for user-based directory management
+//! Common storage utilities for vault-based directory management
 //!
-//! Phase 4.5: User-Based Storage Directories
+//! Phase 4.5: Vault-Based Storage Directories (Obsidian-like)
 //!
 //! This module provides utilities for:
-//! - User-based path generation (storage/users/{user_id}/{media_type}/)
+//! - Vault-based path generation (storage/vaults/{vault_id}/{media_type}/)
 //! - Backward compatibility with legacy paths (storage/{media_type}/)
-//! - Storage initialization and directory management
+//! - Vault creation and management
 //! - Path validation and safety checks
+//!
+//! ## Architecture
+//!
+//! Vaults provide privacy-preserving storage organization:
+//! - Each user gets one or more vaults (identified by random IDs)
+//! - Vault IDs are meaningless without database lookup
+//! - User IDs never appear in filesystem paths
+//! - Database maps vault_id -> user_id
 
 use anyhow::{Context, Result};
 use std::fs;
@@ -32,13 +40,30 @@ impl MediaType {
     }
 }
 
-/// Storage manager for user-based directory organization
+/// Storage manager for vault-based directory organization
 #[derive(Clone, Debug)]
 pub struct UserStorageManager {
     /// Base storage directory (e.g., "storage")
     base_dir: PathBuf,
-    /// Feature flag: Use user-based storage (default: true)
-    use_user_based_storage: bool,
+    /// Feature flag: Use vault-based storage (default: true)
+    use_vault_based_storage: bool,
+}
+
+/// Generate a random vault ID
+///
+/// Format: vault-{8 random hex chars}
+/// Example: vault-a1b2c3d4
+pub fn generate_vault_id() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+
+    // Use timestamp + random component for uniqueness
+    let random_part: u32 = (timestamp % (u32::MAX as u128)) as u32;
+    format!("vault-{:08x}", random_part)
 }
 
 impl UserStorageManager {
@@ -46,7 +71,7 @@ impl UserStorageManager {
     pub fn new(base_dir: impl Into<PathBuf>) -> Self {
         Self {
             base_dir: base_dir.into(),
-            use_user_based_storage: true,
+            use_vault_based_storage: true,
         }
     }
 
@@ -55,41 +80,75 @@ impl UserStorageManager {
         &self.base_dir
     }
 
-    /// Get the root storage directory for a specific user
+    /// Get the vaults root directory
+    ///
+    /// Returns: `storage/vaults/`
+    pub fn vaults_root(&self) -> PathBuf {
+        self.base_dir.join("vaults")
+    }
+
+    /// Get the root storage directory for a specific vault
+    ///
+    /// Returns: `storage/vaults/{vault_id}/`
+    pub fn vault_storage_root(&self, vault_id: &str) -> PathBuf {
+        self.vaults_root().join(vault_id)
+    }
+
+    /// Get the root storage directory for a specific user (legacy)
     ///
     /// Returns: `storage/users/{user_id}/`
     pub fn user_storage_root(&self, user_id: &str) -> PathBuf {
         self.base_dir.join("users").join(user_id)
     }
 
-    /// Get the media directory for a specific user and media type
+    /// Get the media directory for a specific vault and media type
     ///
-    /// New format: `storage/users/{user_id}/{media_type}/`
+    /// Vault format: `storage/vaults/{vault_id}/{media_type}/`
     /// Legacy format: `storage/{media_type}/`
-    pub fn user_media_dir(&self, user_id: &str, media_type: MediaType) -> PathBuf {
-        if self.use_user_based_storage {
-            self.user_storage_root(user_id).join(media_type.dir_name())
+    pub fn vault_media_dir(&self, vault_id: &str, media_type: MediaType) -> PathBuf {
+        if self.use_vault_based_storage {
+            self.vault_storage_root(vault_id)
+                .join(media_type.dir_name())
         } else {
             // Legacy format (backward compatibility)
             self.base_dir.join(media_type.dir_name())
         }
     }
 
-    /// Get the full path for a specific media item (file or directory)
+    /// Get the full path for a specific media item in a vault
     ///
-    /// New format: `storage/users/{user_id}/{media_type}/{slug}/`
+    /// Vault format: `storage/vaults/{vault_id}/{media_type}/{slug}/`
     /// Legacy format: `storage/{media_type}/{slug}/`
+    pub fn vault_media_path(
+        &self,
+        vault_id: &str,
+        media_type: MediaType,
+        slug: &str,
+    ) -> PathBuf {
+        self.vault_media_dir(vault_id, media_type).join(slug)
+    }
+
+    /// Get the media directory for a specific user and media type (legacy)
+    ///
+    /// User format: `storage/users/{user_id}/{media_type}/`
+    pub fn user_media_dir(&self, user_id: &str, media_type: MediaType) -> PathBuf {
+        self.user_storage_root(user_id).join(media_type.dir_name())
+    }
+
+    /// Get the full path for a specific media item (legacy user-based)
+    ///
+    /// User format: `storage/users/{user_id}/{media_type}/{slug}/`
     pub fn media_path(&self, user_id: &str, media_type: MediaType, slug: &str) -> PathBuf {
         self.user_media_dir(user_id, media_type).join(slug)
     }
 
-    /// Get the thumbnail directory for a specific user and media type
+    /// Get the thumbnail directory for a specific vault and media type
     ///
-    /// New format: `storage/users/{user_id}/thumbnails/{media_type}/`
+    /// Vault format: `storage/vaults/{vault_id}/thumbnails/{media_type}/`
     /// Legacy format: `storage/thumbnails/{media_type}/`
-    pub fn thumbnails_dir(&self, user_id: &str, media_type: MediaType) -> PathBuf {
-        if self.use_user_based_storage {
-            self.user_storage_root(user_id)
+    pub fn vault_thumbnails_dir(&self, vault_id: &str, media_type: MediaType) -> PathBuf {
+        if self.use_vault_based_storage {
+            self.vault_storage_root(vault_id)
                 .join("thumbnails")
                 .join(media_type.dir_name())
         } else {
@@ -99,7 +158,49 @@ impl UserStorageManager {
         }
     }
 
-    /// Ensure user storage directories exist
+    /// Get the thumbnail directory for a specific user and media type (legacy)
+    ///
+    /// User format: `storage/users/{user_id}/thumbnails/{media_type}/`
+    pub fn thumbnails_dir(&self, user_id: &str, media_type: MediaType) -> PathBuf {
+        self.user_storage_root(user_id)
+            .join("thumbnails")
+            .join(media_type.dir_name())
+    }
+
+    /// Ensure vault storage directories exist
+    ///
+    /// Creates:
+    /// - `storage/vaults/{vault_id}/`
+    /// - `storage/vaults/{vault_id}/videos/`
+    /// - `storage/vaults/{vault_id}/images/`
+    /// - `storage/vaults/{vault_id}/documents/`
+    /// - `storage/vaults/{vault_id}/thumbnails/`
+    pub fn ensure_vault_storage(&self, vault_id: &str) -> Result<()> {
+        let vault_root = self.vault_storage_root(vault_id);
+
+        // Create vault root directory
+        ensure_dir_exists(&vault_root)?;
+
+        // Create media type directories
+        for media_type in &[MediaType::Video, MediaType::Image, MediaType::Document] {
+            let media_dir = self.vault_media_dir(vault_id, *media_type);
+            ensure_dir_exists(&media_dir)?;
+        }
+
+        // Create thumbnails directory structure
+        let thumbnails_root = vault_root.join("thumbnails");
+        ensure_dir_exists(&thumbnails_root)?;
+
+        for media_type in &[MediaType::Video, MediaType::Image, MediaType::Document] {
+            let thumb_dir = self.vault_thumbnails_dir(vault_id, *media_type);
+            ensure_dir_exists(&thumb_dir)?;
+        }
+
+        info!("Ensured storage directories for vault: {}", vault_id);
+        Ok(())
+    }
+
+    /// Ensure user storage directories exist (legacy)
     ///
     /// Creates:
     /// - `storage/users/{user_id}/`
@@ -132,24 +233,35 @@ impl UserStorageManager {
         Ok(())
     }
 
-    /// Find file location (checks both new and legacy paths)
+    /// Find file location (checks vault, user, and legacy paths)
     ///
     /// This provides backward compatibility by checking:
-    /// 1. New location: `storage/users/{user_id}/{media_type}/{slug}/`
-    /// 2. Legacy location: `storage/{media_type}/{slug}/`
+    /// 1. Vault location: `storage/vaults/{vault_id}/{media_type}/{slug}/`
+    /// 2. User location: `storage/users/{user_id}/{media_type}/{slug}/`
+    /// 3. Legacy location: `storage/{media_type}/{slug}/`
     ///
-    /// Returns the first path that exists, or None if neither exists.
-    pub fn find_file_location(
+    /// Returns the first path that exists, or None if none exist.
+    pub fn find_file_location_with_vault(
         &self,
+        vault_id: Option<&str>,
         user_id: &str,
         media_type: MediaType,
         slug: &str,
     ) -> Option<PathBuf> {
-        // Check new user-based location first
-        let new_path = self.media_path(user_id, media_type, slug);
-        if new_path.exists() {
-            debug!("Found file in new location: {:?}", new_path);
-            return Some(new_path);
+        // Check vault location first (if vault_id provided)
+        if let Some(vid) = vault_id {
+            let vault_path = self.vault_media_path(vid, media_type, slug);
+            if vault_path.exists() {
+                debug!("Found file in vault location: {:?}", vault_path);
+                return Some(vault_path);
+            }
+        }
+
+        // Check user-based location
+        let user_path = self.media_path(user_id, media_type, slug);
+        if user_path.exists() {
+            debug!("Found file in user location: {:?}", user_path);
+            return Some(user_path);
         }
 
         // Check legacy location
@@ -163,15 +275,23 @@ impl UserStorageManager {
         }
 
         debug!(
-            "File not found in either new or legacy location: user={}, type={:?}, slug={}",
-            user_id,
-            media_type,
-            slug
+            "File not found: vault={:?}, user={}, type={:?}, slug={}",
+            vault_id, user_id, media_type, slug
         );
         None
     }
 
-    /// Check if a file exists in either new or legacy location
+    /// Find file location (checks user and legacy paths only - legacy method)
+    pub fn find_file_location(
+        &self,
+        user_id: &str,
+        media_type: MediaType,
+        slug: &str,
+    ) -> Option<PathBuf> {
+        self.find_file_location_with_vault(None, user_id, media_type, slug)
+    }
+
+    /// Check if a file exists
     pub fn file_exists(&self, user_id: &str, media_type: MediaType, slug: &str) -> bool {
         self.find_file_location(user_id, media_type, slug)
             .is_some()

@@ -574,15 +574,15 @@ pub async fn hls_proxy_handler(
     }
 
     // Handle VOD - serve from local storage
-    // DB lookup for regular videos - get id and is_public
-    let video: Option<(i32, i32)> =
-        sqlx::query_as("SELECT id, is_public FROM videos WHERE slug = ?")
+    // DB lookup for regular videos - get id, user_id, vault_id, and is_public
+    let video: Option<(i32, Option<String>, Option<String>, i32)> =
+        sqlx::query_as("SELECT id, user_id, vault_id, is_public FROM videos WHERE slug = ?")
             .bind(slug)
             .fetch_optional(&state.pool)
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let (video_id, is_public_int) = video.ok_or(StatusCode::NOT_FOUND)?;
+    let (video_id, owner_user_id, vault_id, is_public_int) = video.ok_or(StatusCode::NOT_FOUND)?;
     let _is_public = is_public_int == 1;
 
     // Get user_id from session if authenticated
@@ -635,8 +635,28 @@ pub async fn hls_proxy_handler(
         "Access granted to HLS stream"
     );
 
-    // Serve VOD file from storage (single folder structure)
-    let full_path = state.storage_dir.join("videos").join(slug).join(file_path);
+    // Phase 4.5: Serve VOD file from vault-based storage
+    // Fallback chain: vault -> user -> legacy
+    let video_dir = if let Some(ref vid) = vault_id {
+        // Use vault-based path
+        state.storage_config.user_storage.vault_media_path(
+            vid,
+            common::storage::MediaType::Video,
+            slug,
+        )
+    } else if let Some(ref uid) = owner_user_id {
+        // Fallback to user-based path
+        state.storage_config.user_storage.media_path(
+            uid,
+            common::storage::MediaType::Video,
+            slug,
+        )
+    } else {
+        // Legacy path
+        state.storage_dir.join("videos").join(slug)
+    };
+
+    let full_path = video_dir.join(file_path);
 
     // Check if file exists and read it
     let file = tokio::fs::File::open(&full_path)

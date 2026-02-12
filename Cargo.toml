@@ -109,3 +109,7 @@ askama_axum = "0.4"
 
 # Image processing
 image = { version = "0.24", features = ["webp"] }
+
+[[bin]]
+name = "create_default_vaults"
+path = "scripts/create_default_vaults.rs"

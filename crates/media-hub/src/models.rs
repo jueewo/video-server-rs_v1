@@ -113,17 +113,23 @@ impl UnifiedMediaItem {
         match self {
             Self::Video(v) => {
                 // Use poster (banner) first for better grid appearance, then thumbnail, then fallback
-                // Try multiple formats: .webp (most common), .jpg, .png
+                // Phase 4.5: Use HLS endpoint which handles vault paths
                 v.poster_url
                     .clone()
                     .or_else(|| v.thumbnail_url.clone())
-                    .or_else(|| Some(format!("/storage/videos/{}/thumbnail.webp", v.slug)))
+                    .or_else(|| Some(format!("/hls/{}/thumbnail.webp", v.slug)))
             }
             Self::Image(i) => {
                 // For images, use the image itself as thumbnail, or the thumbnail field
+                // Phase 4.5: Use slug-based URL which goes through serve handler with vault resolution
                 i.thumbnail_url.clone().or_else(|| {
-                    // Use the actual image file as thumbnail
-                    Some(format!("/storage/images/{}", i.filename))
+                    // For SVG, use the original image as thumbnail (no raster conversion needed)
+                    if i.filename.ends_with(".svg") {
+                        Some(format!("/images/{}", i.slug))
+                    } else {
+                        // Use the _thumb endpoint which goes through serve_image_handler
+                        Some(format!("/images/{}_thumb", i.slug))
+                    }
                 })
             }
             Self::Document(d) => {

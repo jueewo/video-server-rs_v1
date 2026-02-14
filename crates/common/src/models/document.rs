@@ -303,7 +303,7 @@ impl Document {
 
     /// Get public URL
     pub fn public_url(&self) -> String {
-        format!("/media/documents/{}", self.slug)
+        format!("/documents/{}", self.slug)
     }
 
     /// Get thumbnail URL if available

@@ -195,7 +195,7 @@ pub async fn handle_video_upload(
     );
 
     // Create initial database record
-    match create_upload_record(&state.pool, &upload_id, &slug, &user_id, &upload_data).await {
+    match create_upload_record(&state.pool, &upload_id, &slug, &user_id, &upload_data, &state.storage_config.user_storage).await {
         Ok(_) => {
             info!("Database record created for upload: {}", upload_id);
         }
@@ -472,6 +472,7 @@ async fn create_upload_record(
     slug: &str,
     user_id: &str,
     data: &VideoUploadRequest,
+    storage: &common::storage::UserStorageManager,
 ) -> Result<()> {
     let is_public_int = if data.is_public { 1 } else { 0 };
     let featured_int = 0;
@@ -479,17 +480,26 @@ async fn create_upload_record(
     let allow_download_int = if data.allow_download { 1 } else { 0 };
     let mature_content_int = if data.mature_content { 1 } else { 0 };
 
+    // Get or create default vault for user
+    let vault_id = common::services::vault_service::get_or_create_default_vault(
+        pool,
+        storage,
+        user_id,
+    )
+    .await
+    .context("Failed to get or create vault")?;
+
     sqlx::query(
         r#"
         INSERT INTO videos (
             slug, title, description, short_description,
-            is_public, user_id, group_id,
+            is_public, user_id, group_id, vault_id,
             category, language, status,
             featured, allow_comments, allow_download, mature_content,
             processing_status, processing_progress, upload_id,
             original_filename, file_size,
             upload_date, last_modified
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
         "#,
     )
     .bind(slug)
@@ -499,6 +509,7 @@ async fn create_upload_record(
     .bind(is_public_int)
     .bind(user_id)
     .bind(data.group_id)
+    .bind(&vault_id)
     .bind(&data.category)
     .bind(&data.language)
     .bind("draft") // status

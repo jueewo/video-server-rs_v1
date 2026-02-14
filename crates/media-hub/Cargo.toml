@@ -43,5 +43,8 @@ tracing = { workspace = true }
 time = { workspace = true }
 chrono = "0.4"
 
+# Image processing
+image = { workspace = true }
+
 [dev-dependencies]
 tokio-test = "0.4"

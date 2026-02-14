@@ -7,8 +7,10 @@
 //! - Cleanup utilities
 //!
 //! Phase 2.4: Integrated with media-core StorageManager
+//! Phase 4.5: User-based storage directories
 
 use anyhow::{Context, Result};
+use common::storage::{MediaType, UserStorageManager};
 use media_core::storage::StorageManager;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -26,6 +28,8 @@ pub struct StorageConfig {
     pub max_file_size: u64,
     /// Media-core storage manager (wrapped in Arc for Clone)
     storage_manager: Option<Arc<StorageManager>>,
+    /// Phase 4.5: User-based storage manager
+    pub user_storage: UserStorageManager,
 }
 
 impl std::fmt::Debug for StorageConfig {
@@ -35,6 +39,7 @@ impl std::fmt::Debug for StorageConfig {
             .field("temp_dir", &self.temp_dir)
             .field("max_file_size", &self.max_file_size)
             .field("storage_manager", &self.storage_manager.is_some())
+            .field("user_storage", &self.user_storage)
             .finish()
     }
 }
@@ -45,12 +50,14 @@ impl StorageConfig {
         let videos_dir = base_dir.join("videos");
         let temp_dir = base_dir.join("temp");
         let storage_manager = Some(Arc::new(StorageManager::new(&base_dir)));
+        let user_storage = UserStorageManager::new(&base_dir);
 
         Self {
             videos_dir,
             temp_dir,
             max_file_size: 2 * 1024 * 1024 * 1024, // 2GB
             storage_manager,
+            user_storage,
         }
     }
 
@@ -106,10 +113,56 @@ impl StorageConfig {
         }
     }
 
-    /// Get the path for a video directory
+    /// Get the path for a video directory (legacy method)
     pub fn get_video_dir(&self, slug: &str, is_public: bool) -> PathBuf {
         let visibility = if is_public { "public" } else { "private" };
         self.videos_dir.join(visibility).join(slug)
+    }
+
+    /// Phase 4.5: Get the path for a video directory (user-based)
+    ///
+    /// Returns: `storage/users/{user_id}/videos/{slug}/`
+    pub fn get_user_video_dir(&self, user_id: &str, slug: &str) -> PathBuf {
+        self.user_storage.media_path(user_id, MediaType::Video, slug)
+    }
+
+    /// Phase 4.5: Find video directory (checks both new and legacy paths)
+    ///
+    /// This provides backward compatibility by checking:
+    /// 1. New location: `storage/users/{user_id}/videos/{slug}/`
+    /// 2. Legacy location: `storage/videos/public/{slug}/` or `storage/videos/private/{slug}/`
+    pub fn find_video_dir(&self, user_id: &str, slug: &str, is_public: Option<bool>) -> Option<PathBuf> {
+        // Check new user-based location first
+        let new_path = self.get_user_video_dir(user_id, slug);
+        if new_path.exists() {
+            return Some(new_path);
+        }
+
+        // Check legacy locations if we know visibility
+        if let Some(public) = is_public {
+            let legacy_path = self.get_video_dir(slug, public);
+            if legacy_path.exists() {
+                return Some(legacy_path);
+            }
+        } else {
+            // Check both public and private if visibility unknown
+            let public_path = self.get_video_dir(slug, true);
+            if public_path.exists() {
+                return Some(public_path);
+            }
+
+            let private_path = self.get_video_dir(slug, false);
+            if private_path.exists() {
+                return Some(private_path);
+            }
+        }
+
+        None
+    }
+
+    /// Phase 4.5: Ensure user storage directories exist
+    pub fn ensure_user_storage(&self, user_id: &str) -> Result<()> {
+        self.user_storage.ensure_user_storage(user_id)
     }
 
     /// Get the path for a temporary file

@@ -4,6 +4,7 @@
 
 pub mod document;
 pub mod image;
+pub mod media_item;
 pub mod tag;
 pub mod video;
 
@@ -32,4 +33,9 @@ pub use image::{
 pub use document::{
     Document, DocumentAnalytics, DocumentCreateDTO, DocumentFilterOptions, DocumentListDTO,
     DocumentSummary, DocumentTypeEnum, DocumentTypeStats, DocumentUpdateDTO,
+};
+
+pub use media_item::{
+    MediaItem, MediaItemCreateDTO, MediaItemFilterOptions, MediaItemListResponse,
+    MediaItemSummary, MediaItemUpdateDTO, MediaStatus, MediaTag, MediaType,
 };

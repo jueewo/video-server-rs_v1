@@ -631,13 +631,26 @@
                 xhr.addEventListener('load', () => {
                     if (xhr.status === 200) {
                         const response = JSON.parse(xhr.responseText);
-                        window.location.href = '/media?success=upload';
+                        if (response.success) {
+                            window.location.href = '/media?success=upload';
+                        } else {
+                            throw new Error(response.message || 'Upload failed');
+                        }
                     } else {
-                        throw new Error('Upload failed: ' + xhr.statusText);
+                        let errorMessage = 'Upload failed';
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            errorMessage = response.message || errorMessage;
+                        } catch (e) {
+                            errorMessage += ': ' + xhr.statusText;
+                        }
+                        console.error('Upload error:', xhr.status, xhr.responseText);
+                        throw new Error(errorMessage);
                     }
                 });
 
                 xhr.addEventListener('error', () => {
+                    console.error('Upload network error');
                     throw new Error('Upload failed: Network error');
                 });
 
@@ -645,10 +658,12 @@
                 xhr.send(formData);
 
             } catch (error) {
+                console.error('Upload exception:', error);
                 alert('Upload failed: ' + error.message);
                 uploadBtn.disabled = false;
                 uploadBtn.textContent = 'Upload Media';
                 progressBar.classList.remove('active');
+                progressFill.style.width = '0%';
             }
         });
     </script>

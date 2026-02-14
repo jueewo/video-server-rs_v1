@@ -8,6 +8,7 @@ members = [
     "crates/image-manager",
     "crates/document-manager",
     "crates/media-hub",
+    "crates/media-manager",
     "crates/user-auth",
     "crates/access-codes",
     "crates/access-control",
@@ -28,6 +29,10 @@ default-run = "video-server-rs"
 name = "generate-thumbnails"
 path = "scripts/admin/generate_thumbnails.rs"
 
+[[bin]]
+name = "migrate_storage"
+path = "scripts/migrate_storage.rs"
+
 [dependencies]
 # Local crates
 common = { path = "crates/common" }
@@ -37,6 +42,7 @@ video-manager = { path = "crates/video-manager" }
 image-manager = { path = "crates/image-manager" }
 document-manager = { path = "crates/document-manager" }
 media-hub = { path = "crates/media-hub" }
+media-manager = { path = "crates/media-manager" }
 user-auth = { path = "crates/user-auth" }
 access-codes = { path = "crates/access-codes" }
 access-control = { path = "crates/access-control" }
@@ -105,3 +111,7 @@ askama_axum = "0.4"
 
 # Image processing
 image = { version = "0.24", features = ["webp"] }
+
+[[bin]]
+name = "create_default_vaults"
+path = "scripts/create_default_vaults.rs"

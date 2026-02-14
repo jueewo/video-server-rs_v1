@@ -140,7 +140,7 @@
     <div class="player-status" id="player-info">Initializing player...</div>
 
     <div class="video-wrapper">
-        <video id="video" controls autoplay poster="/storage/videos/{% if is_public %}public{% else %}private{% endif %}/{{ slug }}/thumbnail.webp">
+        <video id="video" controls autoplay poster="/hls/{{ slug }}/thumbnail.webp">
             Your browser does not support the video tag.
         </video>
     </div>

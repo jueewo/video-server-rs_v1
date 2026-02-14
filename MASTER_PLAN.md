@@ -705,8 +705,11 @@ Phase 2: Access Groups (✅ COMPLETE)
 Phase 3: Tagging System (🚧 IN PROGRESS - Week 5)
   └── Tags, Search, Filtering, Cross-resource search
 
-Phase 4: File Manager (📋 PLANNED)
-  └── General files, BPMN, CSV, MD, PDF support
+Phase 4: Media-Core Architecture & Document Manager (📋 PLANNED)
+  └── Unified media traits, Document support, Code reuse
+
+Phase 4.5: Storage Optimization & UI Consolidation (🎯 STARTING NOW)
+  └── User-based storage directories, Consolidated "All Media" UI
 
 Phase 5: UI Migration (📋 PLANNED)
   └── Complete TailwindCSS migration, Modern UI
@@ -1043,7 +1046,7 @@ CREATE TABLE image_tags (
 ### Phase 4: Media-Core Architecture & Document Manager 📋 PLANNED
 
 **Duration:** 7 weeks  
-**Status:** 📋 Not Started  
+**Status:** 📋 Not Started (Deferred after Phase 4.5)  
 **Branch:** `feature/media-core-architecture`  
 **Related:** [`MEDIA_CORE_ARCHITECTURE.md`](MEDIA_CORE_ARCHITECTURE.md), [`TODO_MEDIA_CORE.md`](TODO_MEDIA_CORE.md)
 
@@ -1245,6 +1248,384 @@ DELETE /api/documents/:slug         # Delete
 - Consistent UI across all types
 - Unified search and tagging
 - Same access control everywhere
+
+---
+
+### Phase 4.5: Storage Optimization & UI Consolidation 🎯 STARTING NOW
+
+**Duration:** 3-4 weeks  
+**Status:** 🎯 Starting Immediately  
+**Priority:** HIGH - Foundation for scalability  
+**Related:** Storage architecture, UI consolidation
+
+#### Overview
+
+This phase addresses two critical optimizations identified through architectural review:
+1. **User-Based Storage Directories** - Organize filesystem by user ownership
+2. **Consolidated "All Media" Interface** - Single unified UI for all media types
+
+These optimizations improve scalability, organization, and user experience while maintaining the current simple group model (one group per file) and leveraging the existing tagging system (many tags per file).
+
+---
+
+#### Part 1: User-Based Storage Directories (2 weeks)
+
+**Current Problem:**
+```
+storage/
+  ├── images/        # All users' images in one directory
+  ├── videos/        # All users' videos in one directory
+  └── documents/     # All users' documents in one directory
+
+Issues:
+- Filesystem performance degrades with many files in one directory
+- Hard to find a specific user's files
+- Difficult to implement per-user storage quotas
+- Complicated backup/restore for individual users
+- No physical separation of user data
+```
+
+**Proposed Solution:**
+```
+storage/
+  └── users/
+      ├── {user_id_1}/
+      │   ├── videos/
+      │   │   └── {slug}/
+      │   │       ├── video.mp4
+      │   │       └── thumbnail.jpg
+      │   ├── images/
+      │   │   ├── {filename}
+      │   │   └── {filename}_thumb.webp
+      │   └── documents/
+      │       └── {slug}/
+      │           └── document.pdf
+      └── {user_id_2}/
+          └── ... (same structure)
+
+Benefits:
+✅ Better filesystem performance (smaller directories)
+✅ Clear ownership at filesystem level
+✅ Easy per-user storage quotas
+✅ Simple per-user backup/restore
+✅ Physical separation for security
+✅ Scalable to thousands of users
+```
+
+**Implementation Tasks:**
+
+1. **Update Storage Managers** (3 days)
+   - [ ] Create `StorageManager::user_storage_root(user_id)` helper
+   - [ ] Update `DocumentStorage::document_path()` to use user directories
+   - [ ] Update `ImageManager::upload_image_handler()` path generation
+   - [ ] Update `VideoManager` storage paths
+   - [ ] Add `ensure_user_storage()` to create user directories on-demand
+
+2. **Database Schema Updates** (1 day)
+   - [ ] Verify `user_id` columns exist in all media tables ✅ (Already present)
+   - [ ] No schema changes needed - user_id already tracked
+
+3. **Migration Script** (2 days)
+   - [ ] Create `scripts/migrate_to_user_storage.sh`
+   - [ ] Implement safe migration with backup
+   - [ ] Add rollback capability
+   - [ ] Test with sample data
+   - [ ] Document migration process
+
+4. **Backward Compatibility** (2 days)
+   - [ ] Support both old and new paths during transition
+   - [ ] Add feature flag: `USE_USER_BASED_STORAGE`
+   - [ ] Implement path detection (check both locations)
+   - [ ] Log migration progress
+
+5. **Testing** (2 days)
+   - [ ] Test new uploads go to user directories
+   - [ ] Test file retrieval from new structure
+   - [ ] Test migration script with various scenarios
+   - [ ] Test backward compatibility with old paths
+   - [ ] Performance testing (directory sizes)
+
+6. **Documentation** (1 day)
+   - [ ] Update deployment docs with migration instructions
+   - [ ] Document new storage structure
+   - [ ] Add troubleshooting guide
+   - [ ] Update backup/restore procedures
+
+**Key Design Decisions:**
+
+- **Groups Stay Virtual**: Groups remain database-only (not filesystem directories)
+  - Files stored in owner's directory: `storage/users/{owner_id}/`
+  - Group membership: `videos.group_id` (database column)
+  - Rationale: Groups are organizational, not storage-based
+  
+- **Tags Stay Virtual**: Tags remain many-to-many in database only
+  - Multiple tags per file: `video_tags` junction table
+  - No filesystem representation needed
+  - Rationale: Tags are for flexible categorization
+
+- **Single Source of Truth**: Each file stored once in owner's directory
+  - No duplication or symlinks needed
+  - Clear ownership at filesystem level
+  - Group/tag organization handled in database queries
+
+**Migration Strategy:**
+
+```bash
+# Phase 1: Enable dual-path support (Week 1)
+- New uploads → user directories
+- Existing files → old structure (still works)
+- Code checks both locations
+
+# Phase 2: Background migration (Week 2)
+- Run migration script during low-traffic period
+- Move files from flat structure to user directories
+- Update file paths in database (optional - code handles both)
+- Keep old directories for rollback
+
+# Phase 3: Cleanup (Week 3)
+- Verify all files migrated successfully
+- Remove backward compatibility code
+- Delete old empty directories
+- Update all documentation
+```
+
+---
+
+#### Part 2: Consolidated "All Media" UI (1-2 weeks)
+
+**Current State:**
+```
+Separate navigation for each type:
+- /videos      → Video list
+- /images      → Image gallery
+- /documents   → Document list
+- /media       → "All Media" (unified view)
+
+Problem:
+- Duplicate UI logic across media types
+- Inconsistent user experience
+- More maintenance burden
+- Users navigate between similar pages
+```
+
+**Proposed Solution:**
+```
+Single unified interface at /media:
+- Primary hub for all media operations
+- Type filters: [All] [Videos] [Images] [Documents]
+- Tag filters: Multiple tags with AND/OR logic
+- Group filter: Filter by group membership
+- Search: Across all media types
+- Upload: Single form with type detection
+
+Optional: Redirect legacy URLs
+- /videos → /media?type=video
+- /images → /media?type=image
+- /documents → /media?type=document
+```
+
+**Implementation Tasks:**
+
+1. **Enhance Media Hub** (3 days)
+   - [ ] Improve `/media` page with comprehensive filters
+   - [ ] Add type filter pills (All, Videos, Images, Documents)
+   - [ ] Add tag filtering UI (existing backend ready)
+   - [ ] Add group filter dropdown
+   - [ ] Combine search with filters (AND logic)
+   - [ ] Add sort options (date, title, type, size)
+
+2. **Unified Upload Experience** (2 days)
+   - [ ] Single upload form at `/media/upload`
+   - [ ] Auto-detect media type from MIME type
+   - [ ] Type selection dropdown (optional override)
+   - [ ] Consistent metadata fields across types
+   - [ ] Real-time upload progress
+
+3. **Navigation Menu Updates** (1 day)
+   - [ ] Make "All Media" primary in navigation
+   - [ ] Add dropdown/submenu for quick type filters
+   - [ ] Or: Keep simple menu, use filters on /media page
+   - [ ] Update breadcrumbs across site
+
+4. **URL Redirects (Optional)** (1 day)
+   - [ ] `/videos` → `/media?type=video` (302 redirect)
+   - [ ] `/images` → `/media?type=image`
+   - [ ] `/documents` → `/media?type=document`
+   - [ ] Or: Keep URLs but use shared template
+
+5. **Testing** (2 days)
+   - [ ] Test all filter combinations
+   - [ ] Test pagination with filters
+   - [ ] Test search + filters
+   - [ ] Test upload for each media type
+   - [ ] Mobile responsive testing
+
+6. **Documentation** (1 day)
+   - [ ] Update user guides
+   - [ ] Update API documentation
+   - [ ] Create video walkthrough
+   - [ ] Update README
+
+**UI Design - Filter Bar:**
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ 🎨 All Media                              [📤 Upload Media] │
+├────────────────────────────────────────────────────────────┤
+│                                                              │
+│ [🔍 Search...]                                    [Search]   │
+│                                                              │
+│ Type:  [All] [🎥 Videos] [🖼️ Images] [📄 Documents]         │
+│                                                              │
+│ Tags:  [+ Add tags...] [rust ×] [tutorial ×] [beginner ×]  │
+│                                                              │
+│ Group: [All Groups ▼]                                       │
+│                                                              │
+│ Sort:  [Date ▼] [Title] [Type] [Size]  Order: [Desc ▼]     │
+│                                                              │
+│ ────────────────────────────────────────────────────────── │
+│                                                              │
+│ Showing 42 items (12 videos, 23 images, 7 documents)        │
+│                                                              │
+│ [Card grid of media items...]                               │
+│                                                              │
+└────────────────────────────────────────────────────────────┘
+```
+
+**Benefits:**
+
+✅ **Single Source of Truth** - One UI for all media operations
+✅ **Consistent UX** - Same experience across media types
+✅ **Better Discovery** - Combined filters (type + tags + group)
+✅ **Less Code** - Shared templates and logic
+✅ **Easier Maintenance** - One place to update
+✅ **Better Search** - Cross-type search results
+✅ **Flexible Organization** - Multiple filter dimensions
+
+---
+
+#### Architecture Alignment
+
+This phase complements the existing architecture:
+
+**Current Architecture (Maintained):**
+```
+Storage:
+- user_id: Owner (→ filesystem location after migration)
+- group_id: Integer (single group or NULL - simple access control)
+- tags: Many-to-many (flexible organization via junction tables)
+
+Access Control:
+- Four-layer system (Public → Access Code → Group → Ownership)
+- Group roles (Viewer, Contributor, Editor, Admin, Owner)
+- Already working perfectly ✅
+
+Organization:
+- Groups: One per file (access control + basic organization)
+- Tags: Many per file (flexible categorization)
+- Both are virtual (database only, not filesystem)
+```
+
+**After Phase 4.5:**
+```
+Storage:
+- Physical: storage/users/{user_id}/{media_type}/{slug}/
+- Logical: Same database structure (no changes)
+- Groups & Tags: Still virtual (database only)
+
+UI:
+- Primary: /media (unified interface)
+- Filters: Type, Tags (multiple), Group, Search
+- Legacy URLs: Optional redirects or shared templates
+
+Benefits:
+✅ Filesystem scales better (user directories)
+✅ UI is simpler (one interface)
+✅ Architecture stays clean (groups/tags virtual)
+✅ No breaking changes (backward compatible)
+```
+
+---
+
+#### Success Criteria
+
+**Part 1: Storage Optimization**
+- [ ] New uploads saved to user directories
+- [ ] All existing files migrated successfully
+- [ ] Migration script tested and documented
+- [ ] Backward compatibility verified
+- [ ] Performance improvement measured (directory listing times)
+- [ ] Per-user storage quotas implementable
+- [ ] Backup/restore procedures updated
+
+**Part 2: UI Consolidation**
+- [ ] /media page has all necessary filters
+- [ ] Upload works for all media types
+- [ ] Search across all types functional
+- [ ] Mobile responsive design
+- [ ] Navigation menu updated
+- [ ] User documentation complete
+- [ ] 90%+ user approval in testing
+
+**Overall Phase Success:**
+- [ ] No regressions in existing functionality
+- [ ] Improved filesystem organization
+- [ ] Better user experience
+- [ ] Foundation for future scaling
+- [ ] Documentation complete
+- [ ] Team trained on new structure
+
+---
+
+#### Timeline
+
+**Week 1: Storage Foundation**
+- Days 1-2: Update storage managers for user directories
+- Days 3-4: Create migration script
+- Day 5: Testing and backward compatibility
+
+**Week 2: Storage Migration**
+- Days 1-2: Run migration in staging
+- Days 3-4: Production migration (low-traffic window)
+- Day 5: Verification and cleanup
+
+**Week 3: UI Consolidation**
+- Days 1-3: Enhance /media page with filters
+- Days 4-5: Unified upload experience
+
+**Week 4: Polish & Documentation**
+- Days 1-2: Testing and bug fixes
+- Days 3-4: Documentation and training
+- Day 5: Release and monitoring
+
+---
+
+#### Risk Mitigation
+
+**Storage Migration Risks:**
+- **Data Loss**: Comprehensive backup before migration, rollback plan
+- **Downtime**: Migrate during low-traffic, enable maintenance mode
+- **Path Issues**: Dual-path support during transition
+- **Performance**: Test with production-size data first
+
+**UI Consolidation Risks:**
+- **User Confusion**: Clear documentation, optional onboarding
+- **Breaking Workflows**: Keep legacy URLs working (redirects)
+- **Feature Parity**: Ensure all existing features available
+- **Mobile UX**: Extensive mobile testing
+
+---
+
+#### Future Enhancements (Post-Phase 4.5)
+
+After this phase completes, these become easier:
+
+1. **Per-User Storage Quotas** - Simple with user directories
+2. **User-Level Backup/Restore** - Download/restore entire user directory
+3. **Storage Analytics** - Per-user usage statistics
+4. **Advanced Filtering** - Combined filters already in place
+5. **Bulk Operations** - Easier with unified UI
+6. **Multi-User Admin** - View any user's storage directory
 
 ---
 

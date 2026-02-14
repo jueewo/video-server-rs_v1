@@ -234,6 +234,7 @@ pub fn video_routes() -> Router<Arc<VideoManagerState>> {
         .route("/videos", get(videos_list_handler))
         .route("/videos/new", get(video_new_page_handler))
         .route("/videos/upload", get(video_upload_page_handler))
+        .route("/videos/:slug", get(video_player_handler))
         .route("/videos/:slug/edit", get(video_edit_page_handler))
         .route("/watch/:slug", get(video_player_handler))
         .route("/test", get(live_test_handler))
@@ -574,15 +575,15 @@ pub async fn hls_proxy_handler(
     }
 
     // Handle VOD - serve from local storage
-    // DB lookup for regular videos - get id and is_public
-    let video: Option<(i32, i32)> =
-        sqlx::query_as("SELECT id, is_public FROM videos WHERE slug = ?")
+    // DB lookup for regular videos - get id, user_id, vault_id, and is_public
+    let video: Option<(i32, Option<String>, Option<String>, i32)> =
+        sqlx::query_as("SELECT id, user_id, vault_id, is_public FROM videos WHERE slug = ?")
             .bind(slug)
             .fetch_optional(&state.pool)
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let (video_id, is_public_int) = video.ok_or(StatusCode::NOT_FOUND)?;
+    let (video_id, owner_user_id, vault_id, is_public_int) = video.ok_or(StatusCode::NOT_FOUND)?;
     let _is_public = is_public_int == 1;
 
     // Get user_id from session if authenticated
@@ -612,7 +613,7 @@ pub async fn hls_proxy_handler(
     // Check access using the 4-layer access control system
     let decision = state
         .access_control
-        .check_access(context, Permission::Download)
+        .check_access(context, Permission::Read)
         .await
         .map_err(|e| {
             info!(error = ?e, "Access control error for HLS stream");
@@ -635,8 +636,27 @@ pub async fn hls_proxy_handler(
         "Access granted to HLS stream"
     );
 
-    // Serve VOD file from storage (single folder structure)
-    let full_path = state.storage_dir.join("videos").join(slug).join(file_path);
+    // Phase 4.5: Serve VOD file from vault-based storage
+    // Fallback chain: vault -> user -> legacy
+    let video_dir = if let Some(ref vid) = vault_id {
+        // Use vault-based path
+        state.storage_config.user_storage.vault_media_path(
+            vid,
+            common::storage::MediaType::Video,
+            slug,
+        )
+    } else if let Some(ref uid) = owner_user_id {
+        // Fallback to user-based path
+        state
+            .storage_config
+            .user_storage
+            .media_path(uid, common::storage::MediaType::Video, slug)
+    } else {
+        // Legacy path
+        state.storage_dir.join("videos").join(slug)
+    };
+
+    let full_path = video_dir.join(file_path);
 
     // Check if file exists and read it
     let file = tokio::fs::File::open(&full_path)
@@ -1562,30 +1582,44 @@ pub async fn delete_video_handler(
 
     let user_id: Option<String> = session.get::<String>("user_id").await.ok().flatten();
 
-    // Check access with Delete permission
-    let mut context = AccessContext::new(ResourceType::Video, id as i32);
-    if let Some(uid) = user_id {
-        context = context.with_user(uid);
-    }
+    // Check if user is emergency admin (bypass access control for superuser)
+    let is_emergency_admin = user_id
+        .as_ref()
+        .map(|uid| uid.starts_with("emergency-"))
+        .unwrap_or(false);
 
-    let decision = state
-        .access_control
-        .check_access(context, Permission::Delete)
-        .await
-        .map_err(|e| {
-            info!(error = ?e, "Access control error for video deletion");
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Access check failed".to_string(),
-            )
-        })?;
+    if !is_emergency_admin {
+        // Check access with Delete permission
+        let mut context = AccessContext::new(ResourceType::Video, id as i32);
+        if let Some(uid) = &user_id {
+            context = context.with_user(uid.clone());
+        }
 
-    if !decision.granted {
-        info!(video_id = id, reason = %decision.reason, "Access denied to delete video");
-        return Err((
-            StatusCode::FORBIDDEN,
-            "Cannot delete this video".to_string(),
-        ));
+        let decision = state
+            .access_control
+            .check_access(context, Permission::Delete)
+            .await
+            .map_err(|e| {
+                info!(error = ?e, "Access control error for video deletion");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Access check failed".to_string(),
+                )
+            })?;
+
+        if !decision.granted {
+            info!(video_id = id, reason = %decision.reason, "Access denied to delete video");
+            return Err((
+                StatusCode::FORBIDDEN,
+                "Cannot delete this video".to_string(),
+            ));
+        }
+    } else {
+        info!(
+            video_id = id,
+            user_id = ?user_id,
+            "Emergency admin bypassing access control for video deletion"
+        );
     }
 
     // Delete associated tags

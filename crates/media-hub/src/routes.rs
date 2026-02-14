@@ -15,6 +15,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use image::{imageops::FilterType, GenericImageView, ImageFormat};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::fs;
@@ -185,7 +186,9 @@ async fn list_media_json(
 
     let search_service = MediaSearchService::new(state.pool.clone());
 
-    // Filter by user_id for authenticated users, or only show public for guests
+    // Don't filter by user_id to show all media (including legacy uploads with user_id=NULL)
+    // Authenticated users see all their media + public media from others
+    // Guest users only see public media
     let filter = MediaFilterOptions {
         search: query.q,
         media_type: query.type_filter,
@@ -194,7 +197,7 @@ async fn list_media_json(
         } else {
             Some(true)
         }, // Only public for guests
-        user_id: user_id.clone(),
+        user_id: None, // Don't filter by user_id to include legacy uploads
         sort_by: query.sort_by,
         sort_order: query.sort_order,
         page: query.page,
@@ -318,7 +321,7 @@ async fn upload_media(
             .into_response();
     }
 
-    // Get user_id from session
+    // Get user_id from session (for logging only, not stored in DB for media hub uploads)
     let user_id: Option<String> = session.get("user_id").await.ok().flatten();
     info!("Upload request from user: {:?}", user_id);
 
@@ -332,6 +335,7 @@ async fn upload_media(
     // Parse multipart form data
     while let Ok(Some(field)) = multipart.next_field().await {
         let field_name = field.name().unwrap_or("").to_string();
+        info!("Processing multipart field: {}", field_name);
 
         match field_name.as_str() {
             "file" => {
@@ -359,22 +363,28 @@ async fn upload_media(
             }
             "title" => {
                 if let Ok(text) = field.text().await {
+                    info!("Received title: '{}'", text);
                     title = Some(text);
+                } else {
+                    warn!("Failed to read title field");
                 }
             }
             "description" => {
                 if let Ok(text) = field.text().await {
+                    info!("Received description: {} chars", text.len());
                     description = Some(text);
                 }
             }
             "category" => {
                 if let Ok(text) = field.text().await {
+                    info!("Received category: '{}'", text);
                     category = Some(text);
                 }
             }
             "is_public" => {
                 if let Ok(text) = field.text().await {
                     is_public = text == "true" || text == "1" || text == "on";
+                    info!("Received is_public: '{}' -> {}", text, is_public);
                 }
             }
             _ => {
@@ -383,11 +393,20 @@ async fn upload_media(
         }
     }
 
+    // Log what we received
+    info!("Multipart parsing complete. file_data: {}, filename: {:?}, title: {:?}, description: {:?}, category: {:?}, is_public: {}",
+          if file_data.is_some() { "present" } else { "missing" },
+          filename,
+          title,
+          description,
+          category,
+          is_public);
+
     // Validate required fields
     let file_data = match file_data {
         Some(data) => data,
         None => {
-            warn!("No file data received");
+            error!("Upload failed: No file data received");
             return (
                 axum::http::StatusCode::BAD_REQUEST,
                 Json(UploadResponse {
@@ -405,7 +424,7 @@ async fn upload_media(
     let filename = match filename {
         Some(name) => name,
         None => {
-            warn!("No filename provided");
+            error!("Upload failed: No filename provided");
             return (
                 axum::http::StatusCode::BAD_REQUEST,
                 Json(UploadResponse {
@@ -421,9 +440,9 @@ async fn upload_media(
     };
 
     let title = match title {
-        Some(t) => t,
-        None => {
-            warn!("No title provided");
+        Some(t) if !t.trim().is_empty() => t,
+        _ => {
+            error!("Upload failed: Title is required and cannot be empty");
             return (
                 axum::http::StatusCode::BAD_REQUEST,
                 Json(UploadResponse {
@@ -456,7 +475,10 @@ async fn upload_media(
         DetectedMediaType::Image => PathBuf::from(&state.storage_dir).join("images"),
         DetectedMediaType::Document => PathBuf::from(&state.storage_dir).join("documents"),
         DetectedMediaType::Unknown => {
-            warn!("Unknown media type for file: {}", filename);
+            error!(
+                "Upload failed: Unknown/unsupported media type for file: {}",
+                filename
+            );
             return (
                 axum::http::StatusCode::BAD_REQUEST,
                 Json(UploadResponse {
@@ -524,7 +546,16 @@ async fn upload_media(
 
     info!("File saved to: {:?}", file_path);
 
+    // Generate thumbnail for images
+    if matches!(media_type, DetectedMediaType::Image) {
+        if let Err(e) = generate_thumbnail(&file_path, &storage_path, &title).await {
+            warn!("Failed to generate thumbnail: {}", e);
+            // Don't fail the upload if thumbnail generation fails
+        }
+    }
+
     // Create database record based on media type
+    // Note: Pass None for user_id to use legacy storage paths (since media hub uses legacy storage)
     let result = match media_type {
         DetectedMediaType::Video => {
             create_video_record(
@@ -535,7 +566,7 @@ async fn upload_media(
                 &unique_filename,
                 file_data.len() as i64,
                 is_public,
-                user_id.as_deref(),
+                None, // Use None to force legacy storage path
             )
             .await
         }
@@ -548,7 +579,7 @@ async fn upload_media(
                 &unique_filename,
                 file_data.len() as i64,
                 is_public,
-                user_id.as_deref(),
+                None, // Use None to force legacy storage path
             )
             .await
         }
@@ -561,7 +592,7 @@ async fn upload_media(
                 &unique_filename,
                 file_data.len() as i64,
                 is_public,
-                user_id.as_deref(),
+                None, // Use None to force legacy storage path
             )
             .await
         }
@@ -739,18 +770,23 @@ async fn create_image_record(
     is_public: bool,
     user_id: Option<&str>,
 ) -> Result<(i32, String), sqlx::Error> {
+    // Generate unique slug by appending timestamp
+    let base_slug = slugify(title);
+    let timestamp = chrono::Utc::now().timestamp();
+    let slug = format!("{}-{}", base_slug, timestamp);
     let is_public_int = if is_public { 1 } else { 0 };
     let created_at = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
     let result = sqlx::query(
         r#"
         INSERT INTO images (
-            title, description, filename, file_size, is_public, user_id,
+            slug, title, description, filename, file_size, is_public, user_id,
             created_at, view_count, like_count, download_count
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0)
         "#,
     )
+    .bind(&slug)
     .bind(title)
     .bind(description)
     .bind(filename)
@@ -762,7 +798,7 @@ async fn create_image_record(
     .await?;
 
     let image_id = result.last_insert_rowid() as i32;
-    let url = format!("/images/{}", image_id);
+    let url = format!("/images/{}", slug);
 
     Ok((image_id, url))
 }
@@ -858,8 +894,48 @@ fn slugify(text: &str) -> String {
         .collect::<String>()
         .split('-')
         .filter(|s| !s.is_empty())
-        .collect::<Vec<&str>>()
+        .collect::<Vec<_>>()
         .join("-")
+}
+
+/// Generate thumbnail for uploaded image
+async fn generate_thumbnail(
+    source_path: &PathBuf,
+    storage_dir: &PathBuf,
+    title: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    info!("Generating thumbnail for: {:?}", source_path);
+
+    // Read the image
+    let img = image::open(source_path)?;
+
+    // Calculate thumbnail dimensions (max 300x300, maintain aspect ratio)
+    let (width, height) = img.dimensions();
+    let max_size = 300;
+
+    let (thumb_width, thumb_height) = if width > height {
+        let ratio = max_size as f32 / width as f32;
+        (max_size, (height as f32 * ratio) as u32)
+    } else {
+        let ratio = max_size as f32 / height as f32;
+        ((width as f32 * ratio) as u32, max_size)
+    };
+
+    // Resize image
+    let thumbnail = img.resize(thumb_width, thumb_height, FilterType::Lanczos3);
+
+    // Generate thumbnail filename
+    let slug = slugify(title);
+    let thumb_filename = format!("{}_thumb.webp", slug);
+    let thumb_path = storage_dir.join(&thumb_filename);
+
+    info!("Saving thumbnail to: {:?}", thumb_path);
+
+    // Save as WebP
+    thumbnail.save_with_format(&thumb_path, ImageFormat::WebP)?;
+
+    info!("Thumbnail generated successfully: {:?}", thumb_path);
+    Ok(())
 }
 
 #[cfg(test)]

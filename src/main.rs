@@ -1,6 +1,6 @@
 use askama::Template;
 use axum::{
-    extract::{Query, State},
+    extract::{DefaultBodyLimit, Query, State},
     http::{header::HeaderValue, Method, StatusCode},
     response::Html,
     routing::{get, post},
@@ -847,7 +847,11 @@ async fn main() -> anyhow::Result<()> {
         .merge(access_groups::routes::create_routes(pool.clone()))
         .merge(create_tag_routes(pool.clone()))
         .merge(create_search_routes(pool.clone()))
-        .merge(media_routes().with_state(media_hub_state))
+        .merge(
+            media_routes()
+                .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // 100MB limit for media uploads
+                .with_state(media_hub_state),
+        )
         .merge(gallery3d::router(Arc::new(pool.clone())))
         // Serve static files from storage directory
         .nest_service("/storage", ServeDir::new(&storage_dir))

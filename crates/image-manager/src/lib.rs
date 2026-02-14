@@ -211,7 +211,8 @@ pub fn image_routes() -> Router<Arc<ImageManagerState>> {
         .route("/images", get(images_gallery_handler))
         .route("/images/view/:slug", get(image_detail_handler))
         .route("/images/:slug/edit", get(edit_image_handler))
-        .route("/images/:slug", get(serve_image_handler))
+        // Commented out - unified media manager handles this now
+        // .route("/images/:slug", get(serve_image_handler))
         .route("/upload", get(upload_page_handler))
         .route("/api/images/upload", post(upload_image_handler))
         // Image list API
@@ -1302,37 +1303,51 @@ pub async fn delete_image_handler(
     // Get user_id from session
     let user_id: Option<String> = session.get::<String>("user_id").await.ok().flatten();
 
-    // Build access context and check Delete permission
-    let mut context = AccessContext::new(ResourceType::Image, id as i32);
-    if let Some(uid) = user_id {
-        context = context.with_user(uid);
-    }
+    // Check if user is emergency admin (bypass access control for superuser)
+    let is_emergency_admin = user_id
+        .as_ref()
+        .map(|uid| uid.starts_with("emergency-"))
+        .unwrap_or(false);
 
-    let decision = match state
-        .access_control
-        .check_access(context, Permission::Delete)
-        .await
-    {
-        Ok(d) => d,
-        Err(e) => {
-            info!(error = ?e, "Access control error for image deletion");
+    if !is_emergency_admin {
+        // Build access context and check Delete permission
+        let mut context = AccessContext::new(ResourceType::Image, id as i32);
+        if let Some(uid) = &user_id {
+            context = context.with_user(uid.clone());
+        }
+
+        let decision = match state
+            .access_control
+            .check_access(context, Permission::Delete)
+            .await
+        {
+            Ok(d) => d,
+            Err(e) => {
+                info!(error = ?e, "Access control error for image deletion");
+                return Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Access check failed".to_string(),
+                ));
+            }
+        };
+
+        if !decision.granted {
+            info!(
+                image_id = id,
+                reason = %decision.reason,
+                "Access denied to delete image"
+            );
             return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Access check failed".to_string(),
+                StatusCode::FORBIDDEN,
+                "Cannot delete this image".to_string(),
             ));
         }
-    };
-
-    if !decision.granted {
+    } else {
         info!(
             image_id = id,
-            reason = %decision.reason,
-            "Access denied to delete image"
+            user_id = ?user_id,
+            "Emergency admin bypassing access control for image deletion"
         );
-        return Err((
-            StatusCode::FORBIDDEN,
-            "Cannot delete this image".to_string(),
-        ));
     }
 
     // Get image slug for file deletion
@@ -1400,10 +1415,12 @@ pub async fn serve_image_handler(
 
     // Lookup image in database - get id, filename, user_id, vault_id, and is_public
     let image: Result<Option<(i32, String, Option<String>, Option<String>, i32)>, sqlx::Error> =
-        sqlx::query_as("SELECT id, filename, user_id, vault_id, is_public FROM images WHERE slug = ?")
-            .bind(&lookup_slug)
-            .fetch_optional(&state.pool)
-            .await;
+        sqlx::query_as(
+            "SELECT id, filename, user_id, vault_id, is_public FROM images WHERE slug = ?",
+        )
+        .bind(&lookup_slug)
+        .fetch_optional(&state.pool)
+        .await;
 
     let image = match image {
         Ok(Some(img)) => img,
@@ -1489,22 +1506,30 @@ pub async fn serve_image_handler(
     let full_path = if let Some(ref vid) = vault_id {
         // Use vault-based path - check if it's a thumbnail or regular image
         if is_thumb {
-            state.storage_config.user_storage
+            state
+                .storage_config
+                .user_storage
                 .vault_thumbnails_dir(vid, common::storage::MediaType::Image)
                 .join(&filename)
         } else {
-            state.storage_config.user_storage
+            state
+                .storage_config
+                .user_storage
                 .vault_media_dir(vid, common::storage::MediaType::Image)
                 .join(&filename)
         }
     } else if let Some(ref uid) = owner_user_id {
         // Fallback to user-based path
         if is_thumb {
-            state.storage_config.user_storage
+            state
+                .storage_config
+                .user_storage
                 .thumbnails_dir(uid, common::storage::MediaType::Image)
                 .join(&filename)
         } else {
-            state.storage_config.user_storage
+            state
+                .storage_config
+                .user_storage
                 .user_media_dir(uid, common::storage::MediaType::Image)
                 .join(&filename)
         }

@@ -115,6 +115,13 @@ async fn fetch_media_for_access_code(
     let mut items = Vec::new();
     let mut position_index = 0;
 
+    // Get the actual access code string for URL parameters
+    let code_row = sqlx::query("SELECT code FROM access_codes WHERE id = ?")
+        .bind(access_code_id)
+        .fetch_one(pool)
+        .await?;
+    let access_code_str: String = code_row.get(0);
+
     // Fetch images
     let image_rows = sqlx::query(
         "SELECT i.id, i.slug, i.filename, i.title, i.description, i.thumbnail_url, i.width, i.height
@@ -139,10 +146,10 @@ async fn fetch_media_for_access_code(
         items.push(MediaItem3D {
             id: id as i32,
             media_type: MediaType::Image,
-            // Phase 4.5: Use slug-based URLs that go through serve handlers with vault resolution
-            url: format!("/images/{}", slug),
+            // Phase 4.5: Use slug-based URLs with access code for anonymous access
+            url: format!("/images/{}?code={}", slug, access_code_str),
             thumbnail_url: thumbnail_url
-                .unwrap_or_else(|| format!("/images/{}_thumb", slug)),
+                .unwrap_or_else(|| format!("/images/{}_thumb?code={}", slug, access_code_str)),
             title,
             description,
             position: pos.0,
@@ -174,14 +181,14 @@ async fn fetch_media_for_access_code(
 
         let pos = get_position_for_index(position_index);
 
-        // Phase 4.5: Use HLS endpoint which handles vault path resolution
-        let video_url = format!("/hls/{}/master.m3u8", slug);
+        // Phase 4.5: Use HLS endpoint with access code for anonymous access
+        let video_url = format!("/hls/{}/master.m3u8?code={}", slug, access_code_str);
 
         // Use thumbnail.webp as fallback if thumbnail_url is not available
         let final_thumbnail = if let Some(thumb) = thumbnail_url {
             thumb
         } else {
-            format!("/hls/{}/thumbnail.webp", slug)
+            format!("/hls/{}/thumbnail.webp?code={}", slug, access_code_str)
         };
 
         items.push(MediaItem3D {

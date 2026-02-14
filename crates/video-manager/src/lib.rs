@@ -613,7 +613,7 @@ pub async fn hls_proxy_handler(
     // Check access using the 4-layer access control system
     let decision = state
         .access_control
-        .check_access(context, Permission::Download)
+        .check_access(context, Permission::Read)
         .await
         .map_err(|e| {
             info!(error = ?e, "Access control error for HLS stream");
@@ -647,11 +647,10 @@ pub async fn hls_proxy_handler(
         )
     } else if let Some(ref uid) = owner_user_id {
         // Fallback to user-based path
-        state.storage_config.user_storage.media_path(
-            uid,
-            common::storage::MediaType::Video,
-            slug,
-        )
+        state
+            .storage_config
+            .user_storage
+            .media_path(uid, common::storage::MediaType::Video, slug)
     } else {
         // Legacy path
         state.storage_dir.join("videos").join(slug)
@@ -1583,30 +1582,44 @@ pub async fn delete_video_handler(
 
     let user_id: Option<String> = session.get::<String>("user_id").await.ok().flatten();
 
-    // Check access with Delete permission
-    let mut context = AccessContext::new(ResourceType::Video, id as i32);
-    if let Some(uid) = user_id {
-        context = context.with_user(uid);
-    }
+    // Check if user is emergency admin (bypass access control for superuser)
+    let is_emergency_admin = user_id
+        .as_ref()
+        .map(|uid| uid.starts_with("emergency-"))
+        .unwrap_or(false);
 
-    let decision = state
-        .access_control
-        .check_access(context, Permission::Delete)
-        .await
-        .map_err(|e| {
-            info!(error = ?e, "Access control error for video deletion");
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Access check failed".to_string(),
-            )
-        })?;
+    if !is_emergency_admin {
+        // Check access with Delete permission
+        let mut context = AccessContext::new(ResourceType::Video, id as i32);
+        if let Some(uid) = &user_id {
+            context = context.with_user(uid.clone());
+        }
 
-    if !decision.granted {
-        info!(video_id = id, reason = %decision.reason, "Access denied to delete video");
-        return Err((
-            StatusCode::FORBIDDEN,
-            "Cannot delete this video".to_string(),
-        ));
+        let decision = state
+            .access_control
+            .check_access(context, Permission::Delete)
+            .await
+            .map_err(|e| {
+                info!(error = ?e, "Access control error for video deletion");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Access check failed".to_string(),
+                )
+            })?;
+
+        if !decision.granted {
+            info!(video_id = id, reason = %decision.reason, "Access denied to delete video");
+            return Err((
+                StatusCode::FORBIDDEN,
+                "Cannot delete this video".to_string(),
+            ));
+        }
+    } else {
+        info!(
+            video_id = id,
+            user_id = ?user_id,
+            "Emergency admin bypassing access control for video deletion"
+        );
     }
 
     // Delete associated tags

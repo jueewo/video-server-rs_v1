@@ -1,0 +1,252 @@
+{% extends "base-tailwind.html" %}
+{% block title %}{{ media.title }} - Media Detail{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-4xl">
+    <!-- Breadcrumb -->
+    <div class="text-sm breadcrumbs mb-4">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/media">Media</a></li>
+            <li>{{ media.title }}</li>
+        </ul>
+    </div>
+
+    <!-- Media Display -->
+    <div class="card bg-base-100 shadow-xl mb-6">
+        {% if media.media_type == "image" %}
+        <!-- Image Display -->
+        <figure class="bg-black">
+            {% if media.webp_url.is_some() %}
+            <img
+                src="{{ media.webp_url.as_ref().unwrap() }}"
+                alt="{{ media.title }}"
+                class="max-h-[600px] object-contain cursor-pointer"
+                onclick="window.open('/images/{{ media.slug }}/original')"
+                title="Click to view original"
+            />
+            {% else %}
+            <img
+                src="/images/{{ media.slug }}"
+                alt="{{ media.title }}"
+                class="max-h-[600px] object-contain"
+            />
+            {% endif %}
+        </figure>
+        {% else if media.media_type == "video" %}
+        <!-- Video Player -->
+        <figure class="bg-black">
+            <video controls class="w-full max-h-[600px]">
+                <source src="/videos/{{ media.slug }}/stream" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </figure>
+        {% else if media.media_type == "document" %}
+        <!-- Document Preview -->
+        <figure class="bg-base-200 flex items-center justify-center p-12">
+            <div class="text-center">
+                <svg class="w-24 h-24 mx-auto mb-4 text-base-content/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <p class="text-lg font-semibold">{{ media.filename }}</p>
+                <p class="text-sm text-base-content/60 mt-2">{{ media.mime_type }}</p>
+            </div>
+        </figure>
+        {% endif %}
+
+        <div class="card-body">
+            <h1 class="card-title text-3xl">{{ media.title }}</h1>
+
+            <!-- Media Type Badge -->
+            <div class="mb-2">
+                <span class="badge badge-lg
+                    {% if media.media_type == "image" %}badge-primary{% endif %}
+                    {% if media.media_type == "video" %}badge-secondary{% endif %}
+                    {% if media.media_type == "document" %}badge-accent{% endif %}
+                ">
+                    {% if media.media_type == "image" %}📷 Image{% endif %}
+                    {% if media.media_type == "video" %}🎥 Video{% endif %}
+                    {% if media.media_type == "document" %}📄 Document{% endif %}
+                </span>
+            </div>
+
+            <!-- Metadata -->
+            <div class="flex flex-wrap gap-4 text-sm text-base-content/60 mb-4">
+                <span>👁️ {{ media.view_count }} views</span>
+                <span>•</span>
+                <span>⬇️ {{ media.download_count }} downloads</span>
+                {% if media.like_count > 0 %}
+                <span>•</span>
+                <span>❤️ {{ media.like_count }} likes</span>
+                {% endif %}
+                <span>•</span>
+                <span>📅 {{ media.created_at }}</span>
+                <span>•</span>
+                <span class="badge {% if media.is_public %}badge-success{% else %}badge-error{% endif %}">
+                    {% if media.is_public %}PUBLIC{% else %}PRIVATE{% endif %}
+                </span>
+                {% if media.featured %}
+                <span class="badge badge-secondary">⭐ FEATURED</span>
+                {% endif %}
+            </div>
+
+            <!-- Description -->
+            {% if media.description.is_some() %}
+            <p class="text-base-content/80">{{ media.description.as_ref().unwrap() }}</p>
+            {% endif %}
+
+            <!-- Category -->
+            {% if media.category.is_some() %}
+            <div class="mt-2">
+                <span class="badge badge-outline">📂 {{ media.category.as_ref().unwrap() }}</span>
+            </div>
+            {% endif %}
+
+            <!-- Tags -->
+            {% if !media.tags.is_empty() %}
+            <div class="flex flex-wrap gap-2 mt-4">
+                {% for tag in media.tags %}
+                <a href="/media?tag={{ tag }}" class="badge badge-primary">{{ tag }}</a>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Actions -->
+            <div class="card-actions justify-end mt-4">
+                {% if media.media_type == "image" %}
+                <a href="/images/{{ media.slug }}/original" target="_blank" class="btn btn-outline">
+                    🖼️ View Original
+                </a>
+                {% if media.thumbnail_url.is_some() %}
+                <a href="{{ media.thumbnail_url.as_ref().unwrap() }}" target="_blank" class="btn btn-outline btn-sm">
+                    🔍 Thumbnail
+                </a>
+                {% endif %}
+                {% else if media.media_type == "document" %}
+                <a href="/documents/{{ media.slug }}/download" class="btn btn-primary">
+                    📥 Download
+                </a>
+                {% else if media.media_type == "video" %}
+                <a href="/videos/{{ media.slug }}/download" class="btn btn-primary">
+                    📥 Download
+                </a>
+                {% endif %}
+
+                {% if authenticated %}
+                <a href="/media/{{ media.slug }}/edit" class="btn btn-outline">
+                    ✏️ Edit
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Details Card -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title">Media Details</h2>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <span class="font-semibold">Type:</span>
+                    <span class="ml-2 capitalize">{{ media.media_type }}</span>
+                </div>
+
+                <div>
+                    <span class="font-semibold">Filename:</span>
+                    <span class="ml-2 text-sm">{{ media.filename }}</span>
+                </div>
+
+                <div>
+                    <span class="font-semibold">MIME Type:</span>
+                    <span class="ml-2 text-sm">{{ media.mime_type }}</span>
+                </div>
+
+                <div>
+                    <span class="font-semibold">File Size:</span>
+                    <span class="ml-2">
+                        {% if media.file_size < 1024 %}
+                            {{ media.file_size }} B
+                        {% else if media.file_size < 1048576 %}
+                            {{ media.file_size / 1024 }} KB
+                        {% else if media.file_size < 1073741824 %}
+                            {{ media.file_size / 1048576 }} MB
+                        {% else %}
+                            {{ media.file_size / 1073741824 }} GB
+                        {% endif %}
+                    </span>
+                </div>
+
+                <div>
+                    <span class="font-semibold">Status:</span>
+                    <span class="ml-2 capitalize">{{ media.status }}</span>
+                </div>
+
+                <div>
+                    <span class="font-semibold">ID:</span>
+                    <span class="ml-2 text-sm font-mono">{{ media.slug }}</span>
+                </div>
+            </div>
+
+            <!-- Share Section -->
+            <div class="mt-6 pt-6 border-t border-base-300">
+                <h3 class="font-semibold mb-3">Share</h3>
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">Direct Link</span>
+                    </label>
+                    <div class="join">
+                        <input
+                            type="text"
+                            value="{% if media.media_type == "image" %}/images/{{ media.slug }}{% else if media.media_type == "video" %}/videos/{{ media.slug }}{% else %}/media/{{ media.slug }}{% endif %}"
+                            class="input input-bordered join-item flex-1"
+                            readonly
+                            id="shareLink"
+                        />
+                        <button class="btn join-item" onclick="copyShareLink()">
+                            📋 Copy
+                        </button>
+                    </div>
+                </div>
+
+                {% if media.media_type == "image" && media.webp_url.is_some() %}
+                <div class="form-control mt-3">
+                    <label class="label">
+                        <span class="label-text">WebP Link (Optimized)</span>
+                    </label>
+                    <div class="join">
+                        <input
+                            type="text"
+                            value="{{ media.webp_url.as_ref().unwrap() }}"
+                            class="input input-bordered join-item flex-1"
+                            readonly
+                            id="webpLink"
+                        />
+                        <button class="btn join-item" onclick="copyWebpLink()">
+                            📋 Copy
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyShareLink() {
+    const link = document.getElementById('shareLink');
+    link.select();
+    link.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(window.location.origin + link.value);
+    alert('Link copied to clipboard!');
+}
+
+function copyWebpLink() {
+    const link = document.getElementById('webpLink');
+    link.select();
+    link.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(window.location.origin + link.value);
+    alert('WebP link copied to clipboard!');
+}
+</script>
+{% endblock %}

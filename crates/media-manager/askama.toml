@@ -1,0 +1,6 @@
+[general]
+# Configure Askama to look for templates
+dirs = [
+    "templates",
+    "../../templates"
+]

@@ -86,6 +86,7 @@ use document_manager::routes::{document_routes, DocumentManagerState};
 use gallery3d;
 use image_manager::{image_routes, ImageManagerState};
 use media_hub::{routes::media_routes, MediaHubState};
+use media_manager::{media_routes as unified_media_routes, MediaManagerState};
 use user_auth::{auth_routes, AuthState, OidcConfig};
 use video_manager::{video_routes, VideoManagerState, RTMP_PUBLISH_TOKEN};
 
@@ -751,9 +752,13 @@ async fn main() -> anyhow::Result<()> {
 
     let image_state = Arc::new(ImageManagerState::new(pool.clone(), storage_dir.clone()));
 
+    // Create user_storage for document manager
+    let user_storage = common::storage::UserStorageManager::new(storage_dir.clone());
+
     let document_state = Arc::new(DocumentManagerState::new(
         pool.clone(),
         storage_dir.to_str().unwrap_or("storage").to_string(),
+        user_storage.clone(),
     ));
 
     // Initialize OIDC configuration
@@ -784,6 +789,15 @@ async fn main() -> anyhow::Result<()> {
     // Initialize Access Control Service with audit logging enabled
     let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));
     println!("🔐 Access Control Service initialized with audit logging enabled");
+
+    // Initialize unified media manager
+    let media_manager_state = Arc::new(MediaManagerState::new(
+        pool.clone(),
+        storage_dir.to_str().unwrap_or("storage").to_string(),
+        user_storage.clone(),
+        access_control.clone(),
+    ));
+    println!("📁 Unified Media Manager initialized (images with original + WebP support)");
 
     // Initialize Media Hub state
     let media_hub_state = MediaHubState::new(
@@ -840,18 +854,26 @@ async fn main() -> anyhow::Result<()> {
         .with_state(app_state)
         // Merge module routers
         .merge(auth_routes(auth_state.clone()))
-        .merge(video_routes().with_state(video_state))
-        .merge(image_routes().with_state(image_state))
-        .merge(document_routes().with_state((*document_state).clone()))
-        .merge(access_code_routes(access_state))
-        .merge(access_groups::routes::create_routes(pool.clone()))
-        .merge(create_tag_routes(pool.clone()))
-        .merge(create_search_routes(pool.clone()))
+        // Media Hub - provides list view for all media types (mount first)
         .merge(
             media_routes()
                 .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // 100MB limit for media uploads
                 .with_state(media_hub_state),
         )
+        // Unified media manager (new endpoints - override media-hub where they conflict)
+        .merge(
+            unified_media_routes()
+                .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // 100MB limit for media uploads
+                .with_state((*media_manager_state).clone()),
+        )
+        // Legacy serving routes - kept for video/document streaming
+        .merge(video_routes().with_state(video_state))
+        .merge(image_routes().with_state(image_state)) // Image CRUD APIs (delete, update, tags)
+        .merge(document_routes().with_state((*document_state).clone()))
+        .merge(access_code_routes(access_state))
+        .merge(access_groups::routes::create_routes(pool.clone()))
+        .merge(create_tag_routes(pool.clone()))
+        .merge(create_search_routes(pool.clone()))
         .merge(gallery3d::router(Arc::new(pool.clone())))
         // Serve static files from storage directory
         .nest_service("/storage", ServeDir::new(&storage_dir))

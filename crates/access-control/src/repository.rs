@@ -46,45 +46,87 @@ impl AccessRepository {
     ) -> Result<bool, AccessError> {
         match resource_type {
             ResourceType::Video => {
-                let result: Option<bool> =
+                // Try unified media_items table FIRST (new system takes precedence)
+                let result: Option<i32> = sqlx::query_scalar(
+                    "SELECT is_public FROM media_items WHERE id = ? AND media_type = 'video'",
+                )
+                .bind(resource_id)
+                .fetch_optional(&self.pool)
+                .await?;
+
+                if let Some(is_public) = result {
+                    return Ok(is_public == 1);
+                }
+
+                // Fallback to legacy videos table for backward compatibility
+                let result: Option<i32> =
                     sqlx::query_scalar("SELECT is_public FROM videos WHERE id = ?")
                         .bind(resource_id)
                         .fetch_optional(&self.pool)
                         .await?;
-                result.ok_or(AccessError::NotFound {
+
+                result.map(|v| v == 1).ok_or(AccessError::NotFound {
                     resource_type: "Video".to_string(),
                     resource_id,
                 })
             }
             ResourceType::Image => {
-                let result: Option<bool> =
+                // Try unified media_items table FIRST (new system takes precedence)
+                let result: Option<i32> = sqlx::query_scalar(
+                    "SELECT is_public FROM media_items WHERE id = ? AND media_type = 'image'",
+                )
+                .bind(resource_id)
+                .fetch_optional(&self.pool)
+                .await?;
+
+                if let Some(is_public) = result {
+                    return Ok(is_public == 1);
+                }
+
+                // Fallback to legacy images table for backward compatibility
+                let result: Option<i32> =
                     sqlx::query_scalar("SELECT is_public FROM images WHERE id = ?")
                         .bind(resource_id)
                         .fetch_optional(&self.pool)
                         .await?;
-                result.ok_or(AccessError::NotFound {
+
+                result.map(|v| v == 1).ok_or(AccessError::NotFound {
                     resource_type: "Image".to_string(),
                     resource_id,
                 })
             }
             ResourceType::File => {
-                let result: Option<bool> =
+                // Try unified media_items table FIRST (new system takes precedence)
+                let result: Option<i32> = sqlx::query_scalar(
+                    "SELECT is_public FROM media_items WHERE id = ? AND media_type = 'document'",
+                )
+                .bind(resource_id)
+                .fetch_optional(&self.pool)
+                .await?;
+
+                if let Some(is_public) = result {
+                    return Ok(is_public == 1);
+                }
+
+                // Fallback to legacy files table for backward compatibility
+                let result: Option<i32> =
                     sqlx::query_scalar("SELECT is_public FROM files WHERE id = ?")
                         .bind(resource_id)
                         .fetch_optional(&self.pool)
                         .await?;
-                result.ok_or(AccessError::NotFound {
+
+                result.map(|v| v == 1).ok_or(AccessError::NotFound {
                     resource_type: "File".to_string(),
                     resource_id,
                 })
             }
             ResourceType::Folder => {
-                let result: Option<bool> =
+                let result: Option<i32> =
                     sqlx::query_scalar("SELECT is_public FROM folders WHERE id = ?")
                         .bind(resource_id)
                         .fetch_optional(&self.pool)
                         .await?;
-                result.ok_or(AccessError::NotFound {
+                result.map(|v| v == 1).ok_or(AccessError::NotFound {
                     resource_type: "Folder".to_string(),
                     resource_id,
                 })
@@ -105,22 +147,64 @@ impl AccessRepository {
     ) -> Result<bool, AccessError> {
         let owner: Option<String> = match resource_type {
             ResourceType::Video => {
-                sqlx::query_scalar("SELECT user_id FROM videos WHERE id = ?")
+                // Try legacy table first
+                let owner: Option<String> =
+                    sqlx::query_scalar("SELECT user_id FROM videos WHERE id = ?")
+                        .bind(resource_id)
+                        .fetch_optional(&self.pool)
+                        .await?;
+
+                if owner.is_some() {
+                    owner
+                } else {
+                    // Fallback to unified media_items
+                    sqlx::query_scalar(
+                        "SELECT user_id FROM media_items WHERE id = ? AND media_type = 'video'",
+                    )
                     .bind(resource_id)
                     .fetch_optional(&self.pool)
                     .await?
+                }
             }
             ResourceType::Image => {
-                sqlx::query_scalar("SELECT user_id FROM images WHERE id = ?")
+                // Try legacy table first
+                let owner: Option<String> =
+                    sqlx::query_scalar("SELECT user_id FROM images WHERE id = ?")
+                        .bind(resource_id)
+                        .fetch_optional(&self.pool)
+                        .await?;
+
+                if owner.is_some() {
+                    owner
+                } else {
+                    // Fallback to unified media_items
+                    sqlx::query_scalar(
+                        "SELECT user_id FROM media_items WHERE id = ? AND media_type = 'image'",
+                    )
                     .bind(resource_id)
                     .fetch_optional(&self.pool)
                     .await?
+                }
             }
             ResourceType::File => {
-                sqlx::query_scalar("SELECT user_id FROM files WHERE id = ?")
+                // Try legacy table first
+                let owner: Option<String> =
+                    sqlx::query_scalar("SELECT user_id FROM files WHERE id = ?")
+                        .bind(resource_id)
+                        .fetch_optional(&self.pool)
+                        .await?;
+
+                if owner.is_some() {
+                    owner
+                } else {
+                    // Fallback to unified media_items
+                    sqlx::query_scalar(
+                        "SELECT user_id FROM media_items WHERE id = ? AND media_type = 'document'",
+                    )
                     .bind(resource_id)
                     .fetch_optional(&self.pool)
                     .await?
+                }
             }
             ResourceType::Folder => {
                 sqlx::query_scalar("SELECT user_id FROM folders WHERE id = ?")
@@ -142,21 +226,69 @@ impl AccessRepository {
         resource_id: i32,
     ) -> Result<Option<i32>, AccessError> {
         match resource_type {
-            ResourceType::Video => sqlx::query_scalar("SELECT group_id FROM videos WHERE id = ?")
-                .bind(resource_id)
-                .fetch_optional(&self.pool)
-                .await
-                .map_err(Into::into),
-            ResourceType::Image => sqlx::query_scalar("SELECT group_id FROM images WHERE id = ?")
-                .bind(resource_id)
-                .fetch_optional(&self.pool)
-                .await
-                .map_err(Into::into),
-            ResourceType::File => sqlx::query_scalar("SELECT group_id FROM files WHERE id = ?")
-                .bind(resource_id)
-                .fetch_optional(&self.pool)
-                .await
-                .map_err(Into::into),
+            ResourceType::Video => {
+                // Try legacy table first
+                let group_id: Option<Option<i32>> =
+                    sqlx::query_scalar("SELECT group_id FROM videos WHERE id = ?")
+                        .bind(resource_id)
+                        .fetch_optional(&self.pool)
+                        .await?;
+
+                if group_id.is_some() {
+                    Ok(group_id.flatten())
+                } else {
+                    // Fallback to unified media_items
+                    sqlx::query_scalar(
+                        "SELECT group_id FROM media_items WHERE id = ? AND media_type = 'video'",
+                    )
+                    .bind(resource_id)
+                    .fetch_optional(&self.pool)
+                    .await
+                    .map_err(Into::into)
+                }
+            }
+            ResourceType::Image => {
+                // Try legacy table first
+                let group_id: Option<Option<i32>> =
+                    sqlx::query_scalar("SELECT group_id FROM images WHERE id = ?")
+                        .bind(resource_id)
+                        .fetch_optional(&self.pool)
+                        .await?;
+
+                if group_id.is_some() {
+                    Ok(group_id.flatten())
+                } else {
+                    // Fallback to unified media_items
+                    sqlx::query_scalar(
+                        "SELECT group_id FROM media_items WHERE id = ? AND media_type = 'image'",
+                    )
+                    .bind(resource_id)
+                    .fetch_optional(&self.pool)
+                    .await
+                    .map_err(Into::into)
+                }
+            }
+            ResourceType::File => {
+                // Try legacy table first
+                let group_id: Option<Option<i32>> =
+                    sqlx::query_scalar("SELECT group_id FROM files WHERE id = ?")
+                        .bind(resource_id)
+                        .fetch_optional(&self.pool)
+                        .await?;
+
+                if group_id.is_some() {
+                    Ok(group_id.flatten())
+                } else {
+                    // Fallback to unified media_items
+                    sqlx::query_scalar(
+                        "SELECT group_id FROM media_items WHERE id = ? AND media_type = 'document'",
+                    )
+                    .bind(resource_id)
+                    .fetch_optional(&self.pool)
+                    .await
+                    .map_err(Into::into)
+                }
+            }
             ResourceType::Folder => sqlx::query_scalar("SELECT group_id FROM folders WHERE id = ?")
                 .bind(resource_id)
                 .fetch_optional(&self.pool)
@@ -279,22 +411,13 @@ impl AccessRepository {
         }
 
         // Otherwise, check if key has explicit permission for this resource
-        // First get the slug for this resource
-        let slug: Option<String> = match resource_type {
-            ResourceType::Video => {
-                sqlx::query_scalar("SELECT slug FROM videos WHERE id = ?")
-                    .bind(resource_id)
-                    .fetch_optional(&self.pool)
-                    .await?
-            }
-            ResourceType::Image => {
-                sqlx::query_scalar("SELECT slug FROM images WHERE id = ?")
-                    .bind(resource_id)
-                    .fetch_optional(&self.pool)
-                    .await?
-            }
-            _ => None, // Files and folders not supported yet in access_code_permissions
-        };
+        // First get the slug for this resource from media_items (unified table)
+        let slug: Option<String> =
+            sqlx::query_scalar("SELECT slug FROM media_items WHERE id = ? AND media_type = ?")
+                .bind(resource_id)
+                .bind(resource_type.to_string().to_lowercase())
+                .fetch_optional(&self.pool)
+                .await?;
 
         let Some(slug) = slug else {
             return Ok(false);
@@ -343,19 +466,55 @@ impl AccessRepository {
     ) -> Result<bool, AccessError> {
         let exists = match resource_type {
             ResourceType::Video => {
-                sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM videos WHERE id = ?)")
+                // Check legacy table first
+                let legacy_exists: bool =
+                    sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM videos WHERE id = ?)")
+                        .bind(resource_id)
+                        .fetch_one(&self.pool)
+                        .await?;
+
+                if legacy_exists {
+                    return Ok(true);
+                }
+
+                // Fallback to unified media_items
+                sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM media_items WHERE id = ? AND media_type = 'video')")
                     .bind(resource_id)
                     .fetch_one(&self.pool)
                     .await?
             }
             ResourceType::Image => {
-                sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM images WHERE id = ?)")
+                // Check legacy table first
+                let legacy_exists: bool =
+                    sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM images WHERE id = ?)")
+                        .bind(resource_id)
+                        .fetch_one(&self.pool)
+                        .await?;
+
+                if legacy_exists {
+                    return Ok(true);
+                }
+
+                // Fallback to unified media_items
+                sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM media_items WHERE id = ? AND media_type = 'image')")
                     .bind(resource_id)
                     .fetch_one(&self.pool)
                     .await?
             }
             ResourceType::File => {
-                sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM files WHERE id = ?)")
+                // Check legacy table first
+                let legacy_exists: bool =
+                    sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM files WHERE id = ?)")
+                        .bind(resource_id)
+                        .fetch_one(&self.pool)
+                        .await?;
+
+                if legacy_exists {
+                    return Ok(true);
+                }
+
+                // Fallback to unified media_items
+                sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM media_items WHERE id = ? AND media_type = 'document')")
                     .bind(resource_id)
                     .fetch_one(&self.pool)
                     .await?

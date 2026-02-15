@@ -291,9 +291,48 @@ else
     echo -e "${YELLOW}  [DRY RUN] Would migrate ~$LEGACY_FILES images and ~$LEGACY_VIDEOS videos to $DEFAULT_VAULT${NC}"
 fi
 
-# Step 6: Fix remaining thumbnail locations
+# Step 6: Generate missing thumbnails
 echo ""
-echo -e "${CYAN}🖼️  Step 6: Fixing remaining thumbnails...${NC}"
+echo -e "${CYAN}🖼️  Step 6: Generating missing thumbnails...${NC}"
+
+GENERATED_COUNT=0
+
+if [[ "$DRY_RUN" == false ]]; then
+    # Find images without thumbnails in vault
+    sqlite3 "$DB_FILE" -separator $'\t' "SELECT slug, filename FROM media_items WHERE media_type = 'image' AND vault_id = '$DEFAULT_VAULT'" | while IFS=$'\t' read -r slug filename; do
+        if [[ -n "$slug" && -n "$filename" ]]; then
+            image_path="$STORAGE_DIR/vaults/$DEFAULT_VAULT/images/$filename"
+            thumb_path="$STORAGE_DIR/vaults/$DEFAULT_VAULT/thumbnails/images/${slug}_thumb.webp"
+
+            # Check if image exists but thumbnail doesn't
+            if [[ -f "$image_path" && ! -f "$thumb_path" ]]; then
+                # Try to generate thumbnail using sips (macOS)
+                if command -v sips &> /dev/null; then
+                    sips -Z 300 "$image_path" --out "${thumb_path%.webp}.png" &> /dev/null
+                    if [[ -f "${thumb_path%.webp}.png" ]]; then
+                        # Rename to .webp (serve handler expects .webp)
+                        mv "${thumb_path%.webp}.png" "$thumb_path"
+                        echo -e "  ${GREEN}→${NC} Generated thumbnail: ${slug}_thumb.webp"
+                        ((GENERATED_COUNT++))
+                    fi
+                fi
+            fi
+        fi
+    done
+
+    if [[ $GENERATED_COUNT -gt 0 ]]; then
+        echo -e "${GREEN}✓ Generated $GENERATED_COUNT thumbnails${NC}"
+    else
+        echo -e "${GREEN}✓ All images have thumbnails${NC}"
+    fi
+else
+    MISSING_THUMBS=$(find "$STORAGE_DIR/vaults/$DEFAULT_VAULT/images" -type f 2>/dev/null | wc -l)
+    echo -e "${YELLOW}  [DRY RUN] Would check and generate missing thumbnails${NC}"
+fi
+
+# Step 7: Fix remaining thumbnail locations
+echo ""
+echo -e "${CYAN}📁 Step 7: Fixing remaining thumbnails...${NC}"
 
 if [[ "$DRY_RUN" == false ]]; then
     # Create thumbnail directories
@@ -322,9 +361,9 @@ else
     echo -e "${YELLOW}  [DRY RUN] Would check and move remaining thumbnails${NC}"
 fi
 
-# Step 7: Update thumbnail URLs in database
+# Step 8: Update thumbnail URLs in database
 echo ""
-echo -e "${CYAN}🔗 Step 7: Updating thumbnail URLs...${NC}"
+echo -e "${CYAN}🔗 Step 8: Updating thumbnail URLs...${NC}"
 
 if [[ "$DRY_RUN" == false ]]; then
     # Update images with missing thumbnail_url
@@ -355,7 +394,7 @@ else
     echo -e "${YELLOW}  [DRY RUN] Would update thumbnail URLs${NC}"
 fi
 
-# Step 8: Report summary
+# Step 9: Report summary
 echo ""
 echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
 echo -e "${BLUE}  Migration Summary${NC}"

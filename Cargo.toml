@@ -33,6 +33,10 @@ path = "scripts/admin/generate_thumbnails.rs"
 name = "migrate_storage"
 path = "scripts/migrate_storage.rs"
 
+[[bin]]
+name = "cleanup_missing_media"
+path = "scripts/cleanup_missing_media.rs"
+
 [dependencies]
 # Local crates
 common = { path = "crates/common" }

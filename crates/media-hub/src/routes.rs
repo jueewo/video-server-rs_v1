@@ -77,6 +77,7 @@ pub fn media_routes() -> Router<MediaHubState> {
         .route("/api/media/search", get(search_media_json))
         .route("/media/upload", get(show_upload_form))
         .route("/api/media/upload", post(upload_media))
+        .route("/api/user/vaults", get(get_user_vaults))
 }
 
 /// List all media (HTML view)
@@ -236,6 +237,68 @@ async fn search_media_json(
     Query(query): Query<MediaListQuery>,
 ) -> impl IntoResponse {
     list_media_json(State(state), session, Query(query)).await
+}
+
+/// Get user's vaults (JSON API)
+async fn get_user_vaults(
+    State(state): State<MediaHubState>,
+    session: Session,
+) -> impl IntoResponse {
+    debug!("Get user vaults request");
+
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "Authentication required"})),
+        )
+            .into_response();
+    }
+
+    // Get user_id from session
+    let user_id: Option<String> = session.get("user_id").await.ok().flatten();
+    let user_id = match user_id {
+        Some(id) => id,
+        None => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "User ID not found in session"})),
+            )
+                .into_response();
+        }
+    };
+
+    // Get user's vaults from database
+    match common::services::vault_service::get_user_vaults(&state.pool, &user_id).await {
+        Ok(vaults) => {
+            let vault_list: Vec<serde_json::Value> = vaults
+                .into_iter()
+                .map(|(vault_id, vault_name, is_default)| {
+                    serde_json::json!({
+                        "vault_id": vault_id,
+                        "vault_name": vault_name,
+                        "is_default": is_default
+                    })
+                })
+                .collect();
+            (StatusCode::OK, Json(vault_list)).into_response()
+        }
+        Err(e) => {
+            error!("Failed to get user vaults: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "Failed to load vaults"})),
+            )
+                .into_response()
+        }
+    }
 }
 
 /// Show unified upload form
@@ -498,34 +561,50 @@ async fn upload_media(
     let vault_id = if let Some(vid) = vault_id {
         vid
     } else {
-        // Get default vault from database
-        match sqlx::query_scalar::<_, String>(
-            "SELECT vault_id FROM storage_vaults WHERE is_default = 1 LIMIT 1",
+        // Get the authenticated user's ID
+        let uid = match user_id {
+            Some(ref u) => u.clone(),
+            None => {
+                error!("User ID not found in session");
+                return (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(UploadResponse {
+                        success: false,
+                        message: "User session error: User ID not found".to_string(),
+                        media_id: None,
+                        media_type: None,
+                        url: None,
+                    }),
+                )
+                    .into_response();
+            }
+        };
+
+        // Get or create user's default vault
+        match common::services::vault_service::get_or_create_default_vault(
+            &state.pool,
+            &*state.user_storage,
+            &uid,
         )
-        .fetch_optional(&state.pool)
         .await
         {
-            Ok(Some(vid)) => vid,
-            Ok(None) => {
-                // Create default vault if none exists
-                let default_vault_id = "vault-default".to_string();
-                let user_id = user_id.clone().unwrap_or_else(|| "system".to_string());
-                if let Err(e) = sqlx::query(
-                    "INSERT OR IGNORE INTO storage_vaults (vault_id, user_id, vault_name, is_default) VALUES (?, ?, ?, 1)"
-                )
-                .bind(&default_vault_id)
-                .bind(&user_id)
-                .bind("Default Vault")
-                .execute(&state.pool)
-                .await
-                {
-                    warn!("Failed to create default vault: {}", e);
-                }
-                default_vault_id
+            Ok(vid) => {
+                info!("Using user's default vault: {}", vid);
+                vid
             }
             Err(e) => {
-                warn!("Failed to get default vault: {}", e);
-                "vault-default".to_string()
+                error!("Failed to get or create user's default vault: {}", e);
+                return (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(UploadResponse {
+                        success: false,
+                        message: format!("Failed to create user vault: {}", e),
+                        media_id: None,
+                        media_type: None,
+                        url: None,
+                    }),
+                )
+                    .into_response();
             }
         }
     };
@@ -865,7 +944,7 @@ async fn create_video_record(
             slug, media_type, title, description, filename, mime_type, file_size,
             is_public, user_id, vault_id, group_id, thumbnail_url, created_at, status
         )
-        VALUES (?, 'video', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+        VALUES (?, 'video', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
         "#,
     )
     .bind(slug)
@@ -942,7 +1021,7 @@ async fn create_image_record(
             slug, media_type, title, description, filename, mime_type, file_size,
             is_public, user_id, vault_id, group_id, thumbnail_url, created_at, status
         )
-        VALUES (?, 'image', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+        VALUES (?, 'image', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
         "#,
     )
     .bind(slug)

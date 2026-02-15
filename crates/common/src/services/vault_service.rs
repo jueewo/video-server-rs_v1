@@ -34,7 +34,10 @@ pub async fn get_or_create_default_vault(
 
     // Create new vault
     let vault_id = generate_vault_id();
-    info!("Creating new default vault for user {}: {}", user_id, vault_id);
+    info!(
+        "Creating new default vault for user {}: {}",
+        user_id, vault_id
+    );
 
     // Insert into database
     sqlx::query(
@@ -42,7 +45,7 @@ pub async fn get_or_create_default_vault(
     )
     .bind(&vault_id)
     .bind(user_id)
-    .bind("Default Vault")
+    .bind(format!("{}'s Media Vault", user_id))
     .execute(pool)
     .await
     .context("Failed to create vault in database")?;
@@ -57,7 +60,10 @@ pub async fn get_or_create_default_vault(
 }
 
 /// Get all vaults for a user
-pub async fn get_user_vaults(pool: &SqlitePool, user_id: &str) -> Result<Vec<(String, String, bool)>> {
+pub async fn get_user_vaults(
+    pool: &SqlitePool,
+    user_id: &str,
+) -> Result<Vec<(String, String, bool)>> {
     let vaults: Vec<(String, String, i32)> = sqlx::query_as(
         "SELECT vault_id, vault_name, is_default FROM storage_vaults WHERE user_id = ? ORDER BY is_default DESC, created_at ASC",
     )

@@ -752,13 +752,15 @@ async fn main() -> anyhow::Result<()> {
 
     let image_state = Arc::new(ImageManagerState::new(pool.clone(), storage_dir.clone()));
 
-    // Create user_storage for document manager
-    let user_storage = common::storage::UserStorageManager::new(storage_dir.clone());
+    // Create user_storage for document manager (wrapped in Arc for shared ownership)
+    let user_storage = Arc::new(common::storage::UserStorageManager::new(
+        storage_dir.clone(),
+    ));
 
     let document_state = Arc::new(DocumentManagerState::new(
         pool.clone(),
         storage_dir.to_str().unwrap_or("storage").to_string(),
-        user_storage.clone(),
+        (*user_storage).clone(),
     ));
 
     // Initialize OIDC configuration
@@ -794,7 +796,7 @@ async fn main() -> anyhow::Result<()> {
     let media_manager_state = Arc::new(MediaManagerState::new(
         pool.clone(),
         storage_dir.to_str().unwrap_or("storage").to_string(),
-        user_storage.clone(),
+        (*user_storage).clone(),
         access_control.clone(),
     ));
     println!("📁 Unified Media Manager initialized (images with original + WebP support)");
@@ -802,7 +804,7 @@ async fn main() -> anyhow::Result<()> {
     // Initialize Media Hub state
     let storage_dir_str = storage_dir.to_str().unwrap_or("storage").to_string();
     println!("🔍 MediaHub storage_dir: {}", storage_dir_str);
-    let media_hub_state = MediaHubState::new(pool.clone(), storage_dir_str);
+    let media_hub_state = MediaHubState::new(pool.clone(), storage_dir_str, user_storage.clone());
     println!("🎨 Media Hub initialized (unified media management)");
 
     // Load application configuration

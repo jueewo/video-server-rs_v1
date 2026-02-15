@@ -473,6 +473,14 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="vault_id">Storage Vault</label>
+                        <select id="vault_id" name="vault_id" class="form-control" required>
+                            <option value="">Loading vaults...</option>
+                        </select>
+                        <div class="form-hint">Select the vault where your media will be stored</div>
+                    </div>
+
+                    <div class="form-group">
                         <label for="group_id">Access Group <span class="optional">(optional)</span></label>
                         <select id="group_id" name="group_id" class="form-control">
                             <option value="">No Group (Private)</option>
@@ -540,6 +548,53 @@
         const progressBar = document.getElementById('progressBar');
         const progressFill = document.getElementById('progressFill');
         const groupSelect = document.getElementById('group_id');
+        const vaultSelect = document.getElementById('vault_id');
+
+        // Load user's vaults
+        async function loadVaults() {
+            try {
+                const response = await fetch('/api/user/vaults');
+                if (response.ok) {
+                    const vaults = await response.json();
+                    // Clear loading message
+                    vaultSelect.innerHTML = '';
+
+                    if (vaults.length === 0) {
+                        const option = document.createElement('option');
+                        option.value = '';
+                        option.textContent = 'No vaults available';
+                        vaultSelect.appendChild(option);
+                    } else {
+                        vaults.forEach(vault => {
+                            const option = document.createElement('option');
+                            option.value = vault.vault_id;
+                            option.textContent = vault.vault_name;
+                            // Mark default vault
+                            if (vault.is_default) {
+                                option.setAttribute('data-default', 'true');
+                            }
+                            vaultSelect.appendChild(option);
+                        });
+
+                        // If only one vault, pre-select it
+                        if (vaults.length === 1) {
+                            vaultSelect.value = vaults[0].vault_id;
+                        } else {
+                            // Pre-select the default vault if multiple exist
+                            const defaultVault = vaults.find(v => v.is_default);
+                            if (defaultVault) {
+                                vaultSelect.value = defaultVault.vault_id;
+                            }
+                        }
+
+                        console.log(`Loaded ${vaults.length} vaults`);
+                    }
+                }
+            } catch (error) {
+                console.error('Could not load vaults:', error);
+                vaultSelect.innerHTML = '<option value="">Error loading vaults</option>';
+            }
+        }
 
         // Load available groups
         async function loadGroups() {
@@ -561,7 +616,8 @@
             }
         }
 
-        // Load groups on page load
+        // Load vaults and groups on page load
+        loadVaults();
         loadGroups();
 
         // Drag and drop

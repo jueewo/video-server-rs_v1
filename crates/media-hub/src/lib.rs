@@ -42,13 +42,20 @@ pub struct MediaHubState {
     /// Storage directory path
     pub storage_dir: String,
 
+    /// User storage manager for vault-based storage
+    pub user_storage: Arc<common::storage::UserStorageManager>,
+
     /// Access control service
     pub access_control: Arc<access_control::AccessControlService>,
 }
 
 impl MediaHubState {
     /// Create a new MediaHubState
-    pub fn new(pool: SqlitePool, storage_dir: String) -> Self {
+    pub fn new(
+        pool: SqlitePool,
+        storage_dir: String,
+        user_storage: Arc<common::storage::UserStorageManager>,
+    ) -> Self {
         let access_control = Arc::new(access_control::AccessControlService::with_audit_enabled(
             pool.clone(),
             true,
@@ -57,6 +64,7 @@ impl MediaHubState {
         Self {
             pool,
             storage_dir,
+            user_storage,
             access_control,
         }
     }

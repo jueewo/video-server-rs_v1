@@ -802,11 +802,10 @@ pub async fn image_detail_handler(
     let row = match sqlx::query(
         r#"
         SELECT
-            id, slug, title, description, alt_text, width, height, file_size, format,
-            category, collection, is_public, featured, status, view_count, like_count,
-            download_count, created_at as upload_date, taken_at, dominant_color,
-            camera_make, camera_model, lens_model, focal_length, aperture, shutter_speed,
-            iso, exposure_bias, flash, white_balance, gps_latitude, gps_longitude
+            id, slug, title, description, file_size,
+            category, is_public, featured, status, view_count, like_count,
+            download_count, share_count, created_at as upload_date, group_id,
+            allow_download, mature_content, seo_title, seo_description, seo_keywords
         FROM media_items
         WHERE media_type = 'image' AND slug = ?
         "#,
@@ -834,13 +833,13 @@ pub async fn image_detail_handler(
         slug: row.try_get("slug").unwrap_or_default(),
         title: row.try_get("title").unwrap_or_default(),
         description: row.try_get("description").ok(),
-        alt_text: row.try_get("alt_text").ok(),
-        width: row.try_get("width").ok(),
-        height: row.try_get("height").ok(),
+        alt_text: None, // Not in media_items table
+        width: None, // Not in media_items table
+        height: None, // Not in media_items table
         file_size: row.try_get("file_size").ok(),
-        format: row.try_get("format").ok(),
+        format: None, // Not in media_items table
         category: row.try_get("category").ok(),
-        collection: row.try_get("collection").ok(),
+        collection: None, // Not in media_items table
         is_public: row.try_get("is_public").unwrap_or(false),
         featured: row.try_get("featured").unwrap_or(false),
         status: row
@@ -851,12 +850,12 @@ pub async fn image_detail_handler(
         download_count: row.try_get("download_count").unwrap_or(0),
         share_count: row.try_get("share_count").unwrap_or(0),
         upload_date: row.try_get("upload_date").unwrap_or_default(),
-        created_at: row.try_get("created_at").unwrap_or_default(),
-        dominant_color: row.try_get("dominant_color").ok(),
-        exif_data: row.try_get("exif_data").ok(),
-        copyright_holder: row.try_get("copyright_holder").ok(),
-        license: row.try_get("license").ok(),
-        attribution: row.try_get("attribution").ok(),
+        created_at: row.try_get("upload_date").unwrap_or_default(), // Use upload_date for both
+        dominant_color: None, // Not in media_items table
+        exif_data: None, // Not in media_items table
+        copyright_holder: None, // Not in media_items table
+        license: None, // Not in media_items table
+        attribution: None, // Not in media_items table
         allow_download: row.try_get("allow_download").unwrap_or(false),
         mature_content: row.try_get("mature_content").unwrap_or(false),
         seo_title: row.try_get("seo_title").ok(),
@@ -980,13 +979,13 @@ pub async fn edit_image_handler(
         slug: row.try_get("slug").unwrap_or_default(),
         title: row.try_get("title").unwrap_or_default(),
         description: row.try_get("description").ok(),
-        alt_text: row.try_get("alt_text").ok(),
-        width: row.try_get("width").ok(),
-        height: row.try_get("height").ok(),
+        alt_text: None, // Not in media_items table
+        width: None, // Not in media_items table
+        height: None, // Not in media_items table
         file_size: row.try_get("file_size").ok(),
-        format: row.try_get("format").ok(),
+        format: None, // Not in media_items table
         category: row.try_get("category").ok(),
-        collection: row.try_get("collection").ok(),
+        collection: None, // Not in media_items table
         is_public: row.try_get("is_public").unwrap_or(false),
         featured: row.try_get("featured").unwrap_or(false),
         status: row
@@ -996,13 +995,13 @@ pub async fn edit_image_handler(
         like_count: row.try_get("like_count").unwrap_or(0),
         download_count: row.try_get("download_count").unwrap_or(0),
         share_count: row.try_get("share_count").unwrap_or(0),
-        upload_date: row.try_get("upload_date").unwrap_or_default(),
+        upload_date: row.try_get("created_at").unwrap_or_default(),
         created_at: row.try_get("created_at").unwrap_or_default(),
-        dominant_color: row.try_get("dominant_color").ok(),
-        exif_data: row.try_get("exif_data").ok(),
-        copyright_holder: row.try_get("copyright_holder").ok(),
-        license: row.try_get("license").ok(),
-        attribution: row.try_get("attribution").ok(),
+        dominant_color: None, // Not in media_items table
+        exif_data: None, // Not in media_items table
+        copyright_holder: None, // Not in media_items table
+        license: None, // Not in media_items table
+        attribution: None, // Not in media_items table
         allow_download: row.try_get("allow_download").unwrap_or(false),
         mature_content: row.try_get("mature_content").unwrap_or(false),
         seo_title: row.try_get("seo_title").ok(),

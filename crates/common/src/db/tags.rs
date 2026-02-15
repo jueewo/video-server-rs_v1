@@ -360,16 +360,21 @@ pub async fn add_tag_to_image(
     tag_id: i32,
     added_by: Option<&str>,
 ) -> Result<(), sqlx::Error> {
+    // First get the tag name from the tag_id
+    let tag_name: String = sqlx::query_scalar("SELECT name FROM tags WHERE id = ?")
+        .bind(tag_id)
+        .fetch_one(pool)
+        .await?;
+
     sqlx::query(
         r#"
-        INSERT INTO image_tags (image_id, tag_id, added_by)
-        VALUES (?1, ?2, ?3)
-        ON CONFLICT (image_id, tag_id) DO NOTHING
+        INSERT INTO media_tags (media_id, tag)
+        VALUES (?1, ?2)
+        ON CONFLICT (media_id, tag) DO NOTHING
         "#,
     )
     .bind(image_id)
-    .bind(tag_id)
-    .bind(added_by)
+    .bind(tag_name)
     .execute(pool)
     .await?;
 
@@ -382,9 +387,15 @@ pub async fn remove_tag_from_image(
     image_id: i32,
     tag_id: i32,
 ) -> Result<bool, sqlx::Error> {
-    let result = sqlx::query("DELETE FROM image_tags WHERE image_id = ?1 AND tag_id = ?2")
-        .bind(image_id)
+    // First get the tag name from the tag_id
+    let tag_name: String = sqlx::query_scalar("SELECT name FROM tags WHERE id = ?")
         .bind(tag_id)
+        .fetch_one(pool)
+        .await?;
+
+    let result = sqlx::query("DELETE FROM media_tags WHERE media_id = ?1 AND tag = ?2")
+        .bind(image_id)
+        .bind(tag_name)
         .execute(pool)
         .await?;
 
@@ -396,8 +407,8 @@ pub async fn get_image_tags(pool: &Pool<Sqlite>, image_id: i32) -> Result<Vec<Ta
     let tags = sqlx::query_as::<_, Tag>(
         r#"
         SELECT t.* FROM tags t
-        INNER JOIN image_tags it ON t.id = it.tag_id
-        WHERE it.image_id = ?1
+        INNER JOIN media_tags mt ON t.name = mt.tag
+        WHERE mt.media_id = ?1
         ORDER BY t.name
         "#,
     )
@@ -410,10 +421,16 @@ pub async fn get_image_tags(pool: &Pool<Sqlite>, image_id: i32) -> Result<Vec<Ta
 
 /// Get images by tag
 pub async fn get_images_by_tag(pool: &Pool<Sqlite>, tag_id: i32) -> Result<Vec<i32>, sqlx::Error> {
+    // First get the tag name from the tag_id
+    let tag_name: String = sqlx::query_scalar("SELECT name FROM tags WHERE id = ?")
+        .bind(tag_id)
+        .fetch_one(pool)
+        .await?;
+
     let image_ids = sqlx::query_scalar::<_, i32>(
-        "SELECT image_id FROM image_tags WHERE tag_id = ?1 ORDER BY added_at DESC",
+        "SELECT media_id FROM media_tags WHERE tag = ?1 ORDER BY created_at DESC",
     )
-    .bind(tag_id)
+    .bind(tag_name)
     .fetch_all(pool)
     .await?;
 
@@ -429,28 +446,45 @@ pub async fn get_images_by_tags_and(
         return Ok(Vec::new());
     }
 
+    // First get the tag names from the tag_ids
     let placeholders = (1..=tag_ids.len())
+        .map(|i| format!("?{}", i))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let tag_query = format!("SELECT name FROM tags WHERE id IN ({})", placeholders);
+    let mut tag_query_builder = sqlx::query_scalar::<_, String>(&tag_query);
+    for tag_id in tag_ids {
+        tag_query_builder = tag_query_builder.bind(tag_id);
+    }
+    let tag_names: Vec<String> = tag_query_builder.fetch_all(pool).await?;
+
+    if tag_names.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let placeholders = (1..=tag_names.len())
         .map(|i| format!("?{}", i))
         .collect::<Vec<_>>()
         .join(", ");
 
     let query = format!(
         r#"
-        SELECT image_id
-        FROM image_tags
-        WHERE tag_id IN ({})
-        GROUP BY image_id
-        HAVING COUNT(DISTINCT tag_id) = ?{}
+        SELECT media_id
+        FROM media_tags
+        WHERE tag IN ({})
+        GROUP BY media_id
+        HAVING COUNT(DISTINCT tag) = ?{}
         "#,
         placeholders,
-        tag_ids.len() + 1
+        tag_names.len() + 1
     );
 
     let mut query_builder = sqlx::query_scalar::<_, i32>(&query);
-    for tag_id in tag_ids {
-        query_builder = query_builder.bind(tag_id);
+    for tag_name in &tag_names {
+        query_builder = query_builder.bind(tag_name);
     }
-    query_builder = query_builder.bind(tag_ids.len() as i32);
+    query_builder = query_builder.bind(tag_names.len() as i32);
 
     let image_ids = query_builder.fetch_all(pool).await?;
 
@@ -466,24 +500,41 @@ pub async fn get_images_by_tags_or(
         return Ok(Vec::new());
     }
 
+    // First get the tag names from the tag_ids
     let placeholders = (1..=tag_ids.len())
+        .map(|i| format!("?{}", i))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let tag_query = format!("SELECT name FROM tags WHERE id IN ({})", placeholders);
+    let mut tag_query_builder = sqlx::query_scalar::<_, String>(&tag_query);
+    for tag_id in tag_ids {
+        tag_query_builder = tag_query_builder.bind(tag_id);
+    }
+    let tag_names: Vec<String> = tag_query_builder.fetch_all(pool).await?;
+
+    if tag_names.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let placeholders = (1..=tag_names.len())
         .map(|i| format!("?{}", i))
         .collect::<Vec<_>>()
         .join(", ");
 
     let query = format!(
         r#"
-        SELECT DISTINCT image_id
-        FROM image_tags
-        WHERE tag_id IN ({})
-        ORDER BY added_at DESC
+        SELECT DISTINCT media_id
+        FROM media_tags
+        WHERE tag IN ({})
+        ORDER BY created_at DESC
         "#,
         placeholders
     );
 
     let mut query_builder = sqlx::query_scalar::<_, i32>(&query);
-    for tag_id in tag_ids {
-        query_builder = query_builder.bind(tag_id);
+    for tag_name in &tag_names {
+        query_builder = query_builder.bind(tag_name);
     }
 
     let image_ids = query_builder.fetch_all(pool).await?;
@@ -615,7 +666,7 @@ pub async fn remove_all_tags_from_image(
     pool: &Pool<Sqlite>,
     image_id: i32,
 ) -> Result<(), sqlx::Error> {
-    sqlx::query("DELETE FROM image_tags WHERE image_id = ?1")
+    sqlx::query("DELETE FROM media_tags WHERE media_id = ?1")
         .bind(image_id)
         .execute(pool)
         .await?;

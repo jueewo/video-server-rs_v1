@@ -330,7 +330,9 @@ async fn upload_media(
     let mut title: Option<String> = None;
     let mut description: Option<String> = None;
     let mut category: Option<String> = None;
-    let mut is_public = true;
+    let mut is_public = false;
+    let mut vault_id: Option<String> = None;
+    let mut group_id: Option<i32> = None;
 
     // Parse multipart form data
     while let Ok(Some(field)) = multipart.next_field().await {
@@ -387,6 +389,22 @@ async fn upload_media(
                     info!("Received is_public: '{}' -> {}", text, is_public);
                 }
             }
+            "vault_id" => {
+                if let Ok(text) = field.text().await {
+                    if !text.trim().is_empty() {
+                        vault_id = Some(text.trim().to_string());
+                        info!("Received vault_id: '{}'", text);
+                    }
+                }
+            }
+            "group_id" => {
+                if let Ok(text) = field.text().await {
+                    if let Ok(id) = text.trim().parse::<i32>() {
+                        group_id = Some(id);
+                        info!("Received group_id: {}", id);
+                    }
+                }
+            }
             _ => {
                 debug!("Ignoring unknown field: {}", field_name);
             }
@@ -394,13 +412,15 @@ async fn upload_media(
     }
 
     // Log what we received
-    info!("Multipart parsing complete. file_data: {}, filename: {:?}, title: {:?}, description: {:?}, category: {:?}, is_public: {}",
+    info!("Multipart parsing complete. file_data: {}, filename: {:?}, title: {:?}, description: {:?}, category: {:?}, is_public: {}, vault_id: {:?}, group_id: {:?}",
           if file_data.is_some() { "present" } else { "missing" },
           filename,
           title,
           description,
           category,
-          is_public);
+          is_public,
+          vault_id,
+          group_id);
 
     // Validate required fields
     let file_data = match file_data {
@@ -469,11 +489,56 @@ async fn upload_media(
     let timestamp = chrono::Utc::now().timestamp();
     let unique_filename = format!("{}_{}", timestamp, safe_filename);
 
-    // Create storage directory for media type
+    // Get or create default vault if vault_id not provided
+    let vault_id = if let Some(vid) = vault_id {
+        vid
+    } else {
+        // Get default vault from database
+        match sqlx::query_scalar::<_, String>(
+            "SELECT vault_id FROM storage_vaults WHERE is_default = 1 LIMIT 1",
+        )
+        .fetch_optional(&state.pool)
+        .await
+        {
+            Ok(Some(vid)) => vid,
+            Ok(None) => {
+                // Create default vault if none exists
+                let default_vault_id = "vault-default".to_string();
+                let user_id = user_id.clone().unwrap_or_else(|| "system".to_string());
+                if let Err(e) = sqlx::query(
+                    "INSERT OR IGNORE INTO storage_vaults (vault_id, user_id, vault_name, is_default) VALUES (?, ?, ?, 1)"
+                )
+                .bind(&default_vault_id)
+                .bind(&user_id)
+                .bind("Default Vault")
+                .execute(&state.pool)
+                .await
+                {
+                    warn!("Failed to create default vault: {}", e);
+                }
+                default_vault_id
+            }
+            Err(e) => {
+                warn!("Failed to get default vault: {}", e);
+                "vault-default".to_string()
+            }
+        }
+    };
+
+    // Create vault-based storage directory for media type
     let storage_path = match media_type {
-        DetectedMediaType::Video => PathBuf::from(&state.storage_dir).join("videos"),
-        DetectedMediaType::Image => PathBuf::from(&state.storage_dir).join("images"),
-        DetectedMediaType::Document => PathBuf::from(&state.storage_dir).join("documents"),
+        DetectedMediaType::Video => PathBuf::from(&state.storage_dir)
+            .join("vaults")
+            .join(&vault_id)
+            .join("videos"),
+        DetectedMediaType::Image => PathBuf::from(&state.storage_dir)
+            .join("vaults")
+            .join(&vault_id)
+            .join("images"),
+        DetectedMediaType::Document => PathBuf::from(&state.storage_dir)
+            .join("vaults")
+            .join(&vault_id)
+            .join("documents"),
         DetectedMediaType::Unknown => {
             error!(
                 "Upload failed: Unknown/unsupported media type for file: {}",
@@ -547,12 +612,27 @@ async fn upload_media(
     info!("File saved to: {:?}", file_path);
 
     // Generate thumbnail for images
-    if matches!(media_type, DetectedMediaType::Image) {
-        if let Err(e) = generate_thumbnail(&file_path, &storage_path, &title).await {
-            warn!("Failed to generate thumbnail: {}", e);
-            // Don't fail the upload if thumbnail generation fails
+    let thumbnail_url = if matches!(media_type, DetectedMediaType::Image) {
+        let thumbnail_dir = PathBuf::from(&state.storage_dir)
+            .join("vaults")
+            .join(&vault_id)
+            .join("thumbnails")
+            .join("images");
+
+        match generate_thumbnail(&file_path, &thumbnail_dir, &title).await {
+            Ok(thumb_path) => {
+                info!("Thumbnail generated successfully: {:?}", thumb_path);
+                Some(format!("/images/{}_thumb", slugify(&title)))
+            }
+            Err(e) => {
+                error!("Failed to generate thumbnail: {}", e);
+                warn!("Upload will continue without thumbnail");
+                None
+            }
         }
-    }
+    } else {
+        None
+    };
 
     // Create database record based on media type
     // Note: Pass None for user_id to use legacy storage paths (since media hub uses legacy storage)
@@ -566,7 +646,10 @@ async fn upload_media(
                 &unique_filename,
                 file_data.len() as i64,
                 is_public,
-                None, // Use None to force legacy storage path
+                user_id.as_deref(),
+                Some(&vault_id),
+                group_id,
+                None, // Video thumbnail URL set separately
             )
             .await
         }
@@ -579,7 +662,10 @@ async fn upload_media(
                 &unique_filename,
                 file_data.len() as i64,
                 is_public,
-                None, // Use None to force legacy storage path
+                user_id.as_deref(),
+                Some(&vault_id),
+                group_id,
+                thumbnail_url.as_deref(),
             )
             .await
         }
@@ -592,7 +678,9 @@ async fn upload_media(
                 &unique_filename,
                 file_data.len() as i64,
                 is_public,
-                None, // Use None to force legacy storage path
+                user_id.as_deref(),
+                Some(&vault_id),
+                group_id,
             )
             .await
         }
@@ -728,6 +816,9 @@ async fn create_video_record(
     file_size: i64,
     is_public: bool,
     user_id: Option<&str>,
+    vault_id: Option<&str>,
+    group_id: Option<i32>,
+    thumbnail_url: Option<&str>,
 ) -> Result<(i32, String), sqlx::Error> {
     let slug = slugify(title);
     let is_public_int = if is_public { 1 } else { 0 };
@@ -769,6 +860,9 @@ async fn create_image_record(
     file_size: i64,
     is_public: bool,
     user_id: Option<&str>,
+    vault_id: Option<&str>,
+    group_id: Option<i32>,
+    thumbnail_url: Option<&str>,
 ) -> Result<(i32, String), sqlx::Error> {
     // Generate unique slug by appending timestamp
     let base_slug = slugify(title);
@@ -781,9 +875,9 @@ async fn create_image_record(
         r#"
         INSERT INTO images (
             slug, title, description, filename, file_size, is_public, user_id,
-            created_at, view_count, like_count, download_count
+            vault_id, group_id, thumbnail_url, created_at, view_count, like_count, download_count
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0)
         "#,
     )
     .bind(&slug)
@@ -793,6 +887,9 @@ async fn create_image_record(
     .bind(file_size)
     .bind(is_public_int)
     .bind(user_id)
+    .bind(vault_id)
+    .bind(group_id)
+    .bind(thumbnail_url)
     .bind(&created_at)
     .execute(&state.pool)
     .await?;
@@ -813,6 +910,8 @@ async fn create_document_record(
     file_size: i64,
     is_public: bool,
     user_id: Option<&str>,
+    vault_id: Option<&str>,
+    group_id: Option<i32>,
 ) -> Result<(i32, String), sqlx::Error> {
     let is_public_int = if is_public { 1 } else { 0 };
     let created_at = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
@@ -901,9 +1000,9 @@ fn slugify(text: &str) -> String {
 /// Generate thumbnail for uploaded image
 async fn generate_thumbnail(
     source_path: &PathBuf,
-    storage_dir: &PathBuf,
+    thumbnail_dir: &PathBuf,
     title: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
     info!("Generating thumbnail for: {:?}", source_path);
 
     // Read the image
@@ -924,10 +1023,13 @@ async fn generate_thumbnail(
     // Resize image
     let thumbnail = img.resize(thumb_width, thumb_height, FilterType::Lanczos3);
 
+    // Create thumbnail directory if it doesn't exist
+    tokio::fs::create_dir_all(thumbnail_dir).await?;
+
     // Generate thumbnail filename
     let slug = slugify(title);
     let thumb_filename = format!("{}_thumb.webp", slug);
-    let thumb_path = storage_dir.join(&thumb_filename);
+    let thumb_path = thumbnail_dir.join(&thumb_filename);
 
     info!("Saving thumbnail to: {:?}", thumb_path);
 
@@ -935,7 +1037,7 @@ async fn generate_thumbnail(
     thumbnail.save_with_format(&thumb_path, ImageFormat::WebP)?;
 
     info!("Thumbnail generated successfully: {:?}", thumb_path);
-    Ok(())
+    Ok(thumb_path)
 }
 
 #[cfg(test)]

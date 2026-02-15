@@ -145,7 +145,7 @@ pub async fn group_detail_page_handler(
 
     // Get resources assigned to this group
     let videos: Vec<(String, String, String)> = sqlx::query_as(
-        "SELECT slug, title, 'video' as type FROM videos WHERE group_id = ? ORDER BY upload_date DESC"
+        "SELECT slug, title, media_type as type FROM media_items WHERE media_type = 'video' AND group_id = ? ORDER BY created_at DESC"
     )
     .bind(group.id)
     .fetch_all(&pool)
@@ -153,7 +153,7 @@ pub async fn group_detail_page_handler(
     .unwrap_or_default();
 
     let images: Vec<(String, String, String)> = sqlx::query_as(
-        "SELECT slug, title, 'image' as type FROM images WHERE group_id = ? ORDER BY upload_date DESC"
+        "SELECT slug, title, media_type as type FROM media_items WHERE media_type = 'image' AND group_id = ? ORDER BY created_at DESC"
     )
     .bind(group.id)
     .fetch_all(&pool)

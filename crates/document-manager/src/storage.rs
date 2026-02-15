@@ -299,7 +299,7 @@ impl DocumentStorage {
 
     /// Get a document by ID
     pub async fn get_document_by_id(&self, id: i32) -> Result<Option<Document>> {
-        let document = sqlx::query_as::<_, Document>("SELECT * FROM documents WHERE id = ?")
+        let document = sqlx::query_as::<_, Document>("SELECT * FROM media_items WHERE media_type = 'document' AND id = ?")
             .bind(id)
             .fetch_optional(&self.db_pool)
             .await
@@ -310,7 +310,7 @@ impl DocumentStorage {
 
     /// Get a document by slug
     pub async fn get_document_by_slug(&self, slug: &str) -> Result<Option<Document>> {
-        let document = sqlx::query_as::<_, Document>("SELECT * FROM documents WHERE slug = ?")
+        let document = sqlx::query_as::<_, Document>("SELECT * FROM media_items WHERE media_type = 'document' AND slug = ?")
             .bind(slug)
             .fetch_optional(&self.db_pool)
             .await
@@ -373,7 +373,7 @@ impl DocumentStorage {
 
     /// Delete a document from database
     pub async fn delete_document_from_db(&self, id: i32) -> Result<()> {
-        sqlx::query("DELETE FROM documents WHERE id = ?")
+        sqlx::query("DELETE FROM media_items WHERE media_type = 'document' AND id = ?")
             .bind(id)
             .execute(&self.db_pool)
             .await
@@ -395,7 +395,7 @@ impl DocumentStorage {
 
         let query = if let Some(uid) = user_id {
             sqlx::query_as::<_, Document>(
-                "SELECT * FROM documents WHERE user_id = ? OR is_public = 1
+                "SELECT * FROM media_items WHERE media_type = 'document' AND (user_id = ? OR is_public = 1)
                  ORDER BY created_at DESC LIMIT ? OFFSET ?",
             )
             .bind(uid)
@@ -403,7 +403,7 @@ impl DocumentStorage {
             .bind(offset)
         } else {
             sqlx::query_as::<_, Document>(
-                "SELECT * FROM documents WHERE is_public = 1
+                "SELECT * FROM media_items WHERE media_type = 'document' AND is_public = 1
                  ORDER BY created_at DESC LIMIT ? OFFSET ?",
             )
             .bind(page_size)
@@ -422,11 +422,11 @@ impl DocumentStorage {
     pub async fn count_documents(&self, user_id: Option<&str>) -> Result<i64> {
         let query = if let Some(uid) = user_id {
             sqlx::query_scalar::<_, i64>(
-                "SELECT COUNT(*) FROM documents WHERE user_id = ? OR is_public = 1",
+                "SELECT COUNT(*) FROM media_items WHERE media_type = 'document' AND (user_id = ? OR is_public = 1)",
             )
             .bind(uid)
         } else {
-            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM documents WHERE is_public = 1")
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM media_items WHERE media_type = 'document' AND is_public = 1")
         };
 
         let count = query
@@ -439,7 +439,7 @@ impl DocumentStorage {
 
     /// Increment view count
     pub async fn increment_view_count(&self, id: i32) -> Result<()> {
-        sqlx::query("UPDATE documents SET view_count = view_count + 1 WHERE id = ?")
+        sqlx::query("UPDATE media_items SET view_count = view_count + 1 WHERE media_type = 'document' AND id = ?")
             .bind(id)
             .execute(&self.db_pool)
             .await
@@ -450,7 +450,7 @@ impl DocumentStorage {
 
     /// Increment download count
     pub async fn increment_download_count(&self, id: i32) -> Result<()> {
-        sqlx::query("UPDATE documents SET download_count = download_count + 1 WHERE id = ?")
+        sqlx::query("UPDATE media_items SET download_count = download_count + 1 WHERE media_type = 'document' AND id = ?")
             .bind(id)
             .execute(&self.db_pool)
             .await
@@ -471,8 +471,9 @@ impl DocumentStorage {
 
         let documents = sqlx::query_as::<_, Document>(
             r#"
-            SELECT * FROM documents
-            WHERE (title LIKE ? OR description LIKE ? OR searchable_content LIKE ?)
+            SELECT * FROM media_items
+            WHERE media_type = 'document'
+            AND (title LIKE ? OR description LIKE ? OR searchable_content LIKE ?)
             AND is_public = 1
             ORDER BY created_at DESC
             LIMIT ? OFFSET ?
@@ -500,10 +501,10 @@ impl DocumentStorage {
         let offset = (page - 1) * page_size;
 
         let documents = sqlx::query_as::<_, Document>(
-            "SELECT * FROM documents WHERE document_type = ? AND is_public = 1
+            "SELECT * FROM media_items WHERE media_type = 'document' AND mime_type LIKE ? AND is_public = 1
              ORDER BY created_at DESC LIMIT ? OFFSET ?",
         )
-        .bind(document_type)
+        .bind(format!("%{}%", document_type))
         .bind(page_size)
         .bind(offset)
         .fetch_all(&self.db_pool)

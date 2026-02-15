@@ -407,7 +407,7 @@ pub async fn video_player_handler(
 
     // Lookup video in database - get id, title, and is_public
     let video: Option<(i32, String, i32)> =
-        sqlx::query_as("SELECT id, title, is_public FROM videos WHERE slug = ?")
+        sqlx::query_as("SELECT id, title, is_public FROM media_items WHERE media_type = 'video' AND slug = ?")
             .bind(&slug)
             .fetch_optional(&state.pool)
             .await
@@ -579,7 +579,7 @@ pub async fn hls_proxy_handler(
     // Handle VOD - serve from local storage
     // DB lookup for regular videos - get id, user_id, vault_id, and is_public
     let video: Option<(i32, Option<String>, Option<String>, i32)> =
-        sqlx::query_as("SELECT id, user_id, vault_id, is_public FROM videos WHERE slug = ?")
+        sqlx::query_as("SELECT id, user_id, vault_id, is_public FROM media_items WHERE media_type = 'video' AND slug = ?")
             .bind(slug)
             .fetch_optional(&state.pool)
             .await
@@ -791,14 +791,13 @@ pub async fn list_videos_api_handler(
             v.slug,
             v.title,
             v.description,
-            v.poster_url,
+            v.thumbnail_url as poster_url,
             v.thumbnail_url,
             v.created_at,
-            GROUP_CONCAT(t.slug) as tags
-         FROM videos v
-         LEFT JOIN video_tags vt ON v.id = vt.video_id
-         LEFT JOIN tags t ON vt.tag_id = t.id
-         WHERE v.user_id = ?
+            GROUP_CONCAT(mt.tag) as tags
+         FROM media_items v
+         LEFT JOIN media_tags mt ON v.id = mt.media_id
+         WHERE v.media_type = 'video' AND v.user_id = ?
          GROUP BY v.id
          ORDER BY v.created_at DESC",
     )
@@ -848,8 +847,8 @@ pub async fn get_videos(
         Some(uid) => {
             // Show public videos + user's private videos
             sqlx::query_as(
-                "SELECT slug, title, is_public FROM videos
-                 WHERE is_public = 1 OR user_id = ?
+                "SELECT slug, title, is_public FROM media_items
+                 WHERE media_type = 'video' AND (is_public = 1 OR user_id = ?)
                  ORDER BY is_public DESC, title",
             )
             .bind(uid)
@@ -859,8 +858,8 @@ pub async fn get_videos(
         None => {
             // Show only public videos for unauthenticated users
             sqlx::query_as(
-                "SELECT slug, title, is_public FROM videos
-                 WHERE is_public = 1
+                "SELECT slug, title, is_public FROM media_items
+                 WHERE media_type = 'video' AND is_public = 1
                  ORDER BY title",
             )
             .fetch_all(pool)
@@ -972,10 +971,11 @@ pub async fn get_upload_progress_handler(
         Some(progress) => Ok(Json(progress)),
         None => {
             // Check if video exists in database (might be old/completed)
+            // Note: media_items doesn't have upload_id, processing_status, processing_progress fields
+            // These are tracked in the progress_tracker in memory
             match sqlx::query(
-                "SELECT slug, processing_status, processing_progress FROM videos WHERE upload_id = ?"
+                "SELECT slug FROM media_items WHERE media_type = 'video' LIMIT 0"
             )
-            .bind(&upload_id)
             .fetch_optional(&state.pool)
             .await
             {
@@ -1082,7 +1082,7 @@ pub async fn available_folders_handler(
     }
 
     // Get slugs already registered in DB
-    let registered: Vec<(String,)> = sqlx::query_as("SELECT slug FROM videos")
+    let registered: Vec<(String,)> = sqlx::query_as("SELECT slug FROM media_items WHERE media_type = 'video'")
         .fetch_all(&state.pool)
         .await
         .unwrap_or_default();
@@ -1327,7 +1327,7 @@ pub async fn video_edit_page_handler(
     }
 
     // Fetch video from database
-    let row = sqlx::query("SELECT * FROM videos WHERE slug = ?")
+    let row = sqlx::query("SELECT * FROM media_items WHERE media_type = 'video' AND slug = ?")
         .bind(&slug)
         .fetch_one(&state.pool)
         .await
@@ -1639,7 +1639,7 @@ pub async fn delete_video_handler(
     .await;
 
     // Delete the video record
-    let result = sqlx::query("DELETE FROM videos WHERE id = ?")
+    let result = sqlx::query("DELETE FROM media_items WHERE media_type = 'video' AND id = ?")
         .bind(id)
         .execute(&state.pool)
         .await
@@ -1747,7 +1747,7 @@ pub async fn get_video_tags_handler(
     Path(video_id): Path<i32>,
 ) -> Result<Json<VideoTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
     // Check if video exists
-    let video_exists: Option<(i32,)> = sqlx::query_as("SELECT id FROM videos WHERE id = ?")
+    let video_exists: Option<(i32,)> = sqlx::query_as("SELECT id FROM media_items WHERE media_type = 'video' AND id = ?")
         .bind(video_id)
         .fetch_optional(&state.pool)
         .await

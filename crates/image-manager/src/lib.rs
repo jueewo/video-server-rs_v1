@@ -529,7 +529,7 @@ pub async fn upload_image_handler(
     let stored_filename = format!("{}.{}", slug, final_extension);
 
     // Check if slug already exists
-    let existing: Option<(i32,)> = sqlx::query_as("SELECT id FROM images WHERE slug = ?")
+    let existing: Option<(i32,)> = sqlx::query_as("SELECT id FROM media_items WHERE media_type = 'image' AND slug = ?")
         .bind(&slug)
         .fetch_optional(&state.pool)
         .await
@@ -735,9 +735,9 @@ pub async fn images_gallery_handler(
     let rows = sqlx::query(
         r#"
         SELECT slug, title, description, is_public
-        FROM images
-        WHERE is_public = 1 OR ? = 1
-        ORDER BY upload_date DESC
+        FROM media_items
+        WHERE media_type = 'image' AND (is_public = 1 OR ? = 1)
+        ORDER BY created_at DESC
         "#,
     )
     .bind(authenticated)
@@ -804,11 +804,11 @@ pub async fn image_detail_handler(
         SELECT
             id, slug, title, description, alt_text, width, height, file_size, format,
             category, collection, is_public, featured, status, view_count, like_count,
-            download_count, upload_date, taken_at, dominant_color,
+            download_count, created_at as upload_date, taken_at, dominant_color,
             camera_make, camera_model, lens_model, focal_length, aperture, shutter_speed,
             iso, exposure_bias, flash, white_balance, gps_latitude, gps_longitude
-        FROM images
-        WHERE slug = ?
+        FROM media_items
+        WHERE media_type = 'image' AND slug = ?
         "#,
     )
     .bind(&slug)
@@ -963,7 +963,7 @@ pub async fn edit_image_handler(
     }
 
     // Fetch image from database
-    let row = match sqlx::query("SELECT * FROM images WHERE slug = ?")
+    let row = match sqlx::query("SELECT * FROM media_items WHERE media_type = 'image' AND slug = ?")
         .bind(&slug)
         .fetch_one(&state.pool)
         .await
@@ -1224,7 +1224,7 @@ pub async fn update_image_handler(
     }
 
     let sql = format!(
-        "UPDATE images SET {}, last_modified = CURRENT_TIMESTAMP WHERE id = ?",
+        "UPDATE media_items SET {}, updated_at = CURRENT_TIMESTAMP WHERE media_type = 'image' AND id = ?",
         updates.join(", ")
     );
 
@@ -1352,7 +1352,7 @@ pub async fn delete_image_handler(
     }
 
     // Get image slug for file deletion
-    let row = match sqlx::query("SELECT slug, filename FROM images WHERE id = ?")
+    let row = match sqlx::query("SELECT slug, filename FROM media_items WHERE media_type = 'image' AND id = ?")
         .bind(id)
         .fetch_one(&state.pool)
         .await
@@ -1367,7 +1367,7 @@ pub async fn delete_image_handler(
     let slug: String = row.try_get("slug").unwrap_or_default();
 
     // Delete from database (tags will be deleted via foreign key cascade if configured)
-    match sqlx::query("DELETE FROM images WHERE id = ?")
+    match sqlx::query("DELETE FROM media_items WHERE media_type = 'image' AND id = ?")
         .bind(id)
         .execute(&state.pool)
         .await
@@ -1417,7 +1417,7 @@ pub async fn serve_image_handler(
     // Lookup image in database - get id, filename, user_id, vault_id, and is_public
     let image: Result<Option<(i32, String, Option<String>, Option<String>, i32)>, sqlx::Error> =
         sqlx::query_as(
-            "SELECT id, filename, user_id, vault_id, is_public FROM images WHERE slug = ?",
+            "SELECT id, filename, user_id, vault_id, is_public FROM media_items WHERE media_type = 'image' AND slug = ?",
         )
         .bind(&lookup_slug)
         .fetch_optional(&state.pool)
@@ -1638,8 +1638,8 @@ pub async fn get_images(
         Some(uid) => {
             // Show public images + user's private images
             sqlx::query_as(
-                "SELECT slug, title, description, is_public FROM images
-                 WHERE is_public = 1 OR user_id = ?
+                "SELECT slug, title, description, is_public FROM media_items
+                 WHERE media_type = 'image' AND (is_public = 1 OR user_id = ?)
                  ORDER BY is_public DESC, title",
             )
             .bind(uid)
@@ -1649,8 +1649,8 @@ pub async fn get_images(
         None => {
             // Show only public images for unauthenticated users
             sqlx::query_as(
-                "SELECT slug, title, description, is_public FROM images
-                 WHERE is_public = 1
+                "SELECT slug, title, description, is_public FROM media_items
+                 WHERE media_type = 'image' AND is_public = 1
                  ORDER BY title",
             )
             .fetch_all(pool)
@@ -1727,7 +1727,7 @@ pub async fn get_image_tags_handler(
     Path(image_id): Path<i32>,
 ) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
     // Check if image exists
-    let image_exists: Option<(i32,)> = sqlx::query_as("SELECT id FROM images WHERE id = ?")
+    let image_exists: Option<(i32,)> = sqlx::query_as("SELECT id FROM media_items WHERE media_type = 'image' AND id = ?")
         .bind(image_id)
         .fetch_optional(&state.pool)
         .await
@@ -1982,14 +1982,14 @@ pub async fn list_images_api_handler(
             i.slug,
             i.title,
             i.description,
-            i.file_path,
-            i.thumbnail_path,
+            i.filename as file_path,
+            i.thumbnail_url as thumbnail_path,
             i.created_at,
             GROUP_CONCAT(t.slug) as tags
-         FROM images i
-         LEFT JOIN image_tags it ON i.id = it.image_id
-         LEFT JOIN tags t ON it.tag_id = t.id
-         WHERE i.user_id = ?
+         FROM media_items i
+         LEFT JOIN media_tags mt ON i.id = mt.media_id
+         LEFT JOIN tags t ON mt.tag_id = t.id
+         WHERE i.media_type = 'image' AND i.user_id = ?
          GROUP BY i.id
          ORDER BY i.created_at DESC",
     )

@@ -322,10 +322,9 @@ pub async fn preview_access_code_page(
         "SELECT
             acp.media_type,
             acp.media_slug,
-            COALESCE(v.title, i.title) as media_title
+            m.title as media_title
         FROM access_code_permissions acp
-        LEFT JOIN videos v ON acp.media_type = 'video' AND acp.media_slug = v.slug
-        LEFT JOIN images i ON acp.media_type = 'image' AND acp.media_slug = i.slug
+        LEFT JOIN media_items m ON acp.media_slug = m.slug AND acp.media_type = m.media_type
         WHERE acp.access_code_id = ?",
     )
     .bind(id)
@@ -455,12 +454,12 @@ pub async fn create_access_code(
         // Validate ownership using AccessControlService
         // First get the resource ID
         let resource_id: Option<i32> = match item.media_type.as_str() {
-            "video" => sqlx::query_scalar("SELECT id FROM videos WHERE slug = ?")
+            "video" => sqlx::query_scalar("SELECT id FROM media_items WHERE media_type = 'video' AND slug = ?")
                 .bind(&item.media_slug)
                 .fetch_optional(&state.pool)
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
-            "image" => sqlx::query_scalar("SELECT id FROM images WHERE slug = ?")
+            "image" => sqlx::query_scalar("SELECT id FROM media_items WHERE media_type = 'image' AND slug = ?")
                 .bind(&item.media_slug)
                 .fetch_optional(&state.pool)
                 .await
@@ -508,21 +507,15 @@ pub async fn create_access_code(
         );
 
         // Look up resource ID from slug
-        let resource_id: Option<i64> = if item.media_type == "video" {
-            sqlx::query_scalar("SELECT id FROM videos WHERE slug = ?")
-                .bind(&item.media_slug)
-                .fetch_optional(&state.pool)
-                .await
-                .ok()
-                .flatten()
-        } else {
-            sqlx::query_scalar("SELECT id FROM images WHERE slug = ?")
-                .bind(&item.media_slug)
-                .fetch_optional(&state.pool)
-                .await
-                .ok()
-                .flatten()
-        };
+        let resource_id: Option<i64> = sqlx::query_scalar(
+            "SELECT id FROM media_items WHERE media_type = ? AND slug = ?"
+        )
+            .bind(&item.media_type)
+            .bind(&item.media_slug)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
 
         let resource_id = resource_id.ok_or_else(|| {
             warn!(

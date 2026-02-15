@@ -124,10 +124,10 @@ async fn fetch_media_for_access_code(
 
     // Fetch images
     let image_rows = sqlx::query(
-        "SELECT i.id, i.slug, i.filename, i.title, i.description, i.thumbnail_url, i.width, i.height
-         FROM images i
+        "SELECT i.id, i.slug, i.filename, i.title, i.description, i.thumbnail_url, 0 as width, 0 as height
+         FROM media_items i
          INNER JOIN access_code_permissions acp ON acp.media_slug = i.slug AND acp.media_type = 'image'
-         WHERE acp.access_code_id = ?
+         WHERE acp.access_code_id = ? AND i.media_type = 'image'
          ORDER BY i.id"
     )
     .bind(access_code_id)
@@ -161,10 +161,10 @@ async fn fetch_media_for_access_code(
 
     // Fetch videos
     let video_rows = sqlx::query(
-        "SELECT v.id, v.slug, v.filename, v.title, v.description, v.thumbnail_url, v.width, v.height, v.duration
-         FROM videos v
+        "SELECT v.id, v.slug, v.filename, v.title, v.description, v.thumbnail_url, 0 as width, 0 as height, 0 as duration
+         FROM media_items v
          INNER JOIN access_code_permissions acp ON acp.media_slug = v.slug AND acp.media_type = 'video'
-         WHERE acp.access_code_id = ?
+         WHERE acp.access_code_id = ? AND v.media_type = 'video'
          ORDER BY v.id"
     )
     .bind(access_code_id)

@@ -288,6 +288,171 @@ impl From<Document> for UnifiedMediaItem {
     }
 }
 
+// Convert from MediaItem (unified table) to UnifiedMediaItem
+// This creates the appropriate legacy wrapper based on media_type
+impl From<common::models::media_item::MediaItem> for UnifiedMediaItem {
+    fn from(item: common::models::media_item::MediaItem) -> Self {
+        // Convert MediaItem to appropriate legacy model wrapper
+        // For now, we'll convert to Video/Image/Document based on media_type
+        match item.media_type.as_str() {
+            "video" => {
+                let video = Video {
+                    id: item.id,
+                    slug: item.slug.clone(),
+                    title: item.title.clone(),
+                    description: item.description.clone(),
+                    is_public: item.is_public,
+                    user_id: item.user_id.clone(),
+                    group_id: item.group_id,
+                    short_description: None,
+                    duration: None,
+                    file_size: Some(item.file_size),
+                    resolution: None,
+                    width: None,
+                    height: None,
+                    fps: None,
+                    bitrate: None,
+                    codec: None,
+                    audio_codec: None,
+                    thumbnail_url: item.thumbnail_url.clone(),
+                    poster_url: item.thumbnail_url.clone(), // Use thumbnail as poster
+                    preview_url: item.preview_url.clone(),
+                    filename: Some(item.filename.clone()),
+                    mime_type: Some(item.mime_type.clone()),
+                    format: None,
+                    upload_date: Some(item.created_at.clone()),
+                    last_modified: item.updated_at.clone(),
+                    published_at: item.published_at.clone(),
+                    view_count: item.view_count,
+                    like_count: item.like_count,
+                    download_count: item.download_count,
+                    share_count: item.share_count,
+                    category: item.category.clone(),
+                    language: None,
+                    subtitle_languages: None,
+                    status: item.status.clone(),
+                    featured: item.featured,
+                    allow_comments: item.allow_comments,
+                    allow_download: item.allow_download,
+                    mature_content: item.mature_content,
+                    seo_title: item.seo_title.clone(),
+                    seo_description: item.seo_description.clone(),
+                    seo_keywords: item.seo_keywords.clone(),
+                    extra_metadata: None,
+                };
+                Self::Video(video)
+            }
+            "image" => {
+                let image = Image {
+                    id: item.id,
+                    slug: item.slug.clone(),
+                    filename: item.filename.clone(),
+                    title: item.title.clone(),
+                    description: item.description.clone(),
+                    is_public: item.is_public,
+                    user_id: item.user_id.clone(),
+                    width: None,
+                    height: None,
+                    file_size: Some(item.file_size),
+                    mime_type: Some(item.mime_type.clone()),
+                    format: None,
+                    color_space: None,
+                    bit_depth: None,
+                    has_alpha: None,
+                    thumbnail_url: item.thumbnail_url.clone(),
+                    medium_url: item.webp_url.clone(),
+                    dominant_color: None,
+                    camera_make: None,
+                    camera_model: None,
+                    lens_model: None,
+                    focal_length: None,
+                    aperture: None,
+                    shutter_speed: None,
+                    iso: None,
+                    flash_used: None,
+                    taken_at: None,
+                    gps_latitude: None,
+                    gps_longitude: None,
+                    location_name: None,
+                    original_filename: item.original_filename.clone(),
+                    alt_text: None,
+                    upload_date: Some(item.created_at.clone()),
+                    last_modified: item.updated_at.clone(),
+                    published_at: item.published_at.clone(),
+                    view_count: item.view_count,
+                    like_count: item.like_count,
+                    download_count: item.download_count,
+                    share_count: item.share_count,
+                    category: item.category.clone(),
+                    subcategory: None,
+                    collection: None,
+                    series: None,
+                    status: item.status.clone(),
+                    featured: item.featured,
+                    allow_download: item.allow_download,
+                    mature_content: item.mature_content,
+                    watermarked: 0,
+                    copyright_holder: None,
+                    license: None,
+                    attribution: None,
+                    usage_rights: None,
+                    seo_title: item.seo_title.clone(),
+                    seo_description: item.seo_description.clone(),
+                    seo_keywords: item.seo_keywords.clone(),
+                    exif_data: None,
+                    extra_metadata: None,
+                    created_at: item.created_at.clone(),
+                };
+                Self::Image(image)
+            }
+            "document" => {
+                let document = Document {
+                    id: item.id,
+                    slug: item.slug.clone(),
+                    filename: item.filename.clone(),
+                    title: item.title.clone(),
+                    description: item.description.clone(),
+                    mime_type: item.mime_type.clone(),
+                    file_size: item.file_size,
+                    file_path: String::new(), // Not stored in media_items
+                    thumbnail_path: item.thumbnail_url.clone(),
+                    is_public: item.is_public,
+                    user_id: item.user_id.clone(),
+                    group_id: item.group_id.map(|g| g.to_string()),
+                    document_type: item.category.clone(),
+                    page_count: None,
+                    author: None,
+                    version: None,
+                    language: None,
+                    word_count: None,
+                    character_count: None,
+                    row_count: None,
+                    column_count: None,
+                    csv_columns: None,
+                    csv_delimiter: None,
+                    metadata: None,
+                    searchable_content: None,
+                    view_count: item.view_count,
+                    download_count: item.download_count,
+                    allow_download: item.allow_download,
+                    seo_title: item.seo_title.clone(),
+                    seo_description: item.seo_description.clone(),
+                    seo_keywords: item.seo_keywords.clone(),
+                    created_at: item.created_at.clone(),
+                    updated_at: item.updated_at.clone(),
+                    published_at: item.published_at.clone(),
+                };
+                Self::Document(document)
+            }
+            _ => {
+                // Default to document for unknown types
+                let document = Document::default();
+                Self::Document(document)
+            }
+        }
+    }
+}
+
 /// Filter options for unified media queries
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MediaFilterOptions {

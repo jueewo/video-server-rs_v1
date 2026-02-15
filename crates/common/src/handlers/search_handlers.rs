@@ -368,14 +368,14 @@ async fn search_videos(
         // AND mode: video must have ALL tags
         format!(
             "SELECT DISTINCT v.id, v.title, v.slug, v.description, v.is_public,
-                    v.upload_date, v.duration, v.thumbnail_url
-             FROM videos v
-             INNER JOIN video_tags vt ON v.id = vt.video_id
-             INNER JOIN tags t ON vt.tag_id = t.id
-             WHERE t.slug IN ({}) AND {}
+                    v.created_at as upload_date, v.duration, v.thumbnail_url
+             FROM media_items v
+             INNER JOIN media_tags mt ON v.id = mt.media_id
+             INNER JOIN tags t ON mt.tag_id = t.id
+             WHERE v.media_type = 'video' AND t.slug IN ({}) AND {}
              GROUP BY v.id
              HAVING COUNT(DISTINCT t.id) = {}
-             ORDER BY v.upload_date DESC",
+             ORDER BY v.created_at DESC",
             tag_slugs.iter().map(|_| "?").collect::<Vec<_>>().join(", "),
             visibility_clause,
             tag_count
@@ -384,12 +384,12 @@ async fn search_videos(
         // OR mode: video must have ANY tag
         format!(
             "SELECT DISTINCT v.id, v.title, v.slug, v.description, v.is_public,
-                    v.upload_date, v.duration, v.thumbnail_url
-             FROM videos v
-             INNER JOIN video_tags vt ON v.id = vt.video_id
-             INNER JOIN tags t ON vt.tag_id = t.id
-             WHERE t.slug IN ({}) AND {}
-             ORDER BY v.upload_date DESC",
+                    v.created_at as upload_date, v.duration, v.thumbnail_url
+             FROM media_items v
+             INNER JOIN media_tags mt ON v.id = mt.media_id
+             INNER JOIN tags t ON mt.tag_id = t.id
+             WHERE v.media_type = 'video' AND t.slug IN ({}) AND {}
+             ORDER BY v.created_at DESC",
             tag_slugs.iter().map(|_| "?").collect::<Vec<_>>().join(", "),
             visibility_clause
         )
@@ -431,10 +431,10 @@ async fn search_images(
         format!(
             "SELECT DISTINCT i.id, i.title, i.slug, i.description, i.is_public,
                     i.created_at, i.width, i.height
-             FROM images i
-             INNER JOIN image_tags it ON i.id = it.image_id
-             INNER JOIN tags t ON it.tag_id = t.id
-             WHERE t.slug IN ({}) AND {}
+             FROM media_items i
+             INNER JOIN media_tags mt ON i.id = mt.media_id
+             INNER JOIN tags t ON mt.tag_id = t.id
+             WHERE i.media_type = 'image' AND t.slug IN ({}) AND {}
              GROUP BY i.id
              HAVING COUNT(DISTINCT t.id) = {}
              ORDER BY i.created_at DESC",
@@ -447,10 +447,10 @@ async fn search_images(
         format!(
             "SELECT DISTINCT i.id, i.title, i.slug, i.description, i.is_public,
                     i.created_at, i.width, i.height
-             FROM images i
-             INNER JOIN image_tags it ON i.id = it.image_id
-             INNER JOIN tags t ON it.tag_id = t.id
-             WHERE t.slug IN ({}) AND {}
+             FROM media_items i
+             INNER JOIN media_tags mt ON i.id = mt.media_id
+             INNER JOIN tags t ON mt.tag_id = t.id
+             WHERE i.media_type = 'image' AND t.slug IN ({}) AND {}
              ORDER BY i.created_at DESC",
             tag_slugs.iter().map(|_| "?").collect::<Vec<_>>().join(", "),
             visibility_clause

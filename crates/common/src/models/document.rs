@@ -308,9 +308,15 @@ impl Document {
 
     /// Get thumbnail URL if available
     pub fn thumbnail_url(&self) -> Option<String> {
-        self.thumbnail_path
-            .as_ref()
-            .map(|path| format!("/media/thumbnails/documents/{}", path))
+        self.thumbnail_path.as_ref().map(|path| {
+            // If the path already starts with '/', it's a full URL - use as-is
+            // Otherwise, prepend the legacy thumbnail directory path
+            if path.starts_with('/') {
+                path.clone()
+            } else {
+                format!("/media/thumbnails/documents/{}", path)
+            }
+        })
     }
 
     /// Get document type enum

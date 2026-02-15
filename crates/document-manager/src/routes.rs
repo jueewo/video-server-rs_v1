@@ -100,6 +100,7 @@ pub fn document_routes() -> Router<DocumentManagerState> {
         // .route("/api/documents/upload", post(upload_document))
         .route("/documents/:slug", get(document_detail))
         .route("/documents/:slug/download", get(download_document))
+        .route("/documents/:slug/thumbnail", get(serve_document_thumbnail))
         .route("/api/documents/:id", get(document_detail_json))
         .route("/api/documents/:id", delete(delete_document_handler))
 }
@@ -240,7 +241,7 @@ async fn upload_document(
     ))?;
 
     // Check if slug already exists
-    let existing: Option<(i32,)> = sqlx::query_as("SELECT id FROM documents WHERE slug = ?")
+    let existing: Option<(i32,)> = sqlx::query_as("SELECT id FROM media_items WHERE media_type = 'document' AND slug = ?")
         .bind(&slug)
         .fetch_optional(&state.pool)
         .await
@@ -396,7 +397,7 @@ async fn download_document(
 
     // Lookup document - get vault_id, user_id, is_public, filename
     let document: Option<(Option<String>, Option<String>, i32, String)> = sqlx::query_as(
-        "SELECT vault_id, user_id, is_public, filename FROM documents WHERE slug = ?",
+        "SELECT vault_id, user_id, is_public, filename FROM media_items WHERE media_type = 'document' AND slug = ?",
     )
     .bind(&slug)
     .fetch_optional(&state.pool)
@@ -478,6 +479,98 @@ async fn download_document(
         .unwrap())
 }
 
+/// Serve document thumbnail
+async fn serve_document_thumbnail(
+    State(state): State<DocumentManagerState>,
+    session: Session,
+    Path(slug): Path<String>,
+) -> Result<Response, StatusCode> {
+    debug!("Document thumbnail request: {}", slug);
+
+    // Get user_id from session if authenticated
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    let user_id: Option<String> = if authenticated {
+        session.get("user_id").await.ok().flatten()
+    } else {
+        None
+    };
+
+    // Lookup document - get vault_id, user_id, is_public
+    let document: Option<(Option<String>, Option<String>, i32)> = sqlx::query_as(
+        "SELECT vault_id, user_id, is_public FROM media_items WHERE media_type = 'document' AND slug = ?",
+    )
+    .bind(&slug)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|e| {
+        error!("Database error: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let (vault_id, owner_user_id, is_public) = document.ok_or(StatusCode::NOT_FOUND)?;
+
+    // Check access permissions
+    if is_public == 0 {
+        // Private document - check if user owns it
+        if !authenticated {
+            return Err(StatusCode::UNAUTHORIZED);
+        }
+
+        if user_id.as_ref() != owner_user_id.as_ref() {
+            return Err(StatusCode::FORBIDDEN);
+        }
+    }
+
+    // Determine thumbnail path using vault fallback chain
+    let thumb_filename = format!("{}_thumb.webp", slug);
+    let thumb_path = if let Some(ref vid) = vault_id {
+        // Vault-based path
+        state
+            .user_storage
+            .vault_thumbnails_dir(vid, common::storage::MediaType::Document)
+            .join(&thumb_filename)
+    } else if let Some(ref uid) = owner_user_id {
+        // User-based fallback
+        state
+            .user_storage
+            .thumbnails_dir(uid, common::storage::MediaType::Document)
+            .join(&thumb_filename)
+    } else {
+        // Legacy fallback
+        std::path::PathBuf::from(&state.storage_dir)
+            .join("thumbnails")
+            .join("documents")
+            .join(&thumb_filename)
+    };
+
+    // Check if thumbnail exists
+    if !thumb_path.exists() {
+        debug!("Thumbnail not found at {:?}, returning default icon", thumb_path);
+        // Return 404 so the frontend can fall back to icon
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    // Read thumbnail file
+    let thumbnail_data = tokio::fs::read(&thumb_path).await.map_err(|e| {
+        error!("Failed to read thumbnail: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Return thumbnail with appropriate content type
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "image/webp")
+        .header(header::CACHE_CONTROL, "public, max-age=31536000")
+        .body(Body::from(thumbnail_data))
+        .unwrap())
+}
+
 /// List documents (HTML view)
 async fn list_documents_html(
     State(state): State<DocumentManagerState>,
@@ -502,9 +595,9 @@ async fn list_documents_html(
     };
 
     // Fetch public documents
-    let public_sql = "SELECT id, slug, title, description, document_type, file_size, thumbnail_path, created_at, view_count
-                      FROM documents
-                      WHERE is_public = 1
+    let public_sql = "SELECT id, slug, title, description, mime_type as document_type, file_size, thumbnail_url as thumbnail_path, created_at, view_count
+                      FROM media_items
+                      WHERE media_type = 'document' AND is_public = 1
                       ORDER BY created_at DESC";
 
     let public_documents = match sqlx::query_as::<_, DocumentSummary>(public_sql)
@@ -520,9 +613,9 @@ async fn list_documents_html(
 
     // Fetch private documents if authenticated
     let private_documents = if let Some(ref uid) = user_id {
-        let private_sql = "SELECT id, slug, title, description, document_type, file_size, thumbnail_path, created_at, view_count
-                           FROM documents
-                           WHERE is_public = 0 AND user_id = ?
+        let private_sql = "SELECT id, slug, title, description, mime_type as document_type, file_size, thumbnail_url as thumbnail_path, created_at, view_count
+                           FROM media_items
+                           WHERE media_type = 'document' AND is_public = 0 AND user_id = ?
                            ORDER BY created_at DESC";
 
         match sqlx::query_as::<_, DocumentSummary>(private_sql)
@@ -576,7 +669,7 @@ async fn list_documents_json(
     let offset = query.page * query.page_size;
 
     // Build query - filter by public or user ownership
-    let mut sql = String::from("SELECT id, slug, title, description, document_type, file_size, thumbnail_path, created_at, view_count FROM documents WHERE (is_public = 1");
+    let mut sql = String::from("SELECT id, slug, title, description, mime_type as document_type, file_size, thumbnail_url as thumbnail_path, created_at, view_count FROM media_items WHERE media_type = 'document' AND (is_public = 1");
 
     if let Some(ref uid) = user_id {
         sql.push_str(&format!(" OR user_id = '{}'", uid));
@@ -614,7 +707,7 @@ async fn list_documents_json(
 
     // Get total count - apply same filters
     let mut count_sql =
-        String::from("SELECT COUNT(*) as count FROM documents WHERE (is_public = 1");
+        String::from("SELECT COUNT(*) as count FROM media_items WHERE media_type = 'document' AND (is_public = 1");
 
     if let Some(ref uid) = user_id {
         count_sql.push_str(&format!(" OR user_id = '{}'", uid));
@@ -673,7 +766,7 @@ async fn document_detail(
         None
     };
 
-    let sql = "SELECT id, slug, title, description, document_type, file_size, file_path, created_at, view_count, is_public, user_id FROM documents WHERE slug = ?";
+    let sql = "SELECT id, slug, title, description, mime_type as document_type, file_size, filename as file_path, created_at, view_count, is_public, user_id FROM media_items WHERE media_type = 'document' AND slug = ?";
 
     let doc: Result<DocumentDetailRow, _> =
         sqlx::query_as(sql).bind(&slug).fetch_one(&state.pool).await;
@@ -915,7 +1008,7 @@ async fn document_detail_json(
 ) -> impl IntoResponse {
     debug!("Document detail JSON request: {}", id);
 
-    let sql = "SELECT id, slug, title, description, document_type, file_size, file_path, created_at, view_count FROM documents WHERE id = ?";
+    let sql = "SELECT id, slug, title, description, mime_type as document_type, file_size, filename as file_path, created_at, view_count FROM media_items WHERE media_type = 'document' AND id = ?";
 
     let doc: Result<DocumentDetail, _> = sqlx::query_as(sql).bind(id).fetch_one(&state.pool).await;
 
@@ -1019,10 +1112,10 @@ async fn delete_document_handler(
     // First, get the document details to find the file path
     let document = match sqlx::query_as::<_, DocumentDetailRow>(
         r#"
-        SELECT id, slug, title, description, document_type, file_size,
-               file_path, created_at, view_count, is_public, user_id
-        FROM documents
-        WHERE id = ?
+        SELECT id, slug, title, description, mime_type as document_type, file_size,
+               filename as file_path, created_at, view_count, is_public, user_id
+        FROM media_items
+        WHERE media_type = 'document' AND id = ?
         "#,
     )
     .bind(id)
@@ -1065,7 +1158,7 @@ async fn delete_document_handler(
     }
 
     // Delete the document from the database
-    match sqlx::query("DELETE FROM documents WHERE id = ?")
+    match sqlx::query("DELETE FROM media_items WHERE media_type = 'document' AND id = ?")
         .bind(id)
         .execute(&state.pool)
         .await

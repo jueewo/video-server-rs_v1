@@ -5,9 +5,7 @@
 
 use crate::models::{MediaFilterOptions, MediaListResponse, MediaTypeCounts, UnifiedMediaItem};
 use anyhow::{Context, Result};
-use common::models::document::Document;
-use common::models::image::Image;
-use common::models::video::Video;
+use common::models::media_item::MediaItem;
 use sqlx::SqlitePool;
 use tracing::{debug, info};
 
@@ -111,8 +109,8 @@ impl MediaSearchService {
     }
 
     /// Search videos
-    async fn search_videos(&self, options: &MediaFilterOptions) -> Result<Vec<Video>> {
-        let mut query = String::from("SELECT * FROM videos WHERE 1=1");
+    async fn search_videos(&self, options: &MediaFilterOptions) -> Result<Vec<MediaItem>> {
+        let mut query = String::from("SELECT * FROM media_items WHERE media_type = 'video' AND 1=1");
         let mut bindings: Vec<String> = Vec::new();
 
         // Search filter
@@ -135,18 +133,14 @@ impl MediaSearchService {
             bindings.push(user_id.clone());
         }
 
-        // Add ordering - videos use upload_date instead of created_at
-        let sort_field = if options.sort_by == "created_at" {
-            "upload_date"
-        } else {
-            &options.sort_by
-        };
+        // Add ordering - media_items uses created_at
+        let sort_field = &options.sort_by;
         query.push_str(&format!(" ORDER BY {} {}", sort_field, options.sort_order));
 
         // Note: We fetch all here and paginate in memory for cross-type sorting
         // In production, consider implementing database-level pagination
 
-        let mut sqlx_query = sqlx::query_as::<_, Video>(&query);
+        let mut sqlx_query = sqlx::query_as::<_, MediaItem>(&query);
         for binding in bindings {
             sqlx_query = sqlx_query.bind(binding);
         }
@@ -161,7 +155,7 @@ impl MediaSearchService {
 
     /// Count videos
     async fn count_videos(&self, options: &MediaFilterOptions) -> Result<i64> {
-        let mut query = String::from("SELECT COUNT(*) FROM videos WHERE 1=1");
+        let mut query = String::from("SELECT COUNT(*) FROM media_items WHERE media_type = 'video' AND 1=1");
         let mut bindings: Vec<String> = Vec::new();
 
         if let Some(search) = &options.search {
@@ -195,8 +189,8 @@ impl MediaSearchService {
     }
 
     /// Search images
-    async fn search_images(&self, options: &MediaFilterOptions) -> Result<Vec<Image>> {
-        let mut query = String::from("SELECT * FROM images WHERE 1=1");
+    async fn search_images(&self, options: &MediaFilterOptions) -> Result<Vec<MediaItem>> {
+        let mut query = String::from("SELECT * FROM media_items WHERE media_type = 'image' AND 1=1");
         let mut bindings: Vec<String> = Vec::new();
 
         if let Some(search) = &options.search {
@@ -232,7 +226,7 @@ impl MediaSearchService {
             }
         ));
 
-        let mut sqlx_query = sqlx::query_as::<_, Image>(&query);
+        let mut sqlx_query = sqlx::query_as::<_, MediaItem>(&query);
         for binding in bindings {
             sqlx_query = sqlx_query.bind(binding);
         }
@@ -247,7 +241,7 @@ impl MediaSearchService {
 
     /// Count images
     async fn count_images(&self, options: &MediaFilterOptions) -> Result<i64> {
-        let mut query = String::from("SELECT COUNT(*) FROM images WHERE 1=1");
+        let mut query = String::from("SELECT COUNT(*) FROM media_items WHERE media_type = 'image' AND 1=1");
         let mut bindings: Vec<String> = Vec::new();
 
         if let Some(search) = &options.search {
@@ -281,15 +275,14 @@ impl MediaSearchService {
     }
 
     /// Search documents
-    async fn search_documents(&self, options: &MediaFilterOptions) -> Result<Vec<Document>> {
-        let mut query = String::from("SELECT * FROM documents WHERE 1=1");
+    async fn search_documents(&self, options: &MediaFilterOptions) -> Result<Vec<MediaItem>> {
+        let mut query = String::from("SELECT * FROM media_items WHERE media_type = 'document' AND 1=1");
         let mut bindings: Vec<String> = Vec::new();
 
         if let Some(search) = &options.search {
             query
-                .push_str(" AND (title LIKE ? OR description LIKE ? OR searchable_content LIKE ?)");
+                .push_str(" AND (title LIKE ? OR description LIKE ?)");
             let pattern = format!("%{}%", search);
-            bindings.push(pattern.clone());
             bindings.push(pattern.clone());
             bindings.push(pattern);
         }
@@ -320,7 +313,7 @@ impl MediaSearchService {
             }
         ));
 
-        let mut sqlx_query = sqlx::query_as::<_, Document>(&query);
+        let mut sqlx_query = sqlx::query_as::<_, MediaItem>(&query);
         for binding in bindings {
             sqlx_query = sqlx_query.bind(binding);
         }
@@ -335,14 +328,13 @@ impl MediaSearchService {
 
     /// Count documents
     async fn count_documents(&self, options: &MediaFilterOptions) -> Result<i64> {
-        let mut query = String::from("SELECT COUNT(*) FROM documents WHERE 1=1");
+        let mut query = String::from("SELECT COUNT(*) FROM media_items WHERE media_type = 'document' AND 1=1");
         let mut bindings: Vec<String> = Vec::new();
 
         if let Some(search) = &options.search {
             query
-                .push_str(" AND (title LIKE ? OR description LIKE ? OR searchable_content LIKE ?)");
+                .push_str(" AND (title LIKE ? OR description LIKE ?)");
             let pattern = format!("%{}%", search);
-            bindings.push(pattern.clone());
             bindings.push(pattern.clone());
             bindings.push(pattern);
         }

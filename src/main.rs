@@ -800,10 +800,9 @@ async fn main() -> anyhow::Result<()> {
     println!("📁 Unified Media Manager initialized (images with original + WebP support)");
 
     // Initialize Media Hub state
-    let media_hub_state = MediaHubState::new(
-        pool.clone(),
-        storage_dir.to_str().unwrap_or("storage").to_string(),
-    );
+    let storage_dir_str = storage_dir.to_str().unwrap_or("storage").to_string();
+    println!("🔍 MediaHub storage_dir: {}", storage_dir_str);
+    let media_hub_state = MediaHubState::new(pool.clone(), storage_dir_str);
     println!("🎨 Media Hub initialized (unified media management)");
 
     // Load application configuration

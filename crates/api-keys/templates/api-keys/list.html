@@ -1,0 +1,134 @@
+{% extends "base-tailwind.html" %}
+{% block title %}API Keys - Media Server{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-6xl">
+    <!-- Header -->
+    <div class="mb-8 flex justify-between items-center">
+        <div>
+            <h1 class="text-4xl font-bold mb-2">🔑 API Keys</h1>
+            <p class="text-base-content/70">Manage your API keys for programmatic access</p>
+        </div>
+        <a href="/profile/api-keys/create" class="btn btn-primary gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Create New Key
+        </a>
+    </div>
+
+    {% if api_keys.is_empty() %}
+    <!-- Empty State -->
+    <div class="card bg-base-200 shadow-xl">
+        <div class="card-body items-center text-center py-16">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 text-base-content/30 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+            <h2 class="card-title text-2xl mb-2">No API Keys Yet</h2>
+            <p class="text-base-content/70 mb-6 max-w-md">
+                API keys allow scripts, CLI tools, and integrations to access your media server programmatically.
+            </p>
+            <a href="/profile/api-keys/create" class="btn btn-primary gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Create Your First API Key
+            </a>
+        </div>
+    </div>
+    {% else %}
+    <!-- API Keys Table -->
+    <div class="overflow-x-auto">
+        <table class="table table-zebra w-full">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Key Prefix</th>
+                    <th>Scopes</th>
+                    <th>Last Used</th>
+                    <th>Usage Count</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for key in api_keys %}
+                <tr>
+                    <td>
+                        <div>
+                            <div class="font-bold">{{ key.name }}</div>
+                            {% if key.description.is_some() %}
+                            <div class="text-sm text-base-content/60">{{ key.description.as_ref().unwrap() }}</div>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        <code class="px-2 py-1 bg-base-300 rounded text-sm">{{ key.key_prefix }}...</code>
+                    </td>
+                    <td>
+                        <div class="flex flex-wrap gap-1">
+                            {% for scope in key.get_scopes() %}
+                            <span class="badge badge-sm badge-outline">{{ scope }}</span>
+                            {% endfor %}
+                        </div>
+                    </td>
+                    <td>
+                        {% if key.last_used_at.is_some() %}
+                        <span class="text-sm">{{ key.last_used_at.as_ref().unwrap() }}</span>
+                        {% else %}
+                        <span class="text-sm text-base-content/40">Never</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="font-mono text-sm">{{ key.usage_count }}</span>
+                    </td>
+                    <td>
+                        {% if !key.is_active %}
+                        <span class="badge badge-error">Revoked</span>
+                        {% else if key.is_expired() %}
+                        <span class="badge badge-warning">Expired</span>
+                        {% else %}
+                        <span class="badge badge-success">Active</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if key.is_active %}
+                        <form method="post" action="/profile/api-keys/{{ key.id }}/revoke" class="inline">
+                            <button type="submit" class="btn btn-error btn-sm" onclick="return confirm('Are you sure you want to revoke this API key? This cannot be undone.')">
+                                Revoke
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Info Box -->
+    <div class="alert alert-info shadow-lg mt-6">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <div>
+            <h3 class="font-bold">API Keys vs Access Codes</h3>
+            <div class="text-sm">
+                <strong>API Keys</strong> are for scripts and automation (delete script, CLI, MCP server).
+                <strong>Access Codes</strong> are for sharing resources with external viewers.
+            </div>
+        </div>
+    </div>
+
+    <!-- Back Button -->
+    <div class="mt-8">
+        <a href="/profile" class="btn btn-ghost gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Profile
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,172 @@
+{% extends "base-tailwind.html" %}
+{% block title %}Create API Key - Media Server{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-4xl font-bold mb-2">🔑 Create API Key</h1>
+        <p class="text-base-content/70">Generate a new API key for programmatic access</p>
+    </div>
+
+    <!-- Error Display -->
+    {% if error.is_some() %}
+    <div class="alert alert-error shadow-lg mb-6">
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>{{ error.as_ref().unwrap() }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Create Form -->
+    <form method="post" action="/profile/api-keys/create" class="card bg-base-200 shadow-xl">
+        <div class="card-body">
+            <!-- Name -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-semibold">Name <span class="text-error">*</span></span>
+                </label>
+                <input type="text" name="name" placeholder="e.g., Delete Script, CLI Tool, MCP Server" class="input input-bordered" required />
+                <label class="label">
+                    <span class="label-text-alt">Give this key a memorable name</span>
+                </label>
+            </div>
+
+            <!-- Description -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-semibold">Description (Optional)</span>
+                </label>
+                <textarea name="description" placeholder="Optional notes about this key's purpose..." class="textarea textarea-bordered" rows="2"></textarea>
+            </div>
+
+            <!-- Scopes -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-semibold">Scopes <span class="text-error">*</span></span>
+                </label>
+                <div class="flex flex-col gap-2 p-4 bg-base-300 rounded-lg">
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="checkbox" name="scopes" value="read" class="checkbox checkbox-primary" checked />
+                        <div>
+                            <span class="label-text font-semibold">Read</span>
+                            <p class="text-xs text-base-content/60">View videos, images, and metadata (GET requests)</p>
+                        </div>
+                    </label>
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="checkbox" name="scopes" value="write" class="checkbox checkbox-primary" />
+                        <div>
+                            <span class="label-text font-semibold">Write</span>
+                            <p class="text-xs text-base-content/60">Create and update resources (POST/PUT requests)</p>
+                        </div>
+                    </label>
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="checkbox" name="scopes" value="delete" class="checkbox checkbox-primary" />
+                        <div>
+                            <span class="label-text font-semibold">Delete</span>
+                            <p class="text-xs text-base-content/60">Delete resources (DELETE requests)</p>
+                        </div>
+                    </label>
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="checkbox" name="scopes" value="admin" class="checkbox checkbox-primary" />
+                        <div>
+                            <span class="label-text font-semibold">Admin</span>
+                            <p class="text-xs text-base-content/60">Full access including user management</p>
+                        </div>
+                    </label>
+                </div>
+                <label class="label">
+                    <span class="label-text-alt">Select one or more permissions</span>
+                </label>
+            </div>
+
+            <!-- Expiration -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-semibold">Expiration</span>
+                </label>
+                <select name="expiration" class="select select-bordered" id="expiration-select">
+                    <option value="never" selected>Never (no expiration)</option>
+                    <option value="30days">30 days</option>
+                    <option value="90days">90 days</option>
+                    <option value="1year">1 year</option>
+                    <option value="custom">Custom date...</option>
+                </select>
+                <input type="date" name="custom_expiration" id="custom-expiration" class="input input-bordered mt-2 hidden" />
+                <label class="label">
+                    <span class="label-text-alt">Keys can be set to expire automatically</span>
+                </label>
+            </div>
+
+            <!-- Actions -->
+            <div class="card-actions justify-end mt-4">
+                <a href="/profile/api-keys" class="btn btn-ghost">Cancel</a>
+                <button type="submit" class="btn btn-primary gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    Generate API Key
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Security Best Practices -->
+    <div class="alert alert-warning shadow-lg mt-6">
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <div>
+            <h3 class="font-bold">Security Best Practices</h3>
+            <ul class="text-sm list-disc list-inside">
+                <li>Never commit API keys to git repositories</li>
+                <li>Use environment variables in scripts</li>
+                <li>Grant only the minimum required scopes</li>
+                <li>Create separate keys for different purposes</li>
+                <li>Revoke unused keys immediately</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Show/hide custom date input
+    document.getElementById('expiration-select').addEventListener('change', function(e) {
+        const customInput = document.getElementById('custom-expiration');
+        if (e.target.value === 'custom') {
+            customInput.classList.remove('hidden');
+            customInput.required = true;
+        } else {
+            customInput.classList.add('hidden');
+            customInput.required = false;
+        }
+    });
+
+    // Handle scope checkboxes to ensure at least one is selected
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        const checkboxes = document.querySelectorAll('input[name="scopes"]:checked');
+        if (checkboxes.length === 0) {
+            e.preventDefault();
+            alert('Please select at least one scope');
+        }
+    });
+
+    // Convert checkboxes to comma-separated value
+    form.addEventListener('submit', function(e) {
+        const checkboxes = document.querySelectorAll('input[name="scopes"]:checked');
+        const values = Array.from(checkboxes).map(cb => cb.value).join(',');
+
+        // Remove all scope checkboxes
+        checkboxes.forEach(cb => cb.remove());
+
+        // Add a single hidden input with comma-separated values
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'scopes';
+        hiddenInput.value = values;
+        form.appendChild(hiddenInput);
+    });
+</script>
+{% endblock %}

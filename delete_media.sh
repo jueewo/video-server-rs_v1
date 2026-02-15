@@ -22,27 +22,68 @@ echo ""
 
 # Step 1: Authentication
 echo -e "${YELLOW}🔐 Step 1: Authentication${NC}"
-read -p "Username [admin]: " USERNAME
-USERNAME=${USERNAME:-admin}
-
-read -sp "Password [appkask]: " PASSWORD
-PASSWORD=${PASSWORD:-testpass123}
+echo "Choose authentication method:"
+echo "  1. API Key (recommended)"
+echo "  2. Emergency Login (username/password)"
 echo ""
+read -p "Selection [1]: " AUTH_METHOD
+AUTH_METHOD=${AUTH_METHOD:-1}
 
-echo -n "Logging in... "
-LOGIN_RESPONSE=$(curl -s -c "$COOKIE_FILE" -X POST "$SERVER/login/emergency/auth" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=$USERNAME&password=$PASSWORD" \
-  -w "\n%{http_code}")
+# Authentication headers variable
+AUTH_HEADERS=""
 
-HTTP_CODE=$(echo "$LOGIN_RESPONSE" | tail -n 1)
+if [ "$AUTH_METHOD" = "1" ]; then
+    # API Key authentication
+    if [ -n "$MEDIA_API_KEY" ]; then
+        echo "Using API key from MEDIA_API_KEY environment variable"
+        API_KEY="$MEDIA_API_KEY"
+    else
+        read -sp "Enter your API key: " API_KEY
+        echo ""
+    fi
 
-if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "303" ]; then
-    echo -e "${GREEN}✓ Login successful${NC}"
+    if [ -z "$API_KEY" ]; then
+        echo -e "${RED}✗ No API key provided${NC}"
+        exit 1
+    fi
+
+    # Test API key
+    echo -n "Validating API key... "
+    TEST_RESPONSE=$(curl -s -H "Authorization: Bearer $API_KEY" "$SERVER/api/media" -w "\n%{http_code}")
+    HTTP_CODE=$(echo "$TEST_RESPONSE" | tail -n 1)
+
+    if [ "$HTTP_CODE" = "200" ]; then
+        echo -e "${GREEN}✓ API key valid${NC}"
+        AUTH_HEADERS="-H \"Authorization: Bearer $API_KEY\""
+    else
+        echo -e "${RED}✗ API key invalid (HTTP $HTTP_CODE)${NC}"
+        exit 1
+    fi
 else
-    echo -e "${RED}✗ Login failed (HTTP $HTTP_CODE)${NC}"
-    rm -f "$COOKIE_FILE"
-    exit 1
+    # Emergency login (legacy method)
+    read -p "Username [admin]: " USERNAME
+    USERNAME=${USERNAME:-admin}
+
+    read -sp "Password [testpass123]: " PASSWORD
+    PASSWORD=${PASSWORD:-testpass123}
+    echo ""
+
+    echo -n "Logging in... "
+    LOGIN_RESPONSE=$(curl -s -c "$COOKIE_FILE" -X POST "$SERVER/login/emergency/auth" \
+      -H "Content-Type: application/x-www-form-urlencoded" \
+      -d "username=$USERNAME&password=$PASSWORD" \
+      -w "\n%{http_code}")
+
+    HTTP_CODE=$(echo "$LOGIN_RESPONSE" | tail -n 1)
+
+    if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "303" ]; then
+        echo -e "${GREEN}✓ Login successful${NC}"
+        AUTH_HEADERS="-b $COOKIE_FILE"
+    else
+        echo -e "${RED}✗ Login failed (HTTP $HTTP_CODE)${NC}"
+        rm -f "$COOKIE_FILE"
+        exit 1
+    fi
 fi
 
 echo ""
@@ -50,8 +91,8 @@ echo ""
 # Step 2: Fetch media items
 echo -e "${YELLOW}📋 Step 2: Fetching your media items${NC}"
 
-# Get all media from unified API
-MEDIA_JSON=$(curl -s -b "$COOKIE_FILE" "$SERVER/api/media")
+# Get all media from unified API (using appropriate auth method)
+MEDIA_JSON=$(eval curl -s $AUTH_HEADERS "$SERVER/api/media")
 
 # Parse media items
 echo ""
@@ -67,12 +108,14 @@ TYPES=()
 # Check if jq is available for better JSON parsing
 if command -v jq &> /dev/null; then
     # Use jq for robust parsing
+    # Store in temporary variable to avoid process substitution issues
+    JQ_OUTPUT=$(echo "$MEDIA_JSON" | jq -r '.items[] | [.type, .data.id, .data.slug, .data.title] | @tsv')
     while IFS=$'\t' read -r type id slug title; do
         TYPES+=("$type")
         IDS+=("$id")
         SLUGS+=("$slug")
         TITLES+=("$title")
-    done < <(echo "$MEDIA_JSON" | jq -r '.items[] | [.type, .data.id, .data.slug, .data.title] | @tsv')
+    done <<< "$JQ_OUTPUT"
 else
     # Fallback to basic regex parsing
     # Extract each item block
@@ -214,7 +257,7 @@ for idx in "${!TO_DELETE[@]}"; do
                 ;;
         esac
 
-        RESPONSE=$(curl -s -b "$COOKIE_FILE" -X DELETE "$ENDPOINT" \
+        RESPONSE=$(eval curl -s $AUTH_HEADERS -X DELETE "$ENDPOINT" \
             -H "Content-Type: application/json" \
             -w "\n%{http_code}")
 

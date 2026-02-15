@@ -81,6 +81,7 @@ use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 use access_codes::{access_code_routes, AccessCodeState, MediaResource};
 use access_control::AccessControlService;
 use access_groups;
+use api_keys::{middleware::api_key_or_session_auth, routes::api_key_routes};
 use common::{create_search_routes, create_tag_routes};
 use document_manager::routes::{document_routes, DocumentManagerState};
 use gallery3d;
@@ -855,26 +856,75 @@ async fn main() -> anyhow::Result<()> {
         .with_state(app_state)
         // Merge module routers
         .merge(auth_routes(auth_state.clone()))
+        .merge(api_key_routes(Arc::new(pool.clone()))) // API Keys management (session auth required for UI)
         // Media Hub - provides list view for all media types (mount first)
         .merge(
             media_routes()
                 .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // 100MB limit for media uploads
-                .with_state(media_hub_state),
+                .with_state(media_hub_state)
+                .route_layer(axum::middleware::from_fn_with_state(
+                    Arc::new(pool.clone()),
+                    api_key_or_session_auth,
+                )),
         )
         // Unified media manager (new endpoints - override media-hub where they conflict)
         .merge(
             unified_media_routes()
                 .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // 100MB limit for media uploads
-                .with_state((*media_manager_state).clone()),
+                .with_state((*media_manager_state).clone())
+                .route_layer(axum::middleware::from_fn_with_state(
+                    Arc::new(pool.clone()),
+                    api_key_or_session_auth,
+                )),
         )
         // Legacy serving routes - kept for video/document streaming
-        .merge(video_routes().with_state(video_state))
-        .merge(image_routes().with_state(image_state)) // Image CRUD APIs (delete, update, tags)
-        .merge(document_routes().with_state((*document_state).clone()))
+        // Apply API key authentication middleware to all API routes
+        .merge(
+            video_routes()
+                .with_state(video_state)
+                .route_layer(axum::middleware::from_fn_with_state(
+                    Arc::new(pool.clone()),
+                    api_key_or_session_auth,
+                )),
+        )
+        .merge(
+            image_routes()
+                .with_state(image_state)
+                .route_layer(axum::middleware::from_fn_with_state(
+                    Arc::new(pool.clone()),
+                    api_key_or_session_auth,
+                )),
+        )
+        .merge(
+            document_routes()
+                .with_state((*document_state).clone())
+                .route_layer(axum::middleware::from_fn_with_state(
+                    Arc::new(pool.clone()),
+                    api_key_or_session_auth,
+                )),
+        )
         .merge(access_code_routes(access_state))
-        .merge(access_groups::routes::create_routes(pool.clone()))
-        .merge(create_tag_routes(pool.clone()))
-        .merge(create_search_routes(pool.clone()))
+        .merge(
+            access_groups::routes::create_routes(pool.clone())
+                .route_layer(axum::middleware::from_fn_with_state(
+                    Arc::new(pool.clone()),
+                    api_key_or_session_auth,
+                )),
+        )
+        .merge(
+            create_tag_routes(pool.clone())
+                .route_layer(axum::middleware::from_fn_with_state(
+                    Arc::new(pool.clone()),
+                    api_key_or_session_auth,
+                )),
+        )
+        .merge(
+            create_search_routes(pool.clone())
+                .route_layer(axum::middleware::from_fn_with_state(
+                    Arc::new(pool.clone()),
+                    api_key_or_session_auth,
+                )),
+        )
         .merge(gallery3d::router(Arc::new(pool.clone())))
         // Serve static files from storage directory
         .nest_service("/storage", ServeDir::new(&storage_dir))

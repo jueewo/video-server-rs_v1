@@ -1,0 +1,170 @@
+{% extends "base-tailwind.html" %}
+{% block title %}API Key Created - Media Server{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-3xl">
+    <!-- Success Header -->
+    <div class="alert alert-success shadow-lg mb-8">
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span class="font-bold">API Key Created Successfully!</span>
+    </div>
+
+    <!-- Critical Warning -->
+    <div class="alert alert-error shadow-lg mb-6">
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <div>
+            <h3 class="font-bold text-lg">⚠️ Save This Key Now!</h3>
+            <p class="text-sm">This is the ONLY time you'll see the full key. Copy it now and store it securely.</p>
+        </div>
+    </div>
+
+    <!-- API Key Display -->
+    <div class="card bg-base-200 shadow-xl mb-6">
+        <div class="card-body">
+            <h2 class="card-title text-2xl mb-4">{{ name }}</h2>
+
+            <!-- The Key -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-bold text-lg">Your API Key:</span>
+                </label>
+                <div class="join w-full">
+                    <input
+                        type="text"
+                        value="{{ key }}"
+                        id="api-key-input"
+                        readonly
+                        class="input input-bordered join-item w-full font-mono text-sm select-all"
+                    />
+                    <button class="btn btn-primary join-item" onclick="copyKey()">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Copy
+                    </button>
+                </div>
+                <label class="label">
+                    <span class="label-text-alt">Key Prefix: <code class="bg-base-300 px-2 py-1 rounded">{{ key_prefix }}</code></span>
+                </label>
+            </div>
+
+            <!-- Copy Confirmation -->
+            <div id="copy-success" class="alert alert-success shadow-lg hidden mt-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>API key copied to clipboard!</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Usage Examples -->
+    <div class="card bg-base-100 shadow-xl mb-6">
+        <div class="card-body">
+            <h3 class="card-title mb-4">Usage Examples</h3>
+
+            <!-- Bash Example -->
+            <div class="mb-4">
+                <p class="font-semibold mb-2">Using with curl (Bash):</p>
+                <div class="mockup-code">
+                    <pre><code># List videos
+curl -H "Authorization: Bearer {{ key }}" \
+     http://localhost:3000/api/videos
+
+# Delete image
+curl -H "Authorization: Bearer {{ key }}" \
+     -X DELETE http://localhost:3000/api/images/123
+
+# Or use X-API-Key header
+curl -H "X-API-Key: {{ key }}" \
+     http://localhost:3000/api/videos</code></pre>
+                </div>
+            </div>
+
+            <!-- Environment Variable -->
+            <div class="mb-4">
+                <p class="font-semibold mb-2">Store in environment variable:</p>
+                <div class="mockup-code">
+                    <pre><code># In your .env file (add to .gitignore!)
+MEDIA_API_KEY="{{ key }}"
+
+# Use in scripts
+curl -H "Authorization: Bearer $MEDIA_API_KEY" \
+     http://localhost:3000/api/videos</code></pre>
+                </div>
+            </div>
+
+            <!-- Delete Script -->
+            <div>
+                <p class="font-semibold mb-2">Using with delete_media.sh:</p>
+                <div class="mockup-code">
+                    <pre><code># Set environment variable
+export MEDIA_API_KEY="{{ key }}"
+
+# Run the script
+./delete_media.sh</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Security Reminders -->
+    <div class="alert alert-warning shadow-lg mb-6">
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <div>
+            <h4 class="font-bold">Security Checklist:</h4>
+            <ul class="text-sm list-disc list-inside mt-2">
+                <li>✅ Copy the key and save it in a secure location</li>
+                <li>✅ Never commit this key to version control</li>
+                <li>✅ Use environment variables, not hardcoded values</li>
+                <li>✅ If compromised, revoke immediately and create a new key</li>
+                <li>✅ Treat this like a password - keep it secret!</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex gap-3">
+        <a href="/profile/api-keys" class="btn btn-primary gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Done - Go to API Keys List
+        </a>
+        <a href="/profile/api-keys/create" class="btn btn-ghost gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Create Another Key
+        </a>
+    </div>
+</div>
+
+<script>
+    function copyKey() {
+        const input = document.getElementById('api-key-input');
+        input.select();
+        document.execCommand('copy');
+
+        // Show success message
+        const successAlert = document.getElementById('copy-success');
+        successAlert.classList.remove('hidden');
+
+        // Hide after 3 seconds
+        setTimeout(() => {
+            successAlert.classList.add('hidden');
+        }, 3000);
+    }
+
+    // Auto-select the key on page load for easy copying
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('api-key-input').select();
+    });
+</script>
+{% endblock %}

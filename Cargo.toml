@@ -14,6 +14,7 @@ members = [
     "crates/access-control",
     "crates/media-mcp",
     "crates/3d-gallery",
+    "crates/api-keys",
     # TODO: Uncomment when implementing CLI (see MEDIA_CLI_PROGRESS.md)
     # "crates/media-cli",
 ]
@@ -51,6 +52,7 @@ user-auth = { path = "crates/user-auth" }
 access-codes = { path = "crates/access-codes" }
 access-control = { path = "crates/access-control" }
 gallery3d = { path = "crates/3d-gallery" }
+api-keys = { path = "crates/api-keys" }
 
 # Web framework
 axum = { version = "0.7", features = ["multipart"] }
@@ -101,9 +103,11 @@ tower-http = { version = "0.5", features = ["fs", "trace", "cors"] }
 tower-sessions = "0.13"
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "migrate"] }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 anyhow = "1.0"
 tracing = "0.1"
 time = { version = "0.3", features = ["formatting", "parsing"] }
+chrono = { version = "0.4", features = ["serde"] }
 tokio-util = { version = "0.7.17", features = ["io"] }
 reqwest = { version = "0.12.28", features = ["json"] }
 openidconnect = "3.5"

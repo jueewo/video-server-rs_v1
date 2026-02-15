@@ -1,0 +1,41 @@
+[package]
+name = "api-keys"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Web framework
+axum = { workspace = true }
+tower-sessions = { workspace = true }
+tower = { workspace = true }
+
+# Templates
+askama = { workspace = true }
+askama_axum = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Async trait support
+async-trait = { workspace = true }
+
+# Database
+sqlx = { workspace = true }
+
+# Cryptography
+rand = "0.8"           # For secure random key generation
+sha2 = "0.10"          # For SHA-256 hashing
+hex = "0.4"            # For hex encoding
+
+# Time handling
+chrono = { workspace = true }

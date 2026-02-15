@@ -16,6 +16,7 @@ use axum::{
     Router,
 };
 use image::{imageops::FilterType, GenericImageView, ImageFormat};
+use mime_guess;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::fs;
@@ -484,9 +485,13 @@ async fn upload_media(
         media_type, filename
     );
 
+    // Generate slug from title with timestamp for uniqueness
+    let base_slug = slugify(&title);
+    let timestamp = chrono::Utc::now().timestamp();
+    let slug = format!("{}-{}", base_slug, timestamp);
+
     // Generate safe filename
     let safe_filename = sanitize_filename(&filename);
-    let timestamp = chrono::Utc::now().timestamp();
     let unique_filename = format!("{}_{}", timestamp, safe_filename);
 
     // Get or create default vault if vault_id not provided
@@ -619,10 +624,10 @@ async fn upload_media(
             .join("thumbnails")
             .join("images");
 
-        match generate_thumbnail(&file_path, &thumbnail_dir, &title).await {
+        match generate_thumbnail(&file_path, &thumbnail_dir, &slug).await {
             Ok(thumb_path) => {
                 info!("Thumbnail generated successfully: {:?}", thumb_path);
-                Some(format!("/images/{}_thumb", slugify(&title)))
+                Some(format!("/images/{}_thumb", slug))
             }
             Err(e) => {
                 error!("Failed to generate thumbnail: {}", e);
@@ -640,6 +645,7 @@ async fn upload_media(
         DetectedMediaType::Video => {
             create_video_record(
                 &state,
+                &slug,
                 &title,
                 description.as_deref(),
                 category.as_deref(),
@@ -656,6 +662,7 @@ async fn upload_media(
         DetectedMediaType::Image => {
             create_image_record(
                 &state,
+                &slug,
                 &title,
                 description.as_deref(),
                 category.as_deref(),
@@ -672,6 +679,7 @@ async fn upload_media(
         DetectedMediaType::Document => {
             create_document_record(
                 &state,
+                &slug,
                 &title,
                 description.as_deref(),
                 category.as_deref(),
@@ -809,6 +817,7 @@ fn sanitize_filename(filename: &str) -> String {
 /// Create video record in database
 async fn create_video_record(
     state: &MediaHubState,
+    slug: &str,
     title: &str,
     description: Option<&str>,
     _category: Option<&str>,
@@ -820,7 +829,6 @@ async fn create_video_record(
     group_id: Option<i32>,
     thumbnail_url: Option<&str>,
 ) -> Result<(i32, String), sqlx::Error> {
-    let slug = slugify(title);
     let is_public_int = if is_public { 1 } else { 0 };
     let upload_date = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
@@ -834,7 +842,7 @@ async fn create_video_record(
         VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 0, 0, 0, 0, 0, 1, 1, 0)
         "#,
     )
-    .bind(&slug)
+    .bind(slug)
     .bind(title)
     .bind(description)
     .bind(filename)
@@ -845,6 +853,36 @@ async fn create_video_record(
     .await?;
 
     let video_id = result.last_insert_rowid() as i32;
+
+    // Also insert into unified media_items table
+    let mime_type = mime_guess::from_path(filename)
+        .first_or_octet_stream()
+        .to_string();
+
+    sqlx::query(
+        r#"
+        INSERT INTO media_items (
+            slug, media_type, title, description, filename, mime_type, file_size,
+            is_public, user_id, vault_id, group_id, thumbnail_url, created_at, status
+        )
+        VALUES (?, 'video', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+        "#,
+    )
+    .bind(slug)
+    .bind(title)
+    .bind(description)
+    .bind(filename)
+    .bind(&mime_type)
+    .bind(file_size)
+    .bind(is_public_int)
+    .bind(user_id)
+    .bind(vault_id)
+    .bind(group_id)
+    .bind(thumbnail_url)
+    .bind(&upload_date)
+    .execute(&state.pool)
+    .await?;
+
     let url = format!("/videos/{}", slug);
 
     Ok((video_id, url))
@@ -853,6 +891,7 @@ async fn create_video_record(
 /// Create image record in database
 async fn create_image_record(
     state: &MediaHubState,
+    slug: &str,
     title: &str,
     description: Option<&str>,
     _category: Option<&str>,
@@ -864,10 +903,6 @@ async fn create_image_record(
     group_id: Option<i32>,
     thumbnail_url: Option<&str>,
 ) -> Result<(i32, String), sqlx::Error> {
-    // Generate unique slug by appending timestamp
-    let base_slug = slugify(title);
-    let timestamp = chrono::Utc::now().timestamp();
-    let slug = format!("{}-{}", base_slug, timestamp);
     let is_public_int = if is_public { 1 } else { 0 };
     let created_at = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
@@ -880,7 +915,7 @@ async fn create_image_record(
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0)
         "#,
     )
-    .bind(&slug)
+    .bind(slug)
     .bind(title)
     .bind(description)
     .bind(filename)
@@ -895,6 +930,36 @@ async fn create_image_record(
     .await?;
 
     let image_id = result.last_insert_rowid() as i32;
+
+    // Also insert into unified media_items table
+    let mime_type = mime_guess::from_path(filename)
+        .first_or_octet_stream()
+        .to_string();
+
+    sqlx::query(
+        r#"
+        INSERT INTO media_items (
+            slug, media_type, title, description, filename, mime_type, file_size,
+            is_public, user_id, vault_id, group_id, thumbnail_url, created_at, status
+        )
+        VALUES (?, 'image', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+        "#,
+    )
+    .bind(slug)
+    .bind(title)
+    .bind(description)
+    .bind(filename)
+    .bind(&mime_type)
+    .bind(file_size)
+    .bind(is_public_int)
+    .bind(user_id)
+    .bind(vault_id)
+    .bind(group_id)
+    .bind(thumbnail_url)
+    .bind(&created_at)
+    .execute(&state.pool)
+    .await?;
+
     let url = format!("/images/{}", slug);
 
     Ok((image_id, url))
@@ -903,6 +968,7 @@ async fn create_image_record(
 /// Create document record in database
 async fn create_document_record(
     state: &MediaHubState,
+    slug: &str,
     title: &str,
     description: Option<&str>,
     _category: Option<&str>,
@@ -915,11 +981,6 @@ async fn create_document_record(
 ) -> Result<(i32, String), sqlx::Error> {
     let is_public_int = if is_public { 1 } else { 0 };
     let created_at = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-
-    // Generate slug from title
-    let base_slug = slugify(title);
-    let timestamp = chrono::Utc::now().timestamp();
-    let slug = format!("{}-{}", base_slug, timestamp);
 
     // Detect document type and mime type from filename
     let (doc_type, mime_type) = if filename.ends_with(".pdf") {
@@ -957,7 +1018,7 @@ async fn create_document_record(
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
         "#,
     )
-    .bind(&slug)
+    .bind(slug)
     .bind(title)
     .bind(description)
     .bind(doc_type)
@@ -972,6 +1033,35 @@ async fn create_document_record(
     .await?;
 
     let document_id = result.last_insert_rowid() as i32;
+
+    // Also insert into unified media_items table
+    let mime_type = mime_guess::from_path(filename)
+        .first_or_octet_stream()
+        .to_string();
+
+    sqlx::query(
+        r#"
+        INSERT INTO media_items (
+            slug, media_type, title, description, filename, mime_type, file_size,
+            is_public, user_id, vault_id, group_id, created_at, status
+        )
+        VALUES (?, 'document', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+        "#,
+    )
+    .bind(slug)
+    .bind(title)
+    .bind(description)
+    .bind(filename)
+    .bind(&mime_type)
+    .bind(file_size)
+    .bind(is_public_int)
+    .bind(user_id)
+    .bind(vault_id)
+    .bind(group_id)
+    .bind(&created_at)
+    .execute(&state.pool)
+    .await?;
+
     let url = format!("/documents/{}", slug);
 
     Ok((document_id, url))
@@ -1001,7 +1091,7 @@ fn slugify(text: &str) -> String {
 async fn generate_thumbnail(
     source_path: &PathBuf,
     thumbnail_dir: &PathBuf,
-    title: &str,
+    slug: &str,
 ) -> Result<PathBuf, Box<dyn std::error::Error>> {
     info!("Generating thumbnail for: {:?}", source_path);
 
@@ -1026,8 +1116,7 @@ async fn generate_thumbnail(
     // Create thumbnail directory if it doesn't exist
     tokio::fs::create_dir_all(thumbnail_dir).await?;
 
-    // Generate thumbnail filename
-    let slug = slugify(title);
+    // Generate thumbnail filename using provided slug (already includes timestamp)
     let thumb_filename = format!("{}_thumb.webp", slug);
     let thumb_path = thumbnail_dir.join(&thumb_filename);
 

@@ -233,7 +233,8 @@ pub fn video_routes() -> Router<Arc<VideoManagerState>> {
     Router::new()
         .route("/videos", get(videos_list_handler))
         .route("/videos/new", get(video_new_page_handler))
-        .route("/videos/upload", get(video_upload_page_handler))
+        // Legacy upload endpoints - REMOVED: Use unified /api/media/upload instead
+        // .route("/videos/upload", get(video_upload_page_handler))
         .route("/videos/:slug", get(video_player_handler))
         .route("/videos/:slug/edit", get(video_edit_page_handler))
         .route("/watch/:slug", get(video_player_handler))
@@ -245,11 +246,12 @@ pub fn video_routes() -> Router<Arc<VideoManagerState>> {
         // Video CRUD API
         .route("/api/videos", get(list_videos_api_handler))
         .route("/api/videos", post(register_video_handler))
-        .route("/api/videos/upload", post(video_upload_handler))
-        .route(
-            "/api/videos/upload/:upload_id/progress",
-            get(get_upload_progress_handler),
-        )
+        // Legacy upload endpoints - REMOVED: Use unified /api/media/upload instead
+        // .route("/api/videos/upload", post(video_upload_handler))
+        // .route(
+        //     "/api/videos/upload/:upload_id/progress",
+        //     get(get_upload_progress_handler),
+        // )
         .route("/api/videos/metrics", get(get_metrics_handler))
         .route(
             "/api/videos/metrics/detailed",

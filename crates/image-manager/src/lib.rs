@@ -213,8 +213,9 @@ pub fn image_routes() -> Router<Arc<ImageManagerState>> {
         .route("/images/:slug/edit", get(edit_image_handler))
         // Commented out - unified media manager handles this now
         // .route("/images/:slug", get(serve_image_handler))
-        .route("/upload", get(upload_page_handler))
-        .route("/api/images/upload", post(upload_image_handler))
+        // Legacy upload endpoints - REMOVED: Use unified /api/media/upload instead
+        // .route("/upload", get(upload_page_handler))
+        // .route("/api/images/upload", post(upload_image_handler))
         // Image list API
         .route("/api/images", get(list_images_api_handler))
         // Image CRUD API endpoints

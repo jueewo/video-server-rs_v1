@@ -96,7 +96,8 @@ pub fn document_routes() -> Router<DocumentManagerState> {
     Router::new()
         .route("/documents", get(list_documents_html))
         .route("/api/documents", get(list_documents_json))
-        .route("/api/documents/upload", post(upload_document))
+        // Legacy upload endpoint - REMOVED: Use unified /api/media/upload instead
+        // .route("/api/documents/upload", post(upload_document))
         .route("/documents/:slug", get(document_detail))
         .route("/documents/:slug/download", get(download_document))
         .route("/api/documents/:id", get(document_detail_json))

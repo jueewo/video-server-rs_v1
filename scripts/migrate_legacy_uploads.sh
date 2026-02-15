@@ -76,11 +76,11 @@ echo -e "  ${GREEN}Total:     $TOTAL_LEGACY${NC}"
 echo ""
 
 if [[ $TOTAL_LEGACY -eq 0 ]]; then
-    echo -e "${GREEN}✓ No legacy uploads to migrate - all up to date!${NC}"
-    exit 0
+    echo -e "${GREEN}✓ Database sync up to date - checking file locations...${NC}"
+    echo ""
 fi
 
-# Step 2: Migrate images
+# Step 2: Migrate images to database
 if [[ $LEGACY_IMAGES -gt 0 ]]; then
     echo -e "${CYAN}📸 Step 2: Migrating $LEGACY_IMAGES images...${NC}"
 
@@ -123,7 +123,7 @@ if [[ $LEGACY_IMAGES -gt 0 ]]; then
     fi
 fi
 
-# Step 3: Migrate videos
+# Step 3: Migrate videos to database
 if [[ $LEGACY_VIDEOS -gt 0 ]]; then
     echo -e "${CYAN}🎥 Step 3: Migrating $LEGACY_VIDEOS videos...${NC}"
 
@@ -166,7 +166,7 @@ if [[ $LEGACY_VIDEOS -gt 0 ]]; then
     fi
 fi
 
-# Step 4: Migrate documents
+# Step 4: Migrate documents to database
 if [[ $LEGACY_DOCUMENTS -gt 0 ]]; then
     echo -e "${CYAN}📄 Step 4: Migrating $LEGACY_DOCUMENTS documents...${NC}"
 
@@ -206,9 +206,94 @@ if [[ $LEGACY_DOCUMENTS -gt 0 ]]; then
     fi
 fi
 
-# Step 5: Fix thumbnail locations
 echo ""
-echo -e "${CYAN}🖼️  Step 5: Fixing thumbnail locations...${NC}"
+
+# Step 5: Migrate files to vaults (always run, regardless of database status)
+echo ""
+echo -e "${CYAN}🗂️  Step 5: Migrating files to vault structure...${NC}"
+
+# Get or create default vault
+DEFAULT_VAULT=$(sqlite3 "$DB_FILE" "SELECT vault_id FROM storage_vaults WHERE is_default = 1 LIMIT 1")
+if [[ -z "$DEFAULT_VAULT" ]]; then
+    if [[ "$DRY_RUN" == false ]]; then
+        # Use emergency-admin as the vault owner
+        VAULT_OWNER=$(sqlite3 "$DB_FILE" "SELECT id FROM users WHERE id LIKE 'emergency-%' LIMIT 1")
+        if [[ -z "$VAULT_OWNER" ]]; then
+            VAULT_OWNER="emergency-admin"
+        fi
+        sqlite3 "$DB_FILE" "INSERT INTO storage_vaults (vault_id, user_id, vault_name, is_default) VALUES ('vault-default', '$VAULT_OWNER', 'Default Vault', 1)"
+        DEFAULT_VAULT="vault-default"
+        echo -e "${GREEN}✓ Created default vault: $DEFAULT_VAULT${NC}"
+    else
+        DEFAULT_VAULT="vault-default"
+        echo -e "${YELLOW}  [DRY RUN] Would create default vault${NC}"
+    fi
+fi
+
+echo -e "  Using vault: ${CYAN}$DEFAULT_VAULT${NC}"
+
+MIGRATED_FILES=0
+
+# Migrate images without vault_id
+if [[ "$DRY_RUN" == false ]]; then
+    # Get list of images without vault
+    sqlite3 "$DB_FILE" -separator $'\t' "SELECT slug, filename FROM images WHERE vault_id IS NULL OR vault_id = ''" | while IFS=$'\t' read -r slug filename; do
+        if [[ -n "$filename" && -f "$STORAGE_DIR/images/$filename" ]]; then
+            # Create vault directory structure
+            mkdir -p "$STORAGE_DIR/vaults/$DEFAULT_VAULT/images"
+            mkdir -p "$STORAGE_DIR/vaults/$DEFAULT_VAULT/thumbnails/images"
+
+            # Move main file
+            if [[ ! -f "$STORAGE_DIR/vaults/$DEFAULT_VAULT/images/$filename" ]]; then
+                mv "$STORAGE_DIR/images/$filename" "$STORAGE_DIR/vaults/$DEFAULT_VAULT/images/"
+                echo -e "  ${GREEN}→${NC} Moved image: $filename"
+                ((MIGRATED_FILES++))
+            fi
+
+            # Move thumbnail if exists
+            thumb_name="${slug}_thumb.webp"
+            if [[ -f "$STORAGE_DIR/images/$thumb_name" ]]; then
+                mv "$STORAGE_DIR/images/$thumb_name" "$STORAGE_DIR/vaults/$DEFAULT_VAULT/thumbnails/images/"
+            fi
+            if [[ -f "$STORAGE_DIR/thumbnails/images/$thumb_name" ]]; then
+                mv "$STORAGE_DIR/thumbnails/images/$thumb_name" "$STORAGE_DIR/vaults/$DEFAULT_VAULT/thumbnails/images/"
+            fi
+
+            # Update database
+            sqlite3 "$DB_FILE" "UPDATE images SET vault_id = '$DEFAULT_VAULT' WHERE slug = '$slug'"
+            sqlite3 "$DB_FILE" "UPDATE media_items SET vault_id = '$DEFAULT_VAULT' WHERE slug = '$slug' AND media_type = 'image'"
+        fi
+    done
+
+    # Migrate videos without vault_id
+    sqlite3 "$DB_FILE" -separator $'\t' "SELECT slug, filename FROM videos WHERE vault_id IS NULL OR vault_id = ''" | while IFS=$'\t' read -r slug filename; do
+        if [[ -n "$slug" && -d "$STORAGE_DIR/videos/$slug" ]]; then
+            mkdir -p "$STORAGE_DIR/vaults/$DEFAULT_VAULT/videos"
+            mkdir -p "$STORAGE_DIR/vaults/$DEFAULT_VAULT/thumbnails/videos"
+
+            # Move video directory
+            if [[ ! -d "$STORAGE_DIR/vaults/$DEFAULT_VAULT/videos/$slug" ]]; then
+                mv "$STORAGE_DIR/videos/$slug" "$STORAGE_DIR/vaults/$DEFAULT_VAULT/videos/"
+                echo -e "  ${GREEN}→${NC} Moved video: $slug"
+                ((MIGRATED_FILES++))
+            fi
+
+            # Update database
+            sqlite3 "$DB_FILE" "UPDATE videos SET vault_id = '$DEFAULT_VAULT' WHERE slug = '$slug'"
+            sqlite3 "$DB_FILE" "UPDATE media_items SET vault_id = '$DEFAULT_VAULT' WHERE slug = '$slug' AND media_type = 'video'"
+        fi
+    done
+
+    echo -e "${GREEN}✓ Migrated $MIGRATED_FILES files to vault structure${NC}"
+else
+    LEGACY_FILES=$(find "$STORAGE_DIR/images" -maxdepth 1 -type f ! -name "*_thumb.webp" 2>/dev/null | wc -l)
+    LEGACY_VIDEOS=$(find "$STORAGE_DIR/videos" -maxdepth 1 -type d ! -name "videos" 2>/dev/null | wc -l)
+    echo -e "${YELLOW}  [DRY RUN] Would migrate ~$LEGACY_FILES images and ~$LEGACY_VIDEOS videos to $DEFAULT_VAULT${NC}"
+fi
+
+# Step 6: Fix remaining thumbnail locations
+echo ""
+echo -e "${CYAN}🖼️  Step 6: Fixing remaining thumbnails...${NC}"
 
 if [[ "$DRY_RUN" == false ]]; then
     # Create thumbnail directories
@@ -217,7 +302,7 @@ if [[ "$DRY_RUN" == false ]]; then
 
     MOVED_COUNT=0
 
-    # Move image thumbnails from storage/images/ to storage/thumbnails/images/
+    # Move any remaining image thumbnails
     for thumb in "$STORAGE_DIR/images/"*_thumb.webp; do
         if [[ -f "$thumb" ]]; then
             filename=$(basename "$thumb")
@@ -228,29 +313,18 @@ if [[ "$DRY_RUN" == false ]]; then
         fi
     done
 
-    # Move video thumbnails if any
-    for thumb in "$STORAGE_DIR/videos/"*_thumb.webp; do
-        if [[ -f "$thumb" ]]; then
-            filename=$(basename "$thumb")
-            if [[ ! -f "$STORAGE_DIR/thumbnails/videos/$filename" ]]; then
-                mv "$thumb" "$STORAGE_DIR/thumbnails/videos/"
-                ((MOVED_COUNT++))
-            fi
-        fi
-    done
-
     if [[ $MOVED_COUNT -gt 0 ]]; then
-        echo -e "${GREEN}✓ Moved $MOVED_COUNT thumbnails to correct locations${NC}"
+        echo -e "${GREEN}✓ Moved $MOVED_COUNT remaining thumbnails${NC}"
     else
-        echo -e "${GREEN}✓ All thumbnails already in correct locations${NC}"
+        echo -e "${GREEN}✓ All thumbnails in correct locations${NC}"
     fi
 else
-    echo -e "${YELLOW}  [DRY RUN] Would check and move thumbnails${NC}"
+    echo -e "${YELLOW}  [DRY RUN] Would check and move remaining thumbnails${NC}"
 fi
 
-# Step 6: Update thumbnail URLs in database
+# Step 7: Update thumbnail URLs in database
 echo ""
-echo -e "${CYAN}🔗 Step 6: Updating thumbnail URLs...${NC}"
+echo -e "${CYAN}🔗 Step 7: Updating thumbnail URLs...${NC}"
 
 if [[ "$DRY_RUN" == false ]]; then
     # Update images with missing thumbnail_url
@@ -281,7 +355,7 @@ else
     echo -e "${YELLOW}  [DRY RUN] Would update thumbnail URLs${NC}"
 fi
 
-# Step 7: Report summary
+# Step 8: Report summary
 echo ""
 echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
 echo -e "${BLUE}  Migration Summary${NC}"

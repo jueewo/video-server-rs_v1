@@ -240,9 +240,23 @@
         }
 
         .form-hint {
-            font-size: 0.85rem;
-            color: #7f8c8d;
+            font-size: 0.9rem;
+            color: #666;
             margin-top: 5px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #007bff;
         }
 
         .type-indicator {
@@ -458,6 +472,14 @@
                         <input type="text" id="category" name="category" placeholder="e.g., Tutorial, Documentation, Presentation">
                     </div>
 
+                    <div class="form-group">
+                        <label for="group_id">Access Group <span class="optional">(optional)</span></label>
+                        <select id="group_id" name="group_id" class="form-control">
+                            <option value="">No Group (Private)</option>
+                        </select>
+                        <div class="form-hint">Assign to a group for shared access control</div>
+                    </div>
+
                     <div class="form-group checkbox-group">
                         <input type="checkbox" id="is_public" name="is_public" value="true" checked>
                         <label for="is_public" class="checkbox-label">Make this media publicly accessible</label>
@@ -517,6 +539,30 @@
         const uploadBtn = document.getElementById('uploadBtn');
         const progressBar = document.getElementById('progressBar');
         const progressFill = document.getElementById('progressFill');
+        const groupSelect = document.getElementById('group_id');
+
+        // Load available groups
+        async function loadGroups() {
+            try {
+                const response = await fetch('/api/groups');
+                if (response.ok) {
+                    const groups = await response.json();
+                    groups.forEach(group => {
+                        const option = document.createElement('option');
+                        option.value = group.id;
+                        option.textContent = group.name;
+                        groupSelect.appendChild(option);
+                    });
+                    console.log(`Loaded ${groups.length} groups`);
+                }
+            } catch (error) {
+                console.warn('Could not load groups:', error);
+                // Not critical - form still works without groups
+            }
+        }
+
+        // Load groups on page load
+        loadGroups();
 
         // Drag and drop
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {

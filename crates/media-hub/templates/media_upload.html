@@ -433,7 +433,7 @@
                 <h2>Select File</h2>
                 <form id="uploadForm" action="/api/media/upload" method="post" enctype="multipart/form-data">
                     <div class="drop-zone" id="dropZone">
-                        <input type="file" name="file" id="fileInput" accept="video/*,image/*,.pdf,.csv,.xml,.md,.json,.bpmn,.txt,.doc,.docx" required>
+                        <input type="file" name="file" id="fileInput" accept="video/*,image/*,.pdf,.csv,.xml,.md,.mdx,.json,.bpmn,.txt,.doc,.docx" required>
                         <div class="drop-zone-icon">📁</div>
                         <div class="drop-zone-text">Drag & drop your file here</div>
                         <div class="drop-zone-hint">or click to browse (max {{ self.max_size_formatted() }})</div>
@@ -529,7 +529,7 @@
                     <ul>
                         <li>PDF</li>
                         <li>CSV</li>
-                        <li>Markdown (.md)</li>
+                        <li>Markdown (.md, .mdx)</li>
                         <li>JSON, XML</li>
                         <li>BPMN</li>
                         <li>Text (.txt)</li>
@@ -689,7 +689,7 @@
             if (type === 'text/csv' || name.endsWith('.csv')) return 'Document';
             if (type === 'application/xml' || type === 'text/xml' || name.endsWith('.xml')) return 'Document';
             if (type === 'application/json' || name.endsWith('.json')) return 'Document';
-            if (name.endsWith('.md') || name.endsWith('.markdown')) return 'Document';
+            if (name.endsWith('.md') || name.endsWith('.mdx') || name.endsWith('.markdown')) return 'Document';
 
             return 'Document';
         }

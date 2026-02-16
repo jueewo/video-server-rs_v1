@@ -898,7 +898,7 @@ async fn update_database_stage(
     // HLS master playlist URL
     let hls_url = format!("/hls/{}/master.m3u8", context.slug);
 
-    // Update video record
+    // Update video record (legacy table)
     sqlx::query(
         r#"
         UPDATE videos
@@ -941,6 +941,26 @@ async fn update_database_stage(
     .execute(&context.pool)
     .await
     .context("Failed to update video record")?;
+
+    // Update media_items table (unified table) with thumbnail URL
+    sqlx::query(
+        r#"
+        UPDATE media_items
+        SET
+            thumbnail_url = ?,
+            preview_url = ?,
+            file_size = ?,
+            status = 'active'
+        WHERE slug = ? AND media_type = 'video'
+        "#,
+    )
+    .bind(&thumbnail_url)
+    .bind(&hls_url)
+    .bind(metadata.file_size as i64)
+    .bind(&context.slug)
+    .execute(&context.pool)
+    .await
+    .context("Failed to update media_items record")?;
 
     Ok(())
 }

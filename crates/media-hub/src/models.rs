@@ -3,9 +3,7 @@
 //! This module provides unified data structures that can represent any media type
 //! (video, image, document) for use in unified UI components and search results.
 
-use common::models::document::Document;
-use common::models::image::Image;
-use common::models::video::Video;
+use common::models::media_item::MediaItem;
 use media_core::traits::MediaType;
 use serde::{Deserialize, Serialize};
 
@@ -13,161 +11,144 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data")]
 pub enum UnifiedMediaItem {
-    Video(Video),
-    Image(Image),
-    Document(Document),
+    /// Modern unified media item from media_items table
+    MediaItem(MediaItem),
 }
 
 impl UnifiedMediaItem {
     /// Get the media type
     pub fn media_type(&self) -> MediaType {
         match self {
-            Self::Video(_) => MediaType::Video,
-            Self::Image(_) => MediaType::Image,
-            Self::Document(doc) => {
-                // Get document-specific type
-                let doc_type = doc.get_document_type();
-                MediaType::Document(match doc_type {
-                    common::models::document::DocumentTypeEnum::PDF => {
-                        media_core::traits::DocumentType::PDF
-                    }
-                    common::models::document::DocumentTypeEnum::CSV => {
-                        media_core::traits::DocumentType::CSV
-                    }
-                    common::models::document::DocumentTypeEnum::BPMN => {
-                        media_core::traits::DocumentType::BPMN
-                    }
-                    common::models::document::DocumentTypeEnum::Markdown => {
-                        media_core::traits::DocumentType::Markdown
-                    }
-                    common::models::document::DocumentTypeEnum::JSON => {
-                        media_core::traits::DocumentType::JSON
-                    }
-                    common::models::document::DocumentTypeEnum::XML => {
-                        media_core::traits::DocumentType::XML
-                    }
-                    common::models::document::DocumentTypeEnum::Other => {
-                        media_core::traits::DocumentType::Other("unknown".to_string())
-                    }
-                })
-            }
+            Self::MediaItem(m) => match m.media_type.as_str() {
+                "video" => MediaType::Video,
+                "image" => MediaType::Image,
+                _ => MediaType::Document(media_core::traits::DocumentType::Other(
+                    m.media_type.clone(),
+                )),
+            },
         }
     }
 
     /// Get the ID
     pub fn id(&self) -> i32 {
         match self {
-            Self::Video(v) => v.id,
-            Self::Image(i) => i.id,
-            Self::Document(d) => d.id,
+            Self::MediaItem(m) => m.id,
         }
     }
 
     /// Get the slug
     pub fn slug(&self) -> &str {
         match self {
-            Self::Video(v) => &v.slug,
-            Self::Image(i) => &i.slug,
-            Self::Document(d) => &d.slug,
+            Self::MediaItem(m) => &m.slug,
         }
     }
 
     /// Get the title
     pub fn title(&self) -> &str {
         match self {
-            Self::Video(v) => &v.title,
-            Self::Image(i) => &i.title,
-            Self::Document(d) => &d.title,
+            Self::MediaItem(m) => &m.title,
         }
     }
 
     /// Get the description
     pub fn description(&self) -> Option<&str> {
         match self {
-            Self::Video(v) => v.description.as_deref(),
-            Self::Image(i) => i.description.as_deref(),
-            Self::Document(d) => d.description.as_deref(),
+            Self::MediaItem(m) => m.description.as_deref(),
         }
     }
 
     /// Check if public
     pub fn is_public(&self) -> bool {
         match self {
-            Self::Video(v) => v.is_public == 1,
-            Self::Image(i) => i.is_public(),
-            Self::Document(d) => d.is_public(),
+            Self::MediaItem(m) => m.is_public == 1,
+        }
+    }
+
+    /// Get the group ID if assigned
+    pub fn group_id(&self) -> Option<i32> {
+        match self {
+            Self::MediaItem(m) => m.group_id,
         }
     }
 
     /// Get the created timestamp
     pub fn created_at(&self) -> String {
         match self {
-            Self::Video(v) => v.upload_date.clone().unwrap_or_default(),
-            Self::Image(i) => i.created_at.clone(),
-            Self::Document(d) => d.created_at.clone(),
+            Self::MediaItem(m) => m.created_at.clone(),
         }
     }
 
     /// Get the thumbnail URL
     pub fn thumbnail_url(&self) -> Option<String> {
         match self {
-            Self::Video(v) => {
-                // Use poster (banner) first for better grid appearance, then thumbnail, then fallback
-                // Phase 4.5: Use HLS endpoint which handles vault paths
-                v.poster_url
-                    .clone()
-                    .or_else(|| v.thumbnail_url.clone())
-                    .or_else(|| Some(format!("/hls/{}/thumbnail.webp", v.slug)))
-            }
-            Self::Image(i) => {
-                // For images, use the image itself as thumbnail, or the thumbnail field
-                // Phase 4.5: Use slug-based URL which goes through serve handler with vault resolution
-                i.thumbnail_url.clone().or_else(|| {
-                    // For SVG, use the original image as thumbnail (no raster conversion needed)
-                    if i.filename.ends_with(".svg") {
-                        Some(format!("/images/{}", i.slug))
+            Self::MediaItem(m) => {
+                // Filter out empty strings
+                m.thumbnail_url.as_ref().and_then(|url| {
+                    if url.is_empty() {
+                        None
                     } else {
-                        // Use the _thumb endpoint which goes through serve_image_handler
-                        Some(format!("/images/{}_thumb", i.slug))
+                        Some(url.clone())
                     }
                 })
-            }
-            Self::Document(d) => {
-                // Use thumbnail if available, otherwise generate document icon placeholder
-                d.thumbnail_url()
-                    .or_else(|| Some(self.generate_document_icon()))
             }
         }
     }
 
-    /// Generate a document icon based on type
-    fn generate_document_icon(&self) -> String {
-        // Return a non-existent path to trigger the onerror fallback
-        // which will display nice gradient backgrounds with emojis
-        if let Self::Document(_d) = self {
-            // Use a path that doesn't exist to trigger the error handler
-            // The error handler will then check the badge and show appropriate fallback
-            "/static/icons/document-fallback-trigger.svg".to_string()
-        } else {
-            "/static/icons/default.svg".to_string()
+    /// Get the fallback icon URL based on media type
+    pub fn fallback_icon(&self) -> String {
+        match self {
+            Self::MediaItem(m) => {
+                if self.is_markdown() {
+                    return "/static/icons/markdown-icon.svg".to_string();
+                }
+
+                match m.media_type.as_str() {
+                    "video" => "/static/icons/document.svg".to_string(), // Video icon
+                    "image" => "/static/icons/default.svg".to_string(),
+                    "document" => {
+                        // Check for specific document types
+                        if let Some(cat) = &m.category {
+                            match cat.to_lowercase().as_str() {
+                                "pdf" => "/static/icons/pdf-icon.svg".to_string(),
+                                "csv" => "/static/icons/csv-icon.svg".to_string(),
+                                "json" => "/static/icons/json-icon.svg".to_string(),
+                                "xml" => "/static/icons/xml-icon.svg".to_string(),
+                                "bpmn" => "/static/icons/bpmn-icon.svg".to_string(),
+                                _ => "/static/icons/document-icon.svg".to_string(),
+                            }
+                        } else {
+                            "/static/icons/document-icon.svg".to_string()
+                        }
+                    }
+                    _ => "/static/icons/default.svg".to_string(),
+                }
+            }
         }
     }
 
     /// Get the public URL
     pub fn public_url(&self) -> String {
         match self {
-            Self::Video(v) => format!("/videos/{}", v.slug),
-            Self::Image(i) => format!("/images/{}", i.slug),
-            Self::Document(d) => d.public_url(),
+            Self::MediaItem(m) => match m.media_type.as_str() {
+                "video" => format!("/videos/{}", m.slug),
+                "image" => format!("/images/{}", m.slug),
+                "document" => format!("/documents/{}", m.slug),
+                _ => format!("/media/{}", m.slug),
+            },
+        }
+    }
+
+    /// Get the editor URL (for markdown files)
+    pub fn editor_url(&self) -> String {
+        match self {
+            Self::MediaItem(m) => format!("/documents/{}/edit", m.slug),
         }
     }
 
     /// Get the file size
     pub fn file_size(&self) -> i64 {
         match self {
-            Self::Video(v) => v.file_size.unwrap_or(0),
-            Self::Image(i) => i.file_size.unwrap_or(0) as i64,
-            Self::Document(d) => d.file_size,
+            Self::MediaItem(m) => m.file_size,
         }
     }
 
@@ -188,26 +169,86 @@ impl UnifiedMediaItem {
     /// Get the type label for display
     pub fn type_label(&self) -> &str {
         match self {
-            Self::Video(_) => "Video",
-            Self::Image(_) => "Image",
-            Self::Document(d) => match d.get_document_type() {
-                common::models::document::DocumentTypeEnum::PDF => "PDF",
-                common::models::document::DocumentTypeEnum::CSV => "CSV",
-                common::models::document::DocumentTypeEnum::BPMN => "BPMN",
-                common::models::document::DocumentTypeEnum::Markdown => "Markdown",
-                common::models::document::DocumentTypeEnum::JSON => "JSON",
-                common::models::document::DocumentTypeEnum::XML => "XML",
-                common::models::document::DocumentTypeEnum::Other => "Document",
-            },
+            Self::MediaItem(m) => {
+                // Check for specific document types first
+                if m.media_type == "document" {
+                    // Check mime type
+                    if m.mime_type.contains("markdown") {
+                        return "Markdown";
+                    }
+
+                    // Check category as fallback
+                    if let Some(cat) = &m.category {
+                        match cat.to_lowercase().as_str() {
+                            "markdown" | "md" => return "Markdown",
+                            "pdf" => return "PDF",
+                            _ => {}
+                        }
+                    }
+
+                    // Check filename extension as last resort
+                    if m.filename.ends_with(".md")
+                        || m.filename.ends_with(".mdx")
+                        || m.filename.ends_with(".markdown")
+                    {
+                        return "Markdown";
+                    }
+
+                    return "Document";
+                }
+
+                match m.media_type.as_str() {
+                    "video" => "Video",
+                    "image" => "Image",
+                    _ => "Media",
+                }
+            }
+        }
+    }
+
+    /// Check if this is a markdown document
+    pub fn is_markdown(&self) -> bool {
+        match self {
+            Self::MediaItem(m) => {
+                if m.media_type != "document" {
+                    return false;
+                }
+
+                // Check mime type
+                if m.mime_type.contains("markdown") {
+                    return true;
+                }
+
+                // Check category
+                if let Some(cat) = &m.category {
+                    let cat_lower = cat.to_lowercase();
+                    if cat_lower == "markdown" || cat_lower == "md" || cat_lower == "mdx" {
+                        return true;
+                    }
+                }
+
+                // Check filename extension
+                if m.filename.ends_with(".md")
+                    || m.filename.ends_with(".mdx")
+                    || m.filename.ends_with(".markdown")
+                {
+                    return true;
+                }
+
+                false
+            }
         }
     }
 
     /// Get the type CSS class for styling
     pub fn type_class(&self) -> &str {
         match self {
-            Self::Video(_) => "media-video",
-            Self::Image(_) => "media-image",
-            Self::Document(_) => "media-document",
+            Self::MediaItem(m) => match m.media_type.as_str() {
+                "video" => "media-video",
+                "image" => "media-image",
+                "document" => "media-document",
+                _ => "media-unknown",
+            },
         }
     }
 
@@ -266,186 +307,10 @@ impl UnifiedMediaItem {
     }
 }
 
-impl From<Video> for UnifiedMediaItem {
-    fn from(video: Video) -> Self {
-        Self::Video(video)
-    }
-}
-
-impl From<Image> for UnifiedMediaItem {
-    fn from(image: Image) -> Self {
-        Self::Image(image)
-    }
-}
-
-impl From<Document> for UnifiedMediaItem {
-    fn from(document: Document) -> Self {
-        Self::Document(document)
-    }
-}
-
 // Convert from MediaItem (unified table) to UnifiedMediaItem
-// This creates the appropriate legacy wrapper based on media_type
 impl From<common::models::media_item::MediaItem> for UnifiedMediaItem {
     fn from(item: common::models::media_item::MediaItem) -> Self {
-        // Convert MediaItem to appropriate legacy model wrapper
-        // For now, we'll convert to Video/Image/Document based on media_type
-        match item.media_type.as_str() {
-            "video" => {
-                let video = Video {
-                    id: item.id,
-                    slug: item.slug.clone(),
-                    title: item.title.clone(),
-                    description: item.description.clone(),
-                    is_public: item.is_public,
-                    user_id: item.user_id.clone(),
-                    group_id: item.group_id,
-                    short_description: None,
-                    duration: None,
-                    file_size: Some(item.file_size),
-                    resolution: None,
-                    width: None,
-                    height: None,
-                    fps: None,
-                    bitrate: None,
-                    codec: None,
-                    audio_codec: None,
-                    thumbnail_url: item.thumbnail_url.clone(),
-                    poster_url: item.thumbnail_url.clone(), // Use thumbnail as poster
-                    preview_url: item.preview_url.clone(),
-                    filename: Some(item.filename.clone()),
-                    mime_type: Some(item.mime_type.clone()),
-                    format: None,
-                    upload_date: Some(item.created_at.clone()),
-                    last_modified: item.updated_at.clone(),
-                    published_at: item.published_at.clone(),
-                    view_count: item.view_count,
-                    like_count: item.like_count,
-                    download_count: item.download_count,
-                    share_count: item.share_count,
-                    category: item.category.clone(),
-                    language: None,
-                    subtitle_languages: None,
-                    status: item.status.clone(),
-                    featured: item.featured,
-                    allow_comments: item.allow_comments,
-                    allow_download: item.allow_download,
-                    mature_content: item.mature_content,
-                    seo_title: item.seo_title.clone(),
-                    seo_description: item.seo_description.clone(),
-                    seo_keywords: item.seo_keywords.clone(),
-                    extra_metadata: None,
-                };
-                Self::Video(video)
-            }
-            "image" => {
-                let image = Image {
-                    id: item.id,
-                    slug: item.slug.clone(),
-                    filename: item.filename.clone(),
-                    title: item.title.clone(),
-                    description: item.description.clone(),
-                    is_public: item.is_public,
-                    user_id: item.user_id.clone(),
-                    width: None,
-                    height: None,
-                    file_size: Some(item.file_size),
-                    mime_type: Some(item.mime_type.clone()),
-                    format: None,
-                    color_space: None,
-                    bit_depth: None,
-                    has_alpha: None,
-                    thumbnail_url: item.thumbnail_url.clone(),
-                    medium_url: item.webp_url.clone(),
-                    dominant_color: None,
-                    camera_make: None,
-                    camera_model: None,
-                    lens_model: None,
-                    focal_length: None,
-                    aperture: None,
-                    shutter_speed: None,
-                    iso: None,
-                    flash_used: None,
-                    taken_at: None,
-                    gps_latitude: None,
-                    gps_longitude: None,
-                    location_name: None,
-                    original_filename: item.original_filename.clone(),
-                    alt_text: None,
-                    upload_date: Some(item.created_at.clone()),
-                    last_modified: item.updated_at.clone(),
-                    published_at: item.published_at.clone(),
-                    view_count: item.view_count,
-                    like_count: item.like_count,
-                    download_count: item.download_count,
-                    share_count: item.share_count,
-                    category: item.category.clone(),
-                    subcategory: None,
-                    collection: None,
-                    series: None,
-                    status: item.status.clone(),
-                    featured: item.featured,
-                    allow_download: item.allow_download,
-                    mature_content: item.mature_content,
-                    watermarked: 0,
-                    copyright_holder: None,
-                    license: None,
-                    attribution: None,
-                    usage_rights: None,
-                    seo_title: item.seo_title.clone(),
-                    seo_description: item.seo_description.clone(),
-                    seo_keywords: item.seo_keywords.clone(),
-                    exif_data: None,
-                    extra_metadata: None,
-                    created_at: item.created_at.clone(),
-                };
-                Self::Image(image)
-            }
-            "document" => {
-                let document = Document {
-                    id: item.id,
-                    slug: item.slug.clone(),
-                    filename: item.filename.clone(),
-                    title: item.title.clone(),
-                    description: item.description.clone(),
-                    mime_type: item.mime_type.clone(),
-                    file_size: item.file_size,
-                    file_path: String::new(), // Not stored in media_items
-                    thumbnail_path: item.thumbnail_url.clone(),
-                    is_public: item.is_public,
-                    user_id: item.user_id.clone(),
-                    group_id: item.group_id.map(|g| g.to_string()),
-                    document_type: item.category.clone(),
-                    page_count: None,
-                    author: None,
-                    version: None,
-                    language: None,
-                    word_count: None,
-                    character_count: None,
-                    row_count: None,
-                    column_count: None,
-                    csv_columns: None,
-                    csv_delimiter: None,
-                    metadata: None,
-                    searchable_content: None,
-                    view_count: item.view_count,
-                    download_count: item.download_count,
-                    allow_download: item.allow_download,
-                    seo_title: item.seo_title.clone(),
-                    seo_description: item.seo_description.clone(),
-                    seo_keywords: item.seo_keywords.clone(),
-                    created_at: item.created_at.clone(),
-                    updated_at: item.updated_at.clone(),
-                    published_at: item.published_at.clone(),
-                };
-                Self::Document(document)
-            }
-            _ => {
-                // Default to document for unknown types
-                let document = Document::default();
-                Self::Document(document)
-            }
-        }
+        Self::MediaItem(item)
     }
 }
 
@@ -502,53 +367,43 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_video_conversion() {
-        let video = Video {
+    fn test_media_item_conversion() {
+        let media_item = MediaItem {
             id: 1,
             slug: "test-video".to_string(),
             title: "Test Video".to_string(),
+            description: Some("A test video".to_string()),
+            media_type: "video".to_string(),
+            filename: "video.mp4".to_string(),
+            original_filename: Some("original_video.mp4".to_string()),
+            file_size: 1024 * 1024,
+            mime_type: "video/mp4".to_string(),
             is_public: 1,
             user_id: Some("user1".to_string()),
             group_id: None,
-            description: Some("A test video".to_string()),
-            short_description: None,
-            duration: Some(120),
-            file_size: Some(1024 * 1024),
-            resolution: Some("1920x1080".to_string()),
-            width: Some(1920),
-            height: Some(1080),
-            fps: None,
-            bitrate: None,
-            codec: None,
-            audio_codec: None,
-            thumbnail_url: None,
-            poster_url: None,
-            preview_url: None,
-            filename: None,
-            mime_type: None,
-            format: None,
-            upload_date: None,
-            last_modified: None,
-            published_at: None,
-            view_count: 0,
-            like_count: 0,
-            download_count: 0,
-            share_count: 0,
-            category: None,
-            language: None,
-            subtitle_languages: None,
+            vault_id: None,
             status: "active".to_string(),
             featured: 0,
-            allow_comments: 1,
+            category: None,
+            thumbnail_url: None,
+            preview_url: None,
+            webp_url: None,
+            view_count: 0,
+            download_count: 0,
+            like_count: 0,
+            share_count: 0,
             allow_download: 1,
+            allow_comments: 1,
             mature_content: 0,
             seo_title: None,
             seo_description: None,
             seo_keywords: None,
-            extra_metadata: None,
+            created_at: "2024-01-01 00:00:00".to_string(),
+            updated_at: Some("2024-01-01 00:00:00".to_string()),
+            published_at: None,
         };
 
-        let unified: UnifiedMediaItem = video.into();
+        let unified: UnifiedMediaItem = media_item.into();
         assert_eq!(unified.id(), 1);
         assert_eq!(unified.title(), "Test Video");
         assert_eq!(unified.type_label(), "Video");
@@ -557,52 +412,42 @@ mod tests {
 
     #[test]
     fn test_file_size_formatting() {
-        let video = Video {
+        let media_item = MediaItem {
             id: 1,
             slug: "test".to_string(),
             title: "Test".to_string(),
-            file_size: Some(1024 * 1024 * 5), // 5MB
+            description: None,
+            media_type: "video".to_string(),
+            filename: "video.mp4".to_string(),
+            original_filename: None,
+            file_size: 1024 * 1024 * 5, // 5MB
+            mime_type: "video/mp4".to_string(),
             is_public: 1,
             user_id: None,
             group_id: None,
-            description: None,
-            short_description: None,
-            duration: None,
-            resolution: None,
-            width: None,
-            height: None,
-            fps: None,
-            bitrate: None,
-            codec: None,
-            audio_codec: None,
-            thumbnail_url: None,
-            poster_url: None,
-            preview_url: None,
-            filename: None,
-            mime_type: None,
-            format: None,
-            upload_date: None,
-            last_modified: None,
-            published_at: None,
-            view_count: 0,
-            like_count: 0,
-            download_count: 0,
-            share_count: 0,
-            category: None,
-            language: None,
-            subtitle_languages: None,
+            vault_id: None,
             status: "active".to_string(),
             featured: 0,
-            allow_comments: 1,
+            category: None,
+            thumbnail_url: None,
+            preview_url: None,
+            webp_url: None,
+            view_count: 0,
+            download_count: 0,
+            like_count: 0,
+            share_count: 0,
             allow_download: 1,
+            allow_comments: 1,
             mature_content: 0,
             seo_title: None,
             seo_description: None,
             seo_keywords: None,
-            extra_metadata: None,
+            created_at: "2024-01-01 00:00:00".to_string(),
+            updated_at: None,
+            published_at: None,
         };
 
-        let unified: UnifiedMediaItem = video.into();
+        let unified: UnifiedMediaItem = media_item.into();
         let formatted = unified.file_size_formatted();
         assert!(formatted.contains("MB"));
     }

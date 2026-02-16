@@ -193,9 +193,9 @@ struct UserProfileTemplate {
 // -------------------------------
 // User Profile Handler
 // -------------------------------
-#[tracing::instrument(skip(state, session))]
+#[tracing::instrument(skip(_state, session))]
 pub async fn user_profile_handler(
-    State(state): State<Arc<AuthState>>,
+    State(_state): State<Arc<AuthState>>,
     session: Session,
 ) -> Result<Html<String>, StatusCode> {
     // Check if authenticated

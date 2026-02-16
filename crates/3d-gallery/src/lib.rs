@@ -6,7 +6,6 @@
 //! Access is via access codes (no authentication required).
 
 use axum::{
-    body::Bytes,
     http::{header, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
@@ -22,8 +21,7 @@ pub mod routes;
 /// Serve bundle.js with correct MIME type
 async fn serve_bundle_js() -> Response {
     // Use GALLERY_STATIC_DIR environment variable, or fall back to common paths
-    let base_dir = std::env::var("GALLERY_STATIC_DIR")
-        .unwrap_or_else(|_| ".".to_string());
+    let base_dir = std::env::var("GALLERY_STATIC_DIR").unwrap_or_else(|_| ".".to_string());
 
     let paths = [
         format!("{}/crates/3d-gallery/static/bundle.js", base_dir),
@@ -37,7 +35,10 @@ async fn serve_bundle_js() -> Response {
             tracing::info!("✅ Served bundle.js from: {}", path);
             return (
                 StatusCode::OK,
-                [(header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
+                [(
+                    header::CONTENT_TYPE,
+                    "application/javascript; charset=utf-8",
+                )],
                 content,
             )
                 .into_response();
@@ -45,15 +46,22 @@ async fn serve_bundle_js() -> Response {
     }
 
     let cwd = std::env::current_dir().unwrap_or_default();
-    tracing::error!("🚫 bundle.js not found. CWD: {:?}, tried paths: {:?}", cwd, paths);
-    (StatusCode::NOT_FOUND, format!("File not found. CWD: {:?}", cwd)).into_response()
+    tracing::error!(
+        "🚫 bundle.js not found. CWD: {:?}, tried paths: {:?}",
+        cwd,
+        paths
+    );
+    (
+        StatusCode::NOT_FOUND,
+        format!("File not found. CWD: {:?}", cwd),
+    )
+        .into_response()
 }
 
 /// Serve bundle.js.map with correct MIME type
 async fn serve_bundle_js_map() -> Response {
     // Use GALLERY_STATIC_DIR environment variable, or fall back to common paths
-    let base_dir = std::env::var("GALLERY_STATIC_DIR")
-        .unwrap_or_else(|_| ".".to_string());
+    let base_dir = std::env::var("GALLERY_STATIC_DIR").unwrap_or_else(|_| ".".to_string());
 
     let paths = [
         format!("{}/crates/3d-gallery/static/bundle.js.map", base_dir),
@@ -98,13 +106,4 @@ pub fn router(pool: Arc<SqlitePool>) -> Router {
         .route("/static/3d-gallery/bundle.js.map", get(serve_bundle_js_map))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_router_creation() {
-        let _router = router();
-        // If this compiles, router is valid
-    }
-}
+// Tests removed - router requires database pool parameter

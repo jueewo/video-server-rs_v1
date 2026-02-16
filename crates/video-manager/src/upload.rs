@@ -17,7 +17,7 @@ use axum::{
     http::StatusCode,
     response::Json,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sqlx::{Pool, Sqlite};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -195,7 +195,16 @@ pub async fn handle_video_upload(
     );
 
     // Create initial database record
-    match create_upload_record(&state.pool, &upload_id, &slug, &user_id, &upload_data, &state.storage_config.user_storage).await {
+    match create_upload_record(
+        &state.pool,
+        &upload_id,
+        &slug,
+        &user_id,
+        &upload_data,
+        &state.storage_config.user_storage,
+    )
+    .await
+    {
         Ok(_) => {
             info!("Database record created for upload: {}", upload_id);
         }
@@ -481,13 +490,10 @@ async fn create_upload_record(
     let mature_content_int = if data.mature_content { 1 } else { 0 };
 
     // Get or create default vault for user
-    let vault_id = common::services::vault_service::get_or_create_default_vault(
-        pool,
-        storage,
-        user_id,
-    )
-    .await
-    .context("Failed to get or create vault")?;
+    let vault_id =
+        common::services::vault_service::get_or_create_default_vault(pool, storage, user_id)
+            .await
+            .context("Failed to get or create vault")?;
 
     sqlx::query(
         r#"

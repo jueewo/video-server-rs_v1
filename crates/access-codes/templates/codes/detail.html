@@ -339,8 +339,8 @@ endblock %} {% block content %}
                                                     id="url-{{ loop.index0 }}"
                                                 />
                                                 <button
-                                                    onclick="copyUrl({{ loop.index0 }})"
-                                                    class="btn btn-sm btn-square btn-ghost"
+                                                    class="btn btn-sm btn-square btn-ghost copy-url-btn"
+                                                    data-index="{{ loop.index0 }}"
                                                     title="Copy URL"
                                                 >
                                                     <svg
@@ -445,6 +445,16 @@ endblock %} {% block content %}
 </dialog>
 
 <script>
+    // Add event listeners for copy buttons
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.copy-url-btn').forEach(function(button) {
+            button.addEventListener('click', function() {
+                const index = this.getAttribute('data-index');
+                copyUrl(index);
+            });
+        });
+    });
+
     function copyUrl(index) {
         const input = document.getElementById("url-" + index);
         input.select();

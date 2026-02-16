@@ -454,16 +454,20 @@ pub async fn create_access_code(
         // Validate ownership using AccessControlService
         // First get the resource ID
         let resource_id: Option<i32> = match item.media_type.as_str() {
-            "video" => sqlx::query_scalar("SELECT id FROM media_items WHERE media_type = 'video' AND slug = ?")
-                .bind(&item.media_slug)
-                .fetch_optional(&state.pool)
-                .await
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
-            "image" => sqlx::query_scalar("SELECT id FROM media_items WHERE media_type = 'image' AND slug = ?")
-                .bind(&item.media_slug)
-                .fetch_optional(&state.pool)
-                .await
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+            "video" => sqlx::query_scalar(
+                "SELECT id FROM media_items WHERE media_type = 'video' AND slug = ?",
+            )
+            .bind(&item.media_slug)
+            .fetch_optional(&state.pool)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+            "image" => sqlx::query_scalar(
+                "SELECT id FROM media_items WHERE media_type = 'image' AND slug = ?",
+            )
+            .bind(&item.media_slug)
+            .fetch_optional(&state.pool)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
             _ => None,
         };
 
@@ -507,17 +511,16 @@ pub async fn create_access_code(
         );
 
         // Look up resource ID from slug
-        let resource_id: Option<i64> = sqlx::query_scalar(
-            "SELECT id FROM media_items WHERE media_type = ? AND slug = ?"
-        )
-            .bind(&item.media_type)
-            .bind(&item.media_slug)
-            .fetch_optional(&state.pool)
-            .await
-            .ok()
-            .flatten();
+        let resource_id: Option<i64> =
+            sqlx::query_scalar("SELECT id FROM media_items WHERE media_type = ? AND slug = ?")
+                .bind(&item.media_type)
+                .bind(&item.media_slug)
+                .fetch_optional(&state.pool)
+                .await
+                .ok()
+                .flatten();
 
-        let resource_id = resource_id.ok_or_else(|| {
+        let _resource_id = resource_id.ok_or_else(|| {
             warn!(
                 event = "resource_not_found",
                 media_type = %item.media_type,

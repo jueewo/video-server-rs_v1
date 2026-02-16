@@ -1,0 +1,32 @@
+[package]
+name = "docs-viewer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Web framework
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+
+# Templating
+askama = { workspace = true, features = ["serde-json"] }
+askama_axum = "0.4"
+
+# Markdown rendering
+pulldown-cmark = "0.11"
+syntect = "5.2"
+
+# Async
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# File handling
+walkdir = "2.5"
+mime_guess = "2.0"
+
+# Error handling
+anyhow = { workspace = true }

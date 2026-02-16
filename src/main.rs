@@ -84,6 +84,7 @@ use access_groups;
 use api_keys::{middleware::api_key_or_session_auth, routes::api_key_routes};
 use common::{create_search_routes, create_tag_routes};
 use document_manager::routes::{document_routes, DocumentManagerState};
+use docs_viewer::{docs_routes, markdown::MarkdownRenderer, DocsState};
 use gallery3d;
 use image_manager::{image_routes, ImageManagerState};
 use media_hub::{routes::media_routes, MediaHubState};
@@ -808,6 +809,14 @@ async fn main() -> anyhow::Result<()> {
     let media_hub_state = MediaHubState::new(pool.clone(), storage_dir_str, user_storage.clone());
     println!("🎨 Media Hub initialized (unified media management)");
 
+    // Initialize Docs Viewer state
+    let docs_root = std::path::PathBuf::from("docs");
+    let docs_state = Arc::new(DocsState {
+        docs_root,
+        renderer: Arc::new(MarkdownRenderer::new()),
+    });
+    println!("📚 Docs Viewer initialized (markdown preview)");
+
     // Load application configuration
     let app_config = AppConfig::load();
     println!("📋 Application Configuration:");
@@ -926,6 +935,16 @@ async fn main() -> anyhow::Result<()> {
                 )),
         )
         .merge(gallery3d::router(Arc::new(pool.clone())))
+        // Documentation viewer (markdown preview)
+        .nest(
+            "/docs",
+            docs_routes()
+                .with_state(docs_state)
+                .route_layer(axum::middleware::from_fn_with_state(
+                    Arc::new(pool.clone()),
+                    api_key_or_session_auth,
+                )),
+        )
         // Serve static files from storage directory
         .nest_service("/storage", ServeDir::new(&storage_dir))
         // Serve static CSS and assets

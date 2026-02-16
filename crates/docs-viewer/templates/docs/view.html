@@ -1,0 +1,171 @@
+{% extends "base-tailwind.html" %}
+
+{% block title %}{{ title }} - Documentation{% endblock %}
+
+{% block head %}
+<style>
+    /* Markdown styles */
+    .markdown-content {
+        line-height: 1.7;
+    }
+    .markdown-content h1 {
+        font-size: 2.5em;
+        font-weight: bold;
+        margin-top: 1em;
+        margin-bottom: 0.5em;
+        border-bottom: 2px solid #e5e7eb;
+        padding-bottom: 0.3em;
+    }
+    .markdown-content h2 {
+        font-size: 2em;
+        font-weight: bold;
+        margin-top: 1em;
+        margin-bottom: 0.5em;
+        border-bottom: 1px solid #e5e7eb;
+        padding-bottom: 0.3em;
+    }
+    .markdown-content h3 {
+        font-size: 1.5em;
+        font-weight: bold;
+        margin-top: 1em;
+        margin-bottom: 0.5em;
+    }
+    .markdown-content h4 {
+        font-size: 1.25em;
+        font-weight: bold;
+        margin-top: 1em;
+        margin-bottom: 0.5em;
+    }
+    .markdown-content p {
+        margin-bottom: 1em;
+    }
+    .markdown-content ul, .markdown-content ol {
+        margin-bottom: 1em;
+        padding-left: 2em;
+    }
+    .markdown-content li {
+        margin-bottom: 0.5em;
+    }
+    .markdown-content code {
+        background-color: #f3f4f6;
+        padding: 0.2em 0.4em;
+        border-radius: 3px;
+        font-family: monospace;
+        font-size: 0.9em;
+    }
+    .markdown-content pre {
+        background-color: #1e293b;
+        color: #e2e8f0;
+        padding: 1em;
+        border-radius: 5px;
+        overflow-x: auto;
+        margin-bottom: 1em;
+    }
+    .markdown-content pre code {
+        background-color: transparent;
+        padding: 0;
+        color: inherit;
+    }
+    .markdown-content blockquote {
+        border-left: 4px solid #3b82f6;
+        padding-left: 1em;
+        margin-left: 0;
+        margin-bottom: 1em;
+        color: #6b7280;
+    }
+    .markdown-content table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-bottom: 1em;
+    }
+    .markdown-content th, .markdown-content td {
+        border: 1px solid #e5e7eb;
+        padding: 0.5em;
+        text-align: left;
+    }
+    .markdown-content th {
+        background-color: #f3f4f6;
+        font-weight: bold;
+    }
+    .markdown-content a {
+        color: #3b82f6;
+        text-decoration: underline;
+    }
+    .markdown-content a:hover {
+        color: #2563eb;
+    }
+    .markdown-content img {
+        max-width: 100%;
+        height: auto;
+    }
+    .markdown-content hr {
+        border: none;
+        border-top: 2px solid #e5e7eb;
+        margin: 2em 0;
+    }
+
+    /* Syntax highlighting adjustments */
+    .markdown-content pre code {
+        display: block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-6">
+        <a href="/docs" class="btn btn-sm btn-ghost">
+            ← Back to Docs
+        </a>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h1 class="text-3xl font-bold mb-2">{{ title }}</h1>
+                    <p class="text-sm text-gray-500">📄 {{ file_path }}</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="toggleRaw()" class="btn btn-sm btn-outline">
+                        🔍 Toggle Raw
+                    </button>
+                    <button onclick="copyMarkdown()" class="btn btn-sm btn-outline">
+                        📋 Copy Markdown
+                    </button>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Rendered markdown -->
+            <div id="rendered" class="markdown-content">
+                {{ content|safe }}
+            </div>
+
+            <!-- Raw markdown (hidden by default) -->
+            <div id="raw" class="hidden">
+                <pre class="bg-base-200 p-4 rounded-lg overflow-x-auto"><code>{{ raw_markdown }}</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleRaw() {
+        const rendered = document.getElementById('rendered');
+        const raw = document.getElementById('raw');
+        rendered.classList.toggle('hidden');
+        raw.classList.toggle('hidden');
+    }
+
+    function copyMarkdown() {
+        const markdown = {{ raw_markdown|tojson }};
+        navigator.clipboard.writeText(markdown).then(() => {
+            alert('Markdown copied to clipboard!');
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+        });
+    }
+</script>
+{% endblock %}

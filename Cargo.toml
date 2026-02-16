@@ -14,7 +14,7 @@ members = [
     "crates/access-control",
     "crates/media-mcp",
     "crates/3d-gallery",
-    "crates/api-keys",
+    "crates/api-keys", "crates/docs-viewer",
     # TODO: Uncomment when implementing CLI (see MEDIA_CLI_PROGRESS.md)
     # "crates/media-cli",
 ]
@@ -53,6 +53,7 @@ access-codes = { path = "crates/access-codes" }
 access-control = { path = "crates/access-control" }
 gallery3d = { path = "crates/3d-gallery" }
 api-keys = { path = "crates/api-keys" }
+docs-viewer = { path = "crates/docs-viewer" }
 
 # Web framework
 axum = { version = "0.7", features = ["multipart"] }

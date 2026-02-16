@@ -55,7 +55,8 @@ use tower_http::{
     trace::{DefaultOnRequest, DefaultOnResponse, TraceLayer},
     LatencyUnit,
 };
-use tower_sessions::{cookie::SameSite, Expiry, MemoryStore, Session, SessionManagerLayer};
+use tower_sessions::{cookie::SameSite, Expiry, Session, SessionManagerLayer};
+use tower_sessions_sqlx_store::SqliteStore;
 use tracing::{self, Level};
 
 //.. opentelemetry
@@ -834,8 +835,17 @@ async fn main() -> anyhow::Result<()> {
         config: app_config,
     });
 
-    // Session layer with explicit configuration
-    let session_store = MemoryStore::default();
+    // Session layer with SQLite-backed persistent storage
+    let session_pool = sqlx::SqlitePool::connect("sqlite:sessions.db")
+        .await
+        .expect("Failed to connect to session database");
+
+    let session_store = SqliteStore::new(session_pool);
+    session_store
+        .migrate()
+        .await
+        .expect("Failed to run session store migrations");
+
     let session_layer = SessionManagerLayer::new(session_store)
         .with_name("video_server_session") // Explicit session cookie name
         .with_secure(false) // Set to true in production with HTTPS
@@ -845,6 +855,7 @@ async fn main() -> anyhow::Result<()> {
         .with_path("/"); // Cookie available for entire site
 
     println!("🍪 Session Configuration:");
+    println!("   - Storage: SQLite (sessions.db) - persists across restarts");
     println!("   - Cookie name: video_server_session");
     println!("   - HTTP-only: true");
     println!("   - Same-site: Lax");

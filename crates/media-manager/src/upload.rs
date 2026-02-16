@@ -527,6 +527,11 @@ async fn process_document_upload(
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     use std::path::Path;
 
+    info!(
+        "📄 Processing document upload: slug={}, title={}, file={}, size={} bytes, vault={}",
+        slug, title, original_filename, file_data.len(), vault_id
+    );
+
     // Determine MIME type from extension
     let extension = Path::new(&original_filename)
         .extension()

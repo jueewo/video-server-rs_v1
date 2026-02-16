@@ -721,6 +721,13 @@
             const isPublicCheckbox = document.getElementById('is_public');
             formData.set('is_public', isPublicCheckbox.checked ? '1' : '0');
 
+            // Add media_type based on detected file type
+            const fileInput = document.getElementById('fileInput');
+            if (fileInput.files.length > 0) {
+                const mediaType = detectMediaType(fileInput.files[0]).toLowerCase();
+                formData.set('media_type', mediaType);
+            }
+
             uploadBtn.disabled = true;
             uploadBtn.textContent = 'Uploading...';
             progressBar.classList.add('active');

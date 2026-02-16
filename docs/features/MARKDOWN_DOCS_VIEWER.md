@@ -25,10 +25,20 @@ The integrated markdown documentation viewer allows you to browse, view, and upl
 - Copy raw markdown to clipboard
 
 ### 📤 Upload Markdown Files
-- Upload external `.md` files for preview
-- Files saved to `docs/uploads/` directory
-- Automatic filename sanitization for security
-- Only `.md` files accepted
+
+**Two ways to upload:**
+
+1. **Via Docs Viewer** (`/docs/upload`)
+   - Dedicated markdown upload interface
+   - Files saved to `docs/uploads/` directory
+   - Automatic filename sanitization for security
+   - Only `.md` files accepted
+
+2. **Via All Media Upload** (`/api/media/upload`)
+   - Upload markdown files alongside images, videos, PDFs
+   - Files saved to vault storage (`storage/vaults/{vault_id}/documents/`)
+   - Full media management features (tags, groups, access control)
+   - Appears in unified media listings
 
 ## Access
 
@@ -62,10 +72,20 @@ The documentation viewer is protected by the same authentication system as the r
 - Click **"Copy Markdown"** to copy source to clipboard
 
 ### Uploading a Document
-1. Click **"📤 Upload Markdown"** button
+
+**Option 1: Docs Viewer Upload**
+1. Click **"📤 Upload Markdown"** button on `/docs`
 2. Select a `.md` file from your computer
 3. File is saved to `docs/uploads/`
 4. Return to docs list to view it
+
+**Option 2: All Media Upload (Recommended)**
+1. Go to "All Media" page
+2. Click **"Upload Media"**
+3. Select a `.md` file and fill in details (title, description, tags)
+4. Choose media type: Document
+5. File is saved to your vault with full media features
+6. Accessible from both media listings and docs viewer
 
 ## Code Syntax Highlighting
 

@@ -2,7 +2,7 @@
 
 {% block title %}{{ title }} - Documentation{% endblock %}
 
-{% block head %}
+{% block extra_head %}
 <style>
     /* Markdown styles */
     .markdown-content {
@@ -150,7 +150,9 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_scripts %}
 <script>
     function toggleRaw() {
         const rendered = document.getElementById('rendered');
@@ -160,11 +162,12 @@
     }
 
     function copyMarkdown() {
-        const markdown = {{ raw_markdown|tojson }};
+        const markdown = {{ raw_markdown|tojson|safe }};
         navigator.clipboard.writeText(markdown).then(() => {
-            alert('Markdown copied to clipboard!');
+            showToast('✅ Markdown copied to clipboard!', 'success');
         }).catch(err => {
             console.error('Failed to copy:', err);
+            showToast('❌ Failed to copy to clipboard', 'error');
         });
     }
 </script>

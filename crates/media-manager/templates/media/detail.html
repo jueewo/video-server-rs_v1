@@ -122,7 +122,12 @@
                 </a>
                 {% endif %}
                 {% else if media.media_type == "document" %}
-                <a href="/documents/{{ media.slug }}/download" class="btn btn-primary">
+                {% if media.mime_type == "text/markdown" %}
+                <a href="/media/{{ media.slug }}/view" class="btn btn-primary">
+                    👁️ View Markdown
+                </a>
+                {% endif %}
+                <a href="/documents/{{ media.slug }}/download" class="btn btn-outline">
                     📥 Download
                 </a>
                 {% else if media.media_type == "video" %}

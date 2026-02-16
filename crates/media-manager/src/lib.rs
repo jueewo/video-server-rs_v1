@@ -4,6 +4,7 @@
 //! Replaces separate video-manager, image-manager, and document-manager crates
 
 pub mod detail;
+pub mod markdown_view;
 pub mod routes;
 pub mod serve;
 pub mod upload;

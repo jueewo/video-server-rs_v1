@@ -40,3 +40,6 @@ image = "0.25"
 # Utilities
 mime_guess = "2.0"
 tokio-util = { version = "0.7", features = ["io"] }
+
+# Markdown rendering
+pulldown-cmark = "0.11"

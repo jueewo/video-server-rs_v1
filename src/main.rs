@@ -1,3 +1,5 @@
+mod legacy_redirects;
+
 use askama::Template;
 use axum::{
     extract::{DefaultBodyLimit, Query, State},
@@ -84,11 +86,10 @@ use access_control::AccessControlService;
 use access_groups;
 use api_keys::{middleware::api_key_or_session_auth, routes::api_key_routes};
 use common::{create_search_routes, create_tag_routes};
-use document_manager::routes::{document_routes, DocumentManagerState};
 use docs_viewer::{docs_routes, markdown::MarkdownRenderer, DocsState};
 use gallery3d;
 use vault_manager::{vault_routes, VaultManagerState};
-use image_manager::{image_routes, ImageManagerState};
+// REMOVED: image-manager and document-manager - replaced by unified media-manager
 use media_hub::{routes::media_routes, MediaHubState};
 use media_manager::{media_routes as unified_media_routes, MediaManagerState};
 use user_auth::{auth_routes, AuthState, OidcConfig};
@@ -101,8 +102,7 @@ use video_manager::{video_routes, VideoManagerState, RTMP_PUBLISH_TOKEN};
 #[allow(dead_code)]
 struct AppState {
     video_state: Arc<VideoManagerState>,
-    image_state: Arc<ImageManagerState>,
-    document_state: Arc<DocumentManagerState>,
+    // REMOVED: image_state and document_state - replaced by unified media-manager
     auth_state: Arc<AuthState>,
     access_state: Arc<AccessCodeState>,
     access_control: Arc<AccessControlService>,
@@ -754,17 +754,11 @@ async fn main() -> anyhow::Result<()> {
         http_client,
     ));
 
-    let image_state = Arc::new(ImageManagerState::new(pool.clone(), storage_dir.clone()));
+    // REMOVED: image_state and document_state - replaced by unified media-manager
 
-    // Create user_storage for document manager (wrapped in Arc for shared ownership)
+    // Create user_storage for unified media system
     let user_storage = Arc::new(common::storage::UserStorageManager::new(
         storage_dir.clone(),
-    ));
-
-    let document_state = Arc::new(DocumentManagerState::new(
-        pool.clone(),
-        storage_dir.to_str().unwrap_or("storage").to_string(),
-        (*user_storage).clone(),
     ));
 
     // Initialize OIDC configuration
@@ -830,8 +824,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app_state = Arc::new(AppState {
         video_state: video_state.clone(),
-        image_state: image_state.clone(),
-        document_state: document_state.clone(),
+        // REMOVED: image_state and document_state - replaced by unified media-manager
         auth_state: auth_state.clone(),
         access_state: access_state.clone(),
         access_control: access_control.clone(),
@@ -902,55 +895,32 @@ async fn main() -> anyhow::Result<()> {
                     api_key_or_session_auth,
                 )),
         )
-        // Legacy serving routes - kept for video/document streaming
-        // Apply API key authentication middleware to all API routes
-        .merge(
-            video_routes()
-                .with_state(video_state)
-                .route_layer(axum::middleware::from_fn_with_state(
-                    Arc::new(pool.clone()),
-                    api_key_or_session_auth,
-                )),
-        )
-        .merge(
-            image_routes()
-                .with_state(image_state)
-                .route_layer(axum::middleware::from_fn_with_state(
-                    Arc::new(pool.clone()),
-                    api_key_or_session_auth,
-                )),
-        )
-        .merge(
-            document_routes()
-                .with_state((*document_state).clone())
-                .route_layer(axum::middleware::from_fn_with_state(
-                    Arc::new(pool.clone()),
-                    api_key_or_session_auth,
-                )),
-        )
+        // Legacy video routes - kept for HLS streaming
+        .merge(video_routes().with_state(video_state).route_layer(
+            axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
+        ))
+        // REMOVED: image_routes and document_routes - replaced by unified media-manager
+        // Add legacy redirects for backward compatibility
+        .merge(legacy_redirects::legacy_redirect_routes())
         .merge(access_code_routes(access_state))
         .merge(vault_routes(vault_state))
         .merge(
-            access_groups::routes::create_routes(pool.clone())
-                .route_layer(axum::middleware::from_fn_with_state(
+            access_groups::routes::create_routes(pool.clone()).route_layer(
+                axum::middleware::from_fn_with_state(
                     Arc::new(pool.clone()),
                     api_key_or_session_auth,
-                )),
+                ),
+            ),
         )
         .merge(
-            create_tag_routes(pool.clone())
-                .route_layer(axum::middleware::from_fn_with_state(
-                    Arc::new(pool.clone()),
-                    api_key_or_session_auth,
-                )),
+            create_tag_routes(pool.clone()).route_layer(axum::middleware::from_fn_with_state(
+                Arc::new(pool.clone()),
+                api_key_or_session_auth,
+            )),
         )
-        .merge(
-            create_search_routes(pool.clone())
-                .route_layer(axum::middleware::from_fn_with_state(
-                    Arc::new(pool.clone()),
-                    api_key_or_session_auth,
-                )),
-        )
+        .merge(create_search_routes(pool.clone()).route_layer(
+            axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
+        ))
         .merge(gallery3d::router(Arc::new(pool.clone())))
         // Documentation viewer (markdown preview)
         .nest(
@@ -1016,8 +986,7 @@ async fn main() -> anyhow::Result<()> {
 
     println!("📦 MODULES LOADED:");
     println!("   ✅ video-manager    (Video streaming & HLS proxy)");
-    println!("   ✅ image-manager    (Image upload & serving)");
-    println!("   ✅ document-manager (Document storage & viewing)");
+    println!("   ✅ media-manager    (Unified media upload & serving)");
     println!("   ✅ media-hub        (Unified media management UI)");
     println!("   ✅ user-auth        (Session management, OIDC ready)");
     println!("   ✅ access-codes     (Shared media access)");
@@ -1081,9 +1050,10 @@ async fn main() -> anyhow::Result<()> {
 
     println!("\n🔧 ARCHITECTURE:");
     println!("   This server is now modular with separate crates:");
-    println!("   • crates/video-manager - Video streaming logic");
-    println!("   • crates/image-manager - Image handling logic");
-    println!("   • crates/user-auth     - OIDC Authentication (Casdoor)");
+    println!("   • crates/video-manager  - Video streaming logic");
+    println!("   • crates/media-manager  - Unified media handling");
+    println!("   • crates/media-hub      - Unified media UI");
+    println!("   • crates/user-auth      - OIDC Authentication (Casdoor)");
 
     println!("\n🔐 AUTHENTICATION:");
     println!("   • Primary:   OIDC with Casdoor (Login with Appkask)");

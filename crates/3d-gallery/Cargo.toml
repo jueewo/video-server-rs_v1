@@ -10,7 +10,7 @@ license = "MIT OR Apache-2.0"
 # Local crates
 common = { path = "../common" }
 video-manager = { path = "../video-manager" }
-image-manager = { path = "../image-manager" }
+# REMOVED: image-manager - replaced by unified media-manager
 access-control = { path = "../access-control" }
 
 # Web framework

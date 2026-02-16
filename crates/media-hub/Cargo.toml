@@ -9,8 +9,7 @@ common = { path = "../common" }
 access-control = { path = "../access-control" }
 media-core = { path = "../media-core" }
 video-manager = { path = "../video-manager" }
-image-manager = { path = "../image-manager" }
-document-manager = { path = "../document-manager" }
+# REMOVED: image-manager and document-manager - replaced by unified media-manager
 
 # Web framework
 axum = { workspace = true }

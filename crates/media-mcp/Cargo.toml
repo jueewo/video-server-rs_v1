@@ -15,8 +15,7 @@ path = "src/main.rs"
 common = { path = "../common" }
 media-core = { path = "../media-core" }
 video-manager = { path = "../video-manager" }
-image-manager = { path = "../image-manager" }
-document-manager = { path = "../document-manager" }
+# REMOVED: image-manager and document-manager - replaced by unified media-manager
 access-groups = { path = "../access-groups" }
 access-control = { path = "../access-control" }
 

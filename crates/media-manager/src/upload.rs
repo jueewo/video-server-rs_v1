@@ -540,7 +540,7 @@ async fn process_document_upload(
 
     let mime_type = match extension.to_lowercase().as_str() {
         "pdf" => "application/pdf",
-        "md" | "markdown" => "text/markdown",
+        "md" | "markdown" | "mdx" => "text/markdown",
         "csv" => "text/csv",
         "json" => "application/json",
         "xml" => "application/xml",

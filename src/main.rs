@@ -1,5 +1,3 @@
-mod legacy_redirects;
-
 use askama::Template;
 use axum::{
     extract::{DefaultBodyLimit, Query, State},
@@ -900,8 +898,6 @@ async fn main() -> anyhow::Result<()> {
             axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
         ))
         // REMOVED: image_routes and document_routes - replaced by unified media-manager
-        // Add legacy redirects for backward compatibility
-        .merge(legacy_redirects::legacy_redirect_routes())
         .merge(access_code_routes(access_state))
         .merge(vault_routes(vault_state))
         .merge(

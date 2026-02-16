@@ -12,6 +12,30 @@ use tracing::{error, info};
 
 use crate::routes::MediaManagerState;
 
+/// Strip YAML frontmatter from markdown content
+/// Frontmatter is delimited by --- at the start and end
+fn strip_frontmatter(content: &str) -> &str {
+    let trimmed = content.trim_start();
+
+    // Check if content starts with ---
+    if !trimmed.starts_with("---") {
+        return content;
+    }
+
+    // Find the end of frontmatter (second ---)
+    let after_first = &trimmed[3..]; // Skip first ---
+    if let Some(end_pos) = after_first.find("\n---") {
+        // Return content after the closing ---
+        let total_offset = content.len() - trimmed.len() + 3 + end_pos + 4; // offset + "---" + position + "\n---"
+        if total_offset < content.len() {
+            return content[total_offset..].trim_start();
+        }
+    }
+
+    // If no valid frontmatter found, return original
+    content
+}
+
 #[derive(Template)]
 #[template(path = "media/markdown_view.html")]
 pub struct MarkdownViewTemplate {
@@ -123,9 +147,12 @@ pub async fn view_markdown_handler(
             )
         })?;
 
+    // Strip YAML frontmatter before rendering
+    let markdown_content = strip_frontmatter(&raw_markdown);
+
     // Render markdown to HTML using docs-viewer's renderer (with syntax highlighting)
     let renderer = docs_viewer::markdown::MarkdownRenderer::new();
-    let rendered_html = renderer.render(&raw_markdown);
+    let rendered_html = renderer.render(markdown_content);
 
     info!("📄 Rendered markdown with syntax highlighting for: {}", slug);
 

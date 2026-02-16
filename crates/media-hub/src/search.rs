@@ -33,36 +33,14 @@ impl MediaSearchService {
         // Get counts for each media type
         let counts = self.get_media_counts(&options).await?;
 
-        // Collect items from all media types
-        let mut all_items: Vec<UnifiedMediaItem> = Vec::new();
+        // Collect items from media_items table (unified query)
+        let items = self.search_media_items(&options).await?;
+        let mut all_items: Vec<UnifiedMediaItem> = items
+            .into_iter()
+            .map(UnifiedMediaItem::from)
+            .collect();
 
-        // Fetch based on media_type filter
-        match options.media_type.as_deref() {
-            Some("video") => {
-                let videos = self.search_videos(&options).await?;
-                all_items.extend(videos.into_iter().map(UnifiedMediaItem::from));
-            }
-            Some("image") => {
-                let images = self.search_images(&options).await?;
-                all_items.extend(images.into_iter().map(UnifiedMediaItem::from));
-            }
-            Some("document") => {
-                let documents = self.search_documents(&options).await?;
-                all_items.extend(documents.into_iter().map(UnifiedMediaItem::from));
-            }
-            _ => {
-                // Search all types
-                let videos = self.search_videos(&options).await?;
-                let images = self.search_images(&options).await?;
-                let documents = self.search_documents(&options).await?;
-
-                all_items.extend(videos.into_iter().map(UnifiedMediaItem::from));
-                all_items.extend(images.into_iter().map(UnifiedMediaItem::from));
-                all_items.extend(documents.into_iter().map(UnifiedMediaItem::from));
-            }
-        }
-
-        // Sort results
+        // Sort results (already sorted by database, but keep for flexibility)
         self.sort_items(&mut all_items, &options);
 
         // Apply pagination
@@ -96,9 +74,9 @@ impl MediaSearchService {
 
     /// Get counts for each media type
     async fn get_media_counts(&self, options: &MediaFilterOptions) -> Result<MediaTypeCounts> {
-        let video_count = self.count_videos(options).await?;
-        let image_count = self.count_images(options).await?;
-        let document_count = self.count_documents(options).await?;
+        let video_count = self.count_media_by_type(options, "video").await?;
+        let image_count = self.count_media_by_type(options, "image").await?;
+        let document_count = self.count_media_by_type(options, "document").await?;
 
         Ok(MediaTypeCounts {
             videos: video_count,
@@ -108,10 +86,16 @@ impl MediaSearchService {
         })
     }
 
-    /// Search videos
-    async fn search_videos(&self, options: &MediaFilterOptions) -> Result<Vec<MediaItem>> {
-        let mut query = String::from("SELECT * FROM media_items WHERE media_type = 'video' AND 1=1");
+    /// Search media items (unified query)
+    async fn search_media_items(&self, options: &MediaFilterOptions) -> Result<Vec<MediaItem>> {
+        let mut query = String::from("SELECT * FROM media_items WHERE 1=1");
         let mut bindings: Vec<String> = Vec::new();
+
+        // Media type filter
+        if let Some(media_type) = &options.media_type {
+            query.push_str(" AND media_type = ?");
+            bindings.push(media_type.clone());
+        }
 
         // Search filter
         if let Some(search) = &options.search {
@@ -133,116 +117,36 @@ impl MediaSearchService {
             bindings.push(user_id.clone());
         }
 
-        // Add ordering - media_items uses created_at
-        let sort_field = &options.sort_by;
-        query.push_str(&format!(" ORDER BY {} {}", sort_field, options.sort_order));
-
-        // Note: We fetch all here and paginate in memory for cross-type sorting
-        // In production, consider implementing database-level pagination
-
-        let mut sqlx_query = sqlx::query_as::<_, MediaItem>(&query);
-        for binding in bindings {
-            sqlx_query = sqlx_query.bind(binding);
-        }
-
-        let videos = sqlx_query
-            .fetch_all(&self.pool)
-            .await
-            .context("Failed to fetch videos")?;
-
-        Ok(videos)
-    }
-
-    /// Count videos
-    async fn count_videos(&self, options: &MediaFilterOptions) -> Result<i64> {
-        let mut query = String::from("SELECT COUNT(*) FROM media_items WHERE media_type = 'video' AND 1=1");
-        let mut bindings: Vec<String> = Vec::new();
-
-        if let Some(search) = &options.search {
-            query.push_str(" AND (title LIKE ? OR description LIKE ?)");
-            let pattern = format!("%{}%", search);
-            bindings.push(pattern.clone());
-            bindings.push(pattern);
-        }
-
-        if let Some(is_public) = options.is_public {
-            query.push_str(" AND is_public = ?");
-            bindings.push((if is_public { 1 } else { 0 }).to_string());
-        }
-
-        if let Some(user_id) = &options.user_id {
-            query.push_str(" AND user_id = ?");
-            bindings.push(user_id.clone());
-        }
-
-        let mut sqlx_query = sqlx::query_scalar::<_, i64>(&query);
-        for binding in bindings {
-            sqlx_query = sqlx_query.bind(binding);
-        }
-
-        let count = sqlx_query
-            .fetch_one(&self.pool)
-            .await
-            .context("Failed to count videos")?;
-
-        Ok(count)
-    }
-
-    /// Search images
-    async fn search_images(&self, options: &MediaFilterOptions) -> Result<Vec<MediaItem>> {
-        let mut query = String::from("SELECT * FROM media_items WHERE media_type = 'image' AND 1=1");
-        let mut bindings: Vec<String> = Vec::new();
-
-        if let Some(search) = &options.search {
-            query.push_str(" AND (title LIKE ? OR description LIKE ?)");
-            let pattern = format!("%{}%", search);
-            bindings.push(pattern.clone());
-            bindings.push(pattern);
-        }
-
-        if let Some(is_public) = options.is_public {
-            query.push_str(" AND is_public = ?");
-            bindings.push((if is_public { 1 } else { 0 }).to_string());
-        }
-
-        if let Some(user_id) = &options.user_id {
-            query.push_str(" AND user_id = ?");
-            bindings.push(user_id.clone());
-        }
-
-        // Images use created_at
+        // Add ordering
         let sort_field = if options.sort_by.is_empty() {
             "created_at"
         } else {
             &options.sort_by
         };
-        query.push_str(&format!(
-            " ORDER BY {} {}",
-            sort_field,
-            if options.sort_order.is_empty() {
-                "desc"
-            } else {
-                &options.sort_order
-            }
-        ));
+        let sort_order = if options.sort_order.is_empty() {
+            "desc"
+        } else {
+            &options.sort_order
+        };
+        query.push_str(&format!(" ORDER BY {} {}", sort_field, sort_order));
 
         let mut sqlx_query = sqlx::query_as::<_, MediaItem>(&query);
         for binding in bindings {
             sqlx_query = sqlx_query.bind(binding);
         }
 
-        let images = sqlx_query
+        let items = sqlx_query
             .fetch_all(&self.pool)
             .await
-            .context("Failed to fetch images")?;
+            .context("Failed to fetch media items")?;
 
-        Ok(images)
+        Ok(items)
     }
 
-    /// Count images
-    async fn count_images(&self, options: &MediaFilterOptions) -> Result<i64> {
-        let mut query = String::from("SELECT COUNT(*) FROM media_items WHERE media_type = 'image' AND 1=1");
-        let mut bindings: Vec<String> = Vec::new();
+    /// Count media by type
+    async fn count_media_by_type(&self, options: &MediaFilterOptions, media_type: &str) -> Result<i64> {
+        let mut query = String::from("SELECT COUNT(*) FROM media_items WHERE media_type = ?");
+        let mut bindings: Vec<String> = vec![media_type.to_string()];
 
         if let Some(search) = &options.search {
             query.push_str(" AND (title LIKE ? OR description LIKE ?)");
@@ -269,95 +173,7 @@ impl MediaSearchService {
         let count = sqlx_query
             .fetch_one(&self.pool)
             .await
-            .context("Failed to count images")?;
-
-        Ok(count)
-    }
-
-    /// Search documents
-    async fn search_documents(&self, options: &MediaFilterOptions) -> Result<Vec<MediaItem>> {
-        let mut query = String::from("SELECT * FROM media_items WHERE media_type = 'document' AND 1=1");
-        let mut bindings: Vec<String> = Vec::new();
-
-        if let Some(search) = &options.search {
-            query
-                .push_str(" AND (title LIKE ? OR description LIKE ?)");
-            let pattern = format!("%{}%", search);
-            bindings.push(pattern.clone());
-            bindings.push(pattern);
-        }
-
-        if let Some(is_public) = options.is_public {
-            query.push_str(" AND is_public = ?");
-            bindings.push((if is_public { 1 } else { 0 }).to_string());
-        }
-
-        if let Some(user_id) = &options.user_id {
-            query.push_str(" AND user_id = ?");
-            bindings.push(user_id.clone());
-        }
-
-        // Documents use created_at
-        let sort_field = if options.sort_by.is_empty() {
-            "created_at"
-        } else {
-            &options.sort_by
-        };
-        query.push_str(&format!(
-            " ORDER BY {} {}",
-            sort_field,
-            if options.sort_order.is_empty() {
-                "desc"
-            } else {
-                &options.sort_order
-            }
-        ));
-
-        let mut sqlx_query = sqlx::query_as::<_, MediaItem>(&query);
-        for binding in bindings {
-            sqlx_query = sqlx_query.bind(binding);
-        }
-
-        let documents = sqlx_query
-            .fetch_all(&self.pool)
-            .await
-            .context("Failed to fetch documents")?;
-
-        Ok(documents)
-    }
-
-    /// Count documents
-    async fn count_documents(&self, options: &MediaFilterOptions) -> Result<i64> {
-        let mut query = String::from("SELECT COUNT(*) FROM media_items WHERE media_type = 'document' AND 1=1");
-        let mut bindings: Vec<String> = Vec::new();
-
-        if let Some(search) = &options.search {
-            query
-                .push_str(" AND (title LIKE ? OR description LIKE ?)");
-            let pattern = format!("%{}%", search);
-            bindings.push(pattern.clone());
-            bindings.push(pattern);
-        }
-
-        if let Some(is_public) = options.is_public {
-            query.push_str(" AND is_public = ?");
-            bindings.push((if is_public { 1 } else { 0 }).to_string());
-        }
-
-        if let Some(user_id) = &options.user_id {
-            query.push_str(" AND user_id = ?");
-            bindings.push(user_id.clone());
-        }
-
-        let mut sqlx_query = sqlx::query_scalar::<_, i64>(&query);
-        for binding in bindings {
-            sqlx_query = sqlx_query.bind(binding);
-        }
-
-        let count = sqlx_query
-            .fetch_one(&self.pool)
-            .await
-            .context("Failed to count documents")?;
+            .context("Failed to count media items")?;
 
         Ok(count)
     }

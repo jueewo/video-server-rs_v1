@@ -7,8 +7,8 @@ use axum::{
     body::Body,
     extract::{Multipart, Path, Query, State},
     http::{header, StatusCode},
-    response::{Html, IntoResponse, Json, Response},
-    routing::{delete, get, post},
+    response::{Html, IntoResponse, Json, Redirect, Response},
+    routing::{delete, get, post, put},
     Router,
 };
 use common::storage::UserStorageManager;
@@ -99,10 +99,12 @@ pub fn document_routes() -> Router<DocumentManagerState> {
         // Legacy upload endpoint - REMOVED: Use unified /api/media/upload instead
         // .route("/api/documents/upload", post(upload_document))
         .route("/documents/:slug", get(document_detail))
+        .route("/documents/:slug/edit", get(document_editor))
         .route("/documents/:slug/download", get(download_document))
         .route("/documents/:slug/thumbnail", get(serve_document_thumbnail))
         .route("/api/documents/:id", get(document_detail_json))
         .route("/api/documents/:id", delete(delete_document_handler))
+        .route("/api/documents/:slug/content", put(save_document_content))
 }
 
 /// Upload document handler
@@ -1003,6 +1005,254 @@ async fn document_detail(
             Html(format!("<h1>Document not found</h1><p>{}</p>", e)).into_response()
         }
     }
+}
+
+/// Document editor handler
+async fn document_editor(
+    State(state): State<DocumentManagerState>,
+    session: Session,
+    Path(slug): Path<String>,
+) -> impl IntoResponse {
+    debug!("Document editor request: {}", slug);
+
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Redirect::to("/login").into_response();
+    }
+
+    let user_id: Option<String> = session.get("user_id").await.ok().flatten();
+
+    let sql = "SELECT id, slug, title, description, mime_type, filename, file_size, created_at, is_public, user_id, vault_id FROM media_items WHERE media_type = 'document' AND slug = ?";
+
+    let doc: Result<MediaItemRow, _> =
+        sqlx::query_as(sql).bind(&slug).fetch_one(&state.pool).await;
+
+    match doc {
+        Ok(doc) => {
+            // Check access permissions
+            if doc.is_public == 0 {
+                // Private document - check if user owns it
+                if user_id.as_ref() != doc.user_id.as_ref() {
+                    return (StatusCode::FORBIDDEN, "Access denied").into_response();
+                }
+            }
+
+            // Read file content
+            let file_path = if let Some(vault_id) = &doc.vault_id {
+                state
+                    .user_storage
+                    .vault_media_dir(vault_id, common::storage::MediaType::Document)
+                    .join(&doc.filename)
+            } else {
+                // Legacy path
+                std::path::PathBuf::from(&state.storage_dir).join("documents").join(&doc.filename)
+            };
+
+            match tokio::fs::read_to_string(&file_path).await {
+                Ok(content) => {
+                    // Return simple editor HTML
+                    let html = format!(r#"
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit: {}</title>
+    <link rel="stylesheet" href="/static/css/tailwind.css" />
+</head>
+<body>
+    <div class="navbar bg-base-100 shadow-lg">
+        <div class="flex-1">
+            <a href="/documents/{}" class="btn btn-ghost normal-case text-xl">← {}</a>
+        </div>
+        <div class="flex-none gap-2">
+            <button class="btn btn-primary" onclick="saveDocument()">Save</button>
+        </div>
+    </div>
+
+    <div class="container mx-auto p-4">
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">Editing: {}</h2>
+                <textarea id="editor" class="textarea textarea-bordered w-full font-mono" rows="30">{}</textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast toast-top toast-end" id="toastContainer"></div>
+
+    <script>
+        function showToast(message, type = 'success') {{
+            const toastContainer = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${{type}} shadow-lg`;
+            toast.innerHTML = `
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                        ${{type === 'success'
+                            ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />'
+                            : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />'
+                        }}
+                    </svg>
+                    <span>${{message}}</span>
+                </div>
+            `;
+
+            toastContainer.appendChild(toast);
+
+            // Auto-remove after 3 seconds
+            setTimeout(() => {{
+                toast.style.transition = 'opacity 0.3s ease-out';
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }}, 3000);
+        }}
+
+        async function saveDocument() {{
+            const content = document.getElementById('editor').value;
+            const saveBtn = document.querySelector('.btn-primary');
+
+            // Disable button and show loading
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="loading loading-spinner loading-sm"></span> Saving...';
+
+            try {{
+                const response = await fetch('/api/documents/{}/content', {{
+                    method: 'PUT',
+                    headers: {{
+                        'Content-Type': 'text/plain',
+                    }},
+                    body: content
+                }});
+
+                if (response.ok) {{
+                    showToast('Document saved successfully!', 'success');
+                }} else {{
+                    showToast('Failed to save document', 'error');
+                }}
+            }} catch (error) {{
+                showToast('Error: ' + error.message, 'error');
+            }} finally {{
+                // Re-enable button
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = 'Save';
+            }}
+        }}
+
+        // Auto-save on Ctrl+S / Cmd+S
+        document.addEventListener('keydown', function(e) {{
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {{
+                e.preventDefault();
+                saveDocument();
+            }}
+        }});
+    </script>
+</body>
+</html>
+                    "#, doc.title, doc.slug, doc.title, doc.title, content, doc.slug);
+
+                    Html(html).into_response()
+                }
+                Err(e) => {
+                    error!("Failed to read document file: {}", e);
+                    (StatusCode::INTERNAL_SERVER_ERROR, "Failed to read document").into_response()
+                }
+            }
+        }
+        Err(_) => (StatusCode::NOT_FOUND, "Document not found").into_response(),
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct MediaItemRow {
+    id: i32,
+    slug: String,
+    title: String,
+    description: Option<String>,
+    mime_type: String,
+    filename: String,
+    file_size: i64,
+    created_at: String,
+    is_public: i32,
+    user_id: Option<String>,
+    vault_id: Option<String>,
+}
+
+/// Save document content
+async fn save_document_content(
+    State(state): State<DocumentManagerState>,
+    session: Session,
+    Path(slug): Path<String>,
+    body: String,
+) -> impl IntoResponse {
+    debug!("Save document content request: {}", slug);
+
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return (StatusCode::UNAUTHORIZED, "Authentication required").into_response();
+    }
+
+    let user_id: Option<String> = session.get("user_id").await.ok().flatten();
+
+    let sql = "SELECT filename, is_public, user_id, vault_id FROM media_items WHERE media_type = 'document' AND slug = ?";
+
+    let doc: Result<MediaItemSaveRow, _> =
+        sqlx::query_as(sql).bind(&slug).fetch_one(&state.pool).await;
+
+    match doc {
+        Ok(doc) => {
+            // Check access permissions - only owner can edit
+            if user_id.as_ref() != doc.user_id.as_ref() {
+                return (StatusCode::FORBIDDEN, "Access denied").into_response();
+            }
+
+            // Write file content
+            let file_path = if let Some(vault_id) = &doc.vault_id {
+                state
+                    .user_storage
+                    .vault_media_dir(vault_id, common::storage::MediaType::Document)
+                    .join(&doc.filename)
+            } else {
+                // Legacy path
+                std::path::PathBuf::from(&state.storage_dir).join("documents").join(&doc.filename)
+            };
+
+            match tokio::fs::write(&file_path, body.as_bytes()).await {
+                Ok(_) => {
+                    info!("Document saved: {}", slug);
+                    (StatusCode::OK, "Saved successfully").into_response()
+                }
+                Err(e) => {
+                    error!("Failed to write document file: {}", e);
+                    (StatusCode::INTERNAL_SERVER_ERROR, "Failed to save document").into_response()
+                }
+            }
+        }
+        Err(_) => (StatusCode::NOT_FOUND, "Document not found").into_response(),
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct MediaItemSaveRow {
+    filename: String,
+    is_public: i32,
+    user_id: Option<String>,
+    vault_id: Option<String>,
 }
 
 /// Document detail (JSON API)

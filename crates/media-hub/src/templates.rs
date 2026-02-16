@@ -6,6 +6,19 @@
 use crate::models::UnifiedMediaItem;
 use askama::Template;
 
+/// Media item with its tags and group for template rendering
+#[derive(Clone)]
+pub struct MediaItemWithMetadata {
+    /// The media item
+    pub item: UnifiedMediaItem,
+
+    /// Tags for this item
+    pub tags: Vec<String>,
+
+    /// Group name (if any)
+    pub group_name: Option<String>,
+}
+
 /// Template for the unified media list page
 #[derive(Template)]
 #[template(path = "media_list_tailwind.html")]
@@ -13,8 +26,8 @@ pub struct MediaListTemplate {
     /// Whether user is authenticated
     pub authenticated: bool,
 
-    /// List of media items (mixed types)
-    pub items: Vec<UnifiedMediaItem>,
+    /// List of media items with metadata
+    pub items: Vec<MediaItemWithMetadata>,
 
     /// Total number of items (before pagination)
     pub total: i64,

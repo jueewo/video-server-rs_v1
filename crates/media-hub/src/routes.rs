@@ -5,14 +5,14 @@
 
 use crate::models::MediaFilterOptions;
 use crate::search::MediaSearchService;
-use crate::templates::{MediaListTemplate, MediaUploadTemplate};
+use crate::templates::{MediaItemWithMetadata, MediaListTemplate, MediaUploadTemplate};
 use crate::MediaHubState;
 use askama::Template;
 use axum::{
-    extract::{Multipart, Query, State},
+    extract::{Multipart, Path, Query, State},
     http::StatusCode,
     response::{Html, IntoResponse, Json, Redirect},
-    routing::{get, post},
+    routing::{delete, get, post, put},
     Router,
 };
 use image::{imageops::FilterType, GenericImageView, ImageFormat};
@@ -79,6 +79,11 @@ pub fn media_routes() -> Router<MediaHubState> {
         // Upload handler moved to media-manager (uses media_items table)
         // .route("/api/media/upload", post(upload_media))
         .route("/api/user/vaults", get(get_user_vaults))
+        // Media management endpoints
+        .route("/api/media/:slug/toggle-visibility", post(toggle_visibility))
+        .route("/api/media/:slug", get(get_media_item))
+        .route("/api/media/:slug", put(update_media_item))
+        .route("/api/media/:slug", delete(delete_media))
 }
 
 /// List all media (HTML view)
@@ -124,9 +129,66 @@ async fn list_media_html(
 
     match search_service.search(filter).await {
         Ok(response) => {
+            // Fetch tags for all media items
+            let media_ids: Vec<i32> = response.items.iter().map(|item| item.id()).collect();
+            let mut tags_map = std::collections::HashMap::new();
+
+            if !media_ids.is_empty() {
+                let placeholders = media_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+                let query_str = format!("SELECT media_id, tag FROM media_tags WHERE media_id IN ({})", placeholders);
+                let mut query = sqlx::query(&query_str);
+                for id in &media_ids {
+                    query = query.bind(id);
+                }
+
+                if let Ok(rows) = query.fetch_all(&state.pool).await {
+                    use sqlx::Row;
+                    for row in rows {
+                        let media_id: i32 = row.try_get("media_id").unwrap_or(0);
+                        let tag: String = row.try_get("tag").unwrap_or_default();
+                        tags_map.entry(media_id).or_insert_with(Vec::new).push(tag);
+                    }
+                }
+            }
+
+            // Fetch group names for all group_ids
+            let group_ids: Vec<i32> = response.items.iter()
+                .filter_map(|item| item.group_id())
+                .collect();
+            let mut groups_map = std::collections::HashMap::new();
+
+            if !group_ids.is_empty() {
+                let placeholders = group_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+                let query_str = format!("SELECT id, name FROM access_groups WHERE id IN ({})", placeholders);
+                let mut query = sqlx::query(&query_str);
+                for id in &group_ids {
+                    query = query.bind(id);
+                }
+
+                if let Ok(rows) = query.fetch_all(&state.pool).await {
+                    use sqlx::Row;
+                    for row in rows {
+                        let group_id: i32 = row.try_get("id").unwrap_or(0);
+                        let name: String = row.try_get("name").unwrap_or_default();
+                        groups_map.insert(group_id, name);
+                    }
+                }
+            }
+
+            // Combine items with their metadata
+            let items_with_metadata: Vec<MediaItemWithMetadata> = response.items.into_iter().map(|item| {
+                let tags = tags_map.get(&item.id()).cloned().unwrap_or_default();
+                let group_name = item.group_id().and_then(|gid| groups_map.get(&gid).cloned());
+                MediaItemWithMetadata {
+                    item,
+                    tags,
+                    group_name,
+                }
+            }).collect();
+
             let template = MediaListTemplate {
                 authenticated,
-                items: response.items,
+                items: items_with_metadata,
                 total: response.total,
                 page: response.page,
                 page_size: response.page_size,
@@ -181,7 +243,7 @@ async fn list_media_json(
         .unwrap_or(false);
 
     // Get user_id from session if authenticated
-    let user_id: Option<String> = if authenticated {
+    let _user_id: Option<String> = if authenticated {
         session.get("user_id").await.ok().flatten()
     } else {
         None
@@ -1207,6 +1269,392 @@ async fn generate_thumbnail(
 
     info!("Thumbnail generated successfully: {:?}", thumb_path);
     Ok(thumb_path)
+}
+
+/// Toggle visibility (public/private) of a media item
+async fn toggle_visibility(
+    State(state): State<MediaHubState>,
+    session: Session,
+    Path(slug): Path<String>,
+    Json(payload): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "Authentication required"
+            })),
+        )
+            .into_response();
+    }
+
+    let is_public = payload["is_public"].as_bool().unwrap_or(false);
+    let is_public_int = if is_public { 1 } else { 0 };
+
+    // Update media_items table
+    let result = sqlx::query("UPDATE media_items SET is_public = ? WHERE slug = ?")
+        .bind(is_public_int)
+        .bind(&slug)
+        .execute(&state.pool)
+        .await;
+
+    match result {
+        Ok(result) if result.rows_affected() > 0 => {
+            info!("Toggled visibility for {}: {}", slug, is_public);
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "success": true,
+                    "is_public": is_public
+                })),
+            )
+                .into_response()
+        }
+        Ok(_) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "Media not found"
+            })),
+        )
+            .into_response(),
+        Err(e) => {
+            error!("Failed to update visibility: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": "Failed to update visibility"
+                })),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// Delete a media item
+/// Get a single media item by slug
+async fn get_media_item(
+    State(state): State<MediaHubState>,
+    session: Session,
+    Path(slug): Path<String>,
+) -> impl IntoResponse {
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "error": "Authentication required"
+            })),
+        )
+            .into_response();
+    }
+
+    // Fetch media item from database
+    let media_result: Result<common::models::media_item::MediaItem, sqlx::Error> =
+        sqlx::query_as("SELECT * FROM media_items WHERE slug = ?")
+            .bind(&slug)
+            .fetch_one(&state.pool)
+            .await;
+
+    match media_result {
+        Ok(media) => {
+            // Fetch tags for this media item
+            let tags: Vec<String> = sqlx::query_scalar("SELECT tag FROM media_tags WHERE media_id = ?")
+                .bind(media.id)
+                .fetch_all(&state.pool)
+                .await
+                .unwrap_or_default();
+
+            // Create response with tags included
+            let mut response = serde_json::to_value(&media).unwrap();
+            if let Some(obj) = response.as_object_mut() {
+                obj.insert("tags".to_string(), serde_json::json!(tags));
+            }
+
+            (StatusCode::OK, Json(response)).into_response()
+        }
+        Err(sqlx::Error::RowNotFound) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "error": "Media not found"
+            })),
+        )
+            .into_response(),
+        Err(e) => {
+            error!("Database error fetching media: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": "Failed to fetch media"
+                })),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// Update request body
+#[derive(Debug, Deserialize)]
+struct UpdateMediaRequest {
+    title: Option<String>,
+    description: Option<String>,
+    is_public: Option<i32>,
+    category: Option<String>,
+    featured: Option<i32>,
+    tags: Option<Vec<String>>,
+}
+
+/// Update a media item
+async fn update_media_item(
+    State(state): State<MediaHubState>,
+    session: Session,
+    Path(slug): Path<String>,
+    Json(payload): Json<UpdateMediaRequest>,
+) -> impl IntoResponse {
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "Authentication required"
+            })),
+        )
+            .into_response();
+    }
+
+    // Get media_id first
+    let media_id_result: Result<i32, sqlx::Error> =
+        sqlx::query_scalar("SELECT id FROM media_items WHERE slug = ?")
+            .bind(&slug)
+            .fetch_one(&state.pool)
+            .await;
+
+    let media_id = match media_id_result {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": "Media not found"
+                })),
+            )
+                .into_response()
+        }
+    };
+
+    // Build dynamic update query
+    let mut updates = Vec::new();
+    let mut values: Vec<String> = Vec::new();
+
+    if let Some(title) = &payload.title {
+        updates.push("title = ?");
+        values.push(title.clone());
+    }
+    if let Some(description) = &payload.description {
+        updates.push("description = ?");
+        values.push(description.clone());
+    }
+    if let Some(is_public) = payload.is_public {
+        updates.push("is_public = ?");
+        values.push(is_public.to_string());
+    }
+    if let Some(category) = &payload.category {
+        updates.push("category = ?");
+        values.push(category.clone());
+    }
+    if let Some(featured) = payload.featured {
+        updates.push("featured = ?");
+        values.push(featured.to_string());
+    }
+
+    // Always update updated_at
+    updates.push("updated_at = datetime('now')");
+
+    if !updates.is_empty() {
+        let query_str = format!(
+            "UPDATE media_items SET {} WHERE slug = ?",
+            updates.join(", ")
+        );
+
+        let mut query = sqlx::query(&query_str);
+        for value in values {
+            query = query.bind(value);
+        }
+        query = query.bind(&slug);
+
+        if let Err(e) = query.execute(&state.pool).await {
+            error!("Failed to update media: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": "Failed to update media"
+                })),
+            )
+                .into_response();
+        }
+    }
+
+    // Update tags if provided
+    if let Some(tags) = &payload.tags {
+        // Delete existing tags
+        if let Err(e) = sqlx::query("DELETE FROM media_tags WHERE media_id = ?")
+            .bind(media_id)
+            .execute(&state.pool)
+            .await
+        {
+            warn!("Failed to delete old tags: {}", e);
+        }
+
+        // Insert new tags
+        for tag in tags {
+            if !tag.is_empty() {
+                if let Err(e) = sqlx::query(
+                    "INSERT INTO media_tags (media_id, tag, created_at) VALUES (?, ?, datetime('now'))"
+                )
+                .bind(media_id)
+                .bind(tag)
+                .execute(&state.pool)
+                .await
+                {
+                    warn!("Failed to insert tag '{}': {}", tag, e);
+                }
+            }
+        }
+    }
+
+    info!("Updated media: {}", slug);
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "success": true
+        })),
+    )
+        .into_response()
+}
+
+async fn delete_media(
+    State(state): State<MediaHubState>,
+    session: Session,
+    Path(slug): Path<String>,
+) -> impl IntoResponse {
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "Authentication required"
+            })),
+        )
+            .into_response();
+    }
+
+    // Get media info before deleting
+    let media_info: Option<(String, String, Option<String>)> = sqlx::query_as(
+        "SELECT media_type, filename, vault_id FROM media_items WHERE slug = ?"
+    )
+        .bind(&slug)
+        .fetch_optional(&state.pool)
+        .await
+        .ok()
+        .flatten();
+
+    if let Some((media_type, filename, vault_id)) = media_info {
+        // Delete from database
+        let db_result = sqlx::query("DELETE FROM media_items WHERE slug = ?")
+            .bind(&slug)
+            .execute(&state.pool)
+            .await;
+
+        match db_result {
+            Ok(_) => {
+                // Try to delete physical file if vault_id exists
+                if let Some(vault_id) = vault_id {
+                    let media_type_enum = match media_type.as_str() {
+                        "video" => common::storage::MediaType::Video,
+                        "image" => common::storage::MediaType::Image,
+                        "document" => common::storage::MediaType::Document,
+                        _ => common::storage::MediaType::Document,
+                    };
+
+                    let file_path = state
+                        .user_storage
+                        .vault_media_dir(&vault_id, media_type_enum)
+                        .join(&filename);
+
+                    if let Err(e) = tokio::fs::remove_file(&file_path).await {
+                        warn!("Failed to delete file {:?}: {}", file_path, e);
+                        // Continue anyway - database record is deleted
+                    } else {
+                        info!("Deleted file: {:?}", file_path);
+                    }
+                }
+
+                info!("Deleted media: {}", slug);
+                (
+                    StatusCode::OK,
+                    Json(serde_json::json!({
+                        "success": true
+                    })),
+                )
+                    .into_response()
+            }
+            Err(e) => {
+                error!("Failed to delete media from database: {}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({
+                        "success": false,
+                        "error": "Failed to delete media"
+                    })),
+                )
+                    .into_response()
+            }
+        }
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "Media not found"
+            })),
+        )
+            .into_response()
+    }
 }
 
 #[cfg(test)]

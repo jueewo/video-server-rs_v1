@@ -129,19 +129,45 @@ impl UnifiedMediaItem {
     /// Get the public URL
     pub fn public_url(&self) -> String {
         match self {
-            Self::MediaItem(m) => match m.media_type.as_str() {
-                "video" => format!("/videos/{}", m.slug),
-                "image" => format!("/images/{}", m.slug),
-                "document" => format!("/documents/{}", m.slug),
-                _ => format!("/media/{}", m.slug),
-            },
+            Self::MediaItem(m) => {
+                // For markdown documents, use the preview/raw view
+                if self.is_markdown() {
+                    return format!("/media/{}/view", m.slug);
+                }
+
+                match m.media_type.as_str() {
+                    "video" => format!("/videos/{}", m.slug),
+                    "image" => format!("/images/{}", m.slug),
+                    "document" => format!("/documents/{}", m.slug),
+                    _ => format!("/media/{}", m.slug),
+                }
+            }
+        }
+    }
+
+    /// Get the view URL (with preview/raw toggle for markdown)
+    pub fn view_url(&self) -> String {
+        match self {
+            Self::MediaItem(m) => {
+                if self.is_markdown() {
+                    format!("/media/{}/view", m.slug)
+                } else {
+                    self.public_url()
+                }
+            }
         }
     }
 
     /// Get the editor URL (for markdown files)
     pub fn editor_url(&self) -> String {
         match self {
-            Self::MediaItem(m) => format!("/documents/{}/edit", m.slug),
+            Self::MediaItem(m) => {
+                if self.is_markdown() {
+                    format!("/media/{}/edit", m.slug)
+                } else {
+                    format!("/documents/{}/edit", m.slug)
+                }
+            }
         }
     }
 

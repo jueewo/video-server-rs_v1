@@ -365,7 +365,7 @@ endblock %} {% block content %}
                                     <!-- Action -->
                                     <div>
                                         <a
-                                            href="{% if item.media_type == "video" %}/watch{% else %}/images{% endif %}/{{ item.media_slug }}?code={{ code.code }}"
+                                            href="{% if item.media_type == "video" %}/watch{% else %}/media{% endif %}/{{ item.media_slug }}?code={{ code.code }}"
                                             target="_blank"
                                             class="btn btn-sm btn-primary gap-1"
                                         >

@@ -127,12 +127,10 @@
                     👁️ View Markdown
                 </a>
                 {% endif %}
-                <a href="/documents/{{ media.slug }}/download" class="btn btn-outline">
-                    📥 Download
-                </a>
+                <!-- Download handled by browser for document viewing -->
                 {% else if media.media_type == "video" %}
-                <a href="/videos/{{ media.slug }}/download" class="btn btn-primary">
-                    📥 Download
+                <a href="/watch/{{ media.slug }}" class="btn btn-primary">
+                    ▶️ Watch Video
                 </a>
                 {% endif %}
 

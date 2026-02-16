@@ -995,8 +995,6 @@ async fn main() -> anyhow::Result<()> {
     println!("   • Login:         http://{}/login", addr);
     println!("   • OIDC Login:    http://{}/oidc/authorize", addr);
     println!("   • Emergency:     http://{}/login/emergency", addr);
-    println!("   • Images:        http://{}/images", addr);
-    println!("   • Documents:     http://{}/documents", addr);
     println!("   • Upload:        http://{}/upload", addr);
     println!("   • All Media:     http://{}/media", addr);
     println!("   • Media Upload:  http://{}/media/upload", addr);

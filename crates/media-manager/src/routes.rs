@@ -42,6 +42,10 @@ pub fn media_routes() -> Router<MediaManagerState> {
         // Detail page (HTML) - /media handled by media-hub
         .route("/media/:slug", get(crate::detail::media_detail_handler))
         .route("/media/:slug/view", get(crate::markdown_view::view_markdown_handler))
+        .route("/media/:slug/edit", get(crate::markdown_view::edit_markdown_handler))
+
+        // API endpoints
+        .route("/api/media/:slug/save", post(crate::markdown_view::save_markdown_handler))
 
         // List & Detail (API) - also commented to avoid conflict with media-hub
         // .route("/api/media", get(list_media))

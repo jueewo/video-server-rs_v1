@@ -130,6 +130,11 @@
                     </div>
                 </div>
                 <div class="flex gap-2">
+                    {% if authenticated %}
+                    <a href="/media/{{ slug }}/edit" class="btn btn-sm btn-primary">
+                        ✏️ Edit
+                    </a>
+                    {% endif %}
                     <button onclick="toggleRaw()" class="btn btn-sm btn-outline">
                         🔍 Toggle Raw
                     </button>

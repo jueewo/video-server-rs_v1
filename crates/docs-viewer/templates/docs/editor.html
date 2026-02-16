@@ -1,0 +1,200 @@
+{% extends "base-tailwind.html" %}
+
+{% block title %}Edit {{ title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    #editor-container {
+        height: calc(100vh - 250px);
+        min-height: 500px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .editor-toolbar {
+        background: #f8f9fa;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 12px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .save-indicator {
+        display: none;
+        color: #10b981;
+        font-size: 0.9rem;
+    }
+
+    .save-indicator.saving {
+        display: inline;
+        color: #f59e0b;
+    }
+
+    .save-indicator.saved {
+        display: inline;
+        color: #10b981;
+    }
+
+    .save-indicator.error {
+        display: inline;
+        color: #ef4444;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Breadcrumb -->
+    <div class="text-sm breadcrumbs mb-4">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/media">Media</a></li>
+            <li><a href="{{ cancel_url }}">{{ title }}</a></li>
+            <li>Edit</li>
+        </ul>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <!-- Header -->
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h1 class="text-3xl font-bold mb-2">Edit: {{ title }}</h1>
+                    <div class="flex gap-3 text-sm text-base-content/60">
+                        <span>📄 {{ filename }}</span>
+                        <span>•</span>
+                        <span id="save-indicator" class="save-indicator"></span>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="saveDocument()" class="btn btn-primary btn-sm" id="save-btn">
+                        💾 Save
+                    </button>
+                    <a href="{{ cancel_url }}" class="btn btn-ghost btn-sm">
+                        ← Cancel
+                    </a>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Monaco Editor -->
+            <div id="editor-container"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- Monaco Editor from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+<script>
+    let editor;
+    let originalContent = {{ content|tojson|safe }};
+    let hasUnsavedChanges = false;
+
+    // Load Monaco Editor
+    require.config({
+        paths: {
+            'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs'
+        }
+    });
+
+    require(['vs/editor/editor.main'], function() {
+        editor = monaco.editor.create(document.getElementById('editor-container'), {
+            value: originalContent,
+            language: '{{ language }}',
+            theme: 'vs-dark',
+            automaticLayout: true,
+            fontSize: 14,
+            lineNumbers: 'on',
+            minimap: { enabled: true },
+            wordWrap: 'on',
+            formatOnPaste: true,
+            formatOnType: true,
+            scrollBeyondLastLine: false,
+        });
+
+        // Track changes
+        editor.onDidChangeModelContent(() => {
+            const currentContent = editor.getValue();
+            hasUnsavedChanges = currentContent !== originalContent;
+            updateSaveIndicator();
+        });
+
+        // Keyboard shortcuts
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, saveDocument);
+
+        console.log('Monaco Editor initialized');
+    });
+
+    function updateSaveIndicator() {
+        const indicator = document.getElementById('save-indicator');
+        if (hasUnsavedChanges) {
+            indicator.textContent = 'Unsaved changes';
+            indicator.className = 'save-indicator';
+        } else {
+            indicator.textContent = '';
+            indicator.className = 'save-indicator';
+        }
+    }
+
+    async function saveDocument() {
+        if (!editor) {
+            showToast('Editor not ready', 'error');
+            return;
+        }
+
+        const content = editor.getValue();
+        const indicator = document.getElementById('save-indicator');
+        const saveBtn = document.getElementById('save-btn');
+
+        indicator.textContent = 'Saving...';
+        indicator.className = 'save-indicator saving';
+        saveBtn.disabled = true;
+
+        try {
+            const response = await fetch('{{ save_url }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ content: content })
+            });
+
+            if (response.ok) {
+                originalContent = content;
+                hasUnsavedChanges = false;
+                indicator.textContent = 'Saved ✓';
+                indicator.className = 'save-indicator saved';
+                showToast('Document saved successfully!', 'success');
+
+                setTimeout(() => {
+                    indicator.textContent = '';
+                    indicator.className = 'save-indicator';
+                }, 3000);
+            } else {
+                const error = await response.text();
+                throw new Error(error || 'Failed to save');
+            }
+        } catch (error) {
+            console.error('Save error:', error);
+            indicator.textContent = 'Save failed!';
+            indicator.className = 'save-indicator error';
+            showToast('Failed to save: ' + error.message, 'error');
+        } finally {
+            saveBtn.disabled = false;
+        }
+    }
+
+    // Warn before leaving with unsaved changes
+    window.addEventListener('beforeunload', (e) => {
+        if (hasUnsavedChanges) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+</script>
+{% endblock %}

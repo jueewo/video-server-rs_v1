@@ -1,6 +1,8 @@
+pub mod editor;
 pub mod markdown;
 pub mod routes;
 
+pub use editor::EditorTemplate;
 pub use routes::{docs_routes, DocsState};
 
 use serde::{Deserialize, Serialize};

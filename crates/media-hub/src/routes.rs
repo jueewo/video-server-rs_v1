@@ -76,7 +76,8 @@ pub fn media_routes() -> Router<MediaHubState> {
         .route("/media/search", get(search_media_html))
         .route("/api/media/search", get(search_media_json))
         .route("/media/upload", get(show_upload_form))
-        .route("/api/media/upload", post(upload_media))
+        // Upload handler moved to media-manager (uses media_items table)
+        // .route("/api/media/upload", post(upload_media))
         .route("/api/user/vaults", get(get_user_vaults))
 }
 

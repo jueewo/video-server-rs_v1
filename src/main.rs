@@ -836,7 +836,8 @@ async fn main() -> anyhow::Result<()> {
     });
 
     // Session layer with SQLite-backed persistent storage
-    let session_pool = sqlx::SqlitePool::connect("sqlite:sessions.db")
+    // Use ?mode=rwc to create the database file if it doesn't exist
+    let session_pool = sqlx::SqlitePool::connect("sqlite:sessions.db?mode=rwc")
         .await
         .expect("Failed to connect to session database");
 

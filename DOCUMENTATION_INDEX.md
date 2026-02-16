@@ -58,11 +58,11 @@
 ### 📁 Additional Documentation
 
 #### Architecture & Features
-Located in `docs/` directory:
-- `docs/architecture/` - System architecture, modular design
-- `docs/auth/` - Authentication (OIDC, emergency login)
-- `docs/features/` - Feature-specific guides
-- `docs/README.md` - Documentation index for docs/ folder
+Located in `docs_dev/` directory (developer documentation):
+- `docs_dev/architecture/` - System architecture, modular design
+- `docs_dev/auth/` - Authentication (OIDC, emergency login)
+- `docs_dev/features/` - Feature-specific guides
+- `docs_dev/README.md` - Documentation index for docs_dev/ folder
 
 #### Archived Documentation
 Located in `docs_archive/`:
@@ -83,8 +83,8 @@ See `docs_archive/README.md` for complete archive index.
 
 1. **Start:** `README.md` - Get the server running
 2. **Understand:** `MASTER_PLAN.md` - Learn the vision
-3. **Deep Dive:** `docs/architecture/MODULAR_ARCHITECTURE.md`
-4. **Auth:** `docs/auth/OIDC_QUICKSTART.md`
+3. **Deep Dive:** `docs_dev/architecture/MODULAR_ARCHITECTURE.md`
+4. **Auth:** `docs_dev/auth/OIDC_QUICKSTART.md`
 
 ### For Feature Development
 
@@ -111,11 +111,15 @@ See `docs_archive/README.md` for complete archive index.
 - **Phase Plans:** 3 files (PHASE1_SUMMARY, PHASE2_PLAN, PHASE3_PLAN)
 - **Technical:** 4 files (API_TESTING, IMAGE_MANAGER_REF, TROUBLESHOOTING, INDEX)
 
-### docs/ Directory
+### docs_dev/ Directory (Developer Documentation)
 - **Architecture:** 3 files
 - **Authentication:** 8 files
 - **Features:** 3 files
 - **Guides:** 2 files
+
+### docs/ Directory (User Documentation)
+- **Status:** Placeholder - Coming soon
+- **Purpose:** User-facing documentation for end users and administrators
 
 ### docs_archive/ Directory
 - **Archived:** 50+ historical documents
@@ -135,7 +139,7 @@ See `docs_archive/README.md` for complete archive index.
 → `MASTER_PLAN.md`
 
 ### "How do I set up authentication?"
-→ `docs/auth/OIDC_QUICKSTART.md`
+→ `docs_dev/auth/OIDC_QUICKSTART.md`
 
 ### "What are we working on now?"
 → `PROJECT_STATUS.md` or `PHASE3_PLAN.md`
@@ -176,6 +180,12 @@ See `docs_archive/README.md` for complete archive index.
 - New endpoints added
 - Breaking changes
 - New features
+
+### Directory Purpose
+
+- **`docs/`** - User-facing documentation (end users, admins, content creators)
+- **`docs_dev/`** - Developer documentation (architecture, auth, features, API)
+- **`docs_archive/`** - Historical development documentation
 
 ### When to Archive
 
@@ -226,10 +236,11 @@ Move to `docs_archive/` when:
 When adding new documentation:
 
 1. **Check if it fits existing structure**
-   - Feature guide → `docs/features/`
-   - Architecture → `docs/architecture/`
-   - Auth → `docs/auth/`
-   - General → Root directory
+   - User guides → `docs/`
+   - Feature guide (dev) → `docs_dev/features/`
+   - Architecture → `docs_dev/architecture/`
+   - Auth → `docs_dev/auth/`
+   - General (dev) → Root directory
 
 2. **Update this index**
    - Add your document to the appropriate section

@@ -123,10 +123,11 @@ pub async fn view_markdown_handler(
             )
         })?;
 
-    // Render markdown to HTML using pulldown-cmark
-    let rendered_html = render_markdown(&raw_markdown);
+    // Render markdown to HTML using docs-viewer's renderer (with syntax highlighting)
+    let renderer = docs_viewer::markdown::MarkdownRenderer::new();
+    let rendered_html = renderer.render(&raw_markdown);
 
-    info!("📄 Rendered markdown for: {}", slug);
+    info!("📄 Rendered markdown with syntax highlighting for: {}", slug);
 
     let template = MarkdownViewTemplate {
         authenticated,
@@ -142,23 +143,4 @@ pub async fn view_markdown_handler(
         .render()
         .map(Html)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
-}
-
-/// Render markdown to HTML
-fn render_markdown(markdown: &str) -> String {
-    use pulldown_cmark::{html, Options, Parser};
-
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_TABLES);
-    options.insert(Options::ENABLE_FOOTNOTES);
-    options.insert(Options::ENABLE_STRIKETHROUGH);
-    options.insert(Options::ENABLE_TASKLISTS);
-    options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
-
-    let parser = Parser::new_ext(markdown, options);
-
-    let mut html_output = String::new();
-    html::push_html(&mut html_output, parser);
-
-    html_output
 }

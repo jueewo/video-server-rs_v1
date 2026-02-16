@@ -8,6 +8,7 @@ edition = "2021"
 common = { path = "../common" }
 media-core = { path = "../media-core" }
 access-control = { path = "../access-control" }
+docs-viewer = { path = "../docs-viewer" }
 
 # Web framework
 axum = { workspace = true }
@@ -40,6 +41,3 @@ image = "0.25"
 # Utilities
 mime_guess = "2.0"
 tokio-util = { version = "0.7", features = ["io"] }
-
-# Markdown rendering
-pulldown-cmark = "0.11"

@@ -5,7 +5,7 @@ use askama::Template;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
-    response::Html,
+    response::{Html, IntoResponse, Redirect, Response},
 };
 use serde::Deserialize;
 use sqlx::Row;
@@ -58,7 +58,7 @@ pub async fn media_detail_handler(
     State(state): State<MediaManagerState>,
     Path(slug): Path<String>,
     Query(query): Query<AccessCodeQuery>,
-) -> Result<Html<String>, (StatusCode, String)> {
+) -> Result<Response, (StatusCode, String)> {
     let authenticated: bool = session
         .get("authenticated")
         .await
@@ -162,6 +162,14 @@ pub async fn media_detail_handler(
         }
     };
 
+    let mime_type: String = row.try_get("mime_type").unwrap_or_default();
+
+    // Auto-redirect to markdown view for markdown documents
+    if mime_type == "text/markdown" {
+        info!("📄 Redirecting markdown document to view page: {}", slug);
+        return Ok(Redirect::to(&format!("/media/{}/view", slug)).into_response());
+    }
+
     let media = MediaDetail {
         id: media_id,
         slug: row.try_get("slug").unwrap_or_default(),
@@ -169,7 +177,7 @@ pub async fn media_detail_handler(
         title: row.try_get("title").unwrap_or_default(),
         description: row.try_get("description").ok(),
         filename: row.try_get("filename").unwrap_or_default(),
-        mime_type: row.try_get("mime_type").unwrap_or_default(),
+        mime_type,
         file_size: row.try_get("file_size").unwrap_or(0),
         is_public: is_public_bool,
         featured: row.try_get::<i32, _>("featured").unwrap_or(0) == 1,
@@ -198,7 +206,7 @@ pub async fn media_detail_handler(
     };
 
     match template.render() {
-        Ok(html) => Ok(Html(html)),
+        Ok(html) => Ok(Html(html).into_response()),
         Err(e) => {
             error!("Template render error: {}", e);
             Err((

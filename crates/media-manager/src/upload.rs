@@ -510,24 +510,171 @@ async fn process_video_upload(
     ))
 }
 
-/// Process document upload (stub - implement document processing later)
+/// Process document upload
 async fn process_document_upload(
-    _state: &MediaManagerState,
-    _slug: String,
-    _title: String,
-    _description: Option<String>,
-    _is_public: i32,
-    _user_id: String,
-    _group_id: Option<i32>,
-    _vault_id: String,
-    _category: Option<String>,
-    _tags: Option<Vec<String>>,
-    _file_data: Vec<u8>,
-    _original_filename: String,
+    state: &MediaManagerState,
+    slug: String,
+    title: String,
+    description: Option<String>,
+    is_public: i32,
+    user_id: String,
+    group_id: Option<i32>,
+    vault_id: String,
+    category: Option<String>,
+    tags: Option<Vec<String>>,
+    file_data: Vec<u8>,
+    original_filename: String,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    // TODO: Implement document processing
-    Err((
-        StatusCode::NOT_IMPLEMENTED,
-        Json(serde_json::json!({"error": "Document upload not yet implemented in unified handler"})),
-    ))
+    use std::path::Path;
+
+    // Determine MIME type from extension
+    let extension = Path::new(&original_filename)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("");
+
+    let mime_type = match extension.to_lowercase().as_str() {
+        "pdf" => "application/pdf",
+        "md" | "markdown" => "text/markdown",
+        "csv" => "text/csv",
+        "json" => "application/json",
+        "xml" => "application/xml",
+        "txt" => "text/plain",
+        "doc" => "application/msword",
+        "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        _ => "application/octet-stream",
+    };
+
+    let file_size = file_data.len() as i64;
+
+    // Save file to vault storage
+    let filename = format!("{}.{}", slug, extension);
+
+    let document_path = state
+        .user_storage
+        .vault_media_dir(&vault_id, common::storage::MediaType::Document)
+        .join(&filename);
+
+    // Ensure directory exists
+    if let Some(parent) = document_path.parent() {
+        tokio::fs::create_dir_all(parent).await.map_err(|e| {
+            error!("Failed to create directory: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "Failed to create storage directory"})),
+            )
+        })?;
+    }
+
+    // Write document file
+    tokio::fs::write(&document_path, &file_data).await.map_err(|e| {
+        error!("Failed to save document file: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": "Failed to save file"})),
+        )
+    })?;
+
+    info!(
+        "📄 Saved document file for user {} vault {}: {}",
+        user_id, vault_id, filename
+    );
+
+    // Create media item DTO
+    let media_item = MediaItemCreateDTO {
+        slug: Some(slug.clone()),
+        media_type: MediaType::Document,
+        title: title.clone(),
+        description,
+        filename: filename.clone(),
+        original_filename: Some(original_filename),
+        mime_type: mime_type.to_string(),
+        file_size,
+        is_public,
+        user_id: Some(user_id.clone()),
+        group_id,
+        vault_id: Some(vault_id),
+        status: Some("active".to_string()),
+        featured: Some(0),
+        category,
+        thumbnail_url: None, // No thumbnail for documents
+        preview_url: None,
+        webp_url: None,
+        allow_download: Some(1),
+        allow_comments: Some(1),
+        mature_content: Some(0),
+        seo_title: None,
+        seo_description: None,
+        seo_keywords: None,
+        tags,
+    };
+
+    // Insert into database
+    let media_type_str = media_item.media_type.to_string();
+    let result = sqlx::query!(
+        r#"
+        INSERT INTO media_items (
+            slug, media_type, title, description, filename, original_filename, mime_type, file_size,
+            is_public, user_id, group_id, vault_id, status, featured, category,
+            allow_download, allow_comments, mature_content
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        "#,
+        media_item.slug,
+        media_type_str,
+        media_item.title,
+        media_item.description,
+        media_item.filename,
+        media_item.original_filename,
+        media_item.mime_type,
+        media_item.file_size,
+        media_item.is_public,
+        media_item.user_id,
+        media_item.group_id,
+        media_item.vault_id,
+        media_item.status,
+        media_item.featured,
+        media_item.category,
+        media_item.allow_download,
+        media_item.allow_comments,
+        media_item.mature_content
+    )
+    .execute(&state.pool)
+    .await
+    .map_err(|e| {
+        error!("Database error inserting document: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": "Failed to save to database"})),
+        )
+    })?;
+
+    let media_id = result.last_insert_rowid() as i32;
+
+    // Add tags if provided
+    if let Some(tag_list) = media_item.tags {
+        for tag in tag_list {
+            let _ = sqlx::query!(
+                "INSERT INTO media_tags (media_id, tag) VALUES (?, ?)",
+                media_id,
+                tag
+            )
+            .execute(&state.pool)
+            .await;
+        }
+    }
+
+    info!(
+        "✅ Document uploaded successfully: {} (ID: {})",
+        slug, media_id
+    );
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "message": "Document uploaded successfully",
+        "media_type": "document",
+        "slug": slug,
+        "id": media_id,
+        "mime_type": mime_type,
+        "file_size": file_size
+    })))
 }

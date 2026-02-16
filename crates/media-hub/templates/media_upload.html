@@ -725,7 +725,22 @@
             const fileInput = document.getElementById('fileInput');
             if (fileInput.files.length > 0) {
                 const mediaType = detectMediaType(fileInput.files[0]).toLowerCase();
+                console.log('📤 Uploading file:', fileInput.files[0].name, 'Type:', mediaType);
                 formData.set('media_type', mediaType);
+            } else {
+                console.error('No file selected');
+                alert('Please select a file to upload');
+                return;
+            }
+
+            // Log all form data for debugging
+            console.log('Form data being sent:');
+            for (let [key, value] of formData.entries()) {
+                if (key === 'file') {
+                    console.log(`  ${key}:`, value.name, value.size, 'bytes');
+                } else {
+                    console.log(`  ${key}:`, value);
+                }
             }
 
             uploadBtn.disabled = true;
@@ -754,11 +769,11 @@
                         let errorMessage = 'Upload failed';
                         try {
                             const response = JSON.parse(xhr.responseText);
-                            errorMessage = response.message || errorMessage;
+                            errorMessage = response.error || response.message || errorMessage;
                         } catch (e) {
                             errorMessage += ': ' + xhr.statusText;
                         }
-                        console.error('Upload error:', xhr.status, xhr.responseText);
+                        console.error('❌ Upload error:', xhr.status, xhr.responseText);
                         throw new Error(errorMessage);
                     }
                 });

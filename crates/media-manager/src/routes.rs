@@ -36,8 +36,8 @@ impl MediaManagerState {
 /// Create media routes
 pub fn media_routes() -> Router<MediaManagerState> {
     Router::new()
-        // Upload - temporarily commented out, using media-hub's upload for now
-        // .route("/api/media/upload", post(crate::upload::upload_media))
+        // Upload - using unified media upload handler
+        .route("/api/media/upload", post(crate::upload::upload_media))
 
         // Detail page (HTML) - /media handled by media-hub
         .route("/media/:slug", get(crate::detail::media_detail_handler))

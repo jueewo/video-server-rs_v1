@@ -2,7 +2,7 @@
 
 {% block title %}{{ title }} - Markdown View{% endblock %}
 
-{% block head %}
+{% block extra_head %}
 <style>
     /* Markdown styles */
     .markdown-content {
@@ -136,8 +136,8 @@
                     <button onclick="copyMarkdown()" class="btn btn-sm btn-outline">
                         📋 Copy
                     </button>
-                    <a href="/media/{{ slug }}" class="btn btn-sm btn-ghost">
-                        ← Back
+                    <a href="/media" class="btn btn-sm btn-ghost">
+                        ← Back to Media
                     </a>
                 </div>
             </div>
@@ -156,7 +156,9 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_scripts %}
 <script>
     function toggleRaw() {
         const rendered = document.getElementById('rendered');
@@ -166,12 +168,12 @@
     }
 
     function copyMarkdown() {
-        const markdown = {{ raw_markdown|tojson }};
+        const markdown = {{ raw_markdown|tojson|safe }};
         navigator.clipboard.writeText(markdown).then(() => {
-            alert('✅ Markdown copied to clipboard!');
+            showToast('✅ Markdown copied to clipboard!', 'success');
         }).catch(err => {
             console.error('Failed to copy:', err);
-            alert('❌ Failed to copy to clipboard');
+            showToast('❌ Failed to copy to clipboard', 'error');
         });
     }
 </script>

@@ -50,6 +50,7 @@ pub async fn upload_media(
     let mut description: Option<String> = None;
     let mut is_public: Option<i32> = None;
     let mut group_id: Option<i32> = None;
+    let mut vault_id: Option<String> = None;
     let mut category: Option<String> = None;
     let mut tags: Option<Vec<String>> = None;
     let mut file_data: Option<Vec<u8>> = None;
@@ -119,6 +120,17 @@ pub async fn upload_media(
                 })?;
                 if !value.is_empty() {
                     group_id = value.parse().ok();
+                }
+            }
+            "vault_id" => {
+                let value = field.text().await.map_err(|_| {
+                    (
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({"error": "Invalid vault_id field"})),
+                    )
+                })?;
+                if !value.is_empty() {
+                    vault_id = Some(value);
                 }
             }
             "category" => {
@@ -193,50 +205,89 @@ pub async fn upload_media(
         Json(serde_json::json!({"error": "filename is required"})),
     ))?;
 
-    // Auto-generate slug if not provided
+    // Get vault_id first: use provided vault_id or get/create default vault
+    let vault_id = if let Some(vid) = vault_id {
+        info!("Using user-selected vault: {}", vid);
+        vid
+    } else {
+        common::services::vault_service::get_or_create_default_vault(
+            &state.pool,
+            &state.user_storage,
+            &user_id,
+        )
+        .await
+        .map_err(|e| {
+            error!("Vault error: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "Failed to create user vault"})),
+            )
+        })?
+    };
+
+    // Auto-generate slug if not provided, ensuring global uniqueness
+    // Note: Database has UNIQUE constraint on slug column (not vault-scoped)
     let slug = if let Some(s) = slug {
         s
     } else {
-        media_core::metadata::generate_slug(&title)
+        // Generate base slug from title
+        let base_slug = media_core::metadata::generate_slug(&title);
+
+        // Check if base slug exists globally
+        let existing: Option<(i32,)> =
+            sqlx::query_as("SELECT id FROM media_items WHERE slug = ?")
+                .bind(&base_slug)
+                .fetch_optional(&state.pool)
+                .await
+                .map_err(|e| {
+                    error!("Database error checking slug: {}", e);
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({"error": "Database error"})),
+                    )
+                })?;
+
+        if existing.is_some() {
+            // Find next available suffix (_2, _3, etc.) globally
+            let mut counter = 2;
+            let mut unique_slug = format!("{}_{}", base_slug, counter);
+
+            loop {
+                let exists: Option<(i32,)> =
+                    sqlx::query_as("SELECT id FROM media_items WHERE slug = ?")
+                        .bind(&unique_slug)
+                        .fetch_optional(&state.pool)
+                        .await
+                        .map_err(|e| {
+                            error!("Database error checking slug: {}", e);
+                            (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                Json(serde_json::json!({"error": "Database error"})),
+                            )
+                        })?;
+
+                if exists.is_none() {
+                    break;
+                }
+
+                counter += 1;
+                unique_slug = format!("{}_{}", base_slug, counter);
+
+                // Safety check to prevent infinite loop
+                if counter > 1000 {
+                    return Err((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({"error": "Could not generate unique slug"})),
+                    ));
+                }
+            }
+
+            info!("Slug '{}' already exists globally, using '{}' instead", base_slug, unique_slug);
+            unique_slug
+        } else {
+            base_slug
+        }
     };
-
-    // Check if slug already exists
-    let existing: Option<(i32,)> =
-        sqlx::query_as("SELECT id FROM media_items WHERE slug = ?")
-            .bind(&slug)
-            .fetch_optional(&state.pool)
-            .await
-            .map_err(|e| {
-                error!("Database error checking slug: {}", e);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({"error": "Database error"})),
-                )
-            })?;
-
-    if existing.is_some() {
-        return Err((
-            StatusCode::CONFLICT,
-            Json(serde_json::json!({
-                "error": format!("A {} with this slug already exists", media_type_enum)
-            })),
-        ));
-    }
-
-    // Get or create default vault for user
-    let vault_id = common::services::vault_service::get_or_create_default_vault(
-        &state.pool,
-        &state.user_storage,
-        &user_id,
-    )
-    .await
-    .map_err(|e| {
-        error!("Vault error: {}", e);
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": "Failed to create user vault"})),
-        )
-    })?;
 
     // Process based on media type
     match media_type_enum {
@@ -552,8 +603,14 @@ async fn process_document_upload(
 
     let file_size = file_data.len() as i64;
 
-    // Save file to vault storage
-    let filename = format!("{}.{}", slug, extension);
+    // Save file to vault storage with timestamp prefix for chronological sorting
+    // Format: timestamp_originalfilename.ext (e.g., 1770573326_document.pdf)
+    // The slug is used for URLs, but we keep the original filename on disk with timestamp
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let filename = format!("{}_{}", timestamp, original_filename);
 
     let document_path = state
         .user_storage

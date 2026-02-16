@@ -3,6 +3,19 @@
 {% block title %}All Media - Media Hub{% endblock %}
 
 {% block content %}
+<!-- Hidden div to ensure Tailwind includes gradient classes (prevents purging) -->
+<div class="hidden">
+    <div class="bg-gradient-to-br from-red-200 via-red-300 to-pink-300"></div>
+    <div class="bg-gradient-to-br from-green-200 via-emerald-300 to-teal-300"></div>
+    <div class="bg-gradient-to-br from-purple-200 via-purple-300 to-indigo-300"></div>
+    <div class="bg-gradient-to-br from-red-200 via-orange-300 to-amber-300"></div>
+    <div class="bg-gradient-to-br from-emerald-200 via-green-300 to-lime-300"></div>
+    <div class="bg-gradient-to-br from-amber-200 via-yellow-300 to-orange-300"></div>
+    <div class="bg-gradient-to-br from-blue-200 via-cyan-300 to-sky-300"></div>
+    <div class="bg-gradient-to-br from-slate-200 via-gray-300 to-zinc-300"></div>
+    <div class="text-8xl drop-shadow-lg"></div>
+</div>
+
 <div class="container mx-auto px-4 py-8 max-w-7xl">
     <!-- Page Header -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -121,6 +134,8 @@
                 <div class="badge badge-sm absolute top-2 right-2
                     {% if item.type_label() == "Video" %}badge-error
                     {% else if item.type_label() == "Image" %}badge-success
+                    {% else if item.type_label() == "Markdown" %}badge-secondary
+                    {% else if item.type_label() == "PDF" %}badge-warning
                     {% else if item.type_label() == "Document" %}badge-info
                     {% else %}badge-neutral{% endif %}">
                     {{ item.type_label() }}
@@ -226,24 +241,46 @@
                     const badge = figure.querySelector('.badge');
                     const mediaType = badge ? badge.textContent.trim() : '';
 
-                    // Create fallback with emoji
+                    // Create fallback with emoji and vibrant gradient background using Tailwind classes
                     let emoji = '📄';
-                    let bgClass = 'bg-base-300';
+                    let gradientClasses = 'bg-gradient-to-br from-gray-200 via-gray-300 to-gray-300';
 
                     if (mediaType.includes('Video')) {
                         emoji = '🎬';
-                        bgClass = 'bg-error/20';
+                        gradientClasses = 'bg-gradient-to-br from-red-200 via-red-300 to-pink-300';
                     } else if (mediaType.includes('Image')) {
                         emoji = '🖼️';
-                        bgClass = 'bg-success/20';
+                        gradientClasses = 'bg-gradient-to-br from-green-200 via-emerald-300 to-teal-300';
+                    } else if (mediaType.includes('Markdown')) {
+                        emoji = '📝';
+                        gradientClasses = 'bg-gradient-to-br from-purple-200 via-purple-300 to-indigo-300';
+                    } else if (mediaType.includes('PDF')) {
+                        emoji = '📕';
+                        gradientClasses = 'bg-gradient-to-br from-red-200 via-orange-300 to-amber-300';
+                    } else if (mediaType.includes('CSV')) {
+                        emoji = '📊';
+                        gradientClasses = 'bg-gradient-to-br from-emerald-200 via-green-300 to-lime-300';
+                    } else if (mediaType.includes('JSON') || mediaType.includes('XML')) {
+                        emoji = mediaType.includes('JSON') ? '{ }' : '<>';
+                        gradientClasses = 'bg-gradient-to-br from-amber-200 via-yellow-300 to-orange-300';
+                    } else if (mediaType.includes('BPMN')) {
+                        emoji = '⚙️';
+                        gradientClasses = 'bg-gradient-to-br from-blue-200 via-cyan-300 to-sky-300';
                     } else if (mediaType.includes('Document')) {
                         emoji = '📄';
-                        bgClass = 'bg-info/20';
+                        gradientClasses = 'bg-gradient-to-br from-slate-200 via-gray-300 to-zinc-300';
                     }
 
+                    // Create a vibrant document preview with Tailwind/DaisyUI classes
                     const fallback = document.createElement('div');
-                    fallback.className = `absolute inset-0 flex items-center justify-center text-6xl ${bgClass}`;
-                    fallback.textContent = emoji;
+                    fallback.className = `absolute inset-0 flex items-center justify-center ${gradientClasses}`;
+
+                    // Large icon with Tailwind classes
+                    const iconDiv = document.createElement('div');
+                    iconDiv.className = 'text-8xl drop-shadow-lg';
+                    iconDiv.textContent = emoji;
+
+                    fallback.appendChild(iconDiv);
 
                     this.style.display = 'none';
                     figure.appendChild(fallback);

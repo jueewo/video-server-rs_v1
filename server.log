@@ -1,423 +1,3 @@
-warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
-package:   /Users/juergen/MyDev/MyProjects/video-server-rs_v1/crates/media-mcp/Cargo.toml
-workspace: /Users/juergen/MyDev/MyProjects/video-server-rs_v1/Cargo.toml
-warning: unused import: `AddTagsRequest`
-  --> crates/common/src/handlers/tag_handlers.rs:15:5
-   |
-15 |     AddTagsRequest, CreateTagRequest, Tag, Tag...
-   |     ^^^^^^^^^^^^^^
-   |
-   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
-
-warning: unused imports: `AddTagRequest`, `AddTagsRequest`, `CategoryStats`, `TagFilterRequest`, `TagSearchResult`, `TagWithCount`, and `TaggedResource`
- --> crates/common/src/services/tag_service.rs:7:5
-  |
-7 |     AddTagRequest, AddTagsRequest, CategoryStats, CreateTagRequest, Popula...
-  |     ^^^^^^^^^^^^^  ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^
-8 |     TagAutocompleteResponse, TagDeleteResponse, TagFilterRequest, TagRespo...
-  |                                                 ^^^^^^^^^^^^^^^^
-9 |     TagSearchResult, TagStats, TagSummary, TagWithCount, TaggedResource, U...
-  |     ^^^^^^^^^^^^^^^                        ^^^^^^^^^^^^  ^^^^^^^^^^^^^^
-
-warning: unused import: `ImageFormat`
- --> crates/common/src/utils/image_metadata.rs:5:45
-  |
-5 | ...nericImageView, ImageFormat};
-  |                    ^^^^^^^^^^^
-
-warning: unused import: `error`
- --> crates/common/src/utils/image_metadata.rs:8:22
-  |
-8 | use tracing::{debug, error, warn};
-  |                      ^^^^^
-
-warning: unused import: `Serialize`
- --> crates/common/src/utils/video_metadata.rs:8:26
-  |
-8 | use serde::{Deserialize, Serialize};
-  |                          ^^^^^^^^^
-
-warning: unused imports: `debug` and `error`
-  --> crates/common/src/utils/video_metadata.rs:11:15
-   |
-11 | use tracing::{debug, error, info, warn};
-   |               ^^^^^  ^^^^^
-
-warning: ambiguous glob re-exports
-  --> crates/common/src/lib.rs:14:9
-   |
-14 | pub use db::*;
-   |         ^^^^^ the name `tags` in the type namespace is first re-exported here
-...
-18 | pub use routes::*;
-   |         --------- but the name `tags` in the type namespace is also re-exported here
-   |
-   = note: `#[warn(ambiguous_glob_reexports)]` on by default
-
-warning: unused variable: `status`
-   --> crates/common/src/services/video_service.rs:199:21
-    |
-199 |         if let Some(status) = &params.status {
-    |                     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_status`
-    |
-    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
-
-warning: unused variable: `where_sql`
-   --> crates/common/src/services/video_service.rs:272:13
-    |
-272 |         let where_sql = if where_clauses.is_e...
-    |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_where_sql`
-
-warning: fields `filename`, `format_long_name`, and `size` are never read
-  --> crates/common/src/utils/video_metadata.rs:26:5
-   |
-25 | struct FFprobeFormat {
-   |        ------------- fields in this struct
-26 |     filename: Option<String>,
-   |     ^^^^^^^^
-27 |     format_name: Option<String>,
-28 |     format_long_name: Option<String>,
-   |     ^^^^^^^^^^^^^^^^
-29 |     duration: Option<String>,
-30 |     size: Option<String>,
-   |     ^^^^
-   |
-   = note: `FFprobeFormat` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
-   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
-
-warning: field `codec_long_name` is never read
-  --> crates/common/src/utils/video_metadata.rs:38:5
-   |
-35 | struct FFprobeStream {
-   |        ------------- field in this struct
-...
-38 |     codec_long_name: Option<String>,
-   |     ^^^^^^^^^^^^^^^
-   |
-   = note: `FFprobeStream` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
-
-warning: `common` (lib) generated 11 warnings (run `cargo fix --lib -p common` to apply 8 suggestions)
-warning: unused import: `Permission`
-  --> crates/access-control/src/audit.rs:21:42
-   |
-21 | use crate::{AccessDecision, AccessError, Permission};
-   |                                          ^^^^^^^^^^
-   |
-   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
-
-warning: field `pool` is never read
-  --> crates/access-control/src/service.rs:61:5
-   |
-60 | pub struct AccessControlService {
-   |            -------------------- field in this struct
-61 |     pool: SqlitePool,
-   |     ^^^^
-   |
-   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
-
-warning: `access-control` (lib) generated 2 warnings (run `cargo fix --lib -p access-control` to apply 1 suggestion)
-warning: unused import: `error`
-  --> crates/video-manager/src/storage.rs:16:22
-   |
-16 | use tracing::{debug, error, info, warn};
-   |                      ^^^^^
-   |
-   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
-
-warning: unused import: `Deserialize`
-  --> crates/video-manager/src/upload.rs:20:13
-   |
-20 | use serde::{Deserialize, Serialize};
-   |             ^^^^^^^^^^^
-
-warning: unused imports: `Bytes`, `UploadConfig`, and `UploadHandler`
-  --> crates/video-manager/src/upload_v2.rs:20:14
-   |
-20 |     upload::{UploadConfig, UploadHandler},
-   |              ^^^^^^^^^^^^  ^^^^^^^^^^^^^
-21 |     validation::validate_filename,
-22 |     Bytes, MediaType,
-   |     ^^^^^
-
-warning: unused import: `Deserialize`
-  --> crates/video-manager/src/upload_v2.rs:24:13
-   |
-24 | use serde::{Deserialize, Serialize};
-   |             ^^^^^^^^^^^
-
-warning: unused import: `crate::ffmpeg::FFmpegConfig`
-  --> crates/video-manager/src/lib.rs:44:5
-   |
-44 | use crate::ffmpeg::FFmpegConfig;
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-warning: unused import: `crate::hls::HlsConfig`
-  --> crates/video-manager/src/lib.rs:45:5
-   |
-45 | use crate::hls::HlsConfig;
-   |     ^^^^^^^^^^^^^^^^^^^^^
-
-warning: unused import: `crate::storage::StorageConfig`
-  --> crates/video-manager/src/lib.rs:47:5
-   |
-47 | use crate::storage::StorageConfig;
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-warning: struct `VideoRecord` is never constructed
-    --> crates/video-manager/src/lib.rs:1649:8
-     |
-1649 | struct VideoRecord {
-     |        ^^^^^^^^^^^
-     |
-     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
-
-warning: unused variable: `total_pixels`
-   --> crates/image-manager/src/media_item_impl.rs:525:9
-    |
-525 |     let total_pixels = (width * height) as u64;
-    |         ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_total_pixels`
-    |
-    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
-
-warning: unused variable: `is_public`
-    --> crates/image-manager/src/lib.rs:1394:9
-     |
-1394 |     let is_public = is_public_int == 1;
-     |         ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_is_public`
-
-warning: type `ImageTagsResponse` is more private than the item `get_image_tags_handler`
-    --> crates/image-manager/src/lib.rs:1645:1
-     |
-1645 | / pub async fn get_image_tags_handler(
-1646 | |     State(state): State<Arc<ImageManagerState>>,
-1647 | |     _session: Session,
-1648 | |     Path(image_id): Path<i32>,
-1649 | | ) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
-     | |_______________________________________________________________________^ function `get_image_tags_handler` is reachable at visibility `pub`
-     |
-note: but type `ImageTagsResponse` is only usable at visibility `pub(crate)`
-    --> crates/image-manager/src/lib.rs:1588:1
-     |
-1588 | struct ImageTagsResponse {
-     | ^^^^^^^^^^^^^^^^^^^^^^^^
-     = note: `#[warn(private_interfaces)]` on by default
-
-warning: type `ErrorResponse` is more private than the item `get_image_tags_handler`
-    --> crates/image-manager/src/lib.rs:1645:1
-     |
-1645 | / pub async fn get_image_tags_handler(
-1646 | |     State(state): State<Arc<ImageManagerState>>,
-1647 | |     _session: Session,
-1648 | |     Path(image_id): Path<i32>,
-1649 | | ) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
-     | |_______________________________________________________________________^ function `get_image_tags_handler` is reachable at visibility `pub`
-     |
-note: but type `ErrorResponse` is only usable at visibility `pub(crate)`
-    --> crates/image-manager/src/lib.rs:1594:1
-     |
-1594 | struct ErrorResponse {
-     | ^^^^^^^^^^^^^^^^^^^^
-
-warning: type `ImageTagsResponse` is more private than the item `add_image_tags_handler`
-    --> crates/image-manager/src/lib.rs:1690:1
-     |
-1690 | / pub async fn add_image_tags_handler(
-1691 | |     State(state): State<Arc<ImageManagerState>>,
-1692 | |     session: Session,
-1693 | |     Path(image_id): Path<i32>,
-1694 | |     Json(request): Json<AddTagsRequest>,
-1695 | | ) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
-     | |_______________________________________________________________________^ function `add_image_tags_handler` is reachable at visibility `pub`
-     |
-note: but type `ImageTagsResponse` is only usable at visibility `pub(crate)`
-    --> crates/image-manager/src/lib.rs:1588:1
-     |
-1588 | struct ImageTagsResponse {
-     | ^^^^^^^^^^^^^^^^^^^^^^^^
-
-warning: type `ErrorResponse` is more private than the item `add_image_tags_handler`
-    --> crates/image-manager/src/lib.rs:1690:1
-     |
-1690 | / pub async fn add_image_tags_handler(
-1691 | |     State(state): State<Arc<ImageManagerState>>,
-1692 | |     session: Session,
-1693 | |     Path(image_id): Path<i32>,
-1694 | |     Json(request): Json<AddTagsRequest>,
-1695 | | ) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
-     | |_______________________________________________________________________^ function `add_image_tags_handler` is reachable at visibility `pub`
-     |
-note: but type `ErrorResponse` is only usable at visibility `pub(crate)`
-    --> crates/image-manager/src/lib.rs:1594:1
-     |
-1594 | struct ErrorResponse {
-     | ^^^^^^^^^^^^^^^^^^^^
-
-warning: type `ImageTagsResponse` is more private than the item `replace_image_tags_handler`
-    --> crates/image-manager/src/lib.rs:1749:1
-     |
-1749 | / pub async fn replace_image_tags_handler(
-1750 | |     State(state): State<Arc<ImageManagerState>>,
-1751 | |     session: Session,
-1752 | |     Path(image_id): Path<i32>,
-1753 | |     Json(request): Json<AddTagsRequest>,
-1754 | | ) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
-     | |_______________________________________________________________________^ function `replace_image_tags_handler` is reachable at visibility `pub`
-     |
-note: but type `ImageTagsResponse` is only usable at visibility `pub(crate)`
-    --> crates/image-manager/src/lib.rs:1588:1
-     |
-1588 | struct ImageTagsResponse {
-     | ^^^^^^^^^^^^^^^^^^^^^^^^
-
-warning: type `ErrorResponse` is more private than the item `replace_image_tags_handler`
-    --> crates/image-manager/src/lib.rs:1749:1
-     |
-1749 | / pub async fn replace_image_tags_handler(
-1750 | |     State(state): State<Arc<ImageManagerState>>,
-1751 | |     session: Session,
-1752 | |     Path(image_id): Path<i32>,
-1753 | |     Json(request): Json<AddTagsRequest>,
-1754 | | ) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
-     | |_______________________________________________________________________^ function `replace_image_tags_handler` is reachable at visibility `pub`
-     |
-note: but type `ErrorResponse` is only usable at visibility `pub(crate)`
-    --> crates/image-manager/src/lib.rs:1594:1
-     |
-1594 | struct ErrorResponse {
-     | ^^^^^^^^^^^^^^^^^^^^
-
-warning: type `ImageTagsResponse` is more private than the item `remove_image_tag_handler`
-    --> crates/image-manager/src/lib.rs:1812:1
-     |
-1812 | / pub async fn remove_image_tag_handler(
-1813 | |     State(state): State<Arc<ImageManagerState>>,
-1814 | |     session: Session,
-1815 | |     Path((image_id, tag_slug)): Path<(i32, String)>,
-1816 | | ) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
-     | |_______________________________________________________________________^ function `remove_image_tag_handler` is reachable at visibility `pub`
-     |
-note: but type `ImageTagsResponse` is only usable at visibility `pub(crate)`
-    --> crates/image-manager/src/lib.rs:1588:1
-     |
-1588 | struct ImageTagsResponse {
-     | ^^^^^^^^^^^^^^^^^^^^^^^^
-
-warning: type `ErrorResponse` is more private than the item `remove_image_tag_handler`
-    --> crates/image-manager/src/lib.rs:1812:1
-     |
-1812 | / pub async fn remove_image_tag_handler(
-1813 | |     State(state): State<Arc<ImageManagerState>>,
-1814 | |     session: Session,
-1815 | |     Path((image_id, tag_slug)): Path<(i32, String)>,
-1816 | | ) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
-     | |_______________________________________________________________________^ function `remove_image_tag_handler` is reachable at visibility `pub`
-     |
-note: but type `ErrorResponse` is only usable at visibility `pub(crate)`
-    --> crates/image-manager/src/lib.rs:1594:1
-     |
-1594 | struct ErrorResponse {
-     | ^^^^^^^^^^^^^^^^^^^^
-
-warning: variant `Integer` is never constructed
-    --> crates/image-manager/src/lib.rs:1112:9
-     |
-1110 |     enum ParamValue {
-     |          ---------- variant in this enum
-1111 |         Text(String),
-1112 |         Integer(i32),
-     |         ^^^^^^^
-     |
-     = note: `ParamValue` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
-     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
-
-warning: struct `ImageRecord` is never constructed
-    --> crates/image-manager/src/lib.rs:1599:8
-     |
-1599 | struct ImageRecord {
-     |        ^^^^^^^^^^^
-
-warning: methods `save`, `delete`, and `move_to` are never used
-   --> crates/image-manager/src/media_item_impl.rs:342:14
-    |
-335 | impl ImageMediaItem {
-    | ------------------- methods in this implementation
-...
-342 |     async fn save(&self, data: &[u8]) -> MediaResult<PathBuf> {
-    |              ^^^^
-...
-371 |     async fn delete(&self) -> MediaResult<()> {
-    |              ^^^^^^
-...
-402 |     async fn move_to(&mut self, new_path: PathBuf) -> MediaResult<()> {
-    |              ^^^^^^^
-
-warning: `video-manager` (lib) generated 8 warnings (run `cargo fix --lib -p video-manager` to apply 7 suggestions)
-warning: `image-manager` (lib) generated 13 warnings (run `cargo fix --lib -p image-manager` to apply 2 suggestions)
-warning: unused variable: `state`
-   --> crates/user-auth/src/lib.rs:198:11
-    |
-198 |     State(state): State<Arc<AuthState>>,
-    |           ^^^^^ help: if this is intentional, prefix it with an underscore: `_state`
-    |
-    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
-
-warning: unused variable: `resource_id`
-   --> crates/access-codes/src/lib.rs:527:13
-    |
-527 |         let resource_id = resource_id.ok_or_else(|| {
-    |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_resource_id`
-    |
-    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
-
-warning: `user-auth` (lib) generated 1 warning (run `cargo fix --lib -p user-auth` to apply 1 suggestion)
-warning: `access-codes` (lib) generated 1 warning (run `cargo fix --lib -p access-codes` to apply 1 suggestion)
-warning: unused variable: `user_id`
-   --> crates/media-hub/src/routes.rs:699:5
-    |
-699 |     user_id: Option<&str>,
-    |     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_user_id`
-    |
-    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
-
-warning: fields `group_description` and `created_at` are never read
-   --> crates/access-groups/src/pages.rs:216:5
-    |
-213 | struct InvitationDetailsView {
-    |        --------------------- fields in this struct
-...
-216 |     group_description: String,
-    |     ^^^^^^^^^^^^^^^^^
-...
-219 |     created_at: String,
-    |     ^^^^^^^^^^
-    |
-    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
-
-warning: field `can_admin` is never read
-   --> crates/access-groups/src/pages.rs:337:5
-    |
-334 | struct GroupSettingsTemplate {
-    |        --------------------- field in this struct
-...
-337 |     can_admin: bool,
-    |     ^^^^^^^^^
-
-warning: `media-hub` (lib) generated 1 warning (run `cargo fix --lib -p media-hub` to apply 1 suggestion)
-warning: `access-groups` (lib) generated 2 warnings
-warning: field `app_icon` is never read
-   --> src/main.rs:130:5
-    |
-122 | struct DemoTemplate {
-    |        ------------ field in this struct
-...
-130 |     app_icon: String,
-    |     ^^^^^^^^
-    |
-    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
-
-warning: `video-server-rs` (bin "video-server-rs") generated 1 warning
-    Finished `release` profile [optimized] target(s) in 0.32s
-     Running `target/release/video-server-rs`
 🔧 Initializing OpenTelemetry...
 📡 Connecting to OTLP endpoint: http://localhost:4317
 ✅ Tracer installed successfully
@@ -430,7 +10,7 @@ warning: `video-server-rs` (bin "video-server-rs") generated 1 warning
 📊 Database: sqlite:media.db
 ⚠️  Migration warning: migration 20240116084200 was previously applied but is missing in the resolved migrations
    Continuing with existing database schema...
-[2m2026-02-10T21:46:52.111718Z[0m [32m INFO[0m [2mvideo_manager::progress[0m[2m:[0m Progress cleanup task started (interval: 300s, TTL: 3600s)
+[2m2026-02-16T19:13:45.772966Z[0m [32m INFO[0m [2mvideo_manager::progress[0m[2m:[0m Progress cleanup task started (interval: 300s, TTL: 3600s)
 🔐 OIDC Configuration:
    - Issuer URL: http://localhost:8088
    - Client ID: f4e64e4265ac63ea837c
@@ -439,11 +19,15 @@ warning: `video-server-rs` (bin "video-server-rs") generated 1 warning
 ✅ OIDC provider discovery successful
 ✅ OIDC authentication enabled
 🔐 Access Control Service initialized with audit logging enabled
+📁 Unified Media Manager initialized (images with original + WebP support)
+🔍 MediaHub storage_dir: /Users/juergen/MyDev/MyProjects/video-server-rs_v1/storage
 🎨 Media Hub initialized (unified media management)
+📚 Docs Viewer initialized (markdown preview)
 📋 Application Configuration:
    - Title: Media Server | appkask
    - Icon: /storage/icon.webp
 🍪 Session Configuration:
+   - Storage: SQLite (sessions.db) - persists across restarts
    - Cookie name: video_server_session
    - HTTP-only: true
    - Same-site: Lax
@@ -526,36 +110,83 @@ warning: `video-server-rs` (bin "video-server-rs") generated 1 warning
 
 ════════════════════════════════════════════════════════════════
 
-[2m2026-02-10T21:47:10.123375Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T21:47:10.124050Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m401
-[2m2026-02-10T21:47:10.684887Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T21:47:10.685025Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m401
-[2m2026-02-10T21:47:22.604708Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T21:47:22.604908Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m401
-[2m2026-02-10T21:47:23.187634Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T21:47:23.187825Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m401
-[2m2026-02-10T21:47:23.669348Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T21:47:23.669482Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m401
-[2m2026-02-10T21:47:27.757233Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/ [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T21:47:27.757414Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/ [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
-[2m2026-02-10T21:47:29.452893Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/login [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T21:47:29.453361Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/login [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
-[2m2026-02-10T21:47:30.853643Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/oidc/authorize [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T21:47:30.853923Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/oidc/authorize [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1moidc_authorize_handler[0m[2m:[0m [2muser_auth[0m[2m:[0m OIDC authorization flow initiated [3mevent[0m[2m=[0m"auth_flow_started" [3mauth_type[0m[2m=[0m"oidc"
-[2m2026-02-10T21:47:30.854103Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/oidc/authorize [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m303
-[2m2026-02-10T21:47:30.946100Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/images/logo [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T21:47:30.948402Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/images/logo [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mserve_image_handler[0m[1m{[0m[3mslug[0m[2m=[0m"logo"[1m}[0m[2m:[0m [2maccess_control::service[0m[2m:[0m Access granted to image 1 via Public Access (permission: Some(Read))
-[2m2026-02-10T21:47:30.948609Z[0m [33m WARN[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/images/logo [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mserve_image_handler[0m[1m{[0m[3mslug[0m[2m=[0m"logo"[1m}[0m[2m:[0m [2maccess_control::audit[0m[2m:[0m Failed to write audit log: error returned from database: (code: 1) no such table: access_audit_log
-[2m2026-02-10T21:47:30.948668Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/images/logo [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mserve_image_handler[0m[1m{[0m[3mslug[0m[2m=[0m"logo"[1m}[0m[2m:[0m [2mimage_manager[0m[2m:[0m Access granted to image download [3mimage_slug[0m[2m=[0mlogo [3maccess_layer[0m[2m=[0mPublic
-📷 Serving image: logo from "/Users/juergen/MyDev/MyProjects/video-server-rs_v1/storage/images/logo.png"
-[2m2026-02-10T21:47:30.949502Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/images/logo [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m3 ms [3mstatus[0m[2m=[0m200
-[2m2026-02-10T21:47:34.261997Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/oidc/callback [3mquery[0m[2m=[0m"code=e15eb514a8b9fd139ee5&state=ewiLaYZxdcHjo_zlpwvQeg"[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T21:47:34.270022Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/oidc/callback [3mquery[0m[2m=[0m"code=e15eb514a8b9fd139ee5&state=ewiLaYZxdcHjo_zlpwvQeg"[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1moidc_callback_handler[0m[2m:[0m [2muser_auth[0m[2m:[0m User authenticated successfully via OIDC [3mevent[0m[2m=[0m"auth_success" [3mauth_type[0m[2m=[0m"oidc" [3muser_id[0m[2m=[0m7bda815e-729a-49ea-88c5-3ca59b9ce487 [3memail[0m[2m=[0mjuergen@jueewo.com [3mname[0m[2m=[0mjueewo
-[2m2026-02-10T21:47:34.271512Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/oidc/callback [3mquery[0m[2m=[0m"code=e15eb514a8b9fd139ee5&state=ewiLaYZxdcHjo_zlpwvQeg"[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1moidc_callback_handler[0m[2m:[0m [2muser_auth[0m[2m:[0m User record created/updated in database [3mevent[0m[2m=[0m"user_upserted" [3muser_id[0m[2m=[0m7bda815e-729a-49ea-88c5-3ca59b9ce487
-[2m2026-02-10T21:47:34.271625Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/oidc/callback [3mquery[0m[2m=[0m"code=e15eb514a8b9fd139ee5&state=ewiLaYZxdcHjo_zlpwvQeg"[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m9 ms [3mstatus[0m[2m=[0m303
-[2m2026-02-10T21:47:34.273965Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/ [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T21:47:34.274070Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/ [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
-[2m2026-02-10T21:47:35.826125Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T21:47:35.828072Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m1 ms [3mstatus[0m[2m=[0m200
-[2m2026-02-10T21:47:39.435050Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
-[2m2026-02-10T21:47:39.435314Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/access/codes/new [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:04.151878Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/media [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:04.154408Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/media [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mmedia_hub::search[0m[2m:[0m Search completed: 21 total items, 1 pages
+[2m2026-02-16T19:15:04.154561Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/media [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m2 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:08.407345Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:08.407679Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:08.430351Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/user/vaults [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:08.431026Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/groups [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:08.431036Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/user/vaults [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:08.431703Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/groups [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:26.470789Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:26.471250Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mmedia_manager::upload[0m[2m:[0m Using user-selected vault: vault-90b0d507
+[2m2026-02-16T19:15:26.471447Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mmedia_manager::upload[0m[2m:[0m 📄 Processing document upload: slug=artificial-consumer-markets, title=artificial consumer markets, file=artificial_consumer_markets.mdx, size=4877 bytes, vault=vault-90b0d507
+[2m2026-02-16T19:15:26.471780Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mmedia_manager::upload[0m[2m:[0m 📄 Saved document file for user 7bda815e-729a-49ea-88c5-3ca59b9ce487 vault vault-90b0d507: 1771269326_artificial_consumer_markets.mdx
+[2m2026-02-16T19:15:26.472695Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mmedia_manager::upload[0m[2m:[0m ✅ Document uploaded successfully: artificial-consumer-markets (ID: 43)
+[2m2026-02-16T19:15:26.472728Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m1 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:26.491600Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/media [3mquery[0m[2m=[0m"success=upload"[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:26.492570Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/media [3mquery[0m[2m=[0m"success=upload"[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mmedia_hub::search[0m[2m:[0m Search completed: 22 total items, 1 pages
+[2m2026-02-16T19:15:26.492653Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/media [3mquery[0m[2m=[0m"success=upload"[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m1 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:26.613670Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/icons/document-fallback-trigger.svg [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:26.613964Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/icons/document-fallback-trigger.svg [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m404
+[2m2026-02-16T19:15:34.525491Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:34.525925Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:34.578996Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/user/vaults [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:34.579150Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/groups [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:34.579447Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/user/vaults [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:34.579958Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/groups [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:45.735279Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:45.735805Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mmedia_manager::upload[0m[2m:[0m Using user-selected vault: vault-90b0d507
+[2m2026-02-16T19:15:45.735984Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mmedia_manager::upload[0m[2m:[0m 📄 Processing document upload: slug=ai-b2b-solutions, title=ai b2b solutions, file=ai-b2b-solutions.md, size=1033 bytes, vault=vault-90b0d507
+[2m2026-02-16T19:15:45.736556Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mmedia_manager::upload[0m[2m:[0m 📄 Saved document file for user 7bda815e-729a-49ea-88c5-3ca59b9ce487 vault vault-90b0d507: 1771269345_ai-b2b-solutions.md
+[2m2026-02-16T19:15:45.737948Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mmedia_manager::upload[0m[2m:[0m ✅ Document uploaded successfully: ai-b2b-solutions (ID: 44)
+[2m2026-02-16T19:15:45.738012Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m2 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:45.758262Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/media [3mquery[0m[2m=[0m"success=upload"[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:45.759304Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/media [3mquery[0m[2m=[0m"success=upload"[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mmedia_hub::search[0m[2m:[0m Search completed: 23 total items, 1 pages
+[2m2026-02-16T19:15:45.759396Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/media [3mquery[0m[2m=[0m"success=upload"[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m1 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:45.841892Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/lesson1/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:45.842379Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/bbb/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:45.843211Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/welcome/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:45.843279Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/webconjoint/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:45.843368Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/test-demo-video/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:45.843383Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/bbb/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mhls_proxy_handler[0m[1m{[0m[3mpath[0m[2m=[0m"bbb/thumbnail.webp"[1m}[0m[2m:[0m [2maccess_control::service[0m[2m:[0m Access granted to video 28 via Ownership (permission: Some(Admin))
+[2m2026-02-16T19:15:45.843829Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/welcome/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mhls_proxy_handler[0m[1m{[0m[3mpath[0m[2m=[0m"welcome/thumbnail.webp"[1m}[0m[2m:[0m [2maccess_control::service[0m[2m:[0m Access granted to video 29 via Ownership (permission: Some(Admin))
+[2m2026-02-16T19:15:45.843986Z[0m [33m WARN[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/welcome/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mhls_proxy_handler[0m[1m{[0m[3mpath[0m[2m=[0m"welcome/thumbnail.webp"[1m}[0m[2m:[0m [2maccess_control::audit[0m[2m:[0m Failed to write audit log: error returned from database: (code: 1) no such table: access_audit_log
+[2m2026-02-16T19:15:45.844056Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/welcome/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mhls_proxy_handler[0m[1m{[0m[3mpath[0m[2m=[0m"welcome/thumbnail.webp"[1m}[0m[2m:[0m [2mvideo_manager[0m[2m:[0m Access granted to HLS stream [3mvideo_slug[0m[2m=[0mwelcome [3maccess_layer[0m[2m=[0mOwnership
+[2m2026-02-16T19:15:45.844544Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/welcome/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m1 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:45.845355Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/test-demo-video/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mhls_proxy_handler[0m[1m{[0m[3mpath[0m[2m=[0m"test-demo-video/thumbnail.webp"[1m}[0m[2m:[0m [2maccess_control::service[0m[2m:[0m Access granted to video 31 via Ownership (permission: Some(Admin))
+[2m2026-02-16T19:15:45.845657Z[0m [33m WARN[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/test-demo-video/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mhls_proxy_handler[0m[1m{[0m[3mpath[0m[2m=[0m"test-demo-video/thumbnail.webp"[1m}[0m[2m:[0m [2maccess_control::audit[0m[2m:[0m Failed to write audit log: error returned from database: (code: 1) no such table: access_audit_log
+[2m2026-02-16T19:15:45.845697Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/lesson1/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mhls_proxy_handler[0m[1m{[0m[3mpath[0m[2m=[0m"lesson1/thumbnail.webp"[1m}[0m[2m:[0m [2maccess_control::service[0m[2m:[0m Access granted to video 27 via Ownership (permission: Some(Admin))
+[2m2026-02-16T19:15:45.845739Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/test-demo-video/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mhls_proxy_handler[0m[1m{[0m[3mpath[0m[2m=[0m"test-demo-video/thumbnail.webp"[1m}[0m[2m:[0m [2mvideo_manager[0m[2m:[0m Access granted to HLS stream [3mvideo_slug[0m[2m=[0mtest-demo-video [3maccess_layer[0m[2m=[0mOwnership
+[2m2026-02-16T19:15:45.845881Z[0m [33m WARN[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/lesson1/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mhls_proxy_handler[0m[1m{[0m[3mpath[0m[2m=[0m"lesson1/thumbnail.webp"[1m}[0m[2m:[0m [2maccess_control::audit[0m[2m:[0m Failed to write audit log: error returned from database: (code: 1) no such table: access_audit_log
+[2m2026-02-16T19:15:45.845895Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/lesson1/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mhls_proxy_handler[0m[1m{[0m[3mpath[0m[2m=[0m"lesson1/thumbnail.webp"[1m}[0m[2m:[0m [2mvideo_manager[0m[2m:[0m Access granted to HLS stream [3mvideo_slug[0m[2m=[0mlesson1 [3maccess_layer[0m[2m=[0mOwnership
+[2m2026-02-16T19:15:45.845944Z[0m [33m WARN[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/bbb/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mhls_proxy_handler[0m[1m{[0m[3mpath[0m[2m=[0m"bbb/thumbnail.webp"[1m}[0m[2m:[0m [2maccess_control::audit[0m[2m:[0m Failed to write audit log: error returned from database: (code: 1) no such table: access_audit_log
+[2m2026-02-16T19:15:45.845967Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/bbb/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mhls_proxy_handler[0m[1m{[0m[3mpath[0m[2m=[0m"bbb/thumbnail.webp"[1m}[0m[2m:[0m [2mvideo_manager[0m[2m:[0m Access granted to HLS stream [3mvideo_slug[0m[2m=[0mbbb [3maccess_layer[0m[2m=[0mOwnership
+[2m2026-02-16T19:15:45.846016Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/lesson1/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m4 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:45.846153Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/test-demo-video/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m2 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:45.846325Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/webconjoint/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mhls_proxy_handler[0m[1m{[0m[3mpath[0m[2m=[0m"webconjoint/thumbnail.webp"[1m}[0m[2m:[0m [2maccess_control::service[0m[2m:[0m Access granted to video 30 via Ownership (permission: Some(Admin))
+[2m2026-02-16T19:15:45.846442Z[0m [33m WARN[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/webconjoint/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mhls_proxy_handler[0m[1m{[0m[3mpath[0m[2m=[0m"webconjoint/thumbnail.webp"[1m}[0m[2m:[0m [2maccess_control::audit[0m[2m:[0m Failed to write audit log: error returned from database: (code: 1) no such table: access_audit_log
+[2m2026-02-16T19:15:45.846453Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/webconjoint/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m[1mhls_proxy_handler[0m[1m{[0m[3mpath[0m[2m=[0m"webconjoint/thumbnail.webp"[1m}[0m[2m:[0m [2mvideo_manager[0m[2m:[0m Access granted to HLS stream [3mvideo_slug[0m[2m=[0mwebconjoint [3maccess_layer[0m[2m=[0mOwnership
+[2m2026-02-16T19:15:45.846525Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/bbb/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m4 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:45.846698Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/hls/webconjoint/thumbnail.webp [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m3 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:45.858112Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/icons/document-fallback-trigger.svg [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:45.858234Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/icons/document-fallback-trigger.svg [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m404
+[2m2026-02-16T19:15:47.848288Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:47.848617Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:47.872902Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/user/vaults [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:47.873015Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/groups [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:15:47.873302Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/user/vaults [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:15:47.873357Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/api/groups [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:16:01.834366Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:16:01.834792Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mmedia_manager::upload[0m[2m:[0m Using user-selected vault: vault-740c9c6a
+[2m2026-02-16T19:16:01.835138Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mmedia_manager::upload[0m[2m:[0m Slug 'artificial-consumer-markets' already exists globally, using 'artificial-consumer-markets_2' instead
+[2m2026-02-16T19:16:01.835196Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mmedia_manager::upload[0m[2m:[0m 📄 Processing document upload: slug=artificial-consumer-markets_2, title=artificial consumer markets, file=artificial_consumer_markets.mdx, size=4877 bytes, vault=vault-740c9c6a
+[2m2026-02-16T19:16:01.835670Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mmedia_manager::upload[0m[2m:[0m 📄 Saved document file for user 7bda815e-729a-49ea-88c5-3ca59b9ce487 vault vault-740c9c6a: 1771269361_artificial_consumer_markets.mdx
+[2m2026-02-16T19:16:01.836920Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mmedia_manager::upload[0m[2m:[0m ✅ Document uploaded successfully: artificial-consumer-markets_2 (ID: 45)
+[2m2026-02-16T19:16:01.836965Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mPOST [3mpath[0m[2m=[0m/api/media/upload [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m2 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:16:01.853291Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/media [3mquery[0m[2m=[0m"success=upload"[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:16:01.854689Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/media [3mquery[0m[2m=[0m"success=upload"[1m}[0m[2m:[0m[1mcall[0m[2m:[0m [2mmedia_hub::search[0m[2m:[0m Search completed: 24 total items, 1 pages
+[2m2026-02-16T19:16:01.854770Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/media [3mquery[0m[2m=[0m"success=upload"[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m1 ms [3mstatus[0m[2m=[0m200
+[2m2026-02-16T19:16:01.962361Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/icons/document-fallback-trigger.svg [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_request[0m[2m:[0m started processing request
+[2m2026-02-16T19:16:01.962536Z[0m [32m INFO[0m [1mhttp_request[0m[1m{[0m[3mmethod[0m[2m=[0mGET [3mpath[0m[2m=[0m/static/icons/document-fallback-trigger.svg [3mquery[0m[2m=[0m""[1m}[0m[2m:[0m [2mtower_http::trace::on_response[0m[2m:[0m finished processing request [3mlatency[0m[2m=[0m0 ms [3mstatus[0m[2m=[0m404

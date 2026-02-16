@@ -1,0 +1,346 @@
+{% extends "base-tailwind.html" %}
+
+{% block title %}Storage Vaults{% endblock %}
+
+{% block extra_head %}
+<style>
+    .vault-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 1.5rem;
+        margin-top: 2rem;
+    }
+
+    .vault-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        transition: all 0.2s;
+    }
+
+    .vault-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+
+    .vault-card.default {
+        border-color: #3b82f6;
+        background: linear-gradient(to bottom right, #eff6ff, white);
+    }
+
+    .vault-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 1rem;
+    }
+
+    .vault-name {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin: 0;
+    }
+
+    .vault-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .badge-default {
+        background: #3b82f6;
+        color: white;
+    }
+
+    .vault-code {
+        font-family: 'Monaco', 'Courier New', monospace;
+        font-size: 0.875rem;
+        color: #64748b;
+        background: #f1f5f9;
+        padding: 0.375rem 0.75rem;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+        display: inline-block;
+    }
+
+    .vault-stats {
+        display: flex;
+        gap: 1.5rem;
+        margin: 1rem 0;
+        padding: 1rem 0;
+        border-top: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .vault-stat {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .stat-label {
+        font-size: 0.75rem;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    .vault-meta {
+        font-size: 0.875rem;
+        color: #64748b;
+        margin-bottom: 1rem;
+    }
+
+    .vault-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .btn-sm {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-primary {
+        background: #3b82f6;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #2563eb;
+    }
+
+    .btn-secondary {
+        background: #e2e8f0;
+        color: #475569;
+    }
+
+    .btn-secondary:hover {
+        background: #cbd5e1;
+    }
+
+    .btn-danger {
+        background: #ef4444;
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background: #dc2626;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        background: #f8fafc;
+        border-radius: 8px;
+        margin-top: 2rem;
+    }
+
+    .empty-state-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .empty-state-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-state-text {
+        color: #64748b;
+        margin-bottom: 1.5rem;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .page-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin: 0;
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 1200px; margin: 0 auto; padding: 2rem;">
+    <div class="page-header">
+        <h1 class="page-title">📦 Storage Vaults</h1>
+        <a href="/vaults/new" class="btn btn-primary">+ New Vault</a>
+    </div>
+
+    {% if vaults.is_empty() %}
+    <div class="empty-state">
+        <div class="empty-state-icon">📦</div>
+        <h2 class="empty-state-title">No Vaults Yet</h2>
+        <p class="empty-state-text">Create your first vault to organize your media files</p>
+        <a href="/vaults/new" class="btn btn-primary">Create Your First Vault</a>
+    </div>
+    {% else %}
+    <div class="vault-grid">
+        {% for vault in vaults %}
+        <div class="vault-card {% if vault.is_default %}default{% endif %}">
+            <div class="vault-header">
+                <h3 class="vault-name">{{ vault.name }}</h3>
+                {% if vault.is_default %}
+                <span class="vault-badge badge-default">Default</span>
+                {% endif %}
+            </div>
+
+            <code class="vault-code">{{ vault.vault_code }}</code>
+
+            <div class="vault-stats">
+                <div class="vault-stat">
+                    <span class="stat-label">Media Items</span>
+                    <span class="stat-value">{{ vault.media_count }}</span>
+                </div>
+            </div>
+
+            <div class="vault-meta">
+                Created {{ vault.created_at_human }}
+            </div>
+
+            <div class="vault-actions">
+                <button onclick="renameVault('{{ vault.vault_code }}', '{{ vault.name }}')" class="btn-sm btn-secondary">
+                    ✏️ Rename
+                </button>
+                {% if !vault.is_default %}
+                <button onclick="setDefaultVault('{{ vault.vault_code }}')" class="btn-sm btn-secondary">
+                    ⭐ Set Default
+                </button>
+                {% endif %}
+                {% if vault.media_count == 0 %}
+                <button onclick="deleteVault('{{ vault.vault_code }}')" class="btn-sm btn-danger">
+                    🗑️ Delete
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function renameVault(vaultId, currentName) {
+    const newName = prompt('Enter new vault name:', currentName);
+    if (!newName || newName === currentName) return;
+
+    try {
+        const response = await fetch(`/api/user/vaults/${vaultId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: newName })
+        });
+
+        if (response.ok) {
+            showToast('✅ Vault renamed successfully!', 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast('❌ Failed to rename vault', 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showToast('❌ Network error', 'error');
+    }
+}
+
+async function setDefaultVault(vaultId) {
+    if (!confirm('Set this vault as your default vault?')) return;
+
+    try {
+        const response = await fetch(`/api/user/vaults/${vaultId}/set-default`, {
+            method: 'POST'
+        });
+
+        if (response.ok) {
+            showToast('✅ Default vault updated!', 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast('❌ Failed to set default vault', 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showToast('❌ Network error', 'error');
+    }
+}
+
+async function deleteVault(vaultId) {
+    if (!confirm('Delete this vault? This action cannot be undone.\n\nNote: Only empty vaults can be deleted.')) return;
+
+    try {
+        const response = await fetch(`/api/user/vaults/${vaultId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.status === 204) {
+            showToast('✅ Vault deleted successfully!', 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else if (response.status === 409) {
+            showToast('❌ Cannot delete vault with media items', 'error');
+        } else {
+            showToast('❌ Failed to delete vault', 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showToast('❌ Network error', 'error');
+    }
+}
+
+function showToast(message, type) {
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 1rem 1.5rem;
+        background: ${type === 'success' ? '#10b981' : '#ef4444'};
+        color: white;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000;
+        animation: slideIn 0.3s ease;
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+</script>
+{% endblock %}

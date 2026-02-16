@@ -87,6 +87,7 @@ use common::{create_search_routes, create_tag_routes};
 use document_manager::routes::{document_routes, DocumentManagerState};
 use docs_viewer::{docs_routes, markdown::MarkdownRenderer, DocsState};
 use gallery3d;
+use vault_manager::{vault_routes, VaultManagerState};
 use image_manager::{image_routes, ImageManagerState};
 use media_hub::{routes::media_routes, MediaHubState};
 use media_manager::{media_routes as unified_media_routes, MediaManagerState};
@@ -791,6 +792,9 @@ async fn main() -> anyhow::Result<()> {
 
     let access_state = Arc::new(AccessCodeState::new(pool.clone()));
 
+    // Initialize Vault Manager State
+    let vault_state = Arc::new(VaultManagerState::new(pool.clone(), user_storage.clone()));
+
     // Initialize Access Control Service with audit logging enabled
     let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));
     println!("🔐 Access Control Service initialized with audit logging enabled");
@@ -925,6 +929,7 @@ async fn main() -> anyhow::Result<()> {
                 )),
         )
         .merge(access_code_routes(access_state))
+        .merge(vault_routes(vault_state))
         .merge(
             access_groups::routes::create_routes(pool.clone())
                 .route_layer(axum::middleware::from_fn_with_state(

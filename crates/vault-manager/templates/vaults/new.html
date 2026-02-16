@@ -1,0 +1,317 @@
+{% extends "base-tailwind.html" %}
+
+{% block title %}Create New Vault{% endblock %}
+
+{% block extra_head %}
+<style>
+    .form-container {
+        max-width: 600px;
+        margin: 2rem auto;
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .page-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 0.5rem;
+    }
+
+    .page-description {
+        color: #64748b;
+        margin-bottom: 2rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        display: block;
+        font-weight: 600;
+        color: #334155;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 1rem;
+        transition: all 0.2s;
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .form-hint {
+        font-size: 0.875rem;
+        color: #64748b;
+        margin-top: 0.5rem;
+    }
+
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .checkbox-input {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-primary {
+        background: #3b82f6;
+        color: white;
+        flex: 1;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        background: #2563eb;
+    }
+
+    .btn-primary:disabled {
+        background: #94a3b8;
+        cursor: not-allowed;
+    }
+
+    .btn-secondary {
+        background: #e2e8f0;
+        color: #475569;
+    }
+
+    .btn-secondary:hover {
+        background: #cbd5e1;
+    }
+
+    .error-message {
+        background: #fee2e2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        padding: 1rem;
+        border-radius: 6px;
+        margin-bottom: 1.5rem;
+        display: none;
+    }
+
+    .code-preview {
+        font-family: 'Monaco', 'Courier New', monospace;
+        background: #f1f5f9;
+        padding: 0.75rem;
+        border-radius: 4px;
+        margin-top: 0.5rem;
+        color: #475569;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h1 class="page-title">Create New Vault</h1>
+    <p class="page-description">
+        Vaults help you organize your media files into separate storage spaces.
+    </p>
+
+    <div id="errorMessage" class="error-message"></div>
+
+    <form id="createVaultForm">
+        <div class="form-group">
+            <label class="form-label" for="vault_name">
+                Vault Name <span style="color: #ef4444;">*</span>
+            </label>
+            <input
+                type="text"
+                id="vault_name"
+                name="vault_name"
+                class="form-input"
+                placeholder="e.g., Work Projects, Personal Photos, Client Assets"
+                required
+                maxlength="100"
+            />
+            <div class="form-hint">
+                A friendly name to identify this vault (max 100 characters)
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="checkbox-group">
+                <input
+                    type="checkbox"
+                    id="use_custom_code"
+                    class="checkbox-input"
+                />
+                <label class="form-label" for="use_custom_code" style="margin: 0;">
+                    Use custom vault code (optional)
+                </label>
+            </div>
+        </div>
+
+        <div class="form-group" id="customCodeGroup" style="display: none;">
+            <label class="form-label" for="vault_code">
+                Vault Code
+            </label>
+            <input
+                type="text"
+                id="vault_code"
+                name="vault_code"
+                class="form-input"
+                placeholder="e.g., work-2024, client-abc"
+                pattern="[a-zA-Z0-9_-]+"
+                maxlength="50"
+            />
+            <div class="form-hint">
+                Alphanumeric characters, dashes, and underscores only. Leave empty for auto-generated code.
+            </div>
+            <div class="code-preview" id="codePreview" style="display: none;">
+                Code: <strong><span id="codePreviewText"></span></strong>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="submitBtn">
+                Create Vault
+            </button>
+            <a href="/vaults" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const form = document.getElementById('createVaultForm');
+const submitBtn = document.getElementById('submitBtn');
+const errorMessage = document.getElementById('errorMessage');
+const useCustomCodeCheckbox = document.getElementById('use_custom_code');
+const customCodeGroup = document.getElementById('customCodeGroup');
+const vaultCodeInput = document.getElementById('vault_code');
+const codePreview = document.getElementById('codePreview');
+const codePreviewText = document.getElementById('codePreviewText');
+
+// Toggle custom code input
+useCustomCodeCheckbox.addEventListener('change', (e) => {
+    customCodeGroup.style.display = e.target.checked ? 'block' : 'none';
+    if (!e.target.checked) {
+        vaultCodeInput.value = '';
+        codePreview.style.display = 'none';
+    }
+});
+
+// Preview custom code
+vaultCodeInput.addEventListener('input', (e) => {
+    const value = e.target.value;
+    if (value) {
+        codePreview.style.display = 'block';
+        codePreviewText.textContent = value;
+    } else {
+        codePreview.style.display = 'none';
+    }
+});
+
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const vaultName = document.getElementById('vault_name').value.trim();
+    const vaultCode = useCustomCodeCheckbox.checked ? vaultCodeInput.value.trim() : null;
+
+    if (!vaultName) {
+        showError('Vault name is required');
+        return;
+    }
+
+    // Disable submit button
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating...';
+    errorMessage.style.display = 'none';
+
+    try {
+        const payload = { name: vaultName };
+        if (vaultCode) {
+            payload.vault_code = vaultCode;
+        }
+
+        const response = await fetch('/api/user/vaults', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            showToast(`✅ Vault "${vaultName}" created successfully!`, 'success');
+            setTimeout(() => {
+                window.location.href = '/vaults';
+            }, 1000);
+        } else if (response.status === 409) {
+            showError('A vault with this code already exists. Please choose a different code.');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Create Vault';
+        } else if (response.status === 400) {
+            showError('Invalid vault name or code. Please check your input.');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Create Vault';
+        } else {
+            showError('Failed to create vault. Please try again.');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Create Vault';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showError('Network error. Please check your connection and try again.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Create Vault';
+    }
+});
+
+function showError(message) {
+    errorMessage.textContent = message;
+    errorMessage.style.display = 'block';
+    errorMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function showToast(message, type) {
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 1rem 1.5rem;
+        background: ${type === 'success' ? '#10b981' : '#ef4444'};
+        color: white;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000;
+        animation: slideIn 0.3s ease;
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+</script>
+{% endblock %}

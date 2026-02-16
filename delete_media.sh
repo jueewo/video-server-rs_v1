@@ -8,6 +8,7 @@ set -e
 
 SERVER="http://localhost:3000"
 COOKIE_FILE="/tmp/media_cookies.txt"
+API_KEY_FILE="$HOME/.media_api_key"
 
 # Colors
 RED='\033[0;31m'
@@ -16,12 +17,12 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}🗑️  Media Deletion Tool${NC}"
-echo "================================"
-echo ""
+printf "${BLUE}🗑️  Media Deletion Tool${NC}\n"
+printf "================================\n"
+printf "\n"
 
 # Step 1: Authentication
-echo -e "${YELLOW}🔐 Step 1: Authentication${NC}"
+printf "${YELLOW}🔐 Step 1: Authentication${NC}\n"
 echo "Choose authentication method:"
 echo "  1. API Key (recommended)"
 echo "  2. Emergency Login (username/password)"
@@ -37,9 +38,20 @@ if [ "$AUTH_METHOD" = "1" ]; then
     if [ -n "$MEDIA_API_KEY" ]; then
         echo "Using API key from MEDIA_API_KEY environment variable"
         API_KEY="$MEDIA_API_KEY"
+    elif [ -f "$API_KEY_FILE" ]; then
+        echo "Using stored API key from $API_KEY_FILE"
+        API_KEY=$(cat "$API_KEY_FILE")
     else
         read -sp "Enter your API key: " API_KEY
         echo ""
+
+        # Ask if user wants to save the API key
+        read -p "Save API key for future use? (y/n): " SAVE_KEY
+        if [ "$SAVE_KEY" = "y" ] || [ "$SAVE_KEY" = "Y" ]; then
+            echo "$API_KEY" > "$API_KEY_FILE"
+            chmod 600 "$API_KEY_FILE"
+            echo "API key saved to $API_KEY_FILE"
+        fi
     fi
 
     if [ -z "$API_KEY" ]; then
@@ -48,15 +60,15 @@ if [ "$AUTH_METHOD" = "1" ]; then
     fi
 
     # Test API key
-    echo -n "Validating API key... "
+    printf "Validating API key... " >&2
     TEST_RESPONSE=$(curl -s -H "Authorization: Bearer $API_KEY" "$SERVER/api/media" -w "\n%{http_code}")
     HTTP_CODE=$(echo "$TEST_RESPONSE" | tail -n 1)
 
     if [ "$HTTP_CODE" = "200" ]; then
-        echo -e "${GREEN}✓ API key valid${NC}"
+        printf "${GREEN}✓ API key valid${NC}\n" >&2
         AUTH_HEADERS="-H \"Authorization: Bearer $API_KEY\""
     else
-        echo -e "${RED}✗ API key invalid (HTTP $HTTP_CODE)${NC}"
+        printf "${RED}✗ API key invalid (HTTP $HTTP_CODE)${NC}\n" >&2
         exit 1
     fi
 else
@@ -68,7 +80,7 @@ else
     PASSWORD=${PASSWORD:-testpass123}
     echo ""
 
-    echo -n "Logging in... "
+    printf "Logging in... " >&2
     LOGIN_RESPONSE=$(curl -s -c "$COOKIE_FILE" -X POST "$SERVER/login/emergency/auth" \
       -H "Content-Type: application/x-www-form-urlencoded" \
       -d "username=$USERNAME&password=$PASSWORD" \
@@ -77,10 +89,10 @@ else
     HTTP_CODE=$(echo "$LOGIN_RESPONSE" | tail -n 1)
 
     if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "303" ]; then
-        echo -e "${GREEN}✓ Login successful${NC}"
+        printf "${GREEN}✓ Login successful${NC}\n" >&2
         AUTH_HEADERS="-b $COOKIE_FILE"
     else
-        echo -e "${RED}✗ Login failed (HTTP $HTTP_CODE)${NC}"
+        printf "${RED}✗ Login failed (HTTP $HTTP_CODE)${NC}\n" >&2
         rm -f "$COOKIE_FILE"
         exit 1
     fi
@@ -89,15 +101,35 @@ fi
 echo ""
 
 # Step 2: Fetch media items
-echo -e "${YELLOW}📋 Step 2: Fetching your media items${NC}"
+printf "${YELLOW}📋 Step 2: Fetching your media items${NC}\n" >&2
 
 # Get all media from unified API (using appropriate auth method)
-MEDIA_JSON=$(eval curl -s $AUTH_HEADERS "$SERVER/api/media")
+if [ "$AUTH_METHOD" = "1" ]; then
+    # API Key authentication - don't use eval
+    MEDIA_JSON=$(curl -s -H "Authorization: Bearer $API_KEY" "$SERVER/api/media" 2>/dev/null)
+else
+    # Cookie authentication - don't use eval
+    MEDIA_JSON=$(curl -s -b "$COOKIE_FILE" "$SERVER/api/media" 2>/dev/null)
+fi
+
+# Debug: Save raw response to file
+printf "%s" "$MEDIA_JSON" > /tmp/delete_media_raw.json
+echo "Debug: Raw JSON saved to /tmp/delete_media_raw.json" >&2
+
+# Clean the JSON - remove ANSI escape codes if present (using portable sed syntax)
+# The ESC character is represented as a literal escape in the pattern
+MEDIA_JSON=$(printf "%s" "$MEDIA_JSON" | LC_ALL=C sed 's/'$(printf '\033')'\[[0-9;]*m//g')
+
+# Debug: Check for and remove control characters
+echo "Debug: Checking for control characters..." >&2
+# Remove control characters except newline (0x0a), carriage return (0x0d), tab (0x09)
+MEDIA_JSON=$(printf "%s" "$MEDIA_JSON" | LC_ALL=C tr -d '\000-\010\013-\014\016-\037')
 
 # Parse media items
 echo ""
 echo "Your Media (All Types):"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
 
 # Store IDs and info in arrays
 IDS=()
@@ -109,7 +141,7 @@ TYPES=()
 if command -v jq &> /dev/null; then
     # Use jq for robust parsing
     # Store in temporary variable to avoid process substitution issues
-    JQ_OUTPUT=$(echo "$MEDIA_JSON" | jq -r '.items[] | [.type, .data.id, .data.slug, .data.title] | @tsv')
+    JQ_OUTPUT=$(printf "%s" "$MEDIA_JSON" | jq -r '.items[] | [.type, .data.id, .data.slug, .data.title] | @tsv')
     while IFS=$'\t' read -r type id slug title; do
         TYPES+=("$type")
         IDS+=("$id")
@@ -119,7 +151,7 @@ if command -v jq &> /dev/null; then
 else
     # Fallback to basic regex parsing
     # Extract each item block
-    echo "$MEDIA_JSON" | grep -o '"type":"[^"]*","data":{"id":[^}]*}' | while read -r item; do
+    printf "%s" "$MEDIA_JSON" | grep -o '"type":"[^"]*","data":{"id":[^}]*}' | while read -r item; do
         if [[ $item =~ \"type\":\"([^\"]+)\" ]]; then
             TYPE="${BASH_REMATCH[1]}"
             TYPES+=("$TYPE")
@@ -141,7 +173,7 @@ fi
 
 # Display items
 if [ ${#IDS[@]} -eq 0 ]; then
-    echo -e "${YELLOW}No media found or unable to fetch list.${NC}"
+    printf "${YELLOW}No media found or unable to fetch list.${NC}\n"
     echo ""
     echo "You can still delete by ID manually. Check the database:"
     echo "  sqlite3 media.db 'SELECT id, slug, title, media_type FROM media_items;'"
@@ -166,7 +198,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 
 # Step 3: Select items to delete
-echo -e "${YELLOW}🎯 Step 3: Select items to delete${NC}"
+printf "${YELLOW}🎯 Step 3: Select items to delete${NC}\n"
 echo "Enter item numbers to delete (comma-separated, e.g., 1,3,5)"
 echo "Or enter 'all' to delete all items"
 echo "Or enter 'q' to quit"
@@ -193,7 +225,7 @@ else
         if [ $arr_idx -ge 0 ] && [ $arr_idx -lt ${#IDS[@]} ]; then
             TO_DELETE+=("${IDS[$arr_idx]}")
         else
-            echo -e "${RED}Invalid selection: $idx${NC}"
+            printf "${RED}Invalid selection: $idx${NC}\n"
         fi
     done
 fi
@@ -205,7 +237,7 @@ if [ ${#TO_DELETE[@]} -eq 0 ]; then
 fi
 
 echo ""
-echo -e "${RED}⚠️  WARNING: You are about to delete ${#TO_DELETE[@]} item(s)${NC}"
+printf "${RED}⚠️  WARNING: You are about to delete ${#TO_DELETE[@]} item(s)${NC}\n"
 echo ""
 read -p "Are you sure? (yes/no): " CONFIRM
 
@@ -217,7 +249,7 @@ fi
 
 # Step 4: Delete items
 echo ""
-echo -e "${YELLOW}🗑️  Step 4: Deleting items${NC}"
+printf "${YELLOW}🗑️  Step 4: Deleting items${NC}\n"
 
 SUCCESS_COUNT=0
 FAIL_COUNT=0
@@ -237,7 +269,7 @@ for idx in "${!TO_DELETE[@]}"; do
     if [ $original_idx -ge 0 ]; then
         type="${TYPES[$original_idx]}"
         slug="${SLUGS[$original_idx]}"
-        echo -n "Deleting $type ID $id ($slug)... "
+        printf "Deleting %s ID %s (%s)... " "$type" "$id" "$slug"
 
         # Determine the correct API endpoint based on type
         case "$type" in
@@ -251,31 +283,37 @@ for idx in "${!TO_DELETE[@]}"; do
                 ENDPOINT="$SERVER/api/documents/$id"
                 ;;
             *)
-                echo -e "${RED}✗ Unknown type${NC}"
+                printf "${RED}✗ Unknown type${NC}\n"
                 ((FAIL_COUNT++))
                 continue
                 ;;
         esac
 
-        RESPONSE=$(eval curl -s $AUTH_HEADERS -X DELETE "$ENDPOINT" \
-            -H "Content-Type: application/json" \
-            -w "\n%{http_code}")
+        if [ "$AUTH_METHOD" = "1" ]; then
+            RESPONSE=$(curl -s -H "Authorization: Bearer $API_KEY" -X DELETE "$ENDPOINT" \
+                -H "Content-Type: application/json" \
+                -w "\n%{http_code}")
+        else
+            RESPONSE=$(curl -s -b "$COOKIE_FILE" -X DELETE "$ENDPOINT" \
+                -H "Content-Type: application/json" \
+                -w "\n%{http_code}")
+        fi
 
         HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
         BODY=$(echo "$RESPONSE" | sed '$d')
 
         if [ "$HTTP_CODE" = "200" ]; then
-            echo -e "${GREEN}✓ Deleted${NC}"
+            printf "${GREEN}✓ Deleted${NC}\n"
             ((SUCCESS_COUNT++))
         else
-            echo -e "${RED}✗ Failed (HTTP $HTTP_CODE)${NC}"
+            printf "${RED}✗ Failed (HTTP $HTTP_CODE)${NC}\n"
             if [ ! -z "$BODY" ]; then
                 echo "  Response: $BODY"
             fi
             ((FAIL_COUNT++))
         fi
     else
-        echo -e "${RED}✗ Could not find type for ID $id${NC}"
+        printf "${RED}✗ Could not find type for ID $id${NC}\n"
         ((FAIL_COUNT++))
     fi
 done
@@ -285,9 +323,9 @@ rm -f "$COOKIE_FILE"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${GREEN}✓ Deleted: $SUCCESS_COUNT${NC}"
+printf "${GREEN}✓ Deleted: $SUCCESS_COUNT${NC}\n"
 if [ $FAIL_COUNT -gt 0 ]; then
-    echo -e "${RED}✗ Failed: $FAIL_COUNT${NC}"
+    printf "${RED}✗ Failed: $FAIL_COUNT${NC}\n"
 fi
 echo ""
-echo -e "${BLUE}Done!${NC}"
+printf "${BLUE}Done!${NC}\n"

@@ -529,19 +529,20 @@ pub async fn upload_image_handler(
     let stored_filename = format!("{}.{}", slug, final_extension);
 
     // Check if slug already exists
-    let existing: Option<(i32,)> = sqlx::query_as("SELECT id FROM media_items WHERE media_type = 'image' AND slug = ?")
-        .bind(&slug)
-        .fetch_optional(&state.pool)
-        .await
-        .map_err(|_| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                UploadErrorTemplate {
-                    authenticated: true,
-                    error_message: "Database error checking slug.".to_string(),
-                },
-            )
-        })?;
+    let existing: Option<(i32,)> =
+        sqlx::query_as("SELECT id FROM media_items WHERE media_type = 'image' AND slug = ?")
+            .bind(&slug)
+            .fetch_optional(&state.pool)
+            .await
+            .map_err(|_| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    UploadErrorTemplate {
+                        authenticated: true,
+                        error_message: "Database error checking slug.".to_string(),
+                    },
+                )
+            })?;
 
     if existing.is_some() {
         return Err((
@@ -834,8 +835,8 @@ pub async fn image_detail_handler(
         title: row.try_get("title").unwrap_or_default(),
         description: row.try_get("description").ok(),
         alt_text: None, // Not in media_items table
-        width: None, // Not in media_items table
-        height: None, // Not in media_items table
+        width: None,    // Not in media_items table
+        height: None,   // Not in media_items table
         file_size: row.try_get("file_size").ok(),
         format: None, // Not in media_items table
         category: row.try_get("category").ok(),
@@ -851,11 +852,11 @@ pub async fn image_detail_handler(
         share_count: row.try_get("share_count").unwrap_or(0),
         upload_date: row.try_get("upload_date").unwrap_or_default(),
         created_at: row.try_get("upload_date").unwrap_or_default(), // Use upload_date for both
-        dominant_color: None, // Not in media_items table
-        exif_data: None, // Not in media_items table
-        copyright_holder: None, // Not in media_items table
-        license: None, // Not in media_items table
-        attribution: None, // Not in media_items table
+        dominant_color: None,                                       // Not in media_items table
+        exif_data: None,                                            // Not in media_items table
+        copyright_holder: None,                                     // Not in media_items table
+        license: None,                                              // Not in media_items table
+        attribution: None,                                          // Not in media_items table
         allow_download: row.try_get("allow_download").unwrap_or(false),
         mature_content: row.try_get("mature_content").unwrap_or(false),
         seo_title: row.try_get("seo_title").ok(),
@@ -980,8 +981,8 @@ pub async fn edit_image_handler(
         title: row.try_get("title").unwrap_or_default(),
         description: row.try_get("description").ok(),
         alt_text: None, // Not in media_items table
-        width: None, // Not in media_items table
-        height: None, // Not in media_items table
+        width: None,    // Not in media_items table
+        height: None,   // Not in media_items table
         file_size: row.try_get("file_size").ok(),
         format: None, // Not in media_items table
         category: row.try_get("category").ok(),
@@ -997,11 +998,11 @@ pub async fn edit_image_handler(
         share_count: row.try_get("share_count").unwrap_or(0),
         upload_date: row.try_get("created_at").unwrap_or_default(),
         created_at: row.try_get("created_at").unwrap_or_default(),
-        dominant_color: None, // Not in media_items table
-        exif_data: None, // Not in media_items table
+        dominant_color: None,   // Not in media_items table
+        exif_data: None,        // Not in media_items table
         copyright_holder: None, // Not in media_items table
-        license: None, // Not in media_items table
-        attribution: None, // Not in media_items table
+        license: None,          // Not in media_items table
+        attribution: None,      // Not in media_items table
         allow_download: row.try_get("allow_download").unwrap_or(false),
         mature_content: row.try_get("mature_content").unwrap_or(false),
         seo_title: row.try_get("seo_title").ok(),
@@ -1350,11 +1351,13 @@ pub async fn delete_image_handler(
         );
     }
 
-    // Get image slug for file deletion
-    let row = match sqlx::query("SELECT slug, filename FROM media_items WHERE media_type = 'image' AND id = ?")
-        .bind(id)
-        .fetch_one(&state.pool)
-        .await
+    // Get image details for file deletion
+    let row = match sqlx::query(
+        "SELECT slug, filename, vault_id FROM media_items WHERE media_type = 'image' AND id = ?",
+    )
+    .bind(id)
+    .fetch_one(&state.pool)
+    .await
     {
         Ok(row) => row,
         Err(e) => {
@@ -1364,6 +1367,8 @@ pub async fn delete_image_handler(
     };
 
     let slug: String = row.try_get("slug").unwrap_or_default();
+    let filename: String = row.try_get("filename").unwrap_or_default();
+    let vault_id: Option<String> = row.try_get("vault_id").ok();
 
     // Delete from database (tags will be deleted via foreign key cascade if configured)
     match sqlx::query("DELETE FROM media_items WHERE media_type = 'image' AND id = ?")
@@ -1372,14 +1377,89 @@ pub async fn delete_image_handler(
         .await
     {
         Ok(_) => {
-            // Try to delete image files
-            let image_path = state.storage_dir.join(&slug);
-            let thumb_path = state.storage_dir.join(format!("{}_thumb", &slug));
-            let medium_path = state.storage_dir.join(format!("{}_medium", &slug));
+            // Try to delete image files from vault
+            if let Some(vault_id) = vault_id {
+                let vault_images_dir = std::path::PathBuf::from("storage")
+                    .join("vaults")
+                    .join(&vault_id)
+                    .join("images");
 
-            let _ = tokio::fs::remove_file(image_path).await;
-            let _ = tokio::fs::remove_file(thumb_path).await;
-            let _ = tokio::fs::remove_file(medium_path).await;
+                info!(
+                    image_id = id,
+                    vault_id = %vault_id,
+                    filename = %filename,
+                    vault_dir = ?vault_images_dir,
+                    "Attempting to delete image files from vault"
+                );
+
+                // Delete original image
+                let image_path = vault_images_dir.join(&filename);
+                info!(
+                    path = ?image_path,
+                    exists = image_path.exists(),
+                    "Checking image file"
+                );
+                if image_path.exists() {
+                    match tokio::fs::remove_file(&image_path).await {
+                        Ok(_) => info!(path = ?image_path, "Image file deleted"),
+                        Err(e) => {
+                            tracing::error!(error = ?e, path = ?image_path, "Failed to delete image file")
+                        }
+                    }
+                } else {
+                    info!(path = ?image_path, "Image file does not exist at expected path");
+                }
+
+                // Delete thumbnail (stored in thumbnails/images/)
+                let thumb_path = std::path::PathBuf::from("storage")
+                    .join("vaults")
+                    .join(&vault_id)
+                    .join("thumbnails")
+                    .join("images")
+                    .join(format!("thumb_{}", &filename));
+
+                if thumb_path.exists() {
+                    let _ = tokio::fs::remove_file(&thumb_path).await;
+                }
+
+                // Try alternate thumbnail naming pattern
+                let thumb_alt_path = vault_images_dir.join(format!("{}_thumb", &filename));
+                if thumb_alt_path.exists() {
+                    let _ = tokio::fs::remove_file(&thumb_alt_path).await;
+                }
+
+                // Delete WebP version if it exists
+                let webp_name = if filename.contains('.') {
+                    filename
+                        .rsplit_once('.')
+                        .map(|(base, _)| format!("{}.webp", base))
+                } else {
+                    Some(format!("{}.webp", filename))
+                };
+
+                if let Some(webp_filename) = webp_name {
+                    let webp_path = vault_images_dir.join(&webp_filename);
+                    if webp_path.exists() {
+                        let _ = tokio::fs::remove_file(&webp_path).await;
+                    }
+                }
+            } else {
+                // Fallback to old storage location (for legacy images without vault_id)
+                info!(
+                    image_id = id,
+                    slug = %slug,
+                    storage_dir = ?state.storage_dir,
+                    "No vault_id found, using legacy storage location"
+                );
+                let image_path = state.storage_dir.join(&slug);
+                info!(path = ?image_path, exists = image_path.exists(), "Checking legacy image path");
+                let thumb_path = state.storage_dir.join(format!("{}_thumb", &slug));
+                let medium_path = state.storage_dir.join(format!("{}_medium", &slug));
+
+                let _ = tokio::fs::remove_file(image_path).await;
+                let _ = tokio::fs::remove_file(thumb_path).await;
+                let _ = tokio::fs::remove_file(medium_path).await;
+            }
 
             Ok(Json(serde_json::json!({
                 "success": true,
@@ -1726,18 +1806,19 @@ pub async fn get_image_tags_handler(
     Path(image_id): Path<i32>,
 ) -> Result<Json<ImageTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
     // Check if image exists
-    let image_exists: Option<(i32,)> = sqlx::query_as("SELECT id FROM media_items WHERE media_type = 'image' AND id = ?")
-        .bind(image_id)
-        .fetch_optional(&state.pool)
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Database error: {}", e),
-                }),
-            )
-        })?;
+    let image_exists: Option<(i32,)> =
+        sqlx::query_as("SELECT id FROM media_items WHERE media_type = 'image' AND id = ?")
+            .bind(image_id)
+            .fetch_optional(&state.pool)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Database error: {}", e),
+                    }),
+                )
+            })?;
 
     if image_exists.is_none() {
         return Err((

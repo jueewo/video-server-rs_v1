@@ -142,16 +142,12 @@ impl UnifiedMediaItem {
 
     /// Generate a document icon based on type
     fn generate_document_icon(&self) -> String {
-        if let Self::Document(d) = self {
-            match d.document_type.as_deref() {
-                Some("pdf") => "/static/icons/pdf-icon.svg".to_string(),
-                Some("csv") => "/static/icons/csv-icon.svg".to_string(),
-                Some("markdown") => "/static/icons/markdown-icon.svg".to_string(),
-                Some("json") => "/static/icons/json-icon.svg".to_string(),
-                Some("xml") => "/static/icons/xml-icon.svg".to_string(),
-                Some("bpmn") => "/static/icons/bpmn-icon.svg".to_string(),
-                _ => "/static/icons/document-icon.svg".to_string(),
-            }
+        // Return a non-existent path to trigger the onerror fallback
+        // which will display nice gradient backgrounds with emojis
+        if let Self::Document(_d) = self {
+            // Use a path that doesn't exist to trigger the error handler
+            // The error handler will then check the badge and show appropriate fallback
+            "/static/icons/document-fallback-trigger.svg".to_string()
         } else {
             "/static/icons/default.svg".to_string()
         }

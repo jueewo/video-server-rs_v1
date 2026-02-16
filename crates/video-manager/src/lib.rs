@@ -406,12 +406,13 @@ pub async fn video_player_handler(
     };
 
     // Lookup video in database - get id, title, and is_public
-    let video: Option<(i32, String, i32)> =
-        sqlx::query_as("SELECT id, title, is_public FROM media_items WHERE media_type = 'video' AND slug = ?")
-            .bind(&slug)
-            .fetch_optional(&state.pool)
-            .await
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response())?;
+    let video: Option<(i32, String, i32)> = sqlx::query_as(
+        "SELECT id, title, is_public FROM media_items WHERE media_type = 'video' AND slug = ?",
+    )
+    .bind(&slug)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response())?;
 
     let (video_id, title, is_public_int) = video.ok_or_else(|| {
         (StatusCode::NOT_FOUND, NotFoundTemplate { authenticated }).into_response()
@@ -973,11 +974,9 @@ pub async fn get_upload_progress_handler(
             // Check if video exists in database (might be old/completed)
             // Note: media_items doesn't have upload_id, processing_status, processing_progress fields
             // These are tracked in the progress_tracker in memory
-            match sqlx::query(
-                "SELECT slug FROM media_items WHERE media_type = 'video' LIMIT 0"
-            )
-            .fetch_optional(&state.pool)
-            .await
+            match sqlx::query("SELECT slug FROM media_items WHERE media_type = 'video' LIMIT 0")
+                .fetch_optional(&state.pool)
+                .await
             {
                 Ok(Some(row)) => {
                     // Return progress from database
@@ -1082,10 +1081,11 @@ pub async fn available_folders_handler(
     }
 
     // Get slugs already registered in DB
-    let registered: Vec<(String,)> = sqlx::query_as("SELECT slug FROM media_items WHERE media_type = 'video'")
-        .fetch_all(&state.pool)
-        .await
-        .unwrap_or_default();
+    let registered: Vec<(String,)> =
+        sqlx::query_as("SELECT slug FROM media_items WHERE media_type = 'video'")
+            .fetch_all(&state.pool)
+            .await
+            .unwrap_or_default();
     let registered_slugs: Vec<&str> = registered.iter().map(|(s,)| s.as_str()).collect();
 
     // Filter to unregistered folders and gather info
@@ -1564,7 +1564,7 @@ pub async fn update_video_handler(
 // Delete Video Handler (API)
 // -------------------------------
 
-/// DELETE /api/videos/:id - Delete video DB entry (files remain on disk)
+/// DELETE /api/videos/:id - Delete video DB entry and physical files
 #[tracing::instrument(skip(session, state))]
 pub async fn delete_video_handler(
     session: Session,
@@ -1624,6 +1624,22 @@ pub async fn delete_video_handler(
         );
     }
 
+    // Get video details before deletion to locate physical files
+    let video_info: Option<(String, Option<String>)> = sqlx::query_as(
+        "SELECT filename, vault_id FROM media_items WHERE media_type = 'video' AND id = ?",
+    )
+    .bind(id)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+
+    info!(
+        video_id = id,
+        video_info = ?video_info,
+        "Retrieved video info for deletion"
+    );
+
     // Delete associated tags
     let _ = sqlx::query("DELETE FROM video_tags WHERE video_id = ?")
         .bind(id)
@@ -1655,14 +1671,69 @@ pub async fn delete_video_handler(
         return Err((StatusCode::NOT_FOUND, "Video not found".to_string()));
     }
 
+    // Delete physical files if video info was retrieved
+    if let Some((filename, vault_id_opt)) = video_info {
+        if let Some(vault_id) = vault_id_opt {
+            // Video files are stored in: storage/vaults/{vault_id}/videos/{filename}/
+            let video_dir = std::path::PathBuf::from("storage")
+                .join("vaults")
+                .join(&vault_id)
+                .join("videos")
+                .join(&filename);
+
+            info!(
+                video_id = id,
+                vault_id = %vault_id,
+                filename = %filename,
+                video_dir = ?video_dir,
+                exists = video_dir.exists(),
+                "Attempting to delete video directory"
+            );
+
+            if video_dir.exists() {
+                match tokio::fs::remove_dir_all(&video_dir).await {
+                    Ok(_) => {
+                        info!(path = ?video_dir, "Video directory deleted successfully");
+                    }
+                    Err(e) => {
+                        tracing::error!(error = ?e, path = ?video_dir, "Failed to delete video directory");
+                    }
+                }
+            } else {
+                info!(path = ?video_dir, "Video directory does not exist at expected path");
+            }
+
+            // Also try to delete video thumbnail if it exists
+            let thumb_path = std::path::PathBuf::from("storage")
+                .join("vaults")
+                .join(&vault_id)
+                .join("thumbnails")
+                .join("videos")
+                .join(format!("{}.jpg", &filename));
+
+            if thumb_path.exists() {
+                let _ = tokio::fs::remove_file(&thumb_path).await;
+                info!(path = ?thumb_path, "Video thumbnail deleted");
+            }
+        } else {
+            info!(
+                video_id = id,
+                filename = %filename,
+                "No vault_id found for video"
+            );
+        }
+    } else {
+        info!(video_id = id, "No video info found for deletion");
+    }
+
     info!(
         video_id = id,
-        "Video deleted successfully (files remain on disk)"
+        "Video deleted successfully (including physical files)"
     );
 
     Ok(Json(serde_json::json!({
         "success": true,
-        "message": "Video deleted successfully. Files remain on disk."
+        "message": "Video deleted successfully."
     })))
 }
 
@@ -1747,18 +1818,19 @@ pub async fn get_video_tags_handler(
     Path(video_id): Path<i32>,
 ) -> Result<Json<VideoTagsResponse>, (StatusCode, Json<ErrorResponse>)> {
     // Check if video exists
-    let video_exists: Option<(i32,)> = sqlx::query_as("SELECT id FROM media_items WHERE media_type = 'video' AND id = ?")
-        .bind(video_id)
-        .fetch_optional(&state.pool)
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Database error: {}", e),
-                }),
-            )
-        })?;
+    let video_exists: Option<(i32,)> =
+        sqlx::query_as("SELECT id FROM media_items WHERE media_type = 'video' AND id = ?")
+            .bind(video_id)
+            .fetch_optional(&state.pool)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Database error: {}", e),
+                    }),
+                )
+            })?;
 
     if video_exists.is_none() {
         return Err((

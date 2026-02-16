@@ -241,17 +241,18 @@ async fn upload_document(
     ))?;
 
     // Check if slug already exists
-    let existing: Option<(i32,)> = sqlx::query_as("SELECT id FROM media_items WHERE media_type = 'document' AND slug = ?")
-        .bind(&slug)
-        .fetch_optional(&state.pool)
-        .await
-        .map_err(|e| {
-            error!("Database error checking slug: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": "Database error"})),
-            )
-        })?;
+    let existing: Option<(i32,)> =
+        sqlx::query_as("SELECT id FROM media_items WHERE media_type = 'document' AND slug = ?")
+            .bind(&slug)
+            .fetch_optional(&state.pool)
+            .await
+            .map_err(|e| {
+                error!("Database error checking slug: {}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": "Database error"})),
+                )
+            })?;
 
     if existing.is_some() {
         return Err((
@@ -551,7 +552,10 @@ async fn serve_document_thumbnail(
 
     // Check if thumbnail exists
     if !thumb_path.exists() {
-        debug!("Thumbnail not found at {:?}, returning default icon", thumb_path);
+        debug!(
+            "Thumbnail not found at {:?}, returning default icon",
+            thumb_path
+        );
         // Return 404 so the frontend can fall back to icon
         return Err(StatusCode::NOT_FOUND);
     }
@@ -1109,7 +1113,7 @@ async fn delete_document_handler(
 
     info!(document_id = id, "Deleting document");
 
-    // First, get the document details to find the file path
+    // First, get the document details to find the file path and vault
     let document = match sqlx::query_as::<_, DocumentDetailRow>(
         r#"
         SELECT id, slug, title, description, mime_type as document_type, file_size,
@@ -1137,6 +1141,16 @@ async fn delete_document_handler(
             ));
         }
     };
+
+    // Get vault_id separately since DocumentDetailRow doesn't include it
+    let vault_id: Option<String> = sqlx::query_scalar(
+        "SELECT vault_id FROM media_items WHERE media_type = 'document' AND id = ?",
+    )
+    .bind(id)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
 
     // Check ownership for non-emergency users
     if !is_emergency_admin {
@@ -1175,25 +1189,90 @@ async fn delete_document_handler(
         }
     }
 
-    // Attempt to delete the physical file (non-critical, we don't fail if this doesn't work)
-    let file_path = std::path::Path::new(&state.storage_dir).join(&document.file_path);
-    if file_path.exists() {
-        match tokio::fs::remove_file(&file_path).await {
-            Ok(_) => {
-                info!(path = ?file_path, "Document file deleted");
-            }
-            Err(e) => {
-                error!(error = ?e, path = ?file_path, "Failed to delete document file (database entry removed)");
-            }
-        }
-    }
+    // Attempt to delete the physical file from vault
+    if let Some(vault_id) = vault_id {
+        // Documents are stored in: storage/vaults/{vault_id}/documents/{filename}
+        let file_path = std::path::PathBuf::from("storage")
+            .join("vaults")
+            .join(&vault_id)
+            .join("documents")
+            .join(&document.file_path);
 
-    // Also try to delete thumbnail if it exists
-    if let Some(thumbnail_path) = document.file_path.strip_suffix(".pdf") {
-        let thumb_path =
-            std::path::Path::new(&state.storage_dir).join(format!("{}_thumb.jpg", thumbnail_path));
+        info!(
+            document_id = id,
+            vault_id = %vault_id,
+            filename = %document.file_path,
+            full_path = ?file_path,
+            exists = file_path.exists(),
+            "Attempting to delete document file"
+        );
+
+        if file_path.exists() {
+            match tokio::fs::remove_file(&file_path).await {
+                Ok(_) => {
+                    info!(path = ?file_path, "Document file deleted from vault");
+                }
+                Err(e) => {
+                    error!(error = ?e, path = ?file_path, "Failed to delete document file (database entry removed)");
+                }
+            }
+        } else {
+            info!(path = ?file_path, "Document file does not exist at expected path");
+        }
+
+        // Try to delete thumbnail if it exists (in thumbnails/documents/)
+        let thumb_path = std::path::PathBuf::from("storage")
+            .join("vaults")
+            .join(&vault_id)
+            .join("thumbnails")
+            .join("documents")
+            .join(format!("thumb_{}", &document.file_path));
+
         if thumb_path.exists() {
             let _ = tokio::fs::remove_file(&thumb_path).await;
+        }
+
+        // Also try PDF thumbnail pattern
+        if let Some(thumbnail_base) = document.file_path.strip_suffix(".pdf") {
+            let pdf_thumb_path = std::path::PathBuf::from("storage")
+                .join("vaults")
+                .join(&vault_id)
+                .join("thumbnails")
+                .join("documents")
+                .join(format!("{}_thumb.jpg", thumbnail_base));
+
+            if pdf_thumb_path.exists() {
+                let _ = tokio::fs::remove_file(&pdf_thumb_path).await;
+            }
+        }
+    } else {
+        // Fallback to old storage location (for legacy documents without vault_id)
+        info!(
+            document_id = id,
+            filename = %document.file_path,
+            storage_dir = %state.storage_dir,
+            "No vault_id found, using legacy storage location"
+        );
+        let file_path = std::path::Path::new(&state.storage_dir).join(&document.file_path);
+        info!(path = ?file_path, exists = file_path.exists(), "Checking legacy file path");
+        if file_path.exists() {
+            match tokio::fs::remove_file(&file_path).await {
+                Ok(_) => {
+                    info!(path = ?file_path, "Document file deleted");
+                }
+                Err(e) => {
+                    error!(error = ?e, path = ?file_path, "Failed to delete document file (database entry removed)");
+                }
+            }
+        }
+
+        // Also try to delete thumbnail if it exists (old pattern)
+        if let Some(thumbnail_path) = document.file_path.strip_suffix(".pdf") {
+            let thumb_path = std::path::Path::new(&state.storage_dir)
+                .join(format!("{}_thumb.jpg", thumbnail_path));
+            if thumb_path.exists() {
+                let _ = tokio::fs::remove_file(&thumb_path).await;
+            }
         }
     }
 

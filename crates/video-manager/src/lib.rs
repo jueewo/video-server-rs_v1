@@ -349,9 +349,9 @@ pub async fn videos_list_handler(
     );
 
     let page_title = if authenticated {
-        "🎥 All Videos".to_string()
+        "All Videos".to_string()
     } else {
-        "🎥 Public Videos".to_string()
+        "Public Videos".to_string()
     };
 
     // Separate videos into public and private

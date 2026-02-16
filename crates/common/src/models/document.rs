@@ -302,8 +302,9 @@ impl Document {
     }
 
     /// Get public URL
+    /// Uses /media route which handles markdown preview redirection
     pub fn public_url(&self) -> String {
-        format!("/documents/{}", self.slug)
+        format!("/media/{}", self.slug)
     }
 
     /// Get thumbnail URL if available

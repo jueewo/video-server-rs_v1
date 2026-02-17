@@ -89,7 +89,102 @@ use gallery3d;
 use media_manager::{media_routes, MediaManagerState};
 use user_auth::{auth_routes, AuthState, OidcConfig};
 use vault_manager::{vault_routes, VaultManagerState};
-use video_manager::{video_routes, VideoManagerState, RTMP_PUBLISH_TOKEN};
+use video_manager::{rtmp_publish_token, video_routes, VideoManagerState};
+
+// -------------------------------
+// Production Secret Validation (TD-001)
+// -------------------------------
+
+/// Detect whether we are running in production mode.
+/// Set `RUN_MODE=production` in your environment / `.env` to activate.
+fn is_production() -> bool {
+    std::env::var("RUN_MODE")
+        .map(|v| v.eq_ignore_ascii_case("production") || v.eq_ignore_ascii_case("prod"))
+        .unwrap_or(false)
+}
+
+/// Validate that all security-critical configuration is safe for production.
+/// Panics (fail-fast) if any check fails — the server must not start with
+/// insecure defaults in production.
+fn validate_production_config(oidc_config: &OidcConfig) {
+    let mut errors: Vec<String> = Vec::new();
+
+    // ── RTMP Publish Token ──────────────────────────────────────────
+    let rtmp_token = rtmp_publish_token();
+    if rtmp_token == "supersecret123" || rtmp_token.is_empty() {
+        errors.push(
+            "RTMP_PUBLISH_TOKEN is missing or still the insecure default 'supersecret123'. \
+             Set a strong, unique token in your environment."
+                .to_string(),
+        );
+    } else if rtmp_token.len() < 16 {
+        errors.push(format!(
+            "RTMP_PUBLISH_TOKEN is too short ({} chars). Use at least 16 characters.",
+            rtmp_token.len()
+        ));
+    }
+
+    // ── OIDC Secrets ────────────────────────────────────────────────
+    if oidc_config.client_id == "your-client-id" || oidc_config.client_id.is_empty() {
+        errors.push(
+            "OIDC_CLIENT_ID is missing or still the placeholder 'your-client-id'.".to_string(),
+        );
+    }
+    if oidc_config.client_secret == "your-client-secret" || oidc_config.client_secret.is_empty() {
+        errors.push(
+            "OIDC_CLIENT_SECRET is missing or still the placeholder 'your-client-secret'."
+                .to_string(),
+        );
+    }
+
+    // ── Session Security ────────────────────────────────────────────
+    let session_secure = std::env::var("SESSION_SECURE")
+        .map(|v| v.to_lowercase() == "true" || v == "1")
+        .unwrap_or(false);
+    if !session_secure {
+        errors.push("SESSION_SECURE must be 'true' in production (requires HTTPS).".to_string());
+    }
+
+    // ── Emergency Login ─────────────────────────────────────────────
+    if oidc_config.enable_emergency_login {
+        if oidc_config.su_pwd.is_empty() {
+            errors.push(
+                "ENABLE_EMERGENCY_LOGIN is true but SU_PWD is empty. \
+                 Either disable emergency login or set a strong password."
+                    .to_string(),
+            );
+        } else if oidc_config.su_pwd.len() < 12 {
+            errors.push(format!(
+                "SU_PWD is too short ({} chars). Use at least 12 characters when emergency login is enabled.",
+                oidc_config.su_pwd.len()
+            ));
+        }
+        if oidc_config.su_user == "admin" {
+            errors.push(
+                "SU_USER is still the default 'admin'. Use a non-obvious username in production."
+                    .to_string(),
+            );
+        }
+    }
+
+    // ── DATABASE_URL ────────────────────────────────────────────────
+    let db_url = std::env::var("DATABASE_URL").unwrap_or_default();
+    if db_url.is_empty() {
+        errors.push("DATABASE_URL is not set. Explicitly configure the database path.".to_string());
+    }
+
+    // ── Fail fast ───────────────────────────────────────────────────
+    if !errors.is_empty() {
+        eprintln!("\n╔════════════════════════════════════════════════════════════════╗");
+        eprintln!("║  🛑  PRODUCTION STARTUP BLOCKED — INSECURE CONFIGURATION     ║");
+        eprintln!("╚════════════════════════════════════════════════════════════════╝\n");
+        for (i, err) in errors.iter().enumerate() {
+            eprintln!("  {}. {}", i + 1, err);
+        }
+        eprintln!("\nSet RUN_MODE=development to bypass these checks (NOT for production).\n");
+        std::process::exit(1);
+    }
+}
 
 // -------------------------------
 // Shared App State
@@ -458,6 +553,14 @@ async fn main() -> anyhow::Result<()> {
     // Load environment variables
     dotenvy::dotenv().ok();
 
+    // Detect run mode
+    let production = is_production();
+    if production {
+        println!("🔒 RUN_MODE=production — strict secret validation enabled");
+    } else {
+        println!("🔧 RUN_MODE=development — using fallback defaults where needed");
+    }
+
     // Get database URL from environment or use default
     let database_url =
         std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:media.db?mode=rwc".to_string());
@@ -521,6 +624,12 @@ async fn main() -> anyhow::Result<()> {
     println!("   - Issuer URL: {}", oidc_config.issuer_url);
     println!("   - Client ID: {}", oidc_config.client_id);
     println!("   - Redirect URI: {}", oidc_config.redirect_uri);
+
+    // ── Production secret validation (TD-001) ───────────────────
+    if production {
+        validate_production_config(&oidc_config);
+        println!("✅ Production configuration validated — all secrets are set");
+    }
 
     let auth_state = match AuthState::new(oidc_config.clone(), pool.clone()).await {
         Ok(state) => {
@@ -783,28 +892,28 @@ async fn main() -> anyhow::Result<()> {
     println!("   • API:           http://localhost:9997");
     println!("   • Metrics:       http://localhost:9998/metrics");
 
-    println!("\n🎬 STREAMING COMMANDS:");
-    println!("\n   macOS (Camera + Microphone):");
-    println!("   ffmpeg -f avfoundation -framerate 30 -video_size 1280x720 -i \"0:0\" \\");
-    println!("     -c:v libx264 -preset veryfast -tune zerolatency \\");
-    println!("     -c:a aac -b:a 128k -ar 44100 \\");
-    println!(
-        "     -f flv \"rtmp://localhost:1935/live?token={}\"",
-        RTMP_PUBLISH_TOKEN
-    );
+    // Only show streaming commands with token in development mode
+    if !production {
+        let token = rtmp_publish_token();
+        println!("\n🎬 STREAMING COMMANDS:");
+        println!("\n   macOS (Camera + Microphone):");
+        println!("   ffmpeg -f avfoundation -framerate 30 -video_size 1280x720 -i \"0:0\" \\");
+        println!("     -c:v libx264 -preset veryfast -tune zerolatency \\");
+        println!("     -c:a aac -b:a 128k -ar 44100 \\");
+        println!("     -f flv \"rtmp://localhost:1935/live?token={}\"", token);
 
-    println!("\n   Linux (Webcam + Microphone):");
-    println!("   ffmpeg -f v4l2 -i /dev/video0 -f alsa -i hw:0 \\");
-    println!("     -c:v libx264 -preset veryfast -tune zerolatency \\");
-    println!("     -c:a aac -b:a 128k -ar 44100 \\");
-    println!(
-        "     -f flv \"rtmp://localhost:1935/live?token={}\"",
-        RTMP_PUBLISH_TOKEN
-    );
+        println!("\n   Linux (Webcam + Microphone):");
+        println!("   ffmpeg -f v4l2 -i /dev/video0 -f alsa -i hw:0 \\");
+        println!("     -c:v libx264 -preset veryfast -tune zerolatency \\");
+        println!("     -c:a aac -b:a 128k -ar 44100 \\");
+        println!("     -f flv \"rtmp://localhost:1935/live?token={}\"", token);
 
-    println!("\n   OBS Studio:");
-    println!("   • Server:     rtmp://localhost:1935/live");
-    println!("   • Stream Key: ?token={}", RTMP_PUBLISH_TOKEN);
+        println!("\n   OBS Studio:");
+        println!("   • Server:     rtmp://localhost:1935/live");
+        println!("   • Stream Key: ?token={}", token);
+    } else {
+        println!("\n🎬 STREAMING: Token hidden in production (see RTMP_PUBLISH_TOKEN env var)");
+    }
 
     println!("\n⚠️  IMPORTANT:");
     println!("   1. Make sure MediaMTX is running: mediamtx mediamtx.yml");

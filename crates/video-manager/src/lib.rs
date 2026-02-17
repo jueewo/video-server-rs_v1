@@ -158,7 +158,13 @@ impl VideoDetail {
 // -------------------------------
 // Configuration Constants
 // -------------------------------
-pub const RTMP_PUBLISH_TOKEN: &str = "supersecret123"; // Change this to a strong secret!
+/// RTMP publish token — loaded from `RTMP_PUBLISH_TOKEN` env var.
+/// Falls back to `"supersecret123"` ONLY in development; production startup
+/// must reject this default (enforced in `main.rs` startup validation).
+pub fn rtmp_publish_token() -> String {
+    std::env::var("RTMP_PUBLISH_TOKEN").unwrap_or_else(|_| "supersecret123".to_string())
+}
+
 pub const LIVE_STREAM_KEY: &str = "live"; // URL slug for live: /hls/live/index.m3u8
 pub const MEDIAMTX_HLS_URL: &str = "http://localhost:8888"; // MediaMTX HLS endpoint
 pub const MEDIAMTX_API_URL: &str = "http://localhost:9997"; // MediaMTX API endpoint
@@ -178,6 +184,8 @@ pub struct VideoManagerState {
     pub hls_config: hls::HlsConfig,
     pub metrics_store: metrics::MetricsStore,
     pub audit_logger: metrics::AuditLogger,
+    /// RTMP stream publishing token, loaded from env at construction time.
+    pub rtmp_publish_token: String,
 }
 
 impl VideoManagerState {
@@ -222,6 +230,7 @@ impl VideoManagerState {
             hls_config,
             metrics_store,
             audit_logger,
+            rtmp_publish_token: rtmp_publish_token(),
         }
     }
 }
@@ -278,14 +287,15 @@ pub fn video_routes() -> Router<Arc<VideoManagerState>> {
 // -------------------------------
 
 // Validate stream publisher (called by MediaMTX via runOnInit)
-#[tracing::instrument(skip(params))]
+#[tracing::instrument(skip(params, state))]
 async fn validate_stream_handler(
+    State(state): State<Arc<VideoManagerState>>,
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Result<StatusCode, StatusCode> {
     let token = params.get("token").ok_or(StatusCode::UNAUTHORIZED)?;
 
-    if token == RTMP_PUBLISH_TOKEN {
-        println!("✅ Stream publisher authorized: token={}", token);
+    if *token == state.rtmp_publish_token {
+        println!("✅ Stream publisher authorized");
         Ok(StatusCode::OK)
     } else {
         println!("❌ Stream publisher rejected: invalid token");

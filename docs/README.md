@@ -1,123 +1,257 @@
-# End-User Documentation
+# Documentation Directory
 
-This folder contains documentation for **end users** - how to use the media server, manage content, and work with features.
-
-## 📚 Quick Start Guides
-
-### Getting Started
-- **[../README.md](../README.md)** - Main project overview
-- **[../QUICKSTART.md](../QUICKSTART.md)** - 5-minute setup guide
-- **[../DEPLOYMENT.md](../DEPLOYMENT.md)** - Production deployment
-- **[../TROUBLESHOOTING.md](../TROUBLESHOOTING.md)** - Common issues and solutions
-
-## 📖 User Guides
-
-### Content Management
-- **[VIDEO_MANAGEMENT_GUIDE.md](VIDEO_MANAGEMENT_GUIDE.md)** - Upload and manage videos
-  - Video upload process
-  - HLS streaming setup
-  - Video metadata and tags
-  - Access control
-  
-- **[TAG_MANAGEMENT_GUIDE.md](TAG_MANAGEMENT_GUIDE.md)** - Organize with tags
-  - Creating and managing tags
-  - Tag categories
-  - Bulk tagging
-  - Search and filtering
-
-- **[RESOURCE_WORKFLOW_GUIDE.md](RESOURCE_WORKFLOW_GUIDE.md)** - Complete workflow guide
-  - Upload process
-  - Organization strategies
-  - Sharing workflows
-  - Best practices
-
-### Access Control & Sharing
-- **[PERMISSION_MANAGEMENT_GUIDE.md](PERMISSION_MANAGEMENT_GUIDE.md)** - Manage permissions
-  - 4-layer access control
-  - Role-based permissions
-  - User management
-  
-- **[GROUP_OWNERSHIP_EXPLAINED.md](GROUP_OWNERSHIP_EXPLAINED.md)** - Group collaboration
-  - Creating and managing groups
-  - Group roles and permissions
-  - Team collaboration workflows
-  
-- **[ACCESS_CODE_DECISION_GUIDE.md](ACCESS_CODE_DECISION_GUIDE.md)** - Share with access codes
-  - Individual vs group codes
-  - Creating access codes
-  - Code expiration and limits
-  - Use cases
-
-### Advanced Features
-- **[VAULT_MANAGEMENT_FEATURE.md](VAULT_MANAGEMENT_FEATURE.md)** - Vault storage system
-  - Privacy-preserving storage
-  - Vault organization
-  - User isolation
-
-- **[3D_GALLERY_VIDEO_TROUBLESHOOTING.md](3D_GALLERY_VIDEO_TROUBLESHOOTING.md)** - 3D Gallery
-  - Immersive viewing mode
-  - VR/AR support
-  - Troubleshooting
-
-## 🧪 Testing & API
-
-- **[API_TESTING_GUIDE.md](API_TESTING_GUIDE.md)** - REST API documentation
-  - API endpoints
-  - Authentication
-  - Testing examples
-  - cURL commands
-
-- **[APPLICATION_TESTING_GUIDE.md](APPLICATION_TESTING_GUIDE.md)** - Application testing
-  - Feature testing
-  - Access control testing
-  - Integration testing
-
-## 🔧 Technical References
-
-- **[FILESYSTEM_MOUNT.md](FILESYSTEM_MOUNT.md)** - File system configuration
-- **[VIDEO_THUMBNAIL_FIX.md](VIDEO_THUMBNAIL_FIX.md)** - Thumbnail troubleshooting
-- **[LEGACY_MANAGERS_DEACTIVATION.md](LEGACY_MANAGERS_DEACTIVATION.md)** - Legacy system info
-
-## 🎯 By Use Case
-
-### I want to...
-
-**Upload and share videos**
-1. Read [VIDEO_MANAGEMENT_GUIDE.md](VIDEO_MANAGEMENT_GUIDE.md)
-2. Learn about sharing in [ACCESS_CODE_DECISION_GUIDE.md](ACCESS_CODE_DECISION_GUIDE.md)
-
-**Organize my content**
-1. Start with [TAG_MANAGEMENT_GUIDE.md](TAG_MANAGEMENT_GUIDE.md)
-2. Follow best practices in [RESOURCE_WORKFLOW_GUIDE.md](RESOURCE_WORKFLOW_GUIDE.md)
-
-**Set up team collaboration**
-1. Read [GROUP_OWNERSHIP_EXPLAINED.md](GROUP_OWNERSHIP_EXPLAINED.md)
-2. Configure permissions with [PERMISSION_MANAGEMENT_GUIDE.md](PERMISSION_MANAGEMENT_GUIDE.md)
-
-**Integrate with my app**
-1. Check [API_TESTING_GUIDE.md](API_TESTING_GUIDE.md)
-2. Review authentication in [../docs_dev/auth/](../docs_dev/auth/)
-
-**Deploy to production**
-1. Follow [../DEPLOYMENT.md](../DEPLOYMENT.md)
-2. If issues arise, see [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md)
-
-## 📂 Related Documentation
-
-- **[../docs_status/](../docs_status/)** - Project status and roadmap
-- **[../docs_design/](../docs_design/)** - Architecture and system design
-- **[../docs_dev/](../docs_dev/)** - Developer documentation
-- **[../docs_archive/](../docs_archive/)** - Historical documentation
-
-## 💡 Need Help?
-
-1. **Quick answers:** Check [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md)
-2. **How to use features:** Browse the guides above
-3. **Technical details:** See [../docs_dev/](../docs_dev/)
-4. **API reference:** Read [API_TESTING_GUIDE.md](API_TESTING_GUIDE.md)
+**Purpose:** Central hub for all project documentation  
+**Last Updated:** February 2026  
+**Status:** ✅ Complete and Organized
 
 ---
 
-**Documentation Type:** End-User Guides  
-**Target Audience:** Content creators, administrators, API users  
+## 📚 Welcome to the Documentation
+
+All project documentation is organized here in clear subdirectories by purpose and audience.
+
+## 📂 Directory Structure
+
+```
+docs/
+├── docs_user/      👤 End-User Documentation
+├── docs_status/    📊 Project Status & Roadmap
+├── docs_design/    🏗️  Architecture & Design
+├── docs_dev/       👨‍💻 Developer Documentation
+└── docs_archive/   📦 Historical Documentation
+```
+
+---
+
+## 🎯 Quick Navigation
+
+### 👤 End Users (Content Creators, Administrators)
+**→ [docs_user/](docs_user/)**
+
+Learn how to use the media server:
+- Upload and manage videos, images, documents
+- Organize content with tags
+- Set up access control and permissions
+- Share content with access codes
+- Collaborate with teams using groups
+- API documentation and testing
+
+**Start here if you want to:** Use the system, manage content, configure access
+
+---
+
+### 📊 Project Status & Planning
+**→ [docs_status/](docs_status/)**
+
+View project status and roadmap:
+- **PROJECT_STATUS.md** - ✅ Current status (Production Ready)
+- **MASTER_PLAN.md** - Complete roadmap and vision
+- **MEDIA_CLI_PROGRESS.md** - CLI tool development
+- **DOCUMENTATION_INDEX.md** - Complete doc map
+
+**Start here if you want to:** Check project status, understand roadmap, track progress
+
+---
+
+### 🏗️  Architecture & Design
+**→ [docs_design/](docs_design/)**
+
+Understand the system design:
+- Architecture Decision Records (ADRs)
+- System design patterns
+- Component architecture
+- Tagging system design
+- Access control model
+- UI component structure
+
+**Start here if you want to:** Understand design decisions, learn architecture, contribute to design
+
+---
+
+### 👨‍💻 Developer Documentation
+**→ [docs_dev/](docs_dev/)**
+
+Technical implementation details:
+- Setup and configuration guides
+- Authentication system (OIDC, Casdoor)
+- Feature implementation details
+- API specifications
+- Database migrations
+- Testing strategies
+
+**Start here if you want to:** Develop features, fix bugs, understand implementation
+
+---
+
+### 📦 Historical Documentation
+**→ [docs_archive/](docs_archive/)**
+
+Historical records and completed work:
+- Phase completion summaries
+- Bug fix documentation
+- Migration guides
+- Legacy planning documents
+- Old architecture docs
+
+**Start here if you want to:** Understand project history, see what changed, learn from past decisions
+
+---
+
+## 🚀 Getting Started Paths
+
+### I'm a New User
+1. Read [../README.md](../README.md) - Project overview
+2. Follow [../QUICKSTART.md](../QUICKSTART.md) - Get running
+3. Browse [docs_user/](docs_user/) - Learn features
+
+### I'm a Developer
+1. Read [../README.md](../README.md) - Project overview
+2. Check [docs_status/PROJECT_STATUS.md](docs_status/PROJECT_STATUS.md) - Current state
+3. Review [docs_design/ARCHITECTURE_DECISIONS.md](docs_design/ARCHITECTURE_DECISIONS.md) - Design
+4. Explore [docs_dev/](docs_dev/) - Implementation details
+
+### I'm a Project Manager
+1. Check [docs_status/PROJECT_STATUS.md](docs_status/PROJECT_STATUS.md) - Status
+2. Review [docs_status/MASTER_PLAN.md](docs_status/MASTER_PLAN.md) - Roadmap
+3. Browse [docs_user/](docs_user/) - User capabilities
+
+### I'm Deploying to Production
+1. Read [../DEPLOYMENT.md](../DEPLOYMENT.md) - Deployment guide
+2. Check [docs_user/PERMISSION_MANAGEMENT_GUIDE.md](docs_user/PERMISSION_MANAGEMENT_GUIDE.md) - Access setup
+3. Review [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md) - Common issues
+
+---
+
+## 📋 Documentation by Topic
+
+### Authentication & Security
+- [docs_dev/auth/](docs_dev/auth/) - OIDC, Casdoor, PKCE
+- [docs_user/PERMISSION_MANAGEMENT_GUIDE.md](docs_user/PERMISSION_MANAGEMENT_GUIDE.md) - Access control
+- [docs_design/GROUP_ACCESS_CODES.md](docs_design/GROUP_ACCESS_CODES.md) - Access design
+
+### Media Management
+- [docs_user/VIDEO_MANAGEMENT_GUIDE.md](docs_user/VIDEO_MANAGEMENT_GUIDE.md) - Videos
+- [docs_user/RESOURCE_WORKFLOW_GUIDE.md](docs_user/RESOURCE_WORKFLOW_GUIDE.md) - Workflow
+- [docs_design/IMAGE_MANAGER_QUICK_REFERENCE.md](docs_design/IMAGE_MANAGER_QUICK_REFERENCE.md) - Images
+
+### Organization & Search
+- [docs_user/TAG_MANAGEMENT_GUIDE.md](docs_user/TAG_MANAGEMENT_GUIDE.md) - Tagging
+- [docs_design/TAGGING_SYSTEM_SUMMARY.md](docs_design/TAGGING_SYSTEM_SUMMARY.md) - Tag architecture
+
+### Collaboration
+- [docs_user/GROUP_OWNERSHIP_EXPLAINED.md](docs_user/GROUP_OWNERSHIP_EXPLAINED.md) - Teams
+- [docs_user/ACCESS_CODE_DECISION_GUIDE.md](docs_user/ACCESS_CODE_DECISION_GUIDE.md) - Sharing
+
+### API & Integration
+- [docs_user/API_TESTING_GUIDE.md](docs_user/API_TESTING_GUIDE.md) - REST API
+- [docs_dev/](docs_dev/) - Technical integration
+
+---
+
+## 📊 Documentation Statistics
+
+- **End-User Guides:** 14 files in `docs_user/`
+- **Status & Planning:** 5 files in `docs_status/`
+- **Design & Architecture:** 7 files in `docs_design/`
+- **Developer Docs:** ~30 files in `docs_dev/`
+- **Historical Archive:** 135+ files in `docs_archive/`
+
+**Total:** 195+ documentation files
+
+---
+
+## 🎯 Key Documents (Most Important)
+
+1. **[docs_status/PROJECT_STATUS.md](docs_status/PROJECT_STATUS.md)** - Current status ⭐
+2. **[docs_status/MASTER_PLAN.md](docs_status/MASTER_PLAN.md)** - Complete roadmap
+3. **[docs_design/ARCHITECTURE_DECISIONS.md](docs_design/ARCHITECTURE_DECISIONS.md)** - Design decisions
+4. **[docs_user/VIDEO_MANAGEMENT_GUIDE.md](docs_user/VIDEO_MANAGEMENT_GUIDE.md)** - Core feature
+5. **[docs_user/TAG_MANAGEMENT_GUIDE.md](docs_user/TAG_MANAGEMENT_GUIDE.md)** - Organization
+6. **[docs_user/API_TESTING_GUIDE.md](docs_user/API_TESTING_GUIDE.md)** - API reference
+7. **[docs_dev/auth/](docs_dev/auth/)** - Authentication system
+8. **[docs_user/PERMISSION_MANAGEMENT_GUIDE.md](docs_user/PERMISSION_MANAGEMENT_GUIDE.md)** - Access control
+
+---
+
+## ✅ Documentation Quality Standards
+
+### Organization
+- ✅ All docs under single `docs/` directory
+- ✅ Clear subdirectories by audience
+- ✅ README in each major subdirectory
+- ✅ Consistent naming conventions
+
+### Content
+- ✅ Up-to-date with current system
+- ✅ Cross-linked where relevant
+- ✅ Code examples where applicable
+- ✅ Clear, concise language
+
+### Maintenance
+- ✅ Old docs moved to archive (not deleted)
+- ✅ Regular reviews and updates
+- ✅ Version controlled in git
+- ✅ Linked from main README
+
+---
+
+## 🔍 Can't Find What You Need?
+
+**Complete documentation index:**
+→ [docs_status/DOCUMENTATION_INDEX.md](docs_status/DOCUMENTATION_INDEX.md)
+
+**Documentation structure guide:**
+→ [../DOCUMENTATION_STRUCTURE.md](../DOCUMENTATION_STRUCTURE.md)
+
+**For quick help:**
+→ [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md)
+
+---
+
+## 🤝 Contributing to Documentation
+
+When adding or updating docs:
+
+1. **Choose the right subdirectory:**
+   - User guides → `docs_user/`
+   - Status updates → `docs_status/`
+   - Design docs → `docs_design/`
+   - Developer docs → `docs_dev/`
+   - Old docs → `docs_archive/`
+
+2. **Follow conventions:**
+   - Use clear, descriptive filenames
+   - Add to relevant README
+   - Cross-link related docs
+   - Use markdown formatting
+
+3. **Keep organized:**
+   - Don't create new top-level folders
+   - Use existing categories
+   - Archive old docs instead of deleting
+
+---
+
+## 📞 Need Help?
+
+**Using the system:**
+→ Browse [docs_user/](docs_user/)
+
+**Understanding architecture:**
+→ Check [docs_design/](docs_design/)
+
+**Implementing features:**
+→ Explore [docs_dev/](docs_dev/)
+
+**Checking status:**
+→ Read [docs_status/PROJECT_STATUS.md](docs_status/PROJECT_STATUS.md)
+
+**Something not working:**
+→ See [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md)
+
+---
+
+**Documentation Hub Version:** 1.0  
+**Structure:** Clean, organized, comprehensive  
+**Status:** ✅ Production Ready  
 **Last Updated:** February 2026

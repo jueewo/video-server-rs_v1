@@ -1,134 +1,123 @@
-# User Documentation
+# End-User Documentation
 
-**Purpose:** User-facing documentation for end users, administrators, and content creators  
-**Status:** 🚧 Coming Soon  
-**For Developers:** See `../docs_dev/` instead
+This folder contains documentation for **end users** - how to use the media server, manage content, and work with features.
 
----
+## 📚 Quick Start Guides
 
-## 📚 What Will Be Here
+### Getting Started
+- **[../README.md](../README.md)** - Main project overview
+- **[../QUICKSTART.md](../QUICKSTART.md)** - 5-minute setup guide
+- **[../DEPLOYMENT.md](../DEPLOYMENT.md)** - Production deployment
+- **[../TROUBLESHOOTING.md](../TROUBLESHOOTING.md)** - Common issues and solutions
 
-This folder will contain documentation for:
+## 📖 User Guides
 
-### For End Users
-- **Getting Started Guide** - How to access and use the media server
-- **Viewing Content** - How to watch videos, view images, browse galleries
-- **Access Codes** - How to use access codes to view shared content
-- **3D Gallery** - How to navigate the 3D gallery experience
-- **Search & Browse** - Finding content by tags, categories, groups
+### Content Management
+- **[VIDEO_MANAGEMENT_GUIDE.md](VIDEO_MANAGEMENT_GUIDE.md)** - Upload and manage videos
+  - Video upload process
+  - HLS streaming setup
+  - Video metadata and tags
+  - Access control
+  
+- **[TAG_MANAGEMENT_GUIDE.md](TAG_MANAGEMENT_GUIDE.md)** - Organize with tags
+  - Creating and managing tags
+  - Tag categories
+  - Bulk tagging
+  - Search and filtering
 
-### For Content Creators
-- **Uploading Content** - Step-by-step upload guides
-- **Organizing Media** - Using tags, groups, and vaults
-- **Sharing Content** - Creating and managing access codes
-- **Managing Your Content** - Editing, updating, and deleting media
-- **Best Practices** - Tips for organizing and presenting content
+- **[RESOURCE_WORKFLOW_GUIDE.md](RESOURCE_WORKFLOW_GUIDE.md)** - Complete workflow guide
+  - Upload process
+  - Organization strategies
+  - Sharing workflows
+  - Best practices
 
-### For Administrators
-- **Setup & Installation** - Production deployment guide
-- **User Management** - Managing users and permissions
-- **Access Control** - Configuring groups and access codes
-- **Monitoring** - Health checks and system status
-- **Backup & Recovery** - Data management and backups
-- **Troubleshooting** - Common issues and solutions
+### Access Control & Sharing
+- **[PERMISSION_MANAGEMENT_GUIDE.md](PERMISSION_MANAGEMENT_GUIDE.md)** - Manage permissions
+  - 4-layer access control
+  - Role-based permissions
+  - User management
+  
+- **[GROUP_OWNERSHIP_EXPLAINED.md](GROUP_OWNERSHIP_EXPLAINED.md)** - Group collaboration
+  - Creating and managing groups
+  - Group roles and permissions
+  - Team collaboration workflows
+  
+- **[ACCESS_CODE_DECISION_GUIDE.md](ACCESS_CODE_DECISION_GUIDE.md)** - Share with access codes
+  - Individual vs group codes
+  - Creating access codes
+  - Code expiration and limits
+  - Use cases
 
----
+### Advanced Features
+- **[VAULT_MANAGEMENT_FEATURE.md](VAULT_MANAGEMENT_FEATURE.md)** - Vault storage system
+  - Privacy-preserving storage
+  - Vault organization
+  - User isolation
 
-## 🔧 For Developers
+- **[3D_GALLERY_VIDEO_TROUBLESHOOTING.md](3D_GALLERY_VIDEO_TROUBLESHOOTING.md)** - 3D Gallery
+  - Immersive viewing mode
+  - VR/AR support
+  - Troubleshooting
 
-**Looking for technical documentation?**
+## 🧪 Testing & API
 
-Developer documentation has moved to:
-- **`../docs_dev/`** - Architecture, auth, features, migrations
-- **`../docs_archive/`** - Historical development documentation
-- **`../README.md`** - Quick start for developers
-- **`../DOCUMENTATION_INDEX.md`** - Complete documentation index
+- **[API_TESTING_GUIDE.md](API_TESTING_GUIDE.md)** - REST API documentation
+  - API endpoints
+  - Authentication
+  - Testing examples
+  - cURL commands
 
----
+- **[APPLICATION_TESTING_GUIDE.md](APPLICATION_TESTING_GUIDE.md)** - Application testing
+  - Feature testing
+  - Access control testing
+  - Integration testing
 
-## 📋 Current Status
+## 🔧 Technical References
 
-**User documentation is planned but not yet created.**
+- **[FILESYSTEM_MOUNT.md](FILESYSTEM_MOUNT.md)** - File system configuration
+- **[VIDEO_THUMBNAIL_FIX.md](VIDEO_THUMBNAIL_FIX.md)** - Thumbnail troubleshooting
+- **[LEGACY_MANAGERS_DEACTIVATION.md](LEGACY_MANAGERS_DEACTIVATION.md)** - Legacy system info
 
-Priority documentation to create:
-1. User Quick Start Guide
-2. Content Upload Guide
-3. Access Code User Guide
-4. Admin Setup Guide
-5. Troubleshooting for Users
+## 🎯 By Use Case
 
----
+### I want to...
 
-## 🤝 Contributing
+**Upload and share videos**
+1. Read [VIDEO_MANAGEMENT_GUIDE.md](VIDEO_MANAGEMENT_GUIDE.md)
+2. Learn about sharing in [ACCESS_CODE_DECISION_GUIDE.md](ACCESS_CODE_DECISION_GUIDE.md)
 
-Help us create user documentation!
+**Organize my content**
+1. Start with [TAG_MANAGEMENT_GUIDE.md](TAG_MANAGEMENT_GUIDE.md)
+2. Follow best practices in [RESOURCE_WORKFLOW_GUIDE.md](RESOURCE_WORKFLOW_GUIDE.md)
 
-**What we need:**
-- Simple, jargon-free explanations
-- Step-by-step tutorials with screenshots
-- Common use case examples
-- FAQ sections
-- Video tutorials
+**Set up team collaboration**
+1. Read [GROUP_OWNERSHIP_EXPLAINED.md](GROUP_OWNERSHIP_EXPLAINED.md)
+2. Configure permissions with [PERMISSION_MANAGEMENT_GUIDE.md](PERMISSION_MANAGEMENT_GUIDE.md)
 
-**Style guide:**
-- Write for non-technical users
-- Include screenshots/diagrams
-- Use concrete examples
-- Provide context and "why"
-- Link to related topics
+**Integrate with my app**
+1. Check [API_TESTING_GUIDE.md](API_TESTING_GUIDE.md)
+2. Review authentication in [../docs_dev/auth/](../docs_dev/auth/)
 
----
+**Deploy to production**
+1. Follow [../DEPLOYMENT.md](../DEPLOYMENT.md)
+2. If issues arise, see [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md)
 
-## 🗂️ Planned Structure
+## 📂 Related Documentation
 
-```
-docs/                          # User-facing documentation
-├── getting-started/
-│   ├── README.md             # Overview
-│   ├── first-login.md        # Logging in
-│   ├── browsing-content.md   # Finding content
-│   └── using-access-codes.md # Access codes
-│
-├── content-creators/
-│   ├── README.md             # Overview
-│   ├── uploading-videos.md   # Video upload
-│   ├── uploading-images.md   # Image upload
-│   ├── organizing-tags.md    # Using tags
-│   ├── creating-groups.md    # Group organization
-│   └── sharing-content.md    # Creating access codes
-│
-├── administrators/
-│   ├── README.md             # Overview
-│   ├── installation.md       # Setup guide
-│   ├── configuration.md      # Config options
-│   ├── user-management.md    # Managing users
-│   ├── monitoring.md         # System health
-│   └── backup.md             # Data backup
-│
-├── features/
-│   ├── 3d-gallery.md         # 3D gallery guide
-│   ├── live-streaming.md     # Live streaming
-│   ├── tagging-system.md     # Tags and search
-│   └── access-control.md     # Permissions
-│
-├── troubleshooting/
-│   ├── common-issues.md      # FAQ
-│   ├── playback-issues.md    # Video problems
-│   └── access-problems.md    # Login/access issues
-│
-└── README.md                 # This file
-```
+- **[../docs_status/](../docs_status/)** - Project status and roadmap
+- **[../docs_design/](../docs_design/)** - Architecture and system design
+- **[../docs_dev/](../docs_dev/)** - Developer documentation
+- **[../docs_archive/](../docs_archive/)** - Historical documentation
+
+## 💡 Need Help?
+
+1. **Quick answers:** Check [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md)
+2. **How to use features:** Browse the guides above
+3. **Technical details:** See [../docs_dev/](../docs_dev/)
+4. **API reference:** Read [API_TESTING_GUIDE.md](API_TESTING_GUIDE.md)
 
 ---
 
-## 📞 Questions?
-
-**For now, see:**
-- **Developer Quick Start:** `../QUICKSTART.md`
-- **Developer Docs:** `../docs_dev/`
-- **API Documentation:** `../API_TESTING_GUIDE.md`
-
----
-
-**Status:** 📝 Placeholder - User documentation coming soon!  
-**Last Updated:** February 15, 2026
+**Documentation Type:** End-User Guides  
+**Target Audience:** Content creators, administrators, API users  
+**Last Updated:** February 2026

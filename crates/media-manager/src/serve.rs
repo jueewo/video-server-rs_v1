@@ -32,7 +32,14 @@ pub async fn serve_image_with_suffix_check(
     // Check if slug ends with _thumb (legacy pattern from media-hub)
     if let Some(base_slug) = slug.strip_suffix("_thumb") {
         // Serve thumbnail variant
-        serve_image_variant(state, session, base_slug.to_string(), ImageVariant::Thumbnail, query).await
+        serve_image_variant(
+            state,
+            session,
+            base_slug.to_string(),
+            ImageVariant::Thumbnail,
+            query,
+        )
+        .await
     } else {
         // Serve WebP variant (default)
         serve_image_variant(state, session, slug, ImageVariant::WebP, query).await
@@ -309,11 +316,25 @@ async fn serve_image_variant(
     let stream = ReaderStream::new(file);
     let body = Body::from_stream(stream);
 
-    Ok(Response::builder()
+    let mut builder = Response::builder()
         .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, content_type)
+        .header(header::CONTENT_TYPE, &content_type)
         .header(header::CACHE_CONTROL, "public, max-age=31536000") // Cache for 1 year
         .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*") // Allow embedding
-        .body(body)
-        .unwrap())
+        .header("X-Content-Type-Options", "nosniff"); // Prevent MIME-sniffing
+
+    // SVG files can contain embedded JavaScript — lock them down with CSP
+    if content_type == "image/svg+xml" {
+        builder = builder
+            .header(
+                "Content-Security-Policy",
+                "default-src 'none'; style-src 'unsafe-inline'",
+            )
+            .header(
+                header::CONTENT_DISPOSITION,
+                "inline; filename=\"image.svg\"",
+            );
+    }
+
+    Ok(builder.body(body).unwrap())
 }

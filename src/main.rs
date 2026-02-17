@@ -27,7 +27,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             title: "Media Server".to_string(),
-            icon: "/storage/icon.png".to_string(),
+            icon: "/static/icon.webp".to_string(),
             description: None,
         }
     }
@@ -79,7 +79,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 
 // Import the crates
-use access_codes::{access_code_routes, AccessCodeState, MediaResource};
+use access_codes::{access_code_public_routes, access_code_routes, AccessCodeState, MediaResource};
 use access_control::AccessControlService;
 use access_groups;
 use api_keys::{middleware::api_key_or_session_auth, routes::api_key_routes};
@@ -630,7 +630,10 @@ async fn main() -> anyhow::Result<()> {
         .with_state(app_state)
         // Merge module routers
         .merge(auth_routes(auth_state.clone()))
-        .merge(api_key_routes(Arc::new(pool.clone()))) // API Keys management (session auth required for UI)
+        // API Keys management — session auth checked in handlers, middleware adds defense-in-depth
+        .merge(api_key_routes(Arc::new(pool.clone())).route_layer(
+            axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
+        ))
         // Unified media manager — listing, search, upload, detail, CRUD, image serving
         .merge(
             media_routes()
@@ -646,8 +649,22 @@ async fn main() -> anyhow::Result<()> {
             axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
         ))
         // REMOVED: image_routes and document_routes - replaced by unified media-manager
-        .merge(access_code_routes(access_state))
-        .merge(vault_routes(vault_state))
+        // Access codes — public preview route stays unauthenticated (shared link landing page)
+        .merge(access_code_public_routes(access_state.clone()))
+        // Access codes — CRUD routes get auth middleware for defense-in-depth
+        .merge(
+            access_code_routes(access_state).route_layer(axum::middleware::from_fn_with_state(
+                Arc::new(pool.clone()),
+                api_key_or_session_auth,
+            )),
+        )
+        // Vault management — auth middleware for defense-in-depth
+        .merge(
+            vault_routes(vault_state).route_layer(axum::middleware::from_fn_with_state(
+                Arc::new(pool.clone()),
+                api_key_or_session_auth,
+            )),
+        )
         .merge(
             access_groups::routes::create_routes(pool.clone()).route_layer(
                 axum::middleware::from_fn_with_state(
@@ -676,8 +693,16 @@ async fn main() -> anyhow::Result<()> {
                     api_key_or_session_auth,
                 )),
         )
-        // Serve static files from storage directory
-        .nest_service("/storage", ServeDir::new(&storage_dir))
+        // Serve static files from storage directory (authentication required)
+        .nest(
+            "/storage",
+            Router::new()
+                .nest_service("/", ServeDir::new(&storage_dir))
+                .route_layer(axum::middleware::from_fn_with_state(
+                    Arc::new(pool.clone()),
+                    api_key_or_session_auth,
+                )),
+        )
         // Serve static CSS and assets
         .nest_service("/static", ServeDir::new("static"))
         // Apply middleware

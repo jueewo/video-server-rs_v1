@@ -904,6 +904,7 @@ fn format_full_date(date_str: &str) -> String {
     }
 }
 
+/// Protected access-code routes (require authentication)
 pub fn access_code_routes(state: Arc<AccessCodeState>) -> Router {
     Router::new()
         // API routes
@@ -914,6 +915,14 @@ pub fn access_code_routes(state: Arc<AccessCodeState>) -> Router {
         .route("/access/codes", get(list_access_codes_page))
         .route("/access/codes/new", get(new_access_code_page))
         .route("/access/codes/:code", get(view_access_code_page))
-        .route("/access/preview", get(preview_access_code_page)) // Public preview page
+        .with_state(state)
+}
+
+/// Public access-code routes (no authentication required)
+/// The preview page is intentionally public — it's the landing page for
+/// shared access-code links.
+pub fn access_code_public_routes(state: Arc<AccessCodeState>) -> Router {
+    Router::new()
+        .route("/access/preview", get(preview_access_code_page))
         .with_state(state)
 }

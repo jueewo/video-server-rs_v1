@@ -2,7 +2,7 @@
 
 use askama::Template;
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::Html,
     Json,
@@ -13,6 +13,11 @@ use tower_sessions::Session;
 use tracing::{error, info};
 
 use crate::routes::MediaManagerState;
+
+#[derive(Debug, Deserialize)]
+pub struct MarkdownAccessQuery {
+    pub code: Option<String>,
+}
 
 /// Strip YAML frontmatter from markdown content
 /// Frontmatter is delimited by --- at the start and end
@@ -55,6 +60,7 @@ pub async fn view_markdown_handler(
     session: Session,
     State(state): State<MediaManagerState>,
     Path(slug): Path<String>,
+    Query(query): Query<MarkdownAccessQuery>,
 ) -> Result<Html<String>, (StatusCode, String)> {
     let authenticated: bool = session
         .get("authenticated")
@@ -96,11 +102,12 @@ pub async fn view_markdown_handler(
         }
     };
 
+    let media_id: i32 = row.get("id");
     let title: String = row.get("title");
     let filename: String = row.get("filename");
     let mime_type: String = row.get("mime_type");
-    let is_public: i32 = row.get("is_public");
-    let owner_id: Option<String> = row.get("user_id");
+    let _is_public: i32 = row.get("is_public");
+    let _owner_id: Option<String> = row.get::<Option<String>, _>("user_id");
     let vault_id: Option<String> = row.get("vault_id");
     let created_at: String = row.get("created_at");
 
@@ -112,16 +119,34 @@ pub async fn view_markdown_handler(
         ));
     }
 
-    // Check access permissions
-    let has_access = if is_public == 1 {
-        true
-    } else if let Some(ref uid) = user_id {
-        owner_id.as_ref() == Some(uid)
-    } else {
-        false
-    };
+    // Check access using AccessControlService (supports ownership, access codes,
+    // group membership, and generates audit log entries)
+    let mut context = access_control::AccessContext::new(common::ResourceType::File, media_id);
+    if let Some(uid) = user_id.clone() {
+        context = context.with_user(uid);
+    }
+    if let Some(key) = query.code.clone() {
+        context = context.with_key(key);
+    }
 
-    if !has_access {
+    let decision = state
+        .access_control
+        .check_access(context, access_control::Permission::Read)
+        .await
+        .map_err(|e| {
+            error!("Access control error: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Access control error".to_string(),
+            )
+        })?;
+
+    if !decision.granted {
+        info!(
+            media_slug = %slug,
+            reason = %decision.reason,
+            "Access denied to markdown document"
+        );
         return Err((
             StatusCode::FORBIDDEN,
             "You don't have access to this document".to_string(),
@@ -139,15 +164,13 @@ pub async fn view_markdown_handler(
         .vault_media_dir(&vault_id, common::storage::MediaType::Document)
         .join(&filename);
 
-    let raw_markdown = tokio::fs::read_to_string(&file_path)
-        .await
-        .map_err(|e| {
-            error!("Failed to read markdown file: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to read file".to_string(),
-            )
-        })?;
+    let raw_markdown = tokio::fs::read_to_string(&file_path).await.map_err(|e| {
+        error!("Failed to read markdown file: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to read file".to_string(),
+        )
+    })?;
 
     // Strip YAML frontmatter before rendering
     let markdown_content = strip_frontmatter(&raw_markdown);
@@ -156,7 +179,10 @@ pub async fn view_markdown_handler(
     let renderer = docs_viewer::markdown::MarkdownRenderer::new();
     let rendered_html = renderer.render(markdown_content);
 
-    info!("📄 Rendered markdown with syntax highlighting for: {}", slug);
+    info!(
+        "📄 Rendered markdown with syntax highlighting for: {}",
+        slug
+    );
 
     let template = MarkdownViewTemplate {
         authenticated,
@@ -188,7 +214,10 @@ pub async fn edit_markdown_handler(
         .unwrap_or(false);
 
     if !authenticated {
-        return Err((StatusCode::UNAUTHORIZED, "Must be logged in to edit".to_string()));
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "Must be logged in to edit".to_string(),
+        ));
     }
 
     // Get user_id from session
@@ -257,15 +286,13 @@ pub async fn edit_markdown_handler(
         .vault_media_dir(&vault_id, common::storage::MediaType::Document)
         .join(&filename);
 
-    let raw_markdown = tokio::fs::read_to_string(&file_path)
-        .await
-        .map_err(|e| {
-            error!("Failed to read markdown file: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to read file".to_string(),
-            )
-        })?;
+    let raw_markdown = tokio::fs::read_to_string(&file_path).await.map_err(|e| {
+        error!("Failed to read markdown file: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to read file".to_string(),
+        )
+    })?;
 
     info!("✏️ Opening markdown editor for: {}", slug);
 

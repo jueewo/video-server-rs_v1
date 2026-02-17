@@ -8,9 +8,31 @@ use axum::{
 use common::models::{MediaItemCreateDTO, MediaType};
 use serde_json::Value;
 use tower_sessions::Session;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::routes::MediaManagerState;
+
+// ── media-core validation re-exports ────────────────────────────────────
+use media_core::{
+    detect_mime_type, sanitize_filename, validate_extension_mime_match, validate_file_size,
+    validate_filename, validate_mime_type, MAX_DOCUMENT_SIZE, MAX_IMAGE_SIZE, MAX_VIDEO_SIZE,
+};
+
+/// Convert the simple `common::models::MediaType` plus a detected MIME into
+/// the richer `media_core::traits::MediaType` expected by the validation fns.
+fn to_core_media_type(simple: &MediaType, detected_mime: &str) -> media_core::traits::MediaType {
+    match simple {
+        MediaType::Video => media_core::traits::MediaType::Video,
+        MediaType::Image => media_core::traits::MediaType::Image,
+        MediaType::Document => {
+            let doc_type = media_core::traits::DocumentType::from_mime_type(detected_mime)
+                .unwrap_or(media_core::traits::DocumentType::Other(
+                    detected_mime.to_string(),
+                ));
+            media_core::traits::MediaType::Document(doc_type)
+        }
+    }
+}
 
 /// Unified media upload handler
 /// Handles videos, images, and documents with type-specific processing
@@ -200,10 +222,75 @@ pub async fn upload_media(
         Json(serde_json::json!({"error": "file is required"})),
     ))?;
 
-    let original_filename = filename.ok_or((
+    let raw_filename = filename.ok_or((
         StatusCode::BAD_REQUEST,
         Json(serde_json::json!({"error": "filename is required"})),
     ))?;
+
+    // ── media-core validation pipeline ──────────────────────────────
+    // 1. Sanitize & validate filename (path-traversal, null bytes, etc.)
+    let original_filename = sanitize_filename(&raw_filename);
+    validate_filename(&original_filename).map_err(|e| {
+        warn!(event = "upload_rejected", reason = "invalid_filename", filename = %raw_filename, "Filename validation failed: {}", e);
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": format!("Invalid filename: {}", e)})),
+        )
+    })?;
+
+    // 2. Content-based MIME detection (magic numbers + extension)
+    let detected_mime = detect_mime_type(&file_data, &original_filename);
+
+    // 3. Convert to media-core's rich MediaType for validation
+    let core_media_type = to_core_media_type(&media_type_enum, &detected_mime);
+
+    // 4. Validate MIME type against allowlist for declared media type
+    validate_mime_type(&detected_mime, &core_media_type).map_err(|e| {
+        warn!(event = "upload_rejected", reason = "invalid_mime", mime = %detected_mime, media_type = %media_type_str, "MIME validation failed: {}", e);
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": format!("Invalid file type: {}", e)})),
+        )
+    })?;
+
+    // 5. Validate file size against per-type limits
+    let max_size = match media_type_enum {
+        MediaType::Image => MAX_IMAGE_SIZE,
+        MediaType::Video => MAX_VIDEO_SIZE,
+        MediaType::Document => MAX_DOCUMENT_SIZE,
+    };
+    validate_file_size(file_data.len(), max_size).map_err(|e| {
+        warn!(
+            event = "upload_rejected",
+            reason = "file_too_large",
+            size = file_data.len(),
+            max = max_size,
+            "Size validation failed: {}",
+            e
+        );
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": format!("File too large: {}", e)})),
+        )
+    })?;
+
+    // 6. Validate extension matches detected MIME (catch renamed files)
+    validate_extension_mime_match(&original_filename, &detected_mime).map_err(|e| {
+        warn!(event = "upload_rejected", reason = "extension_mismatch", filename = %original_filename, mime = %detected_mime, "Extension-MIME mismatch: {}", e);
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": format!("File extension mismatch: {}", e)})),
+        )
+    })?;
+
+    info!(
+        event = "upload_validated",
+        filename = %original_filename,
+        mime = %detected_mime,
+        size = file_data.len(),
+        media_type = %media_type_str,
+        "Upload passed all validation checks"
+    );
 
     // Get vault_id first: use provided vault_id or get/create default vault
     let vault_id = if let Some(vid) = vault_id {
@@ -234,18 +321,17 @@ pub async fn upload_media(
         let base_slug = media_core::metadata::generate_slug(&title);
 
         // Check if base slug exists globally
-        let existing: Option<(i32,)> =
-            sqlx::query_as("SELECT id FROM media_items WHERE slug = ?")
-                .bind(&base_slug)
-                .fetch_optional(&state.pool)
-                .await
-                .map_err(|e| {
-                    error!("Database error checking slug: {}", e);
-                    (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(serde_json::json!({"error": "Database error"})),
-                    )
-                })?;
+        let existing: Option<(i32,)> = sqlx::query_as("SELECT id FROM media_items WHERE slug = ?")
+            .bind(&base_slug)
+            .fetch_optional(&state.pool)
+            .await
+            .map_err(|e| {
+                error!("Database error checking slug: {}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": "Database error"})),
+                )
+            })?;
 
         if existing.is_some() {
             // Find next available suffix (_2, _3, etc.) globally
@@ -282,7 +368,10 @@ pub async fn upload_media(
                 }
             }
 
-            info!("Slug '{}' already exists globally, using '{}' instead", base_slug, unique_slug);
+            info!(
+                "Slug '{}' already exists globally, using '{}' instead",
+                base_slug, unique_slug
+            );
             unique_slug
         } else {
             base_slug
@@ -375,7 +464,9 @@ async fn process_image_upload(
         (svg_filename.clone(), None, file_size)
     } else {
         // Transcode to WebP + keep original
-        let original_stored_filename = format!("{}_original{}", slug,
+        let original_stored_filename = format!(
+            "{}_original{}",
+            slug,
             std::path::Path::new(&original_filename)
                 .extension()
                 .and_then(|s| s.to_str())
@@ -419,13 +510,15 @@ async fn process_image_upload(
             })?;
         }
 
-        tokio::fs::write(&original_path, &file_data).await.map_err(|e| {
-            error!("Failed to save original: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": "Failed to save original image"})),
-            )
-        })?;
+        tokio::fs::write(&original_path, &file_data)
+            .await
+            .map_err(|e| {
+                error!("Failed to save original: {}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": "Failed to save original image"})),
+                )
+            })?;
 
         // Store WebP
         let webp_path = state
@@ -433,28 +526,30 @@ async fn process_image_upload(
             .vault_media_dir(&vault_id, common::storage::MediaType::Image)
             .join(&webp_filename);
 
-        tokio::fs::write(&webp_path, &webp_data).await.map_err(|e| {
-            error!("Failed to save WebP: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": "Failed to save WebP image"})),
-            )
-        })?;
+        tokio::fs::write(&webp_path, &webp_data)
+            .await
+            .map_err(|e| {
+                error!("Failed to save WebP: {}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": "Failed to save WebP image"})),
+                )
+            })?;
 
         let file_size = file_data.len() as i64;
-        (webp_filename.clone(), Some(webp_filename.clone()), file_size)
+        (
+            webp_filename.clone(),
+            Some(webp_filename.clone()),
+            file_size,
+        )
     };
 
     // Generate thumbnail (400x400)
     let thumbnail_url = if !is_svg {
         let img = image::load_from_memory(&file_data).ok();
         if let Some(img) = img {
-            let thumb = image::imageops::resize(
-                &img,
-                400,
-                400,
-                image::imageops::FilterType::Lanczos3,
-            );
+            let thumb =
+                image::imageops::resize(&img, 400, 400, image::imageops::FilterType::Lanczos3);
 
             let mut thumb_data = Vec::new();
             let thumb_encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut thumb_data);
@@ -501,7 +596,11 @@ async fn process_image_upload(
     .bind(&vault_id)
     .bind(&category)
     .bind(&thumbnail_url)
-    .bind(webp_filename.as_ref().map(|_| format!("/images/{}.webp", slug)))
+    .bind(
+        webp_filename
+            .as_ref()
+            .map(|_| format!("/images/{}.webp", slug)),
+    )
     .bind("active")
     .execute(&state.pool)
     .await
@@ -580,7 +679,11 @@ async fn process_document_upload(
 
     info!(
         "📄 Processing document upload: slug={}, title={}, file={}, size={} bytes, vault={}",
-        slug, title, original_filename, file_data.len(), vault_id
+        slug,
+        title,
+        original_filename,
+        file_data.len(),
+        vault_id
     );
 
     // Determine MIME type from extension
@@ -595,10 +698,27 @@ async fn process_document_upload(
         "csv" => "text/csv",
         "json" => "application/json",
         "xml" => "application/xml",
+        "yaml" | "yml" => "application/yaml",
+        "bpmn" => "application/xml",
         "txt" => "text/plain",
-        "doc" => "application/msword",
-        "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        _ => "application/octet-stream",
+        _ => {
+            warn!(
+                event = "upload_rejected",
+                reason = "unsupported_document_type",
+                extension = %extension,
+                filename = %original_filename,
+                "Unsupported document extension"
+            );
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "error": format!(
+                        "Unsupported document type: .{}. Allowed: pdf, md, csv, json, xml, yaml, yml, bpmn, txt",
+                        extension
+                    )
+                })),
+            ));
+        }
     };
 
     let file_size = file_data.len() as i64;
@@ -629,13 +749,15 @@ async fn process_document_upload(
     }
 
     // Write document file
-    tokio::fs::write(&document_path, &file_data).await.map_err(|e| {
-        error!("Failed to save document file: {}", e);
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": "Failed to save file"})),
-        )
-    })?;
+    tokio::fs::write(&document_path, &file_data)
+        .await
+        .map_err(|e| {
+            error!("Failed to save document file: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "Failed to save file"})),
+            )
+        })?;
 
     info!(
         "📄 Saved document file for user {} vault {}: {}",

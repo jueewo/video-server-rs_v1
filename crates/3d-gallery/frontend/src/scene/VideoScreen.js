@@ -296,7 +296,7 @@ export function createVideoScreen(scene, videoData, options = {}) {
 
   // Create poster/thumbnail texture (shown initially)
   const thumbnailUrl =
-    videoData.thumbnail_url || "/storage/images/video_placeholder.webp";
+    videoData.thumbnail_url || "/static/images/video_placeholder.webp";
   console.log(`Loading thumbnail for ${videoData.title}:`, thumbnailUrl);
 
   const posterTexture = new BABYLON.Texture(thumbnailUrl, scene);

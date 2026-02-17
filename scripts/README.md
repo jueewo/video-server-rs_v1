@@ -1,474 +1,346 @@
 # Scripts Directory
 
-This directory contains utility scripts organized by audience:
-
-- **`user/`** - Scripts for end users to prepare and manage media
-- **`run/`** - Scripts for running/deploying the server (build, Docker)
-- **`admin/`** - Scripts for server administrators (maintenance, utilities)
-- **`dev/`** - Scripts for developers (setup, testing, debugging)
+**Purpose:** Command-line utilities and automation scripts for the media server  
+**Last Updated:** February 2026  
+**Status:** ✅ Organized and Ready to Use
 
 ---
 
-## 👥 User Scripts
+## 📂 Directory Structure
 
-### 📹 `user/prepare-video.sh`
-
-**Purpose:** Offline video preparation tool - transcodes videos to HLS format with multiple quality variants, exactly matching the server's upload pipeline.
-
-**Usage:**
-```bash
-./scripts/user/prepare-video.sh <input-video> <slug> [public|private]
 ```
-
-**Example:**
-```bash
-./scripts/user/prepare-video.sh my-video.mp4 my-awesome-video public
+scripts/
+├── admin/          👑 Deployment & administration
+├── dev/            🔧 Development utilities
+├── maintenance/    🔨 Cleanup & maintenance
+├── testing/        🧪 API & feature testing
+├── run/            🚀 Runtime & build scripts
+└── user/           👤 User helper scripts
 ```
-
-**What it does:**
-- Transcodes video to HLS format with multiple quality variants (1080p, 720p, 480p, 360p)
-- Creates master playlist and segment files
-- Generates thumbnail and poster images
-- Organizes output in server-ready directory structure
-- Validates with FFmpeg to ensure compatibility
-
-**Output Structure:**
-```
-storage/videos/public/my-awesome-video/
-├── hls/
-│   ├── master.m3u8
-│   ├── 1080p/
-│   │   ├── index.m3u8
-│   │   ├── segment_000.ts
-│   │   ├── segment_001.ts
-│   │   └── ...
-│   ├── 720p/
-│   ├── 480p/
-│   └── 360p/
-├── thumbnail.jpg
-└── poster.jpg
-```
-
-**Note:** The `poster.jpg` file is the banner image used in the media grid view. The All Media page (`/media`) prioritizes showing the poster/banner image for videos for a better visual appearance.
 
 ---
 
-## 🔧 Utility Scripts
+## 👑 admin/ - Deployment & Administration
 
-### `update_video_posters.sql`
+**Purpose:** Production deployment, system management, documentation tools
 
-**Purpose:** Updates existing videos to set poster_url and thumbnail_url fields based on standard storage paths.
+### Scripts
+- **`deploy-production.sh`** - Deploy to production server
+  - Builds, transfers, and restarts application
+  - Production deployment workflow
+  
+- **`mark_project_complete.sh`** - Mark project as production-ready
+  - Updates status documents
+  - Creates PROJECT_STATUS.md
+  
+- **`organize_docs.sh`** - Organize documentation files
+  - Moves docs to appropriate folders
+  - Creates navigation READMEs
+  
+- **`organize_scripts.sh`** - Organize script files
+  - This script - organizes scripts into folders
 
-**Usage:**
+### Usage
 ```bash
-sqlite3 media.db < scripts/update_video_posters.sql
+# Deploy to production
+./scripts/admin/deploy-production.sh
+
+# Update project status
+./scripts/admin/mark_project_complete.sh
+
+# Reorganize documentation
+./scripts/admin/organize_docs.sh
 ```
-
-**What it does:**
-- Sets `poster_url` to `/storage/videos/{slug}/poster.jpg` for all videos
-- Sets `thumbnail_url` to `/storage/videos/{slug}/thumbnail.jpg` for all videos
-- Only updates videos where these fields are empty
-- Shows summary of updated videos
-
-**When to use:**
-- After uploading videos manually to storage
-- When poster/thumbnail images exist but database fields aren't populated
-- To standardize poster URLs across all videos
-
-**Expected Storage Structure:**
-```
-storage/videos/{slug}/
-├── poster.jpg       ← Banner image (16:9 recommended)
-├── thumbnail.jpg    ← Thumbnail image
-└── video.mp4        ← Video file
-```
-
-
-**After running:**
-1. Start the server: `cargo run`
-2. Navigate to: `http://localhost:3000/videos/new`
-3. Select the prepared folder slug (e.g., `my-awesome-video`)
-4. Fill in metadata and click "Register Video"
-
-**Requirements:**
-- FFmpeg with H.264 (libx264) support
-- Sufficient disk space (output is ~70-80% of input size)
-- Input video in any FFmpeg-supported format
-
-**Benefits:**
-- Process large videos offline without blocking the server
-- Consistent quality settings matching server pipeline
-- Faster registration in the UI (transcoding already done)
-- Batch processing capability
 
 ---
 
-## 🚀 Run Scripts
+## 🔧 dev/ - Development Utilities
 
-### 🏗️ `run/build.sh`
+**Purpose:** Development tools, database setup, testing helpers
 
-**Purpose:** Complete build script for server deployment - builds CSS and Rust in one command.
+### Scripts
+- **`debug_media.sh`** - Debug media API responses
+- **`init-database.sh`** - Initialize database with sample data
+- **`live_streaming_on_macbook.sh`** - Start live stream on macOS
+- **`migrate-storage.sh`** - Migrate storage structure
+- **`setup-images.sh`** - Setup image serving functionality
+- **`setup_db.sh`** - Quick database setup
+- **`test-access-codes.sh`** - Test access code functionality
+- **`test-emergency-login.sh`** - Test emergency login
+- **`test-images.sh`** - Test image upload/serving
+- **`test-tailwind-v4.sh`** - Test Tailwind CSS v4 build
+- **`test_migrations.sh`** - Test database migrations
+- **`transcode.sh`** - Transcode videos to HLS
 
-**Usage:**
+### Usage
 ```bash
-# Full production build (recommended for deployment)
+# Initialize development database
+./scripts/dev/init-database.sh
+
+# Test access codes
+./scripts/dev/test-access-codes.sh
+
+# Test emergency login
+./scripts/dev/test-emergency-login.sh
+```
+
+---
+
+## 🔨 maintenance/ - Cleanup & Maintenance
+
+**Purpose:** System maintenance, cleanup, and update scripts
+
+### Scripts
+- **`deactivate_legacy_managers.sh`** - Deactivate legacy manager crates
+- **`update_video_thumbnails.sh`** - Regenerate video thumbnails
+
+### Usage
+```bash
+# Update all video thumbnails
+./scripts/maintenance/update_video_thumbnails.sh
+
+# Deactivate legacy managers (if needed)
+./scripts/maintenance/deactivate_legacy_managers.sh
+```
+
+---
+
+## 🧪 testing/ - API & Feature Testing
+
+**Purpose:** Test API endpoints, features, and integration
+
+### Scripts
+- **`delete_media.sh`** - Interactive media deletion tool
+- **`test_delete_manual.sh`** - Test manual deletion
+- **`test_delete_one.sh`** - Test single item deletion
+- **`test_json.sh`** - Test JSON API responses
+- **`test_unified_upload.sh`** - Test unified upload API
+
+### Usage
+```bash
+# Test unified upload
+./scripts/testing/test_unified_upload.sh
+
+# Interactive media deletion
+./scripts/testing/delete_media.sh
+
+# Test JSON responses
+./scripts/testing/test_json.sh
+```
+
+---
+
+## 🚀 run/ - Runtime & Build Scripts
+
+**Purpose:** Build, compile, and run the application
+
+### Scripts
+- **`build.sh`** - Complete build process
+  - Builds CSS
+  - Compiles Rust
+  - Verifies deployment readiness
+
+### Usage
+```bash
+# Full production build
 ./scripts/run/build.sh
 
-# Development build (faster)
-./scripts/run/build.sh --dev
-
-# Only rebuild CSS (after template changes)
-./scripts/run/build.sh --css-only
-
-# Only rebuild Rust (after code changes)
-./scripts/run/build.sh --rust-only
-
-# Clean build (remove all artifacts first)
-./scripts/run/build.sh --clean --release
+# Build with verbose output
+./scripts/run/build.sh --verbose
 ```
 
-**What it does:**
-- Checks prerequisites (Node.js, Rust, FFmpeg)
-- Installs Node dependencies
-- Builds Tailwind CSS (REQUIRED - not in git)
-- Compiles Rust application (debug or release)
-- Verifies all build artifacts exist
-- Creates storage directories if missing
-- Shows helpful next steps
-
-**Options:**
-- `--dev` - Development build (faster, larger binary)
-- `--release` - Production build (default, optimized)
-- `--css-only` - Only build CSS, skip Rust
-- `--rust-only` - Only build Rust, skip CSS
-- `--clean` - Clean artifacts before building
-- `--help` - Show usage information
-
-**When to use:**
-- Every deployment (CSS must be rebuilt)
-- After pulling code updates
-- When CSS is broken/missing
-- Setting up new server
-- After modifying templates
-
-**Benefits:**
-- Single command for complete build
-- Automatic prerequisite checking
-- Colored output with progress indicators
-- Build verification and error detection
-- Helpful error messages and next steps
-
-**Output:**
-- `static/css/tailwind.css` (~90KB minified)
-- `target/release/video-server-rs` (production)
-- `target/debug/video-server-rs` (development)
-
 ---
 
-### 🐳 Docker Deployment
+## 👤 user/ - User Helper Scripts
 
-**Purpose:** Run the entire stack with Docker and Docker Compose.
+**Purpose:** Helper scripts for content creators and users
 
-**Location:** All Docker files are in the `../docker/` directory
+### Scripts
+- **`prepare-video.sh`** - Prepare videos for upload
+  - Optimizes video for streaming
+  - Generates thumbnails
+  - Transcodes to appropriate format
 
-**Quick Start:**
+### Usage
 ```bash
-# Navigate to docker directory
-cd docker
+# Prepare a video for upload
+./scripts/user/prepare-video.sh input.mp4
 
-# Start everything (media-server + MediaMTX)
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop everything
-docker-compose down
+# With custom output
+./scripts/user/prepare-video.sh input.mp4 output.mp4
 ```
 
-**Services:**
-- `media-server` - Rust application (port 3000)
-- `mediamtx` - Streaming server (ports 1935, 8888, 8889, 9997, 9998)
-
-**Benefits:**
-- Separate services for better architecture
-- Easy scaling and maintenance
-- Built-in health checks
-- Isolated networking
-- Volume persistence
-
-**Documentation:**
-- `../docker/README.md` - Docker quick start
-- `../docker/DOCKER.md` - Complete Docker guide (700+ lines)
-- `../docker/docker-compose.yml` - Two-service orchestration
-
 ---
 
-## 🔧 Admin Scripts
+## 🎯 Quick Reference
 
-### 🖼️ `admin/generate_thumbnails.rs`
+### By Use Case
 
-**Purpose:** Maintenance tool to regenerate thumbnails for all images in the database.
-
-**Usage:**
+**Setting up development environment**
 ```bash
-cargo run --bin generate-thumbnails
+./scripts/dev/init-database.sh
+./scripts/dev/setup-images.sh
 ```
 
-**What it does:**
-- Connects to the database and finds all images
-- Generates 400x400 thumbnails maintaining aspect ratio
-- Saves thumbnails as WebP format
-- Skips SVG files (vector format)
-- Provides detailed progress and error reporting
-
-**When to use:**
-- After bulk image imports
-- When thumbnail generation failed during upload
-- After changing thumbnail size settings
-- Database migration or recovery
-
-**Requirements:**
-- Database must be accessible (media.db)
-- Original images must exist in storage directory
-- Write permissions to storage directory
-
-**Output:**
-- Creates `{slug}_thumb.webp` for each image
-- Shows progress and summary statistics
-
----
-
-## 🛠️ Developer Scripts
-
-Developer scripts are located in `dev/` and include:
-
-- **Setup scripts** - Database initialization, storage setup
-- **Test scripts** - Access codes, emergency login, images, HLS
-- **Utilities** - Migration tools, transcoding
-
-See `dev/` directory for the full list of developer tools.
-
----
-
-## 🚀 Quick Start for Users
-
-### Preparing Your First Video
-
+**Building for production**
 ```bash
-# 1. Make sure FFmpeg is installed
-ffmpeg -version
+./scripts/run/build.sh
+./scripts/admin/deploy-production.sh
+```
 
-# 2. Prepare your video
-./scripts/user/prepare-video.sh ~/Downloads/my-video.mp4 welcome-video public
+**Testing features**
+```bash
+./scripts/testing/test_unified_upload.sh
+./scripts/testing/test_json.sh
+./scripts/dev/test-access-codes.sh
+```
 
-# 3. Start the server (if not already running)
+**Maintaining system**
+```bash
+./scripts/maintenance/update_video_thumbnails.sh
+```
+
+**Preparing content**
+```bash
+./scripts/user/prepare-video.sh video.mp4
+```
+
+---
+
+## 📋 Script Naming Convention
+
+- **`test-*.sh`** - Testing scripts
+- **`setup-*.sh`** - Setup/initialization scripts
+- **`*-production.sh`** - Production-related scripts
+- **`debug-*.sh`** - Debugging utilities
+- **`organize-*.sh`** - Organization tools
+
+---
+
+## 🔒 Safety Notes
+
+### Admin Scripts
+- **Destructive operations:** Always backup before running admin scripts
+- **Production impact:** Test in development first
+
+### Maintenance Scripts
+- **Data changes:** May modify database or files
+- **Backup first:** Always backup before maintenance
+
+### Testing Scripts
+- **Safe to run:** Testing scripts don't modify production data
+- **Development only:** Best run in development environment
+
+---
+
+## 📝 Adding New Scripts
+
+When adding a new script:
+
+1. **Choose the right folder:**
+   - Admin → Deployment/management
+   - Dev → Development tools
+   - Maintenance → Cleanup/updates
+   - Testing → API/feature tests
+   - Run → Build/runtime
+   - User → End-user helpers
+
+2. **Make it executable:**
+   ```bash
+   chmod +x scripts/category/your-script.sh
+   ```
+
+3. **Add documentation:**
+   - Update this README
+   - Add usage comments in script
+   - Document prerequisites
+
+4. **Follow conventions:**
+   - Use bash shebang: `#!/bin/bash`
+   - Add error handling: `set -e`
+   - Use descriptive names
+   - Add help text: `--help`
+
+---
+
+## 🔍 Finding the Right Script
+
+**I want to...**
+
+- **Deploy to production** → `admin/deploy-production.sh`
+- **Test the API** → `testing/test_*.sh`
+- **Set up dev environment** → `dev/init-database.sh`
+- **Build for release** → `run/build.sh`
+- **Update thumbnails** → `maintenance/update_video_thumbnails.sh`
+- **Prepare videos** → `user/prepare-video.sh`
+- **Debug media** → `dev/debug_media.sh`
+- **Test access codes** → `dev/test-access-codes.sh`
+
+---
+
+## 🛠️ Common Tasks
+
+### First Time Setup
+```bash
+# 1. Initialize database
+./scripts/dev/init-database.sh
+
+# 2. Setup images
+./scripts/dev/setup-images.sh
+
+# 3. Build CSS
+npm run build:css
+
+# 4. Run server
 cargo run
-
-# 4. Register in the UI
-# Visit: http://localhost:3000/videos/new
-# Select folder: welcome-video
-# Fill metadata and save
 ```
 
-### Batch Processing Multiple Videos
-
+### Testing Workflow
 ```bash
-# Create a simple loop for multiple videos
-for video in ~/Videos/*.mp4; do
-  filename=$(basename "$video" .mp4)
-  slug=$(echo "$filename" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
-  ./scripts/user/prepare-video.sh "$video" "$slug" public
-done
+# 1. Test uploads
+./scripts/testing/test_unified_upload.sh
+
+# 2. Test access codes
+./scripts/dev/test-access-codes.sh
+
+# 3. Test emergency login
+./scripts/dev/test-emergency-login.sh
+```
+
+### Production Deployment
+```bash
+# 1. Build everything
+./scripts/run/build.sh
+
+# 2. Test locally
+cargo test
+
+# 3. Deploy
+./scripts/admin/deploy-production.sh
 ```
 
 ---
 
-## 📝 Script Guidelines
+## 💡 Tips
 
-### Using User Scripts
-
-User scripts are designed to be:
-- ✅ **Self-contained** - Include all necessary dependencies
-- ✅ **Well-documented** - Clear usage instructions and examples
-- ✅ **Validated** - Check prerequisites before running
-- ✅ **User-friendly** - Colorized output and progress indicators
-- ✅ **Safe** - Validate inputs and handle errors gracefully
-
-### Adding New User Scripts
-
-When creating user-facing scripts:
-
-1. **Place in `user/` directory:**
-   ```bash
-   touch scripts/user/new-tool.sh
-   chmod +x scripts/user/new-tool.sh
-   ```
-
-2. **Add comprehensive header:**
-   ```bash
-   #!/bin/bash
-   #==============================================================================
-   # new-tool.sh - Brief Description
-   #==============================================================================
-   #
-   # Detailed explanation of what this script does
-   #
-   # Usage:
-   #   ./new-tool.sh <required-arg> [optional-arg]
-   #
-   # Example:
-   #   ./new-tool.sh input.txt output.txt
-   #
-   #==============================================================================
-   
-   set -e  # Exit on error
-   ```
-
-3. **Include validation:**
-   - Check prerequisites (commands, files)
-   - Validate input parameters
-   - Provide helpful error messages
-
-4. **Add progress indicators:**
-   - Use colored output (green ✓, red ✗, yellow ⚠)
-   - Show step-by-step progress
-   - Display summary at completion
-
-5. **Update this README:**
-   - Add to "User Scripts" section
-   - Document usage with examples
-   - Explain requirements and output
-
-6. **Link in main documentation:**
-   - Add to `README.md`
-   - Add to `MASTER_PLAN.md`
-   - Update `QUICKSTART.md` if relevant
-
----
-
-## 🔍 Troubleshooting
-
-### User Script Issues
-
-**Problem:** Script won't run - permission denied
-```bash
-chmod +x scripts/user/prepare-video.sh
-```
-
-**Problem:** FFmpeg not found
-```bash
-# macOS
-brew install ffmpeg
-
-# Ubuntu/Debian
-sudo apt-get install ffmpeg
-
-# Verify
-ffmpeg -version
-```
-
-**Problem:** "libx264 encoder not found"
-```bash
-# Need FFmpeg with H.264 support
-# macOS (brew version includes it)
-brew reinstall ffmpeg
-
-# Linux - install with x264
-sudo apt-get install ffmpeg libx264-dev
-```
-
-**Problem:** Output directory already exists
-```bash
-# The script will fail if output exists to prevent overwriting
-# Remove the existing directory or choose a different slug:
-rm -rf storage/videos/public/existing-slug
-```
-
-**Problem:** Out of disk space
-```bash
-# Check available space
-df -h storage/
-
-# Clean up old videos
-rm -rf storage/videos/*/old-video-slug/
-```
+- **Always read script help:** Most scripts have `--help` option
+- **Test in dev first:** Never run scripts in production without testing
+- **Check prerequisites:** Some scripts require specific setup
+- **Use absolute paths:** Or run from project root
+- **Backup before maintenance:** Especially for database changes
 
 ---
 
 ## 📚 Related Documentation
 
-### For Users
-- **Main README:** `../README.md` - Getting started guide
-- **Quickstart:** `../QUICKSTART.md` - Fast setup
-- **Master Plan:** `../MASTER_PLAN.md` - Complete feature overview
-
-### For Developers
-- **Setup & Testing:** `dev/` directory - Developer tools
-- **Architecture:** `../docs/architecture/` - System design
-- **Features:** `../docs/features/` - Feature documentation
+- **[../QUICKSTART.md](../QUICKSTART.md)** - Quick setup guide
+- **[../DEPLOYMENT.md](../DEPLOYMENT.md)** - Production deployment
+- **[../docs/API_TESTING_GUIDE.md](../docs/API_TESTING_GUIDE.md)** - API testing
+- **[../docs_dev/](../docs_dev/)** - Developer documentation
 
 ---
 
-## 🤝 Contributing
-
-### User Script Priorities
-
-When considering new user scripts, prioritize:
-
-1. **Common workflows** - Tasks users do frequently
-2. **Time-saving tools** - Automate manual processes
-3. **Batch operations** - Process multiple items
-4. **Quality of life** - Make complex tasks simple
-5. **Error prevention** - Validate before execution
-
-### Examples of Good User Scripts
-
-- ✅ Batch video preparation
-- ✅ Media validation tools
-- ✅ Thumbnail generation
-- ✅ Metadata extraction
-- ✅ Storage cleanup utilities
-
-### Keep Developer Scripts Separate
-
-Developer scripts belong in `dev/` and include:
-- Database migrations
-- Test suites
-- Debug utilities
-- Performance profiling
-- Development setup
-
----
-
-**Directory Structure:**
-```
-scripts/
-├── README.md          # This file
-├── user/              # User-facing scripts
-│   └── prepare-video.sh
-├── run/               # Running/deployment scripts
-│   └── build.sh       # Deployment build script ⭐
-├── admin/             # Admin/maintenance scripts
-│   └── generate_thumbnails.rs
-└── dev/               # Developer scripts
-    ├── init-database.sh
-    ├── setup-images.sh
-    ├── test-*.sh
-    └── ...
-```
-
-**Last Updated:** January 2026  
-**User Scripts:** 1  
-**Run Scripts:** 1  
-**Admin Scripts:** 1  
-**Dev Scripts:** 12
-
-**Quick Deploy:**
-```bash
-# Native deployment
-./scripts/run/build.sh --release
-
-# Docker deployment (from project root)
-cd docker && docker-compose up -d
-```
+**Script Organization:** Complete  
+**Total Scripts:** 20+ across 6 categories  
+**Status:** ✅ Ready to Use  
+**Last Organized:** February 2026

@@ -188,6 +188,7 @@ struct UserProfileTemplate {
     user_id: String,
     name: String,
     email: String,
+    avatar_url: String,
 }
 
 // -------------------------------
@@ -225,11 +226,19 @@ pub async fn user_profile_handler(
         .flatten()
         .unwrap_or_else(|| "unknown".to_string());
 
+    let avatar_url = session
+        .get("avatar_url")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| String::new());
+
     let template = UserProfileTemplate {
         authenticated: true, // User must be authenticated to see profile
         user_id,
         name,
         email,
+        avatar_url,
     };
 
     Ok(Html(template.render().unwrap()))
@@ -545,6 +554,11 @@ pub async fn oidc_callback_handler(
 
     session
         .insert("name", name)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    session
+        .insert("avatar_url", avatar_url.unwrap_or_default())
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 

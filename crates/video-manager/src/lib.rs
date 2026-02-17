@@ -475,7 +475,7 @@ pub async fn video_player_handler(
 // -------------------------------
 
 #[tracing::instrument(skip(session))]
-pub async fn live_test_handler(session: Session) -> Result<LiveTestTemplate, StatusCode> {
+pub async fn live_test_handler(session: Session) -> Result<Html<String>, StatusCode> {
     let authenticated: bool = session
         .get("authenticated")
         .await
@@ -483,7 +483,8 @@ pub async fn live_test_handler(session: Session) -> Result<LiveTestTemplate, Sta
         .flatten()
         .unwrap_or(false);
 
-    Ok(LiveTestTemplate { authenticated })
+    let template = LiveTestTemplate { authenticated };
+    Ok(Html(template.render().unwrap()))
 }
 
 // -------------------------------

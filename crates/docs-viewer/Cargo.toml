@@ -10,8 +10,7 @@ tower = { workspace = true }
 tower-http = { workspace = true }
 
 # Templating
-askama = { workspace = true, features = ["serde-json"] }
-askama_axum = "0.4"
+askama = { workspace = true, features = ["serde_json"] }
 
 # Markdown rendering
 pulldown-cmark = "0.11"

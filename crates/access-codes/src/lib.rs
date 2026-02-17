@@ -910,11 +910,11 @@ pub fn access_code_routes(state: Arc<AccessCodeState>) -> Router {
         // API routes
         .route("/api/access-codes", post(create_access_code))
         .route("/api/access-codes", get(list_access_codes))
-        .route("/api/access-codes/:code", delete(delete_access_code))
+        .route("/api/access-codes/{code}", delete(delete_access_code))
         // UI routes
         .route("/access/codes", get(list_access_codes_page))
         .route("/access/codes/new", get(new_access_code_page))
-        .route("/access/codes/:code", get(view_access_code_page))
+        .route("/access/codes/{code}", get(view_access_code_page))
         .with_state(state)
 }
 

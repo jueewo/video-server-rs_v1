@@ -87,6 +87,7 @@ use common::{create_search_routes, create_tag_routes};
 use docs_viewer::{docs_routes, markdown::MarkdownRenderer, DocsState};
 use gallery3d;
 use media_manager::{media_routes, MediaManagerState};
+use rate_limiter::RateLimitConfig;
 use user_auth::{auth_routes, AuthState, OidcConfig};
 use vault_manager::{vault_routes, VaultManagerState};
 use video_manager::{rtmp_publish_token, video_routes, VideoManagerState};
@@ -724,6 +725,10 @@ async fn main() -> anyhow::Result<()> {
     println!("   - Same-site: Lax");
     println!("   - Expiry: 7 days inactivity");
 
+    // ── Rate Limiting (TD-010) ──────────────────────────────────
+    let rate_limit = RateLimitConfig::from_env();
+    rate_limit.print_summary();
+
     // Build the application router
     let app = Router::new()
         // Main routes
@@ -737,29 +742,49 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/webhooks/stream-ready", post(webhook_stream_ready))
         .route("/api/webhooks/stream-ended", post(webhook_stream_ended))
         .with_state(app_state)
-        // Merge module routers
-        .merge(auth_routes(auth_state.clone()))
+        // Merge module routers — with per-class rate limiting (TD-010)
+        .merge({
+            let r = auth_routes(auth_state.clone());
+            if let Some(layer) = rate_limit.auth_layer() {
+                r.layer(layer)
+            } else {
+                r
+            }
+        })
         // API Keys management — session auth checked in handlers, middleware adds defense-in-depth
         .merge(api_key_routes(Arc::new(pool.clone())).route_layer(
             axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
         ))
         // Unified media manager — listing, search, upload, detail, CRUD, image serving
-        .merge(
-            media_routes()
+        .merge({
+            let r = media_routes()
                 .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // 100MB limit for media uploads
                 .with_state((*media_manager_state).clone())
                 .route_layer(axum::middleware::from_fn_with_state(
                     Arc::new(pool.clone()),
                     api_key_or_session_auth,
-                )),
-        )
+                ));
+            if let Some(layer) = rate_limit.upload_layer() {
+                r.layer(layer)
+            } else {
+                r
+            }
+        })
         // Legacy video routes - kept for HLS streaming
         .merge(video_routes().with_state(video_state).route_layer(
             axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
         ))
         // REMOVED: image_routes and document_routes - replaced by unified media-manager
         // Access codes — public preview route stays unauthenticated (shared link landing page)
-        .merge(access_code_public_routes(access_state.clone()))
+        // Rate-limited as "validation" class (abuse-prone access-code checks)
+        .merge({
+            let r = access_code_public_routes(access_state.clone());
+            if let Some(layer) = rate_limit.validation_layer() {
+                r.layer(layer)
+            } else {
+                r
+            }
+        })
         // Access codes — CRUD routes get auth middleware for defense-in-depth
         .merge(
             access_code_routes(access_state).route_layer(axum::middleware::from_fn_with_state(
@@ -767,13 +792,18 @@ async fn main() -> anyhow::Result<()> {
                 api_key_or_session_auth,
             )),
         )
-        // Vault management — auth middleware for defense-in-depth
-        .merge(
-            vault_routes(vault_state).route_layer(axum::middleware::from_fn_with_state(
+        // Vault management — auth middleware for defense-in-depth + API mutate rate limit
+        .merge({
+            let r = vault_routes(vault_state).route_layer(axum::middleware::from_fn_with_state(
                 Arc::new(pool.clone()),
                 api_key_or_session_auth,
-            )),
-        )
+            ));
+            if let Some(layer) = rate_limit.api_mutate_layer() {
+                r.layer(layer)
+            } else {
+                r
+            }
+        })
         .merge(
             access_groups::routes::create_routes(pool.clone()).route_layer(
                 axum::middleware::from_fn_with_state(
@@ -806,8 +836,8 @@ async fn main() -> anyhow::Result<()> {
         .nest(
             "/storage",
             Router::new()
-                .nest_service("/", ServeDir::new(&storage_dir))
-                .route_layer(axum::middleware::from_fn_with_state(
+                .fallback_service(ServeDir::new(&storage_dir))
+                .layer(axum::middleware::from_fn_with_state(
                     Arc::new(pool.clone()),
                     api_key_or_session_auth,
                 )),
@@ -856,6 +886,14 @@ async fn main() -> anyhow::Result<()> {
                 .layer(session_layer),
         );
 
+    // Apply general rate limiter as outermost request-processing layer (TD-010)
+    // This catches any route not already covered by a more specific limiter.
+    let app = if let Some(general_layer) = rate_limit.general_layer() {
+        app.layer(general_layer)
+    } else {
+        app
+    };
+
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
 
     println!("\n╔════════════════════════════════════════════════════════════════╗");
@@ -870,6 +908,7 @@ async fn main() -> anyhow::Result<()> {
     println!("   ✅ user-auth        (Session management, OIDC ready)");
     println!("   ✅ access-codes     (Shared media access)");
     println!("   ✅ access-control   (4-layer access with audit logging)");
+    println!("   ✅ rate-limiter     (Per-IP endpoint-class rate limiting)");
 
     println!("📊 SERVER ENDPOINTS:");
     println!("   • Web UI:        http://{}", addr);
@@ -939,6 +978,11 @@ async fn main() -> anyhow::Result<()> {
     println!("\n{}\n", "═".repeat(64));
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    // Use into_make_service_with_connect_info so rate limiter can extract peer IP
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await?;
     Ok(())
 }

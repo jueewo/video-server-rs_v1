@@ -39,12 +39,12 @@ pub fn create_tag_routes(pool: SqlitePool) -> Router {
         .route("/api/tags/popular", get(get_popular_handler))
         .route("/api/tags/recent", get(get_recent_handler))
         .route("/api/tags/categories", get(list_categories_handler))
-        .route("/api/tags/:slug", get(get_tag_handler))
+        .route("/api/tags/{slug}", get(get_tag_handler))
         // Protected endpoints - admin only
         .route("/api/tags", post(create_tag_handler))
-        .route("/api/tags/:slug", put(update_tag_handler))
-        .route("/api/tags/:slug", delete(delete_tag_handler))
-        .route("/api/tags/:slug/merge", post(merge_tags_handler))
+        .route("/api/tags/{slug}", put(update_tag_handler))
+        .route("/api/tags/{slug}", delete(delete_tag_handler))
+        .route("/api/tags/{slug}/merge", post(merge_tags_handler))
         .with_state(pool)
 }
 

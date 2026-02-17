@@ -609,9 +609,9 @@ pub fn vault_routes(state: Arc<VaultManagerState>) -> Router {
         // API routes
         .route("/api/user/vaults", post(create_vault))
         // Note: GET /api/user/vaults is handled by media-hub for upload form compatibility
-        .route("/api/user/vaults/:vault_id", put(update_vault))
-        .route("/api/user/vaults/:vault_id", delete(delete_vault))
-        .route("/api/user/vaults/:vault_id/set-default", post(set_default_vault))
+        .route("/api/user/vaults/{vault_id}", put(update_vault))
+        .route("/api/user/vaults/{vault_id}", delete(delete_vault))
+        .route("/api/user/vaults/{vault_id}/set-default", post(set_default_vault))
         // UI routes
         .route("/vaults", get(list_vaults_page))
         .route("/vaults/new", get(new_vault_page))

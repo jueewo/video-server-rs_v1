@@ -10,7 +10,6 @@ tower-sessions = { workspace = true }
 
 # Templates
 askama = { workspace = true }
-askama_axum = { workspace = true }
 
 # OIDC support
 openidconnect = { workspace = true }

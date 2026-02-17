@@ -60,41 +60,41 @@ pub fn media_routes() -> Router<MediaManagerState> {
         // ── Vault management ────────────────────────────────────────
         .route("/api/user/vaults", get(crate::list::get_user_vaults))
         // ── Detail pages (HTML) ─────────────────────────────────────
-        .route("/media/:slug", get(crate::detail::media_detail_handler))
+        .route("/media/{slug}", get(crate::detail::media_detail_handler))
         .route(
-            "/media/:slug/view",
+            "/media/{slug}/view",
             get(crate::markdown_view::view_markdown_handler),
         )
         .route(
-            "/media/:slug/edit",
+            "/media/{slug}/edit",
             get(crate::markdown_view::edit_markdown_handler),
         )
         // ── Media CRUD (JSON API) ───────────────────────────────────
         .route(
-            "/api/media/:slug/toggle-visibility",
+            "/api/media/{slug}/toggle-visibility",
             post(crate::list::toggle_visibility),
         )
         .route(
-            "/api/media/:slug/save",
+            "/api/media/{slug}/save",
             post(crate::markdown_view::save_markdown_handler),
         )
         .route(
-            "/api/media/:slug",
+            "/api/media/{slug}",
             get(crate::list::get_media_item)
                 .put(crate::list::update_media_item)
                 .delete(crate::list::delete_media),
         )
         // ── Image serving ───────────────────────────────────────────
         .route(
-            "/images/:slug",
+            "/images/{slug}",
             get(crate::serve::serve_image_with_suffix_check),
         )
         .route(
-            "/images/:slug/original",
+            "/images/{slug}/original",
             get(crate::serve::serve_image_original),
         )
         .route(
-            "/images/:slug/thumb",
+            "/images/{slug}/thumb",
             get(crate::serve::serve_image_thumbnail),
         )
 }

@@ -200,10 +200,10 @@ The `SECURITY_CHECKLIST.md` is **solid and well-structured**. No major correctio
 - **TD-009** — Verify upload handler → media-core validation integration
 
 ### Wave 2 (Weeks 4–6) — Architecture Cleanup
-- **TD-021** — Complete media-hub → media-manager migration
+- ~~**TD-021** — Complete media-hub → media-manager migration~~ ✅
 - **TD-006** — Decompose main.rs composition layer
 - **TD-007** — Standardize API error envelope
-- **TD-010** — Rate limiting
+- ~~**TD-010** — Rate limiting~~ ✅
 
 ### Wave 3 (Weeks 7–10) — Testing and Observability
 - **TD-008** — Authz integration tests
@@ -247,6 +247,78 @@ The dual-system overlap between `media-hub` and `media-manager` has been resolve
 - `MediaHubState` eliminated — all handlers use `MediaManagerState`
 - `media-manager/src/routes.rs` now contains the complete unified route table with clear section comments
 - Zero compilation errors, zero new warnings
+
+---
+
+## Completed: Rate Limiting (TD-010)
+
+**Status:** ✅ Done
+
+Rate limiting has been implemented as a dedicated crate with sophisticated endpoint-class-based protection against abuse.
+
+### What was implemented
+
+| Component | Location | Purpose |
+|---|---|---|
+| `rate-limiter` crate | `crates/rate-limiter/` | Core rate limiting infrastructure |
+| `RateLimitConfig` | `src/lib.rs` | Environment-driven configuration with per-class limits |
+| `RateLimitLayer` | `src/lib.rs` | Tower/Governor middleware for Axum integration |
+| `EndpointClass` | `src/lib.rs` | Logical classification: Auth, Upload, Validation, ApiMutate, General |
+| `ClassLimit` | `src/lib.rs` | Per-class RPM and burst configuration |
+
+### Features
+
+- **Endpoint-class-based limits** — different policies for different endpoint types:
+  - **Auth** (login, OIDC, emergency): 10 rpm, burst 5 — strictest (brute-force protection)
+  - **Upload** (media upload): 15 rpm, burst 5 — moderate (resource protection)
+  - **Validation** (access codes, stream tokens): 20 rpm, burst 10 — moderate (abuse prevention)
+  - **ApiMutate** (create/update/delete): 30 rpm, burst 10 — moderate
+  - **General** (all other endpoints): 120 rpm, burst 30 — lenient
+- **Smart IP extraction** — checks X-Forwarded-For → X-Real-IP → Forwarded → ConnectInfo → peer address
+- **Governor-based implementation** — battle-tested rate limiting via `tower-governor`
+- **Master switch** — can be completely disabled via `RATE_LIMIT_ENABLED=false`
+- **Startup summary** — prints rate limit configuration on server start
+
+### Configuration
+
+All limits configurable via environment variables:
+
+```
+RATE_LIMIT_ENABLED=true           # Master switch (default: true)
+RATE_LIMIT_AUTH_RPM=10            # Auth: requests per minute per IP
+RATE_LIMIT_AUTH_BURST=5           # Auth: burst allowance
+RATE_LIMIT_UPLOAD_RPM=15
+RATE_LIMIT_UPLOAD_BURST=5
+RATE_LIMIT_VALIDATION_RPM=20
+RATE_LIMIT_VALIDATION_BURST=10
+RATE_LIMIT_API_MUTATE_RPM=30
+RATE_LIMIT_API_MUTATE_BURST=10
+RATE_LIMIT_GENERAL_RPM=120
+RATE_LIMIT_GENERAL_BURST=30
+```
+
+### Integration
+
+Rate limiters are applied per route group via Tower layers:
+
+```rust
+let rl = RateLimitConfig::from_env();
+let app = Router::new()
+    .merge(auth_routes(state).layer(rl.auth_layer()))
+    .merge(upload_routes(state).layer(rl.upload_layer()))
+    // etc.
+```
+
+### Tests
+
+Comprehensive test coverage including:
+- Default configuration sanity checks
+- Disabled configuration returns `None` layers
+- Enabled configuration returns `Some` layers
+- Environment variable overrides
+- Edge cases (very low/high RPM values)
+
+---
 
 ### Remaining items from this audit
 

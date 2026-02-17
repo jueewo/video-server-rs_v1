@@ -24,45 +24,45 @@ pub fn create_routes(pool: SqlitePool) -> Router {
         // Group Pages (HTML)
         .route("/groups", get(groups_list_page_handler))
         .route("/groups/create", get(create_group_page_handler))
-        .route("/groups/:slug", get(group_detail_page_handler))
-        .route("/groups/:slug/settings", get(group_settings_page_handler))
+        .route("/groups/{slug}", get(group_detail_page_handler))
+        .route("/groups/{slug}/settings", get(group_settings_page_handler))
         // Group API (JSON)
         .route("/api/groups", get(list_groups_handler))
         .route("/api/groups", post(create_group_handler))
-        .route("/api/groups/:slug", get(get_group_handler))
-        .route("/api/groups/:slug", put(update_group_handler))
-        .route("/api/groups/:slug", delete(delete_group_handler))
+        .route("/api/groups/{slug}", get(get_group_handler))
+        .route("/api/groups/{slug}", put(update_group_handler))
+        .route("/api/groups/{slug}", delete(delete_group_handler))
         // Member Management
-        .route("/groups/:slug/members", get(list_members_handler))
-        .route("/groups/:slug/members", post(add_member_handler))
+        .route("/groups/{slug}/members", get(list_members_handler))
+        .route("/groups/{slug}/members", post(add_member_handler))
         .route(
-            "/groups/:slug/members/:user_id",
+            "/groups/{slug}/members/{user_id}",
             delete(remove_member_handler),
         )
         .route(
-            "/groups/:slug/members/:user_id/role",
+            "/groups/{slug}/members/{user_id}/role",
             put(update_member_role_handler),
         )
         // Invitation Management
-        .route("/groups/:slug/invitations", get(list_invitations_handler))
-        .route("/groups/:slug/invitations", post(create_invitation_handler))
+        .route("/groups/{slug}/invitations", get(list_invitations_handler))
+        .route("/groups/{slug}/invitations", post(create_invitation_handler))
         .route(
-            "/groups/:slug/invitations/:invitation_id",
+            "/groups/{slug}/invitations/{invitation_id}",
             delete(cancel_invitation_handler),
         )
         // Public Invitation Endpoints
-        .route("/invitations/:token", get(accept_invitation_page_handler))
+        .route("/invitations/{token}", get(accept_invitation_page_handler))
         .route(
-            "/api/invitations/:token",
+            "/api/invitations/{token}",
             get(get_invitation_details_handler),
         )
         .route(
-            "/invitations/:token/accept",
+            "/invitations/{token}/accept",
             post(accept_invitation_handler),
         )
         // Resource Access Check
         .route(
-            "/groups/:slug/check-access",
+            "/groups/{slug}/check-access",
             post(check_resource_access_handler),
         )
         .with_state(pool)
@@ -72,14 +72,14 @@ pub fn create_routes(pool: SqlitePool) -> Router {
 pub fn create_api_routes(pool: SqlitePool) -> Router {
     Router::new()
         .route("/api/groups", get(list_groups_handler))
-        .route("/api/groups/:slug", get(get_group_handler))
-        .route("/api/groups/:slug/members", get(list_members_handler))
+        .route("/api/groups/{slug}", get(get_group_handler))
+        .route("/api/groups/{slug}/members", get(list_members_handler))
         .route(
-            "/api/groups/:slug/invitations",
+            "/api/groups/{slug}/invitations",
             get(list_invitations_handler),
         )
         .route(
-            "/api/groups/:slug/check-access",
+            "/api/groups/{slug}/check-access",
             post(check_resource_access_handler),
         )
         .with_state(pool)

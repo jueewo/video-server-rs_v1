@@ -57,15 +57,15 @@ pub fn api_key_routes(pool: Arc<SqlitePool>) -> Router {
             post(create_api_key_form_handler),
         )
         .route(
-            "/profile/api-keys/:id/revoke",
+            "/profile/api-keys/{id}/revoke",
             post(revoke_api_key_handler),
         )
         // API Routes (JSON, session auth required)
         .route("/api/user/api-keys", post(create_api_key_json_handler))
         .route("/api/user/api-keys", get(list_api_keys_json_handler))
-        .route("/api/user/api-keys/:id", get(get_api_key_json_handler))
-        .route("/api/user/api-keys/:id", axum::routing::put(update_api_key_json_handler))
-        .route("/api/user/api-keys/:id", axum::routing::delete(delete_api_key_json_handler))
+        .route("/api/user/api-keys/{id}", get(get_api_key_json_handler))
+        .route("/api/user/api-keys/{id}", axum::routing::put(update_api_key_json_handler))
+        .route("/api/user/api-keys/{id}", axum::routing::delete(delete_api_key_json_handler))
         .with_state(pool)
 }
 

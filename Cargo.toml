@@ -12,6 +12,7 @@ members = [
     "crates/media-mcp",
     "crates/3d-gallery",
     "crates/api-keys", "crates/docs-viewer", "crates/vault-manager",
+    "crates/rate-limiter",
     # TODO: Uncomment when implementing CLI (see MEDIA_CLI_PROGRESS.md)
     # "crates/media-cli",
 ]
@@ -49,14 +50,15 @@ gallery3d = { path = "crates/3d-gallery" }
 api-keys = { path = "crates/api-keys" }
 docs-viewer = { path = "crates/docs-viewer" }
 vault-manager = { path = "crates/vault-manager" }
+rate-limiter = { path = "crates/rate-limiter" }
 
 # Web framework
-axum = { version = "0.7", features = ["multipart"] }
-tokio = { version = "1.0", features = ["full"] }
-tower = { version = "0.4", features = ["util"] }
-tower-http = { version = "0.5", features = ["fs", "trace", "cors"] }
-tower-sessions = "0.13"
-tower-sessions-sqlx-store = { version = "0.14", features = ["sqlite"] }
+axum = { version = "0.8", features = ["multipart"] }
+tokio = { version = "1.49", features = ["full"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["fs", "trace", "cors"] }
+tower-sessions = "0.14"
+tower-sessions-sqlx-store = { version = "0.15", features = ["sqlite"] }
 
 # Database
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "migrate"] }
@@ -85,20 +87,19 @@ reqwest = { version = "0.12.28", features = ["json"] }
 dotenvy = "0.15"
 
 # Templates
-askama = "0.12"
-askama_axum = "0.4"
+askama = "0.13"
 
 # Image processing
 image = { version = "0.24", features = ["webp"] }
 
 [workspace.dependencies]
 # Shared dependencies for all crates
-axum = { version = "0.7", features = ["multipart"] }
-tokio = { version = "1.0", features = ["full"] }
-tower = { version = "0.4", features = ["util"] }
-tower-http = { version = "0.5", features = ["fs", "trace", "cors"] }
-tower-sessions = "0.13"
-tower-sessions-sqlx-store = { version = "0.14", features = ["sqlite"] }
+axum = { version = "0.8", features = ["multipart"] }
+tokio = { version = "1.49", features = ["full"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["fs", "trace", "cors"] }
+tower-sessions = "0.14"
+tower-sessions-sqlx-store = { version = "0.15", features = ["sqlite"] }
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "migrate"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -112,8 +113,7 @@ openidconnect = "3.5"
 async-trait = "0.1"
 thiserror = "1.0"
 dotenvy = "0.15"
-askama = "0.12"
-askama_axum = "0.4"
+askama = "0.13"
 
 # Image processing
 image = { version = "0.24", features = ["webp"] }

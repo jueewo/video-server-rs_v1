@@ -16,7 +16,6 @@ tower-sessions = { workspace = true }
 
 # Templates
 askama = { workspace = true }
-askama_axum = { workspace = true }
 
 # Database
 sqlx = { workspace = true }

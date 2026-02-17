@@ -244,11 +244,11 @@ pub fn video_routes() -> Router<Arc<VideoManagerState>> {
         .route("/videos/new", get(video_new_page_handler))
         // Legacy upload endpoints - REMOVED: Use unified /api/media/upload instead
         // .route("/videos/upload", get(video_upload_page_handler))
-        .route("/videos/:slug", get(video_player_handler))
-        .route("/videos/:slug/edit", get(video_edit_page_handler))
-        .route("/watch/:slug", get(video_player_handler))
+        .route("/videos/{slug}", get(video_player_handler))
+        .route("/videos/{slug}/edit", get(video_edit_page_handler))
+        .route("/watch/{slug}", get(video_player_handler))
         .route("/test", get(live_test_handler))
-        .route("/hls/*path", get(hls_proxy_handler))
+        .route("/hls/{*path}", get(hls_proxy_handler))
         .route("/api/stream/validate", get(validate_stream_handler))
         .route("/api/stream/authorize", get(authorize_stream_handler))
         .route("/api/mediamtx/status", get(mediamtx_status))
@@ -270,14 +270,14 @@ pub fn video_routes() -> Router<Arc<VideoManagerState>> {
             "/api/videos/available-folders",
             get(available_folders_handler),
         )
-        .route("/api/videos/:id", put(update_video_handler))
-        .route("/api/videos/:id", delete(delete_video_handler))
+        .route("/api/videos/{id}", put(update_video_handler))
+        .route("/api/videos/{id}", delete(delete_video_handler))
         // Video tag endpoints
-        .route("/api/videos/:id/tags", get(get_video_tags_handler))
-        .route("/api/videos/:id/tags", post(add_video_tags_handler))
-        .route("/api/videos/:id/tags", put(replace_video_tags_handler))
+        .route("/api/videos/{id}/tags", get(get_video_tags_handler))
+        .route("/api/videos/{id}/tags", post(add_video_tags_handler))
+        .route("/api/videos/{id}/tags", put(replace_video_tags_handler))
         .route(
-            "/api/videos/:id/tags/:tag_slug",
+            "/api/videos/{id}/tags/{tag_slug}",
             delete(remove_video_tag_handler),
         )
 }
@@ -331,7 +331,7 @@ async fn authorize_stream_handler(session: Session) -> Result<StatusCode, Status
 pub async fn videos_list_handler(
     session: Session,
     State(state): State<Arc<VideoManagerState>>,
-) -> Result<VideoListTemplate, StatusCode> {
+) -> Result<Html<String>, StatusCode> {
     // Check if user is authenticated
     let authenticated: bool = session
         .get("authenticated")
@@ -376,12 +376,16 @@ pub async fn videos_list_handler(
         }
     }
 
-    Ok(VideoListTemplate {
-        authenticated,
-        page_title,
-        public_videos,
-        private_videos,
-    })
+    Ok(Html(
+        VideoListTemplate {
+            authenticated,
+            page_title,
+            public_videos,
+            private_videos,
+        }
+        .render()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+    ))
 }
 
 #[derive(Deserialize)]
@@ -399,7 +403,7 @@ pub async fn video_player_handler(
     Query(query): Query<AccessCodeQuery>,
     session: Session,
     State(state): State<Arc<VideoManagerState>>,
-) -> Result<VideoPlayerTemplate, Response> {
+) -> Result<Html<String>, Response> {
     // Check authentication first
     let authenticated: bool = session
         .get("authenticated")
@@ -425,7 +429,10 @@ pub async fn video_player_handler(
     .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response())?;
 
     let (video_id, title, is_public_int) = video.ok_or_else(|| {
-        (StatusCode::NOT_FOUND, NotFoundTemplate { authenticated }).into_response()
+        let html = NotFoundTemplate { authenticated }
+            .render()
+            .unwrap_or_default();
+        (StatusCode::NOT_FOUND, Html(html)).into_response()
     })?;
     let is_public = is_public_int == 1;
 
@@ -455,13 +462,10 @@ pub async fn video_player_handler(
             layer_checked = ?decision.layer,
             "Access denied to video"
         );
-        return Err((
-            StatusCode::UNAUTHORIZED,
-            UnauthorizedTemplate {
-                authenticated: false,
-            },
-        )
-            .into_response());
+        let html = UnauthorizedTemplate { authenticated: false }
+            .render()
+            .unwrap_or_default();
+        return Err((StatusCode::UNAUTHORIZED, Html(html)).into_response());
     }
 
     // Log successful access with layer information
@@ -472,12 +476,16 @@ pub async fn video_player_handler(
         "Access granted to video"
     );
 
-    Ok(VideoPlayerTemplate {
-        authenticated,
-        title,
-        slug,
-        is_public,
-    })
+    Ok(Html(
+        VideoPlayerTemplate {
+            authenticated,
+            title,
+            slug,
+            is_public,
+        }
+        .render()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())?,
+    ))
 }
 
 // -------------------------------

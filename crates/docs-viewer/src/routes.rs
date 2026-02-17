@@ -138,10 +138,7 @@ async fn upload_doc(
         let name = field.name().unwrap_or("").to_string();
 
         if name == "markdown_file" {
-            let filename = field
-                .file_name()
-                .unwrap_or("uploaded.md")
-                .to_string();
+            let filename = field.file_name().unwrap_or("uploaded.md").to_string();
 
             // Security: sanitize filename
             let safe_filename = filename
@@ -158,10 +155,7 @@ async fn upload_doc(
                 return Ok(Html(template.render().unwrap()).into_response());
             }
 
-            let data = field
-                .bytes()
-                .await
-                .map_err(|_| StatusCode::BAD_REQUEST)?;
+            let data = field.bytes().await.map_err(|_| StatusCode::BAD_REQUEST)?;
 
             let upload_path = state.docs_root.join("uploads");
             tokio::fs::create_dir_all(&upload_path)

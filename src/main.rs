@@ -59,18 +59,6 @@ use tower_sessions::{cookie::SameSite, Expiry, Session, SessionManagerLayer};
 use tower_sessions_sqlx_store::SqliteStore;
 use tracing::{self, Level};
 
-//.. opentelemetry
-// use axum::{routing::get, Router};
-
-// use opentelemetry_otlp::WithExportConfig;
-// use opentelemetry_sdk::{runtime, trace as sdktrace};
-// use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-// use opentelemetry::global;
-// use opentelemetry_otlp::WithExportConfig;
-// use opentelemetry_sdk::{runtime, trace as sdktrace, Resource};
-// use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
 use opentelemetry::trace::TracerProvider;
 use opentelemetry_otlp::WithExportConfig;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};

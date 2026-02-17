@@ -807,12 +807,15 @@ async fn main() -> anyhow::Result<()> {
     println!("🎨 Media Hub initialized (unified media management)");
 
     // Initialize Docs Viewer state
-    let docs_root = std::path::PathBuf::from("docs");
+    let docs_root = std::env::var("DOCS_ROOT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| std::path::PathBuf::from("docs"));
     let docs_state = Arc::new(DocsState {
-        docs_root,
+        docs_root: docs_root.clone(),
         renderer: Arc::new(MarkdownRenderer::new()),
     });
-    println!("📚 Docs Viewer initialized (markdown preview)");
+    println!("📚 Docs Viewer initialized");
+    println!("   - Docs root: {}", docs_root.display());
 
     // Load application configuration
     let app_config = AppConfig::load();

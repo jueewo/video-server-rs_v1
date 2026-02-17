@@ -5,8 +5,6 @@ members = [
     "crates/media-core",
     "crates/access-groups",
     "crates/video-manager",
-    # REMOVED: image-manager and document-manager - replaced by unified media-manager
-    "crates/media-hub",
     "crates/media-manager",
     "crates/user-auth",
     "crates/access-codes",
@@ -43,8 +41,6 @@ common = { path = "crates/common" }
 ui-components = { path = "crates/ui-components" }
 access-groups = { path = "crates/access-groups" }
 video-manager = { path = "crates/video-manager" }
-# REMOVED: image-manager and document-manager - replaced by unified media-manager
-media-hub = { path = "crates/media-hub" }
 media-manager = { path = "crates/media-manager" }
 user-auth = { path = "crates/user-auth" }
 access-codes = { path = "crates/access-codes" }

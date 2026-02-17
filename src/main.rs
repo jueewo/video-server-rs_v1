@@ -86,11 +86,9 @@ use api_keys::{middleware::api_key_or_session_auth, routes::api_key_routes};
 use common::{create_search_routes, create_tag_routes};
 use docs_viewer::{docs_routes, markdown::MarkdownRenderer, DocsState};
 use gallery3d;
-use vault_manager::{vault_routes, VaultManagerState};
-// REMOVED: image-manager and document-manager - replaced by unified media-manager
-use media_hub::{routes::media_routes, MediaHubState};
-use media_manager::{media_routes as unified_media_routes, MediaManagerState};
+use media_manager::{media_routes, MediaManagerState};
 use user_auth::{auth_routes, AuthState, OidcConfig};
+use vault_manager::{vault_routes, VaultManagerState};
 use video_manager::{video_routes, VideoManagerState, RTMP_PUBLISH_TOKEN};
 
 // -------------------------------
@@ -100,11 +98,9 @@ use video_manager::{video_routes, VideoManagerState, RTMP_PUBLISH_TOKEN};
 #[allow(dead_code)]
 struct AppState {
     video_state: Arc<VideoManagerState>,
-    // REMOVED: image_state and document_state - replaced by unified media-manager
     auth_state: Arc<AuthState>,
     access_state: Arc<AccessCodeState>,
     access_control: Arc<AccessControlService>,
-    media_hub_state: MediaHubState,
     config: AppConfig,
 }
 
@@ -800,12 +796,6 @@ async fn main() -> anyhow::Result<()> {
     ));
     println!("📁 Unified Media Manager initialized (images with original + WebP support)");
 
-    // Initialize Media Hub state
-    let storage_dir_str = storage_dir.to_str().unwrap_or("storage").to_string();
-    println!("🔍 MediaHub storage_dir: {}", storage_dir_str);
-    let media_hub_state = MediaHubState::new(pool.clone(), storage_dir_str, user_storage.clone());
-    println!("🎨 Media Hub initialized (unified media management)");
-
     // Initialize Docs Viewer state
     let docs_root = std::env::var("DOCS_ROOT")
         .map(std::path::PathBuf::from)
@@ -825,11 +815,9 @@ async fn main() -> anyhow::Result<()> {
 
     let app_state = Arc::new(AppState {
         video_state: video_state.clone(),
-        // REMOVED: image_state and document_state - replaced by unified media-manager
         auth_state: auth_state.clone(),
         access_state: access_state.clone(),
         access_control: access_control.clone(),
-        media_hub_state: media_hub_state.clone(),
         config: app_config,
     });
 
@@ -876,19 +864,9 @@ async fn main() -> anyhow::Result<()> {
         // Merge module routers
         .merge(auth_routes(auth_state.clone()))
         .merge(api_key_routes(Arc::new(pool.clone()))) // API Keys management (session auth required for UI)
-        // Media Hub - provides list view for all media types (mount first)
+        // Unified media manager — listing, search, upload, detail, CRUD, image serving
         .merge(
             media_routes()
-                .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // 100MB limit for media uploads
-                .with_state(media_hub_state)
-                .route_layer(axum::middleware::from_fn_with_state(
-                    Arc::new(pool.clone()),
-                    api_key_or_session_auth,
-                )),
-        )
-        // Unified media manager (new endpoints - override media-hub where they conflict)
-        .merge(
-            unified_media_routes()
                 .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // 100MB limit for media uploads
                 .with_state((*media_manager_state).clone())
                 .route_layer(axum::middleware::from_fn_with_state(
@@ -985,8 +963,9 @@ async fn main() -> anyhow::Result<()> {
 
     println!("📦 MODULES LOADED:");
     println!("   ✅ video-manager    (Video streaming & HLS proxy)");
-    println!("   ✅ media-manager    (Unified media upload & serving)");
-    println!("   ✅ media-hub        (Unified media management UI)");
+    println!(
+        "   ✅ media-manager    (Unified media management — list, search, upload, CRUD, serving)"
+    );
     println!("   ✅ user-auth        (Session management, OIDC ready)");
     println!("   ✅ access-codes     (Shared media access)");
     println!("   ✅ access-control   (4-layer access with audit logging)");
@@ -1048,8 +1027,7 @@ async fn main() -> anyhow::Result<()> {
     println!("\n🔧 ARCHITECTURE:");
     println!("   This server is now modular with separate crates:");
     println!("   • crates/video-manager  - Video streaming logic");
-    println!("   • crates/media-manager  - Unified media handling");
-    println!("   • crates/media-hub      - Unified media UI");
+    println!("   • crates/media-manager  - Unified media management (listing, search, upload, CRUD, serving)");
     println!("   • crates/user-auth      - OIDC Authentication (Casdoor)");
 
     println!("\n🔐 AUTHENTICATION:");

@@ -1,12 +1,19 @@
 //! Unified Media Manager
 //!
-//! Handles upload, processing, and serving for all media types (videos, images, documents)
-//! Replaces separate video-manager, image-manager, and document-manager crates
+//! Handles upload, processing, serving, listing, search, and CRUD for all media types
+//! (videos, images, documents).
+//!
+//! This crate consolidates functionality that was previously split between
+//! media-hub (listing/search/CRUD UI) and media-manager (upload/detail/serving).
 
 pub mod detail;
+pub mod list;
 pub mod markdown_view;
+pub mod models;
 pub mod routes;
+pub mod search;
 pub mod serve;
+pub mod templates;
 pub mod upload;
 
 pub use routes::{media_routes, MediaManagerState};

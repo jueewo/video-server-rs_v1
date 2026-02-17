@@ -15,14 +15,29 @@ target_wasm
 # https://github.com/lycheeverse/lychee
 .lycheecache
 
-Cargo.lock
+# Storage directories (user data, not source code)
 storage/
 storage*/
 storage-backup*/
-media.db
-media.db-shm
-media.db-wal
-migrations/
+
+# Runtime databases (generated at startup)
+*.db
+*.db-shm
+*.db-wal
+
+# Database backups
+*.db.backup-*
+video.db.backup-*
+
+# Runtime logs and debug artifacts
+*.log
+build.log
+server.log
+cookies.txt
+demo_response.html
+
+# Livestream recordings
+livestreams/
 
 # Node.js dependencies
 node_modules/
@@ -34,4 +49,3 @@ static/css/tailwind.css
 # Generated JavaScript bundles
 bundle.js
 bundle.js.map
-sessions.db

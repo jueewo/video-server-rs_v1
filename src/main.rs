@@ -345,243 +345,6 @@ async fn webhook_stream_ended() -> StatusCode {
 // OpenTelemetry Setup
 // -------------------------------
 
-// async fn setup_opentelemetry() -> Result<(), Box<dyn std::error::Error>> {
-//     let tracer = opentelemetry_otlp::new_pipeline()
-//         .tracing()
-//         .with_endpoint("http://localhost:4317")
-//         .with_http_client(reqwest::Client::new())
-//         .install_batch(opentelemetry_sdk::runtime::Tokio)?;
-
-//     tracing_opentelemetry::init_global_tracer(tracer);
-
-//     Ok(())
-// }
-
-// async fn init_tracer() -> anyhow::Result<()> {
-//     // Configure OTLP exporter to send to Vector
-//     let otlp_exporter = opentelemetry_otlp::new_exporter()
-//         .tonic()
-//         .with_endpoint("http://localhost:4317"); // Vector's OTLP receiver
-
-//     let tracer = opentelemetry_otlp::new_pipeline()
-//         .tracing()
-//         .with_exporter(otlp_exporter)
-//         .with_trace_config(
-//             sdktrace::config().with_resource(opentelemetry_sdk::Resource::new(vec![
-//                 opentelemetry::KeyValue::new("service.name", "axum-server"),
-//             ])),
-//         )
-//         .install_batch(runtime::Tokio)
-//         .map_err(|e| anyhow::anyhow!("Failed to install OpenTelemetry tracer: {}", e))?;
-
-//     // Setup tracing subscriber
-//     tracing_subscriber::registry()
-//         .with(tracing_subscriber::EnvFilter::new(
-//             std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
-//         ))
-//         .with(tracing_subscriber::fmt::layer())
-//         .with(tracing_opentelemetry::layer().with_tracer(tracer))
-//         .init();
-
-//     Ok(())
-// }
-
-// async fn init_tracer() -> Result<(), Box<dyn std::error::Error>> {
-//     println!("Initializing OpenTelemetry tracer...");
-
-//     let endpoint = "http://localhost:4317";
-//     println!("Connecting to OTLP endpoint: {}", endpoint);
-
-//     let otlp_exporter = opentelemetry_otlp::new_exporter()
-//         .tonic()
-//         .with_endpoint(endpoint)
-//         .with_timeout(std::time::Duration::from_secs(5));
-
-//     let tracer = opentelemetry_otlp::new_pipeline()
-//         .tracing()
-//         .with_exporter(otlp_exporter)
-//         .with_trace_config(sdktrace::config().with_resource(Resource::new(vec![
-//             opentelemetry::KeyValue::new("service.name", "axum-server"),
-//         ])))
-//         .install_batch(runtime::Tokio)?;
-
-//     tracing_subscriber::registry()
-//         .with(tracing_subscriber::EnvFilter::new(
-//             std::env::var("RUST_LOG")
-//                 .unwrap_or_else(|_| "info,opentelemetry_otlp=debug,tonic=debug".into()),
-//         ))
-//         .with(tracing_subscriber::fmt::layer())
-//         .with(tracing_opentelemetry::layer().with_tracer(tracer))
-//         .init();
-
-//     println!("OpenTelemetry tracer initialized successfully");
-//     Ok(())
-// }
-
-// fn init_tracer() -> Result<(), Box<dyn std::error::Error>> {
-//     // let endpoint = "http://localhost:4317"; //grpc
-//     let endpoint = "http://localhost:4318/v1/traces"; //http
-//                                                       // let endpoint = "http://localhost:4318"; //http
-
-//     match opentelemetry_otlp::new_exporter()
-//         .tonic()
-//         .with_endpoint(endpoint)
-//         .with_timeout(std::time::Duration::from_secs(5))
-//         .build_span_exporter()
-//     {
-//         Ok(_) => {
-//             println!("\n\n ✅ Connected to OTLP endpoint: {}", endpoint);
-
-//             // let otlp_exporter = opentelemetry_otlp::new_exporter()
-//             //     .tonic()
-//             //     .with_endpoint(endpoint)
-//             //     .with_timeout(std::time::Duration::from_secs(5));
-
-//             let otlp_exporter = opentelemetry_otlp::new_exporter()
-//                 .http() // ← CHANGE THIS: was .tonic(), now .http()
-//                 .with_endpoint(endpoint)
-//                 .with_timeout(std::time::Duration::from_secs(5));
-
-//             let tracer = opentelemetry_otlp::new_pipeline()
-//                 .tracing()
-//                 .with_exporter(otlp_exporter)
-//                 .with_trace_config(sdktrace::config().with_resource(
-//                     opentelemetry_sdk::Resource::new(vec![opentelemetry::KeyValue::new(
-//                         "service.name",
-//                         "video-server",
-//                     )]),
-//                 ))
-//                 .install_batch(runtime::Tokio)?;
-
-//             tracing_subscriber::registry()
-//                 .with(tracing_subscriber::EnvFilter::new(
-//                     std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
-//                 ))
-//                 .with(tracing_subscriber::fmt::layer())
-//                 .with(tracing_opentelemetry::layer().with_tracer(tracer))
-//                 .init();
-//         }
-//         Err(e) => {
-//             println!("⚠ Could not connect to OTLP endpoint: {}", e);
-//             println!("⚠ Running without telemetry export");
-
-//             // Just use regular tracing without OTLP
-//             tracing_subscriber::registry()
-//                 .with(tracing_subscriber::EnvFilter::new(
-//                     std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
-//                 ))
-//                 .with(tracing_subscriber::fmt::layer())
-//                 .init();
-//         }
-//     }
-
-//     Ok(())
-// }
-
-// fn init_tracer() -> Result<(), Box<dyn std::error::Error>> {
-//     println!("🔧 Initializing OpenTelemetry...");
-
-//     // Create the OTLP exporter
-//     let otlp_exporter = opentelemetry_otlp::new_exporter()
-//         .http()
-//         .with_endpoint("http://localhost:4318/v1/traces")
-//         .with_timeout(std::time::Duration::from_secs(10));
-
-//     println!("📡 Connecting to http://localhost:4318/v1/traces");
-
-//     // Build and install the tracer
-//     let tracer = match opentelemetry_otlp::new_pipeline()
-//         .tracing()
-//         .with_exporter(otlp_exporter)
-//         .with_trace_config(sdktrace::config().with_resource(Resource::new(vec![
-//             opentelemetry::KeyValue::new("service.name", "video-server"),
-//         ])))
-//         .install_batch(runtime::Tokio)
-//     {
-//         Ok(t) => {
-//             println!("✅ Tracer installed successfully");
-//             t
-//         }
-//         Err(e) => {
-//             println!("❌ Failed to install tracer: {}", e);
-//             return Err(e.into());
-//         }
-//     };
-
-//     // Initialize tracing subscriber
-//     let telemetry_layer = tracing_opentelemetry::layer().with_tracer(tracer);
-
-//     match tracing_subscriber::registry()
-//         .with(telemetry_layer)
-//         .with(tracing_subscriber::EnvFilter::new(
-//             std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
-//         ))
-//         .with(tracing_subscriber::fmt::layer())
-//         .try_init()
-//     {
-//         Ok(_) => println!("✅ Tracing subscriber initialized"),
-//         Err(e) => {
-//             println!("❌ Failed to initialize subscriber: {}", e);
-//             return Err(e.into());
-//         }
-//     }
-
-//     println!("✅ OpenTelemetry initialized successfully");
-//     Ok(())
-// }
-//
-
-// fn init_tracer() -> Result<(), Box<dyn std::error::Error>> {
-//     println!("🔧 Initializing OpenTelemetry...");
-
-//     // Use gRPC endpoint (port 4317, not 4318)
-//     let otlp_exporter = opentelemetry_otlp::new_exporter()
-//         .tonic() // gRPC instead of http()
-//         .with_endpoint("http://localhost:4317")
-//         .with_timeout(std::time::Duration::from_secs(10));
-
-//     println!("📡 Connecting to gRPC endpoint: http://localhost:4317");
-
-//     let tracer = match opentelemetry_otlp::new_pipeline()
-//         .tracing()
-//         .with_exporter(otlp_exporter)
-//         .with_trace_config(sdktrace::config().with_resource(Resource::new(vec![
-//             opentelemetry::KeyValue::new("service.name", "video-server"),
-//         ])))
-//         .install_batch(runtime::Tokio)
-//     {
-//         Ok(t) => {
-//             println!("✅ Tracer installed successfully");
-//             t
-//         }
-//         Err(e) => {
-//             println!("❌ Failed to install tracer: {}", e);
-//             return Err(e.into());
-//         }
-//     };
-
-//     let telemetry_layer = tracing_opentelemetry::layer().with_tracer(tracer);
-
-//     match tracing_subscriber::registry()
-//         .with(telemetry_layer)
-//         .with(tracing_subscriber::EnvFilter::new(
-//             std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
-//         ))
-//         .with(tracing_subscriber::fmt::layer())
-//         .try_init()
-//     {
-//         Ok(_) => println!("✅ Tracing subscriber initialized"),
-//         Err(e) => {
-//             println!("❌ Failed to initialize subscriber: {}", e);
-//             return Err(e.into());
-//         }
-//     }
-
-//     println!("✅ OpenTelemetry initialized successfully");
-//     Ok(())
-// }
-//
-
 fn init_tracer() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔧 Initializing OpenTelemetry...");
 
@@ -592,9 +355,6 @@ fn init_tracer() -> Result<(), Box<dyn std::error::Error>> {
     println!("📡 Connecting to OTLP endpoint: {}", otlp_endpoint);
 
     // Create shared resource - OpenTelemetry 0.31 API
-    // let resource = opentelemetry_sdk::Resource::builder()
-    //     .with_service_name("media-server")
-    //     .build();
     let resource = opentelemetry_sdk::Resource::builder()
         .with_service_name(
             std::env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "video-server".to_string()),
@@ -833,9 +593,15 @@ async fn main() -> anyhow::Result<()> {
         .await
         .expect("Failed to run session store migrations");
 
+    // Session security: derive Secure flag from environment
+    // Set SESSION_SECURE=true in production (requires HTTPS)
+    let session_secure = std::env::var("SESSION_SECURE")
+        .map(|v| v.to_lowercase() == "true" || v == "1")
+        .unwrap_or(false);
+
     let session_layer = SessionManagerLayer::new(session_store)
         .with_name("video_server_session") // Explicit session cookie name
-        .with_secure(false) // Set to true in production with HTTPS
+        .with_secure(session_secure) // Environment-driven: SESSION_SECURE=true for production
         .with_http_only(true) // Prevent JavaScript access
         .with_expiry(Expiry::OnInactivity(Duration::days(7)))
         .with_same_site(SameSite::Lax) // Allow cross-site for OIDC redirects
@@ -844,6 +610,7 @@ async fn main() -> anyhow::Result<()> {
     println!("🍪 Session Configuration:");
     println!("   - Storage: SQLite (sessions.db) - persists across restarts");
     println!("   - Cookie name: video_server_session");
+    println!("   - Secure: {} (SESSION_SECURE env)", session_secure);
     println!("   - HTTP-only: true");
     println!("   - Same-site: Lax");
     println!("   - Expiry: 7 days inactivity");

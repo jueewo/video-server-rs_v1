@@ -1,0 +1,16 @@
+[package]
+name = "rate-limiter"
+version = "0.1.0"
+edition = "2021"
+description = "Rate limiting middleware for the media server (TD-010)"
+
+[dependencies]
+# Rate limiting engine
+tower_governor = { version = "0.8", features = ["axum", "tracing"] }
+governor = "0.10"
+
+# Web framework (for middleware types and body type)
+axum = { workspace = true }
+
+# Logging
+tracing = { workspace = true }

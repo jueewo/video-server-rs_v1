@@ -61,6 +61,11 @@ services:
       - MEDIAMTX_API_PORT=9997
       - MEDIAMTX_HLS_PORT=8888
 
+      # Observability — OTLP to collector (TD-018)
+      - ENABLE_OTLP=true
+      - OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_SERVICE_NAME=media-server
+
       # Optional: OIDC configuration
       # - OIDC_ISSUER_URL=https://your-oidc-provider.com
       # - OIDC_CLIENT_ID=your-client-id
@@ -74,6 +79,8 @@ services:
     depends_on:
       mediamtx:
         condition: service_healthy
+      otel-collector:
+        condition: service_started
     healthcheck:
       test:
         [
@@ -164,40 +171,60 @@ services:
   #   networks:
   #     - media-network
 
-  # Optional: Prometheus for metrics collection
-  # Uncomment to enable
-  # prometheus:
-  #   image: prom/prometheus:latest
-  #   container_name: prometheus
-  #   restart: unless-stopped
-  #   ports:
-  #     - "9090:9090"
-  #   volumes:
-  #     - ../prometheus.yml:/etc/prometheus/prometheus.yml:ro
-  #     - prometheus_data:/prometheus
-  #   command:
-  #     - '--config.file=/etc/prometheus/prometheus.yml'
-  #     - '--storage.tsdb.path=/prometheus'
-  #   networks:
-  #     - media-network
+  # OpenTelemetry Collector (TD-018)
+  # Receives OTLP from media-server, exposes Prometheus scrape endpoint
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otel/config.yml"]
+    volumes:
+      - ./otel-collector-config.yml:/etc/otel/config.yml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC (media-server → collector)
+      - "4318:4318"   # OTLP HTTP
+      - "8889:8889"   # Prometheus scrape endpoint (collector → prometheus)
+    networks:
+      - media-network
 
-  # Optional: Grafana for metrics visualization
-  # Uncomment to enable
-  # grafana:
-  #   image: grafana/grafana:latest
-  #   container_name: grafana
-  #   restart: unless-stopped
-  #   ports:
-  #     - "3001:3000"
-  #   volumes:
-  #     - grafana_data:/var/lib/grafana
-  #   environment:
-  #     - GF_SECURITY_ADMIN_USER=admin
-  #     - GF_SECURITY_ADMIN_PASSWORD=changeme
-  #   depends_on:
-  #     - prometheus
-  #   networks:
-  #     - media-network
+  # Prometheus — scrapes metrics from OTel Collector + MediaMTX
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=90d'
+    depends_on:
+      - otel-collector
+    networks:
+      - media-network
+
+  # Grafana — dashboards over Prometheus data source
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=changeme   # override with GF_SECURITY_ADMIN_PASSWORD env var
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+    depends_on:
+      - prometheus
+    networks:
+      - media-network
 
 networks:
   media-network:

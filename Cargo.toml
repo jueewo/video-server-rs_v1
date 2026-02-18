@@ -135,3 +135,7 @@ image = { version = "0.24", features = ["webp"] }
 [[bin]]
 name = "create_default_vaults"
 path = "scripts/create_default_vaults.rs"
+
+[[bin]]
+name = "find_orphan_files"
+path = "scripts/maintenance/find_orphan_files.rs"

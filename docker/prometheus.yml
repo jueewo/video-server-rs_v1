@@ -1,0 +1,28 @@
+# Prometheus configuration (TD-018)
+#
+# Scrapes metrics from the OTel Collector's Prometheus exporter endpoint.
+# The collector receives OTLP metrics from media-server and exposes them here.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    service: media-server
+
+scrape_configs:
+  # OTel Collector Prometheus exporter — aggregated app metrics
+  - job_name: otel-collector
+    static_configs:
+      - targets: [otel-collector:8889]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+
+  # MediaMTX built-in Prometheus metrics
+  # See: https://github.com/bluenviron/mediamtx#metrics
+  - job_name: mediamtx
+    static_configs:
+      - targets: [mediamtx:9998]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance

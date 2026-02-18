@@ -1,0 +1,67 @@
+# OpenTelemetry Collector configuration (TD-018)
+#
+# Pipeline:
+#   media-server ──OTLP/gRPC:4317──► otel-collector ──► prometheus (scrape :8889)
+#                                                    └──► debug (console, dev only)
+#
+# Grafana connects to Prometheus as a data source.
+# Logs are also forwarded via OTLP so Grafana Loki or SigNoz can consume them.
+
+receivers:
+  # Receives OTLP spans and logs from media-server
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Drop empty spans to reduce noise
+  filter/drop_empty:
+    error_mode: ignore
+    traces:
+      span:
+        - 'attributes["http.route"] == "/health"'   # suppress health-check noise
+
+  # Add resource attributes to every signal
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: production
+        action: upsert
+
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+
+exporters:
+  # Exposes Prometheus metrics on :8889/metrics for Prometheus to scrape
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: media_server
+    send_timestamps: true
+    enable_open_metrics: true
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  # Debug exporter (logs pipeline output to collector stdout — useful in dev)
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers:  [otlp]
+      processors: [filter/drop_empty, resource, batch]
+      exporters:  [debug]
+
+    metrics:
+      receivers:  [otlp]
+      processors: [resource, batch]
+      exporters:  [prometheus]
+
+    logs:
+      receivers:  [otlp]
+      processors: [resource, batch]
+      exporters:  [debug]

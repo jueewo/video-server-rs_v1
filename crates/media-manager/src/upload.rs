@@ -58,12 +58,20 @@ pub async fn upload_media(
         ));
     }
 
-    let user_id: String = session
-        .get("user_id")
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| "anonymous".to_string());
+    // user_id must be present in an authenticated session — no fallback to a placeholder.
+    // A missing user_id here means a corrupt/incomplete session; reject rather than
+    // creating orphaned media that no owner can manage.
+    let user_id: String = match session.get("user_id").await.ok().flatten() {
+        Some(id) => id,
+        None => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": "User ID not found in session. Please log in again."
+                })),
+            ));
+        }
+    };
 
     // Parse multipart form data
     let mut media_type: Option<String> = None;

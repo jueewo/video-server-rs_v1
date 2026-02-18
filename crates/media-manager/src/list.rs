@@ -461,15 +461,34 @@ pub async fn toggle_visibility(
             .into_response();
     }
 
+    // Ownership check: get the requesting user's ID from the session
+    let session_user_id: Option<String> = session.get("user_id").await.ok().flatten();
+    let session_user_id = match session_user_id {
+        Some(id) => id,
+        None => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": "User ID not found in session"
+                })),
+            )
+                .into_response();
+        }
+    };
+
     let is_public = payload["is_public"].as_bool().unwrap_or(false);
     let is_public_int = if is_public { 1 } else { 0 };
 
-    // Update media_items table
-    let result = sqlx::query("UPDATE media_items SET is_public = ? WHERE slug = ?")
-        .bind(is_public_int)
-        .bind(&slug)
-        .execute(&state.pool)
-        .await;
+    // Update only the row that belongs to this user — prevents horizontal privilege escalation.
+    // Rows with NULL user_id (legacy uploads) are intentionally excluded.
+    let result =
+        sqlx::query("UPDATE media_items SET is_public = ? WHERE slug = ? AND user_id = ?")
+            .bind(is_public_int)
+            .bind(&slug)
+            .bind(&session_user_id)
+            .execute(&state.pool)
+            .await;
 
     match result {
         Ok(result) if result.rows_affected() > 0 => {
@@ -483,14 +502,18 @@ pub async fn toggle_visibility(
             )
                 .into_response()
         }
-        Ok(_) => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({
-                "success": false,
-                "error": "Media not found"
-            })),
-        )
-            .into_response(),
+        Ok(_) => {
+            // Either the slug doesn't exist or it belongs to a different user.
+            // Return 403 to avoid leaking whether the resource exists.
+            (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": "Not found or access denied"
+                })),
+            )
+                .into_response()
+        }
         Err(e) => {
             error!("Failed to update visibility: {}", e);
             (
@@ -529,6 +552,21 @@ pub async fn get_media_item(
             .into_response();
     }
 
+    // Ownership check: get the requesting user's ID from the session
+    let session_user_id: Option<String> = session.get("user_id").await.ok().flatten();
+    let session_user_id = match session_user_id {
+        Some(id) => id,
+        None => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": "User ID not found in session"
+                })),
+            )
+                .into_response();
+        }
+    };
+
     // Fetch media item from database
     let media_result: Result<common::models::media_item::MediaItem, sqlx::Error> =
         sqlx::query_as("SELECT * FROM media_items WHERE slug = ?")
@@ -538,6 +576,18 @@ pub async fn get_media_item(
 
     match media_result {
         Ok(media) => {
+            // Ownership check: only the owner may retrieve private media metadata via this API.
+            // Rows with NULL user_id (legacy uploads) are not accessible via ownership check.
+            if media.user_id.as_deref() != Some(session_user_id.as_str()) {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(serde_json::json!({
+                        "error": "Not found or access denied"
+                    })),
+                )
+                    .into_response();
+            }
+
             // Fetch tags for this media item
             let tags: Vec<String> =
                 sqlx::query_scalar("SELECT tag FROM media_tags WHERE media_id = ?")
@@ -600,24 +650,55 @@ pub async fn update_media_item(
             .into_response();
     }
 
-    // Get media_id first
+    // Ownership check: get the requesting user's ID from the session
+    let session_user_id: Option<String> = session.get("user_id").await.ok().flatten();
+    let session_user_id = match session_user_id {
+        Some(id) => id,
+        None => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": "User ID not found in session"
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    // Get media_id, verifying ownership in the same query — prevents horizontal privilege
+    // escalation. Rows with NULL user_id (legacy uploads) are intentionally excluded.
     let media_id_result: Result<i32, sqlx::Error> =
-        sqlx::query_scalar("SELECT id FROM media_items WHERE slug = ?")
+        sqlx::query_scalar("SELECT id FROM media_items WHERE slug = ? AND user_id = ?")
             .bind(&slug)
+            .bind(&session_user_id)
             .fetch_one(&state.pool)
             .await;
 
     let media_id = match media_id_result {
         Ok(id) => id,
-        Err(_) => {
+        Err(sqlx::Error::RowNotFound) => {
+            // Either the slug doesn't exist or it belongs to a different user.
+            // Return 403 to avoid leaking whether the resource exists.
             return (
-                StatusCode::NOT_FOUND,
+                StatusCode::FORBIDDEN,
                 Json(serde_json::json!({
                     "success": false,
-                    "error": "Media not found"
+                    "error": "Not found or access denied"
                 })),
             )
-                .into_response()
+                .into_response();
+        }
+        Err(e) => {
+            error!("Database error checking ownership: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": "Failed to verify ownership"
+                })),
+            )
+                .into_response();
         }
     };
 
@@ -650,8 +731,9 @@ pub async fn update_media_item(
     updates.push("updated_at = datetime('now')");
 
     if !updates.is_empty() {
+        // Ownership already verified above; scope the UPDATE to slug + user_id for defence-in-depth
         let query_str = format!(
-            "UPDATE media_items SET {} WHERE slug = ?",
+            "UPDATE media_items SET {} WHERE slug = ? AND user_id = ?",
             updates.join(", ")
         );
 
@@ -660,6 +742,7 @@ pub async fn update_media_item(
             query = query.bind(value);
         }
         query = query.bind(&slug);
+        query = query.bind(&session_user_id);
 
         if let Err(e) = query.execute(&state.pool).await {
             error!("Failed to update media: {}", e);
@@ -737,14 +820,33 @@ pub async fn delete_media(
             .into_response();
     }
 
-    // Get media info before deleting
-    let media_info: Option<(String, String, Option<String>)> =
-        sqlx::query_as("SELECT media_type, filename, vault_id FROM media_items WHERE slug = ?")
-            .bind(&slug)
-            .fetch_optional(&state.pool)
-            .await
-            .ok()
-            .flatten();
+    // Ownership check: get the requesting user's ID from the session
+    let session_user_id: Option<String> = session.get("user_id").await.ok().flatten();
+    let session_user_id = match session_user_id {
+        Some(id) => id,
+        None => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": "User ID not found in session"
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    // Get media info before deleting, scoped to the requesting user — prevents horizontal
+    // privilege escalation. Rows with NULL user_id (legacy uploads) are intentionally excluded.
+    let media_info: Option<(String, String, Option<String>)> = sqlx::query_as(
+        "SELECT media_type, filename, vault_id FROM media_items WHERE slug = ? AND user_id = ?",
+    )
+    .bind(&slug)
+    .bind(&session_user_id)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
 
     if let Some((media_type, filename, vault_id)) = media_info {
         // Delete from database (tags will be cleaned up by CASCADE or manually)
@@ -821,11 +923,13 @@ pub async fn delete_media(
             }
         }
     } else {
+        // Either the slug doesn't exist or it belongs to a different user.
+        // Return 403 to avoid leaking whether the resource exists.
         (
-            StatusCode::NOT_FOUND,
+            StatusCode::FORBIDDEN,
             Json(serde_json::json!({
                 "success": false,
-                "error": "Media not found"
+                "error": "Not found or access denied"
             })),
         )
             .into_response()

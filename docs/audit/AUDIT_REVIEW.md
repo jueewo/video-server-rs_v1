@@ -194,10 +194,10 @@ The `SECURITY_CHECKLIST.md` is **solid and well-structured**. No major correctio
 - **TD-002** — Make session `Secure` flag environment-driven (1 hour)
 
 ### Wave 1 (Weeks 1–3) — Production Risk Reduction
-- **TD-001** — Secret management hardening
+- ~~**TD-001** — Secret management hardening~~ ✅
 - **TD-004** — Full repo hygiene pass
-- **TD-003** — Audit all routes for `AccessControlService` usage
-- **TD-009** — Verify upload handler → media-core validation integration
+- ~~**TD-003** — Audit all routes for `AccessControlService` usage~~ ✅
+- ~~**TD-009** — Verify upload handler → media-core validation integration~~ ✅
 
 ### Wave 2 (Weeks 4–6) — Architecture Cleanup
 - ~~**TD-021** — Complete media-hub → media-manager migration~~ ✅
@@ -322,9 +322,51 @@ Comprehensive test coverage including:
 
 ### Remaining items from this audit
 
-1. `Cargo.lock` and `migrations/` being gitignored — **still open**
-2. Dead commented-out OpenTelemetry code in `main.rs` — **still open**
-3. Route-level authz enforcement audit — **still open**
+1. `Cargo.lock` and `migrations/` being gitignored — **resolved** (neither was ever in `.gitignore`; migrations committed)
+2. Dead commented-out OpenTelemetry code in `main.rs` — **resolved** (already cleaned up; `init_tracer()` is clean active code)
+3. Route-level authz enforcement audit — **resolved** (see TD-003 audit; all P0/P1 remediations applied)
+
+---
+
+---
+
+## Completed: Route Security Audit and Remediations (TD-003)
+
+**Status:** ✅ Done
+
+All P0 and P1 findings from the full route audit (`TD-003_ROUTE_SECURITY_AUDIT.md`) have been resolved:
+
+| Finding | Severity | Resolution |
+|---------|----------|------------|
+| `/storage/*` bypass — all stored files accessible without auth | 🔴 P0 | Gated behind `api_key_or_session_auth` middleware |
+| `view_markdown_handler` used ad-hoc ACL instead of `AccessControlService` | 🟡 P1 | Rewired to full `AccessControlService` pipeline with `?code=` support |
+| `vault_routes`, `access_code_routes`, `api_key_routes` lacked middleware | 🟡 P1 | All now have `api_key_or_session_auth` via `.route_layer()` |
+| SVG files served without XSS mitigation | 🟡 P1 | CSP headers applied; `X-Content-Type-Options: nosniff` on all images |
+| CRUD handlers (`toggle_visibility`, `get/update/delete_media`) lacked ownership checks | 🟡 P1 | All queries scoped with `AND user_id = ?`; 403 on miss |
+
+---
+
+## Completed: Upload Validation Integration (TD-009)
+
+**Status:** ✅ Done
+
+Full `media-core` validation pipeline wired into `upload_media`. See `TD-009_UPLOAD_VALIDATION_AUDIT.md` for details. Key additions:
+
+- `sanitize_filename()` + `validate_filename()` — path traversal and null-byte prevention
+- `detect_mime_type()` — content-based MIME detection (magic numbers)
+- `validate_mime_type()` — MIME allowlist per declared media type
+- `validate_file_size()` — per-type limits (50MB image, 100MB doc, 5GB video)
+- `validate_extension_mime_match()` — catches renamed executables
+- Unknown document extensions now explicitly rejected (no `application/octet-stream` fallback)
+- `user_id` required in authenticated session — no orphaned uploads possible
+
+---
+
+## Completed: DB Schema — `user_id NOT NULL` (TD-003 data integrity)
+
+**Status:** ✅ Done
+
+`migrations/013_media_items_require_user_id.sql` enforces `user_id NOT NULL` at the database level via the standard SQLite table-rebuild pattern. Any future insert without a `user_id` will fail at the DB layer, complementing the handler-level enforcement in `upload.rs`.
 
 ---
 

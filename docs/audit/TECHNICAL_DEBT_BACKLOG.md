@@ -25,26 +25,29 @@ It is prioritized to reduce production risk first, then improve maintainability 
 
 | ID | Title | Priority | Effort | Category | Impact |
 |---|---|---:|---:|---|---|
-| TD-001 | Enforce production secret management | P0 | M | Security | Prevent insecure deployments |
-| TD-002 | Session/cookie security hardening baseline | P0 | S | Security | Reduce auth/session risk |
-| TD-003 | Centralize authorization checks for all media routes | P0 | L | Security/Architecture | Eliminate authz bypass risk |
-| TD-004 | Repository hygiene and artifact policy cleanup | P0 | M | DevEx/Ops | Reduce leakage/noise/CI cost |
-| TD-005 | Define and enforce migration governance workflow | P1 | M | Data/Release | Prevent schema drift |
-| TD-006 | Decompose entrypoint composition layer | P1 | L | Architecture | Improve maintainability |
-| TD-007 | Standardize API error envelope and mapping | P1 | M | Backend | Better reliability + client behavior |
-| TD-008 | Add integration tests for authz-critical paths | P1 | L | Testing | Increase release confidence |
-| TD-009 | Implement upload validation policy (MIME/magic/limits) | P1 | M | Media/Security | Block malicious/bad uploads |
-| TD-010 | Add rate limiting for auth/upload/token endpoints | P1 | M | Security/Ops | Protect from abuse |
-| TD-011 | Structured logging standard + request correlation | P1 | M | Observability | Faster incident triage |
-| TD-012 | Canonical docs map + archive governance | P2 | S | Docs/Governance | Reduce onboarding errors |
-| TD-013 | UI component governance and design tokens | P2 | M | UI/UX | Improve consistency |
-| TD-014 | Accessibility baseline enforcement | P2 | M | UI/UX | Better usability/compliance |
-| TD-015 | Background jobs for long-running media tasks | P2 | XL | Architecture/Media | Improve responsiveness/retry |
-| TD-016 | Storage lifecycle management and orphan cleanup policy | P2 | M | Media/Ops | Control storage growth |
-| TD-017 | Backup/restore validation automation | P2 | M | Ops | Improve disaster readiness |
-| TD-018 | SLO dashboard + alert policy | P2 | M | Observability | Proactive operations |
-| TD-019 | Define crate ownership and API contracts | P3 | S | Architecture/Governance | Reduce cross-crate coupling |
-| TD-020 | Reduce `common` crate scope creep | P3 | M | Architecture | Preserve boundaries |
+| TD-001 | Enforce production secret management | P0 | M | Security | Prevent insecure deployments | ✅ Done |
+| TD-002 | Session/cookie security hardening baseline | P0 | S | Security | Reduce auth/session risk | ✅ Done |
+| TD-003 | Centralize authorization checks for all media routes | P0 | L | Security/Architecture | Eliminate authz bypass risk | ✅ Done |
+| TD-004 | Repository hygiene and artifact policy cleanup | P0 | M | DevEx/Ops | Reduce leakage/noise/CI cost | 🔲 Open |
+| TD-005 | Define and enforce migration governance workflow | P1 | M | Data/Release | Prevent schema drift | ✅ Done |
+| TD-006 | Decompose entrypoint composition layer | P1 | L | Architecture | Improve maintainability | 🔲 Open |
+| TD-007 | Standardize API error envelope and mapping | P1 | M | Backend | Better reliability + client behavior | 🔲 Open |
+| TD-008 | Add integration tests for authz-critical paths | P1 | L | Testing | Increase release confidence | 🔲 Open |
+| TD-009 | Implement upload validation policy (MIME/magic/limits) | P1 | M | Media/Security | Block malicious/bad uploads | ✅ Done |
+| TD-010 | Add rate limiting for auth/upload/token endpoints | P1 | M | Security/Ops | Protect from abuse | ✅ Done |
+| TD-011 | Structured logging standard + request correlation | P1 | M | Observability | Faster incident triage | 🔲 Open |
+| TD-012 | Canonical docs map + archive governance | P2 | S | Docs/Governance | Reduce onboarding errors | 🔲 Open |
+| TD-013 | UI component governance and design tokens | P2 | M | UI/UX | Improve consistency | 🔲 Open |
+| TD-014 | Accessibility baseline enforcement | P2 | M | UI/UX | Better usability/compliance | 🔲 Open |
+| TD-015 | Background jobs for long-running media tasks | P2 | XL | Architecture/Media | Improve responsiveness/retry | 🔲 Open |
+| TD-016 | Storage lifecycle management and orphan cleanup policy | P2 | M | Media/Ops | Control storage growth | 🔲 Open |
+| TD-017 | Backup/restore validation automation | P2 | M | Ops | Improve disaster readiness | 🔲 Open |
+| TD-018 | SLO dashboard + alert policy | P2 | M | Observability | Proactive operations | 🔲 Open |
+| TD-019 | Define crate ownership and API contracts | P3 | S | Architecture/Governance | Reduce cross-crate coupling | 🔲 Open |
+| TD-020 | Reduce `common` crate scope creep | P3 | M | Architecture | Preserve boundaries | 🔲 Open |
+| TD-021 | Complete media-hub → media-manager migration | P1 | M | Architecture | Retire dual-system overlap | ✅ Done |
+| TD-022 | Commit Cargo.lock; remove from .gitignore | P1 | S | DevEx | Reproducible builds | ✅ Done |
+| TD-023 | Delete commented-out OpenTelemetry code in main.rs | P1 | S | Architecture | Reduce dead code | ✅ Done |
 
 ---
 
@@ -299,18 +302,32 @@ It is prioritized to reduce production risk first, then improve maintainability 
 
 ---
 
-## Suggested Delivery Waves
+## Delivery Progress
 
-## Wave 1 (Weeks 1–3) — Production Risk Reduction
-- TD-001, TD-002, TD-004, TD-009, TD-010
+## ✅ Wave 0 (Complete) — Quick Wins
+- ~~TD-022~~ Cargo.lock committed
+- ~~TD-005~~ Migrations tracked in VCS + 013 enforces `user_id NOT NULL`
+- ~~TD-023~~ Dead OTel code removed
+- ~~TD-002~~ Session `Secure` flag environment-driven
 
-## Wave 2 (Weeks 4–7) — Stability and Correctness
-- TD-003, TD-007, TD-008, TD-011, TD-005
+## ✅ Wave 1 (Complete) — Production Risk Reduction
+- ~~TD-001~~ Production secret validation — fail-fast on insecure config
+- ~~TD-010~~ Rate limiting — endpoint-class-based (auth/upload/validation/api/general)
+- ~~TD-003~~ Route security audit — `/storage/*` bypass closed, middleware gaps filled, CRUD ownership enforced, ACL pipeline wired
+- ~~TD-009~~ Upload validation — full media-core pipeline (filename/MIME/size/extension match)
+- ~~TD-021~~ media-hub → media-manager migration complete, dual-system retired
 
-## Wave 3 (Weeks 8–12) — Scale and Operational Maturity
-- TD-018, TD-017, TD-015, TD-016, TD-006
+## 🔲 Wave 2 (Next) — Stability and Correctness
+- **TD-004** — Repo hygiene: `.gitignore` audit, remove any tracked artifacts, add CI guardrails
+- **TD-007** — Standardize API error envelope across all endpoints
+- **TD-008** — Integration tests for authz-critical paths (build on TD-003 enforcement)
+- **TD-011** — Structured logging: `request_id`, `user_id`, `route`, `result` fields
+- **TD-006** — Decompose `main.rs` — split bootstrap into `config/infra/app/routes` modules
 
-## Wave 4 (Ongoing) — Governance and UX Quality
+## 🔲 Wave 3 — Scale and Operational Maturity
+- TD-018, TD-017, TD-015, TD-016
+
+## 🔲 Wave 4 (Ongoing) — Governance and UX Quality
 - TD-012, TD-013, TD-014, TD-019, TD-020
 
 ---

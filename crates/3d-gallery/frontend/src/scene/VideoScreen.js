@@ -582,12 +582,12 @@ function setupVideoInteractions(
       () => {
         material.emissiveColor = new BABYLON.Color3(1.0, 1.0, 1.0);
 
-        // Start video preview after 500ms hover (muted autoplay)
+        // Start video preview after 500ms hover
         hoverTimeout = setTimeout(() => {
           if (videoElement.paused && screenPlane.metadata) {
-            // Mute and play for preview
-            videoElement.muted = true;
-            wasAutoPlayed = true; // Mark as auto-played
+            wasAutoPlayed = true;
+            // Try with sound first (works once the user has interacted with the page)
+            videoElement.muted = false;
             videoElement
               .play()
               .then(() => {
@@ -596,9 +596,21 @@ function setupVideoInteractions(
                   `▶ Preview playing (hover): ${screenPlane.metadata.title}`,
                 );
               })
-              .catch((err) => {
-                console.warn("Hover autoplay prevented:", err);
-                wasAutoPlayed = false;
+              .catch(() => {
+                // Browser blocked unmuted autoplay — fall back to muted
+                videoElement.muted = true;
+                videoElement
+                  .play()
+                  .then(() => {
+                    screenPlane.metadata.isPlaying = true;
+                    console.log(
+                      `▶ Preview playing (hover, muted fallback): ${screenPlane.metadata.title}`,
+                    );
+                  })
+                  .catch((err) => {
+                    console.warn("Hover autoplay prevented:", err);
+                    wasAutoPlayed = false;
+                  });
               });
           }
         }, 500);

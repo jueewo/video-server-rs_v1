@@ -5,8 +5,9 @@ import Hls from "hls.js";
  * VideoPlayer component with HLS.js support
  * Handles both HLS streams (.m3u8) and direct video files
  */
-export function VideoPlayer({ url, autoPlay = true, style = {} }) {
-  const videoRef = useRef(null);
+export function VideoPlayer({ url, autoPlay = true, initialTime = 0, videoRef: externalRef = null, style = {} }) {
+  const internalRef = useRef(null);
+  const videoRef = externalRef || internalRef;
   const hlsRef = useRef(null);
 
   useEffect(() => {
@@ -31,6 +32,7 @@ export function VideoPlayer({ url, autoPlay = true, style = {} }) {
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           console.log("✓ HLS manifest loaded in overlay");
+          if (initialTime > 0) video.currentTime = initialTime;
           if (autoPlay) {
             video
               .play()
@@ -74,6 +76,9 @@ export function VideoPlayer({ url, autoPlay = true, style = {} }) {
     } else {
       // Direct video file (mp4, webm, etc.)
       video.src = url;
+      if (initialTime > 0) {
+        video.addEventListener("loadedmetadata", () => { video.currentTime = initialTime; }, { once: true });
+      }
       if (autoPlay) {
         video.play().catch((err) => console.warn("Autoplay prevented:", err));
       }

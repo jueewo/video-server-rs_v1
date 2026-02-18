@@ -23,6 +23,9 @@ export default function GalleryApp({
   const canvasRef = useRef(null);
   const cameraRef = useRef(null);
   const sceneRef = useRef(null);
+  const videoScreensRef = useRef([]); // for cross-effect access
+  const pdfPresentationsRef = useRef([]); // for cross-effect access
+  const overlayVideoRef = useRef(null); // ref to the overlay <video> element
   const [loading, setLoading] = useState(true);
   const [galleryData, setGalleryData] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -224,7 +227,9 @@ export default function GalleryApp({
               BABYLON.ActionManager.OnPickDownTrigger,
               () => {
                 console.log("Video clicked:", media.title);
-                setSelectedImage(media);
+                const currentTime = screen.videoElement?.currentTime || 0;
+                screen.videoElement?.pause();
+                setSelectedImage({ ...media, currentTime });
               },
             ),
           );
@@ -266,6 +271,8 @@ export default function GalleryApp({
     const allFrames = frames;
     const allVideoScreens = videoScreens;
     const allPdfPresentations = pdfPresentations;
+    videoScreensRef.current = allVideoScreens;
+    pdfPresentationsRef.current = allPdfPresentations;
 
     // Setup scene pointer observable to handle clicks before camera
     scene.onPointerObservable.add((pointerInfo) => {
@@ -278,10 +285,19 @@ export default function GalleryApp({
             (metadata.type === "image" || metadata.type === "video" || metadata.type === "document")
           ) {
             console.log("Media picked via observable:", metadata.title);
-            // Prevent camera from handling this click
             pointerInfo.event.preventDefault();
             pointerInfo.event.stopPropagation();
-            setSelectedImage(metadata);
+            if (metadata.type === "video") {
+              // Find the matching screen to get current playback position
+              const screen = allVideoScreens.find(
+                (s) => s.screenPlane?.metadata?.id === metadata.id,
+              );
+              const currentTime = screen?.videoElement?.currentTime || 0;
+              screen?.videoElement?.pause();
+              setSelectedImage({ ...metadata, currentTime });
+            } else {
+              setSelectedImage(metadata);
+            }
           }
         }
       }
@@ -453,7 +469,7 @@ export default function GalleryApp({
 
       // ESC key to close overlay
       if (event.key === "Escape" && selectedImage) {
-        setSelectedImage(null);
+        closeOverlay();
         return;
       }
 
@@ -622,6 +638,33 @@ export default function GalleryApp({
     }
   }, [selectedImage]);
 
+  // Close overlay and sync state back to the in-room object
+  const closeOverlay = (pageOrEvent) => {
+    // pageOrEvent may be a page number (from PdfOverlay) or a click Event (ignore it)
+    const syncPage = typeof pageOrEvent === "number" ? pageOrEvent : null;
+
+    if (selectedImage?.type === "video" && overlayVideoRef.current) {
+      const syncTime = overlayVideoRef.current.currentTime;
+      const screen = videoScreensRef.current.find(
+        (s) => s.screenPlane?.metadata?.id === selectedImage.id,
+      );
+      if (screen?.videoElement) {
+        screen.videoElement.currentTime = syncTime;
+      }
+    }
+
+    if (selectedImage?.type === "document" && syncPage !== null) {
+      const pres = pdfPresentationsRef.current.find(
+        (p) => p.framePlane?.metadata?.id === selectedImage.id,
+      );
+      if (pres?.goToPage) {
+        pres.goToPage(syncPage);
+      }
+    }
+
+    setSelectedImage(null);
+  };
+
   if (loading) {
     return null; // Loading screen is handled by template
   }
@@ -736,7 +779,7 @@ export default function GalleryApp({
           }}
           onClick={(e) => {
             e.stopPropagation();
-            setSelectedImage(null);
+            closeOverlay();
           }}
         >
           <div
@@ -751,12 +794,13 @@ export default function GalleryApp({
             onClick={(e) => e.stopPropagation()}
           >
             {selectedImage.type === "video" ? (
-              <VideoPlayer url={selectedImage.url} autoPlay={true} />
+              <VideoPlayer url={selectedImage.url} autoPlay={true} initialTime={selectedImage.currentTime || 0} videoRef={overlayVideoRef} />
             ) : selectedImage.type === "document" ? (
               <PdfOverlay
                 url={selectedImage.url}
                 title={selectedImage.title}
-                onClose={() => setSelectedImage(null)}
+                initialPage={selectedImage.currentPage || 1}
+                onClose={closeOverlay}
               />
             ) : (
               <img
@@ -808,7 +852,7 @@ export default function GalleryApp({
               )}
             </div>
             <button
-              onClick={() => setSelectedImage(null)}
+              onClick={() => closeOverlay()}
               style={{
                 marginTop: "20px",
                 padding: "10px 30px",

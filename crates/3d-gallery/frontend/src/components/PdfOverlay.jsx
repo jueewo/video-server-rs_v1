@@ -12,21 +12,23 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dis
  *   title  {string}  - document title shown in the header
  *   onClose {()=>void} - called when the user closes the overlay
  */
-export function PdfOverlay({ url, title, onClose }) {
+export function PdfOverlay({ url, title, initialPage = 1, onClose }) {
   const canvasRef = useRef(null);
   const [pdfDoc, setPdfDoc] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(initialPage);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const renderTaskRef = useRef(null);
+  // Always-fresh ref so close handlers never capture a stale page number
+  const currentPageRef = useRef(initialPage);
 
   // Load the PDF document
   useEffect(() => {
     if (!url) return;
     setLoading(true);
     setError(null);
-    setCurrentPage(1);
+    setCurrentPage(initialPage);
 
     pdfjsLib
       .getDocument(url)
@@ -41,6 +43,9 @@ export function PdfOverlay({ url, title, onClose }) {
         setLoading(false);
       });
   }, [url]);
+
+  // Keep ref in sync so keyboard/backdrop handlers always see the latest page
+  useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
 
   // Render page whenever pdfDoc or currentPage changes
   useEffect(() => {
@@ -86,7 +91,7 @@ export function PdfOverlay({ url, title, onClose }) {
       } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
         setCurrentPage((p) => Math.max(p - 1, 1));
       } else if (e.key === "Escape") {
-        onClose();
+        onClose(currentPageRef.current);
       }
     };
     window.addEventListener("keydown", handler);
@@ -132,7 +137,7 @@ export function PdfOverlay({ url, title, onClose }) {
   };
 
   return (
-    <div style={overlay} onClick={onClose}>
+    <div style={overlay} onClick={() => onClose(currentPageRef.current)}>
       {/* Inner container — clicks don't propagate to backdrop */}
       <div
         style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}
@@ -168,7 +173,7 @@ export function PdfOverlay({ url, title, onClose }) {
           >
             ↗ Open
           </a>
-          <button style={btnStyle} onClick={onClose}>
+          <button style={btnStyle} onClick={() => onClose(currentPageRef.current)}>
             Close (ESC)
           </button>
         </div>

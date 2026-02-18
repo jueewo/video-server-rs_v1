@@ -222,6 +222,7 @@ export function createPdfPresentation(scene, media, options) {
     url: media.url,
     media_type: media.media_type,
     tags: media.tags || [],
+    currentPage: 1,
   };
   framePlane.isPickable = true;
 
@@ -239,6 +240,8 @@ export function createPdfPresentation(scene, media, options) {
   async function goToPage(pageNum) {
     if (!pdfDoc) return;
     currentPage = Math.max(1, Math.min(pageNum, pdfDoc.numPages));
+    // Keep metadata in sync so GalleryApp can read current page on click
+    if (framePlane.metadata) framePlane.metadata.currentPage = currentPage;
     await renderPage(pdfDoc, currentPage, texCtx, texture);
   }
 
@@ -284,5 +287,5 @@ export function createPdfPresentation(scene, media, options) {
     mat.dispose();
   }
 
-  return { framePlane, prevArrow, nextArrow, dispose };
+  return { framePlane, prevArrow, nextArrow, goToPage, dispose };
 }

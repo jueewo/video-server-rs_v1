@@ -317,15 +317,18 @@ It is prioritized to reduce production risk first, then improve maintainability 
 - ~~TD-009~~ Upload validation — full media-core pipeline (filename/MIME/size/extension match)
 - ~~TD-021~~ media-hub → media-manager migration complete, dual-system retired
 
-## 🔲 Wave 2 (Next) — Stability and Correctness
-- **TD-004** — Repo hygiene: `.gitignore` audit, remove any tracked artifacts, add CI guardrails
-- **TD-007** — Standardize API error envelope across all endpoints
-- **TD-008** — Integration tests for authz-critical paths (build on TD-003 enforcement)
-- **TD-011** — Structured logging: `request_id`, `user_id`, `route`, `result` fields
-- **TD-006** — Decompose `main.rs` — split bootstrap into `config/infra/app/routes` modules
+## ✅ Wave 2 (Complete) — Stability and Correctness
+- ~~TD-004~~ CI workflow: fmt/clippy/test/artifact-guard/cargo-audit jobs
+- ~~TD-007~~ `ApiError` type with `IntoResponse` in `common` crate — uniform `{"error":{"code","message"}}` shape
+- ~~TD-008~~ 11 integration tests (authz paths, request ID, error shape) — in-memory SQLite, all passing
+- ~~TD-011~~ `request_id_middleware` — generates/propagates `X-Request-ID`, records on tracing span
+- TD-006 — Decompose `main.rs` — **deferred** (976 lines, all wiring, not warranted yet)
 
-## 🔲 Wave 3 — Scale and Operational Maturity
-- TD-018, TD-017, TD-015, TD-016
+## 🔲 Wave 3 (Next) — Scale and Operational Maturity
+- **TD-016** — Storage lifecycle: orphan detection + cleanup job
+- **TD-017** — Backup/restore validation automation
+- **TD-015** — Background jobs for long-running media tasks (transcode, thumbnail)
+- **TD-018** — SLO dashboard + alert policy
 
 ## 🔲 Wave 4 (Ongoing) — Governance and UX Quality
 - TD-012, TD-013, TD-014, TD-019, TD-020

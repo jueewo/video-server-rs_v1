@@ -71,7 +71,7 @@ use access_codes::{access_code_public_routes, access_code_routes, AccessCodeStat
 use access_control::AccessControlService;
 use access_groups;
 use api_keys::{middleware::api_key_or_session_auth, routes::api_key_routes};
-use common::{create_search_routes, create_tag_routes};
+use common::{create_search_routes, create_tag_routes, request_id::request_id_middleware};
 use docs_viewer::{docs_routes, markdown::MarkdownRenderer, DocsState};
 use gallery3d;
 use media_manager::{media_routes, MediaManagerState};
@@ -835,15 +835,19 @@ async fn main() -> anyhow::Result<()> {
         // Apply middleware
         .layer(
             ServiceBuilder::new()
+                // Request ID — generates/propagates X-Request-ID, records into span (TD-011)
+                .layer(axum::middleware::from_fn(request_id_middleware))
                 // Request/Response tracing - logs method, path, status, latency
                 .layer(
                     TraceLayer::new_for_http()
                         .make_span_with(|request: &axum::http::Request<_>| {
+                            // `request_id` is recorded by request_id_middleware after span creation.
                             tracing::info_span!(
                                 "http_request",
                                 method = %request.method(),
                                 path = %request.uri().path(),
                                 query = request.uri().query().unwrap_or(""),
+                                request_id = tracing::field::Empty,
                             )
                         })
                         .on_request(DefaultOnRequest::new().level(Level::INFO))

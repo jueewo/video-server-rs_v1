@@ -138,6 +138,7 @@ pub async fn get_user_groups(pool: &SqlitePool, user_id: &str) -> Result<Vec<Gro
             g.id, g.name, g.slug, g.description, g.owner_id,
             g.created_at, g.updated_at, g.is_active, g.settings,
             COUNT(DISTINCT gm2.id) as member_count,
+            (SELECT COUNT(*) FROM media_items mi WHERE mi.group_id = g.id) as media_count,
             gm.role as user_role
         FROM access_groups g
         INNER JOIN group_members gm ON g.id = gm.group_id
@@ -166,12 +167,14 @@ pub async fn get_user_groups(pool: &SqlitePool, user_id: &str) -> Result<Vec<Gro
                 settings: row.get("settings"),
             };
             let member_count: i32 = row.get("member_count");
+            let media_count: i64 = row.get("media_count");
             let role_str: String = row.get("user_role");
             let user_role = role_str.parse::<GroupRole>().ok();
             let is_owner = group.owner_id == user_id;
             GroupWithMetadata {
                 group,
                 member_count,
+                media_count,
                 user_role,
                 is_owner,
             }

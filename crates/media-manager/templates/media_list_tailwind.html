@@ -36,19 +36,17 @@
     <!-- Search and Filters -->
     <div class="card bg-base-100 shadow-xl mb-8">
         <div class="card-body">
-            <!-- Search Bar -->
-            <form method="get" action="/media" class="mb-6">
-                <div class="join w-full">
+            <!-- Search + Filters form (all filters travel together) -->
+            <form method="get" action="/media" id="media-filter-form">
+                <!-- Row 1: Search bar -->
+                <div class="join w-full mb-4">
                     <input
                         type="text"
                         name="q"
                         class="input input-bordered join-item flex-1"
-                        placeholder="Search across all media types..."
+                        placeholder="Search title, description, category, tags…"
                         value="{% match search_query %}{% when Some with (q) %}{{ q }}{% when None %}{% endmatch %}"
                     />
-                    <input type="hidden" name="type_filter" value="{% match current_filter %}{% when Some with (f) %}{{ f }}{% when None %}{% endmatch %}">
-                    <input type="hidden" name="sort_by" value="{{ sort_by }}">
-                    <input type="hidden" name="sort_order" value="{{ sort_order }}">
                     <button type="submit" class="btn btn-primary join-item">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
@@ -56,28 +54,70 @@
                         Search
                     </button>
                 </div>
-            </form>
 
-            <!-- Type Filters -->
-            <div class="flex flex-wrap gap-2 mb-4">
-                <div class="badge badge-lg">Filter by type:</div>
-                <a href="/media?sort_by={{ sort_by }}&sort_order={{ sort_order }}"
-                   class="btn btn-sm {% if current_filter.is_none() %}btn-primary{% else %}btn-ghost{% endif %}">
-                    All ({{ total_count }})
-                </a>
-                <a href="/media?type_filter=video&sort_by={{ sort_by }}&sort_order={{ sort_order }}"
-                   class="btn btn-sm {% match current_filter %}{% when Some with (f) %}{% if f == "video" %}btn-error{% else %}btn-ghost{% endif %}{% when None %}btn-ghost{% endmatch %}">
-                    🎥 Videos ({{ video_count }})
-                </a>
-                <a href="/media?type_filter=image&sort_by={{ sort_by }}&sort_order={{ sort_order }}"
-                   class="btn btn-sm {% match current_filter %}{% when Some with (f) %}{% if f == "image" %}btn-success{% else %}btn-ghost{% endif %}{% when None %}btn-ghost{% endmatch %}">
-                    🖼️ Images ({{ image_count }})
-                </a>
-                <a href="/media?type_filter=document&sort_by={{ sort_by }}&sort_order={{ sort_order }}"
-                   class="btn btn-sm {% match current_filter %}{% when Some with (f) %}{% if f == "document" %}btn-info{% else %}btn-ghost{% endif %}{% when None %}btn-ghost{% endmatch %}">
-                    📄 Documents ({{ document_count }})
-                </a>
-            </div>
+                <!-- Row 2: Type filter buttons (set hidden input + submit) -->
+                <div class="flex flex-wrap gap-2 mb-3 items-center">
+                    <span class="text-sm text-base-content/60 mr-1">Type:</span>
+                    <button type="submit" name="type_filter" value=""
+                            class="btn btn-sm {% if current_filter.is_none() %}btn-primary{% else %}btn-ghost{% endif %}">
+                        All ({{ total_count }})
+                    </button>
+                    <button type="submit" name="type_filter" value="video"
+                            class="btn btn-sm {% match current_filter %}{% when Some with (f) %}{% if f == "video" %}btn-error{% else %}btn-ghost{% endif %}{% when None %}btn-ghost{% endmatch %}">
+                        🎥 Videos ({{ video_count }})
+                    </button>
+                    <button type="submit" name="type_filter" value="image"
+                            class="btn btn-sm {% match current_filter %}{% when Some with (f) %}{% if f == "image" %}btn-success{% else %}btn-ghost{% endif %}{% when None %}btn-ghost{% endmatch %}">
+                        🖼️ Images ({{ image_count }})
+                    </button>
+                    <button type="submit" name="type_filter" value="document"
+                            class="btn btn-sm {% match current_filter %}{% when Some with (f) %}{% if f == "document" %}btn-info{% else %}btn-ghost{% endif %}{% when None %}btn-ghost{% endmatch %}">
+                        📄 Documents ({{ document_count }})
+                    </button>
+                </div>
+
+                <!-- Row 3: Vault / Tag / Group selectors (authenticated only) -->
+                {% if authenticated %}
+                <div class="flex flex-wrap gap-3 mb-3 items-center">
+                    <span class="text-sm text-base-content/60">Filter by:</span>
+
+                    {% if !all_vaults.is_empty() %}
+                    <select name="vault_id" class="select select-bordered select-sm" onchange="document.getElementById('media-filter-form').submit()">
+                        <option value="">All Vaults</option>
+                        {% for (vid, vname) in &all_vaults %}
+                        <option value="{{ vid }}" {% if vault_filter.as_deref() == Some(vid.as_str()) %}selected{% endif %}>{{ vname }}</option>
+                        {% endfor %}
+                    </select>
+                    {% endif %}
+
+                    {% if !all_tags.is_empty() %}
+                    <select name="tag" class="select select-bordered select-sm" onchange="document.getElementById('media-filter-form').submit()">
+                        <option value="">All Tags</option>
+                        {% for t in &all_tags %}
+                        <option value="{{ t }}" {% if tag_filter.as_deref() == Some(t.as_str()) %}selected{% endif %}>{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                    {% endif %}
+
+                    {% if !all_groups.is_empty() %}
+                    <select name="group_id" class="select select-bordered select-sm" onchange="document.getElementById('media-filter-form').submit()">
+                        <option value="">All Groups</option>
+                        {% for (gid, gname) in &all_groups %}
+                        <option value="{{ gid }}" {% if group_filter.as_deref() == Some(gid.as_str()) %}selected{% endif %}>{{ gname }}</option>
+                        {% endfor %}
+                    </select>
+                    {% endif %}
+
+                    {% if vault_filter.is_some() || tag_filter.is_some() || group_filter.is_some() %}
+                    <a href="/media?sort_by={{ sort_by }}&sort_order={{ sort_order }}" class="btn btn-sm btn-ghost text-error">✕ Clear filters</a>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Preserve sort params -->
+                <input type="hidden" name="sort_by" value="{{ sort_by }}">
+                <input type="hidden" name="sort_order" value="{{ sort_order }}">
+            </form>
 
             <!-- Stats -->
             <div class="stats stats-horizontal shadow w-full">

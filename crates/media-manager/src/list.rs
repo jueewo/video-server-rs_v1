@@ -37,6 +37,18 @@ pub struct MediaListQuery {
     #[serde(default)]
     pub is_public: Option<bool>,
 
+    /// Vault filter
+    #[serde(default)]
+    pub vault_id: Option<String>,
+
+    /// Tag filter (exact tag name)
+    #[serde(default)]
+    pub tag: Option<String>,
+
+    /// Group filter (group_id as string)
+    #[serde(default)]
+    pub group_id: Option<String>,
+
     /// Sort field
     #[serde(default = "default_sort_by")]
     pub sort_by: String,
@@ -119,16 +131,22 @@ pub async fn list_media_html(
 
     let search_service = MediaSearchService::new(state.pool.clone());
 
+    // Normalize empty strings from form submissions to None
+    let noe = |s: Option<String>| s.filter(|v| !v.is_empty());
+
     // Filter by user_id for authenticated users, or only show public for guests
     let filter = MediaFilterOptions {
-        search: query.q.clone(),
-        media_type: query.type_filter.clone(),
+        search: noe(query.q.clone()),
+        media_type: noe(query.type_filter.clone()),
         is_public: if authenticated {
             query.is_public
         } else {
             Some(true)
         },
         user_id: user_id.clone(),
+        vault_id: noe(query.vault_id.clone()),
+        tag: noe(query.tag.clone()),
+        group_id: noe(query.group_id.clone()),
         sort_by: query.sort_by.clone(),
         sort_order: query.sort_order.clone(),
         page: query.page,
@@ -208,6 +226,46 @@ pub async fn list_media_html(
                 })
                 .collect();
 
+            // Fetch selector data for authenticated users
+            let all_vaults: Vec<(String, String)> = if authenticated {
+                if let Some(uid) = &user_id {
+                    common::services::vault_service::get_user_vaults(&state.pool, uid)
+                        .await
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|(vid, vname, _)| (vid, vname))
+                        .collect()
+                } else {
+                    vec![]
+                }
+            } else {
+                vec![]
+            };
+
+            let all_tags: Vec<String> = if authenticated {
+                sqlx::query_scalar("SELECT DISTINCT tag FROM media_tags ORDER BY tag")
+                    .fetch_all(&state.pool)
+                    .await
+                    .unwrap_or_default()
+            } else {
+                vec![]
+            };
+
+            let all_groups: Vec<(String, String)> = if let Some(uid) = &user_id {
+                sqlx::query_as::<_, (i32, String)>(
+                    "SELECT id, name FROM access_groups WHERE owner_id = ? AND is_active = 1 ORDER BY name",
+                )
+                .bind(uid)
+                .fetch_all(&state.pool)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(id, name)| (id.to_string(), name))
+                .collect()
+            } else {
+                vec![]
+            };
+
             let template = MediaListTemplate {
                 authenticated,
                 items: items_with_metadata,
@@ -215,14 +273,20 @@ pub async fn list_media_html(
                 page: response.page,
                 page_size: response.page_size,
                 total_pages: response.total_pages,
-                current_filter: query.type_filter.clone(),
-                search_query: query.q.clone(),
+                current_filter: noe(query.type_filter.clone()),
+                search_query: noe(query.q.clone()),
                 sort_by: query.sort_by.clone(),
                 sort_order: query.sort_order.clone(),
                 video_count: response.media_type_counts.videos,
                 image_count: response.media_type_counts.images,
                 document_count: response.media_type_counts.documents,
                 total_count: response.media_type_counts.total,
+                all_vaults,
+                all_tags,
+                all_groups,
+                vault_filter: noe(query.vault_id.clone()),
+                tag_filter: noe(query.tag.clone()),
+                group_filter: noe(query.group_id.clone()),
             };
 
             match template.render() {
@@ -269,15 +333,19 @@ pub async fn list_media_json(
     // Don't filter by user_id to show all media (including legacy uploads with user_id=NULL)
     // Authenticated users see all their media + public media from others
     // Guest users only see public media
+    let noe = |s: Option<String>| s.filter(|v: &String| !v.is_empty());
     let filter = MediaFilterOptions {
-        search: query.q,
-        media_type: query.type_filter,
+        search: noe(query.q),
+        media_type: noe(query.type_filter),
         is_public: if authenticated {
             query.is_public
         } else {
             Some(true)
         },
         user_id: None, // Don't filter by user_id to include legacy uploads
+        vault_id: noe(query.vault_id),
+        tag: noe(query.tag),
+        group_id: noe(query.group_id),
         sort_by: query.sort_by,
         sort_order: query.sort_order,
         page: query.page,

@@ -163,6 +163,7 @@ pub struct GroupWithMetadata {
     #[serde(flatten)]
     pub group: AccessGroup,
     pub member_count: i32,
+    pub media_count: i64,
     pub user_role: Option<GroupRole>,
     pub is_owner: bool,
 }

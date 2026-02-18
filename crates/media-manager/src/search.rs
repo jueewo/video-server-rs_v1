@@ -122,6 +122,24 @@ impl MediaSearchService {
             bindings.push(user_id.clone());
         }
 
+        // Vault filter
+        if let Some(vault_id) = &options.vault_id {
+            query.push_str(" AND vault_id = ?");
+            bindings.push(vault_id.clone());
+        }
+
+        // Tag filter (exact match)
+        if let Some(tag) = &options.tag {
+            query.push_str(" AND id IN (SELECT media_id FROM media_tags WHERE tag = ?)");
+            bindings.push(tag.clone());
+        }
+
+        // Group filter
+        if let Some(group_id) = &options.group_id {
+            query.push_str(" AND group_id = ?");
+            bindings.push(group_id.clone());
+        }
+
         // Add ordering
         let sort_field = if options.sort_by.is_empty() {
             "created_at"
@@ -173,6 +191,21 @@ impl MediaSearchService {
         if let Some(user_id) = &options.user_id {
             query.push_str(" AND user_id = ?");
             bindings.push(user_id.clone());
+        }
+
+        if let Some(vault_id) = &options.vault_id {
+            query.push_str(" AND vault_id = ?");
+            bindings.push(vault_id.clone());
+        }
+
+        if let Some(tag) = &options.tag {
+            query.push_str(" AND id IN (SELECT media_id FROM media_tags WHERE tag = ?)");
+            bindings.push(tag.clone());
+        }
+
+        if let Some(group_id) = &options.group_id {
+            query.push_str(" AND group_id = ?");
+            bindings.push(group_id.clone());
         }
 
         let mut sqlx_query = sqlx::query_scalar::<_, i64>(&query);

@@ -64,6 +64,24 @@ pub struct MediaListTemplate {
 
     /// Total count of all media
     pub total_count: i64,
+
+    /// All vaults available to the user (vault_id, vault_name)
+    pub all_vaults: Vec<(String, String)>,
+
+    /// All distinct tags across user's media
+    pub all_tags: Vec<String>,
+
+    /// All access groups owned by the user (group_id as string, name)
+    pub all_groups: Vec<(String, String)>,
+
+    /// Active vault filter
+    pub vault_filter: Option<String>,
+
+    /// Active tag filter
+    pub tag_filter: Option<String>,
+
+    /// Active group filter (group_id as string)
+    pub group_filter: Option<String>,
 }
 
 impl MediaListTemplate {
@@ -174,6 +192,12 @@ mod tests {
             image_count: 0,
             document_count: 0,
             total_count: 0,
+            all_vaults: vec![],
+            all_tags: vec![],
+            all_groups: vec![],
+            vault_filter: None,
+            tag_filter: None,
+            group_filter: None,
         };
 
         assert!(!template.is_first_page());
@@ -199,6 +223,12 @@ mod tests {
             image_count: 0,
             document_count: 0,
             total_count: 0,
+            all_vaults: vec![],
+            all_tags: vec![],
+            all_groups: vec![],
+            vault_filter: None,
+            tag_filter: None,
+            group_filter: None,
         };
 
         assert!(template.is_first_page());
@@ -223,6 +253,12 @@ mod tests {
             image_count: 0,
             document_count: 0,
             total_count: 0,
+            all_vaults: vec![],
+            all_tags: vec![],
+            all_groups: vec![],
+            vault_filter: None,
+            tag_filter: None,
+            group_filter: None,
         };
 
         assert!(!template.is_first_page());
@@ -247,6 +283,12 @@ mod tests {
             image_count: 0,
             document_count: 0,
             total_count: 0,
+            all_vaults: vec![],
+            all_tags: vec![],
+            all_groups: vec![],
+            vault_filter: None,
+            tag_filter: None,
+            group_filter: None,
         };
 
         assert!(template.is_filter_active("video"));

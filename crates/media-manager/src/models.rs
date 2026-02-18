@@ -347,7 +347,7 @@ impl From<common::models::media_item::MediaItem> for UnifiedMediaItem {
 /// Filter options for unified media queries
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MediaFilterOptions {
-    /// Search query (searches title, description)
+    /// Search query (searches title, description, category, tags)
     pub search: Option<String>,
 
     /// Filter by media type
@@ -358,6 +358,15 @@ pub struct MediaFilterOptions {
 
     /// Filter by user
     pub user_id: Option<String>,
+
+    /// Filter by vault
+    pub vault_id: Option<String>,
+
+    /// Filter by exact tag
+    pub tag: Option<String>,
+
+    /// Filter by access group id (as string for uniform binding)
+    pub group_id: Option<String>,
 
     /// Sort field
     pub sort_by: String, // "created_at", "title", "file_size"

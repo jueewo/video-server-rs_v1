@@ -13,7 +13,7 @@ import * as BABYLON from "@babylonjs/core";
 import * as pdfjsLib from "pdfjs-dist";
 
 // Point the worker to the CDN so esbuild doesn't bundle it
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 /** Canvas resolution for the DynamicTexture (landscape 4:3) */
 const TEX_W = 1024;

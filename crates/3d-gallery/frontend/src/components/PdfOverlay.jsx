@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import * as pdfjsLib from "pdfjs-dist";
 
 // Share the same worker URL as PdfPresentation.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 /**
  * Fullscreen PDF viewer overlay shown when a PDF presentation is clicked.

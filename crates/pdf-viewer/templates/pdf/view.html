@@ -61,21 +61,20 @@
         <div class="card-body py-3">
             <div id="pdf-toolbar">
                 <!-- Page navigation -->
-                <button id="btn-prev" onclick="prevPage()" class="btn btn-sm btn-outline" disabled>◄ Prev</button>
+                <button id="btn-prev" class="btn btn-sm btn-outline" disabled>◄ Prev</button>
                 <div class="flex items-center gap-1">
-                    <input id="page-input" type="number" min="1" class="input input-sm input-bordered" value="1"
-                           onchange="goToPage(parseInt(this.value))" />
+                    <input id="page-input" type="number" min="1" class="input input-sm input-bordered" value="1" />
                     <span class="text-sm text-base-content/60">/ <span id="page-count">—</span></span>
                 </div>
-                <button id="btn-next" onclick="nextPage()" class="btn btn-sm btn-outline" disabled>Next ►</button>
+                <button id="btn-next" class="btn btn-sm btn-outline" disabled>Next ►</button>
 
                 <div class="divider divider-horizontal mx-0"></div>
 
                 <!-- Zoom -->
-                <button onclick="zoom(-0.25)" class="btn btn-sm btn-ghost font-bold">−</button>
+                <button id="btn-zoom-out" class="btn btn-sm btn-ghost font-bold">−</button>
                 <span id="zoom-level" class="text-sm w-12 text-center">150%</span>
-                <button onclick="zoom(+0.25)" class="btn btn-sm btn-ghost font-bold">+</button>
-                <button onclick="fitWidth()" class="btn btn-sm btn-ghost">Fit</button>
+                <button id="btn-zoom-in" class="btn btn-sm btn-ghost font-bold">+</button>
+                <button id="btn-fit" class="btn btn-sm btn-ghost">Fit</button>
 
                 <div class="flex-1"></div>
 
@@ -105,11 +104,10 @@
 {% endblock %}
 {% block extra_scripts %}
 <!-- PDF.js -->
-<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-<script>
-    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+<script type="module">
+    import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.624/build/pdf.min.mjs';
     pdfjsLib.GlobalWorkerOptions.workerSrc =
-        'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+        'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.624/build/pdf.worker.min.mjs';
 
     const SERVE_URL = {{ serve_url|tojson|safe }};
 
@@ -196,6 +194,14 @@
         scale = available / viewport.width;
         await renderPage(pageNum);
     }
+
+    // Button wiring
+    btnPrev.addEventListener('click', prevPage);
+    btnNext.addEventListener('click', nextPage);
+    pageInput.addEventListener('change', () => goToPage(parseInt(pageInput.value)));
+    document.getElementById('btn-zoom-out').addEventListener('click', () => zoom(-0.25));
+    document.getElementById('btn-zoom-in').addEventListener('click',  () => zoom(+0.25));
+    document.getElementById('btn-fit').addEventListener('click', fitWidth);
 
     // Keyboard navigation
     document.addEventListener('keydown', (e) => {

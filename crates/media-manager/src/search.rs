@@ -97,10 +97,15 @@ impl MediaSearchService {
             bindings.push(media_type.clone());
         }
 
-        // Search filter
+        // Search filter — title, description, category, and tags
         if let Some(search) = &options.search {
-            query.push_str(" AND (title LIKE ? OR description LIKE ?)");
+            query.push_str(
+                " AND (title LIKE ? OR description LIKE ? OR category LIKE ?\
+                 OR id IN (SELECT media_id FROM media_tags WHERE tag LIKE ?))",
+            );
             let pattern = format!("%{}%", search);
+            bindings.push(pattern.clone());
+            bindings.push(pattern.clone());
             bindings.push(pattern.clone());
             bindings.push(pattern);
         }
@@ -149,8 +154,13 @@ impl MediaSearchService {
         let mut bindings: Vec<String> = vec![media_type.to_string()];
 
         if let Some(search) = &options.search {
-            query.push_str(" AND (title LIKE ? OR description LIKE ?)");
+            query.push_str(
+                " AND (title LIKE ? OR description LIKE ? OR category LIKE ?\
+                 OR id IN (SELECT media_id FROM media_tags WHERE tag LIKE ?))",
+            );
             let pattern = format!("%{}%", search);
+            bindings.push(pattern.clone());
+            bindings.push(pattern.clone());
             bindings.push(pattern.clone());
             bindings.push(pattern);
         }

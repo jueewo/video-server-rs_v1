@@ -12,7 +12,7 @@
     "@babylonjs/core": "^6.42.0",
     "@babylonjs/loaders": "^6.42.0",
     "hls.js": "^1.6.15",
-    "pdfjs-dist": "^3.11.174",
+    "pdfjs-dist": "^5.4.624",
     "preact": "^10.19.3"
   },
   "devDependencies": {

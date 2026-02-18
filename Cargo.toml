@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "crates/common",
-    "crates/ui-components",
     "crates/media-core",
     "crates/access-groups",
     "crates/video-manager",
@@ -39,7 +38,6 @@ path = "scripts/cleanup_missing_media.rs"
 [dependencies]
 # Local crates
 common = { path = "crates/common" }
-ui-components = { path = "crates/ui-components" }
 access-groups = { path = "crates/access-groups" }
 video-manager = { path = "crates/video-manager" }
 media-manager = { path = "crates/media-manager" }

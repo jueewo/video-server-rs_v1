@@ -1,0 +1,15 @@
+{#
+  Empty State Component
+  Variables: empty_icon, empty_heading, empty_desc, empty_action_url, empty_action_label
+  Set empty_action_url="" or empty_action_label="" to hide the CTA button.
+#}
+<div class="text-center py-16 bg-base-200 rounded-xl">
+    <div class="text-6xl mb-4" aria-hidden="true">{{ empty_icon }}</div>
+    <h2 class="text-2xl font-bold mb-2">{{ empty_heading }}</h2>
+    <p class="text-base-content/60 mb-6 max-w-sm mx-auto">{{ empty_desc }}</p>
+    {% if empty_action_url != "" && empty_action_label != "" %}
+    <a href="{{ empty_action_url }}" class="btn btn-primary">
+        {{ empty_action_label }}
+    </a>
+    {% endif %}
+</div>

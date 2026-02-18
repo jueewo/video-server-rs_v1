@@ -410,6 +410,34 @@ async fn tag_cloud_handler(session: Session) -> Result<Html<String>, StatusCode>
 }
 
 // -------------------------------
+// Dev / Component Showcase (ENABLE_DEV_ROUTES)
+// -------------------------------
+
+#[derive(Template)]
+#[template(path = "dev/components.html")]
+struct DevComponentsPage {
+    authenticated: bool,
+}
+
+async fn dev_components_handler(session: Session) -> Result<Html<String>, StatusCode> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    let template = DevComponentsPage { authenticated };
+    match template.render() {
+        Ok(html) => Ok(Html(html)),
+        Err(e) => {
+            eprintln!("Template error: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+// -------------------------------
 // Webhook Handlers (Optional)
 // -------------------------------
 
@@ -717,8 +745,13 @@ async fn main() -> anyhow::Result<()> {
     let rate_limit = RateLimitConfig::from_env();
     rate_limit.print_summary();
 
+    // Enable dev routes only when ENABLE_DEV_ROUTES=true
+    let dev_routes_enabled = std::env::var("ENABLE_DEV_ROUTES")
+        .map(|v| v.eq_ignore_ascii_case("true") || v == "1")
+        .unwrap_or(false);
+
     // Build the application router
-    let app = Router::new()
+    let base_router = Router::new()
         // Main routes
         .route("/", get(index_handler))
         .route("/demo", get(demo_handler))
@@ -729,7 +762,19 @@ async fn main() -> anyhow::Result<()> {
         // Webhook endpoints (optional)
         .route("/api/webhooks/stream-ready", post(webhook_stream_ready))
         .route("/api/webhooks/stream-ended", post(webhook_stream_ended))
-        .with_state(app_state)
+        .with_state(app_state);
+
+    // Conditionally expose dev routes (ENABLE_DEV_ROUTES=true)
+    let app = if dev_routes_enabled {
+        tracing::warn!("DEV ROUTES ENABLED — do not use in production");
+        base_router.merge(
+            Router::new().route("/dev/components", get(dev_components_handler)),
+        )
+    } else {
+        base_router
+    };
+
+    let app = app
         // Merge module routers — with per-class rate limiting (TD-010)
         .merge({
             let r = auth_routes(auth_state.clone());

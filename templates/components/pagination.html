@@ -1,0 +1,49 @@
+{#
+  Pagination Component
+  Variables: current_page (usize, 1-based), total_pages (usize), base_url (string)
+  Only renders when total_pages > 1.
+#}
+{% if total_pages > 1 %}
+<nav class="flex justify-center mt-8" aria-label="Pagination">
+    <div class="join">
+        {# Previous button #}
+        {% if current_page > 1 %}
+        <a
+            href="{{ base_url }}?page={{ current_page - 1 }}"
+            class="join-item btn btn-sm"
+            aria-label="Previous page"
+        >«</a>
+        {% else %}
+        <button class="join-item btn btn-sm btn-disabled" aria-disabled="true" aria-label="Previous page">«</button>
+        {% endif %}
+
+        {# Page numbers — show up to 7 pages with ellipsis for large ranges #}
+        {% for page_num in 1..=total_pages %}
+        {% if page_num == current_page %}
+        <button class="join-item btn btn-sm btn-active" aria-current="page" aria-label="Page {{ page_num }}">
+            {{ page_num }}
+        </button>
+        {% elif page_num == 1 || page_num == total_pages || (page_num >= current_page - 2 && page_num <= current_page + 2) %}
+        <a
+            href="{{ base_url }}?page={{ page_num }}"
+            class="join-item btn btn-sm"
+            aria-label="Page {{ page_num }}"
+        >{{ page_num }}</a>
+        {% elif page_num == current_page - 3 || page_num == current_page + 3 %}
+        <button class="join-item btn btn-sm btn-disabled" aria-hidden="true">…</button>
+        {% endif %}
+        {% endfor %}
+
+        {# Next button #}
+        {% if current_page < total_pages %}
+        <a
+            href="{{ base_url }}?page={{ current_page + 1 }}"
+            class="join-item btn btn-sm"
+            aria-label="Next page"
+        >»</a>
+        {% else %}
+        <button class="join-item btn btn-sm btn-disabled" aria-disabled="true" aria-label="Next page">»</button>
+        {% endif %}
+    </div>
+</nav>
+{% endif %}

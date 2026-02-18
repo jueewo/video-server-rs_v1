@@ -1,0 +1,21 @@
+{#
+  Stats Bar — canonical markup pattern.
+
+  Askama include shares parent scope but doesn't support slot children,
+  so copy this markup into your page and add .stat items inline.
+
+  Canonical markup:
+
+    <div class="stats stats-horizontal shadow w-full mb-6 overflow-x-auto">
+        <div class="stat">
+            <div class="stat-title">Total Items</div>
+            <div class="stat-value text-2xl">{{ total }}</div>
+            <div class="stat-desc">across all types</div>
+        </div>
+        <div class="stat">
+            <div class="stat-title">Page</div>
+            <div class="stat-value text-2xl">{{ page }} / {{ total_pages }}</div>
+            <div class="stat-desc">current</div>
+        </div>
+    </div>
+#}

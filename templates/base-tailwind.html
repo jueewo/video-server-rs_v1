@@ -35,9 +35,52 @@
         <main class="flex-1">{% block content %}{% endblock %}</main>
 
         <!-- Toast Container -->
-        <div id="toast-container" class="toast toast-top toast-end z-50"></div>
+        <div
+            id="toast-container"
+            class="toast toast-top toast-end z-50"
+            aria-live="polite"
+            aria-atomic="false"
+        ></div>
 
         {% block extra_scripts %}{% endblock %}
+
+        <!-- Alpine.js reusable components (registered before Alpine initialises) -->
+        <script>
+            document.addEventListener("alpine:init", () => {
+                // Confirm dialog
+                // Usage: wrap a section with x-data="confirmDialog()"
+                // Trigger: $refs.dialog.show(title, message, actionUrl, method)
+                Alpine.data("confirmDialog", () => ({
+                    open: false,
+                    title: "",
+                    message: "",
+                    actionUrl: "",
+                    method: "POST",
+                    show(title, message, url, method = "POST") {
+                        this.title = title;
+                        this.message = message;
+                        this.actionUrl = url;
+                        this.method = method;
+                        this.open = true;
+                    },
+                    close() {
+                        this.open = false;
+                    },
+                }));
+
+                // Action menu (three-dot card overlay)
+                // Usage: x-data="actionMenu()" on a parent element
+                Alpine.data("actionMenu", () => ({
+                    open: false,
+                    toggle() {
+                        this.open = !this.open;
+                    },
+                    close() {
+                        this.open = false;
+                    },
+                }));
+            });
+        </script>
 
         <script>
             // Global utilities

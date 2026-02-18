@@ -1,0 +1,14 @@
+{#
+  Page Header Component
+  Variables: page_title (string), page_subtitle (string, "" to omit)
+  Place a .page-header-actions div immediately after this include for action buttons.
+#}
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">{{ page_title }}</h1>
+        {% if page_subtitle != "" %}
+        <p class="page-header-subtitle">{{ page_subtitle }}</p>
+        {% endif %}
+    </div>
+    {# Caller places .page-header-actions div directly after this include #}
+</div>

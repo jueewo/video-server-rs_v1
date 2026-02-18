@@ -1,0 +1,441 @@
+{% extends "base-tailwind.html" %}
+{% block title %}Component Showcase — Dev{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-10 max-w-5xl">
+
+    <!-- Page title -->
+    <div class="mb-10">
+        <h1 class="text-4xl font-bold mb-1">Component Showcase</h1>
+        <p class="text-base-content/60">
+            Design system reference for all reusable UI primitives.
+            Only available when <code class="badge badge-neutral badge-sm font-mono">ENABLE_DEV_ROUTES=true</code>.
+        </p>
+    </div>
+
+    <div class="divider text-xs uppercase tracking-widest opacity-50">Typography</div>
+
+    <!-- 1. Typography -->
+    <section class="mb-12 space-y-4">
+        <h1 class="text-5xl font-bold">Heading 1</h1>
+        <h2 class="text-4xl font-bold">Heading 2</h2>
+        <h3 class="text-3xl font-bold">Heading 3</h3>
+        <h4 class="text-2xl font-semibold">Heading 4</h4>
+        <p class="text-base">Body text — default size. Use <code>text-base-content</code> for readable prose.</p>
+        <p class="text-sm text-base-content/60">Muted / secondary text — smaller, lower opacity.</p>
+        <p class="text-xs text-base-content/40">Caption / label text — extra small.</p>
+        <p class="text-2xl font-bold text-gradient">Gradient text (`.text-gradient`)</p>
+        <div class="flex gap-2 flex-wrap">
+            <code class="badge badge-ghost font-mono">monospace code</code>
+            <span class="badge badge-neutral font-mono">badge-neutral</span>
+        </div>
+    </section>
+
+    <div class="divider text-xs uppercase tracking-widest opacity-50">Buttons</div>
+
+    <!-- 2. Buttons -->
+    <section class="mb-12 space-y-4">
+        <div class="flex gap-3 flex-wrap items-center">
+            <button class="btn btn-primary">Primary</button>
+            <button class="btn btn-secondary">Secondary</button>
+            <button class="btn btn-accent">Accent</button>
+            <button class="btn btn-ghost">Ghost</button>
+            <button class="btn btn-outline">Outline</button>
+            <button class="btn btn-error">Error</button>
+            <button class="btn btn-warning">Warning</button>
+            <button class="btn btn-success">Success</button>
+            <button class="btn btn-info">Info</button>
+        </div>
+        <div class="flex gap-3 flex-wrap items-center">
+            <button class="btn btn-primary btn-lg">Large</button>
+            <button class="btn btn-primary">Default</button>
+            <button class="btn btn-primary btn-sm">Small</button>
+            <button class="btn btn-primary btn-xs">XSmall</button>
+            <button class="btn btn-primary loading">Loading</button>
+            <button class="btn btn-primary" disabled>Disabled</button>
+        </div>
+        <div class="flex gap-3 flex-wrap items-center">
+            <button class="btn btn-gradient text-white">Gradient (`.btn-gradient`)</button>
+            <button class="btn btn-primary btn-circle" aria-label="Add item">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                </svg>
+            </button>
+        </div>
+    </section>
+
+    <div class="divider text-xs uppercase tracking-widest opacity-50">Badges</div>
+
+    <!-- 3. Badges -->
+    <section class="mb-12">
+        <div class="flex gap-2 flex-wrap items-center">
+            <span class="badge">Default</span>
+            <span class="badge badge-primary">Primary</span>
+            <span class="badge badge-secondary">Secondary</span>
+            <span class="badge badge-accent">Accent</span>
+            <span class="badge badge-success">Success</span>
+            <span class="badge badge-error">Error</span>
+            <span class="badge badge-warning">Warning</span>
+            <span class="badge badge-info">Info</span>
+            <span class="badge badge-ghost">Ghost</span>
+            <span class="badge badge-neutral">Neutral</span>
+            <span class="badge badge-outline badge-primary">Outline</span>
+        </div>
+        <div class="flex gap-2 flex-wrap items-center mt-3">
+            <span class="badge badge-success badge-lg gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                Active
+            </span>
+            <span class="badge badge-error badge-lg gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
+                Expired
+            </span>
+            <span class="badge badge-info badge-lg">🔒 Private</span>
+            <span class="badge badge-ghost badge-lg">🌐 Public</span>
+            <span class="badge badge-secondary badge-lg">🎥 Video</span>
+            <span class="badge badge-accent badge-lg">🖼 Image</span>
+            <span class="badge badge-neutral badge-lg">📄 Document</span>
+        </div>
+    </section>
+
+    <div class="divider text-xs uppercase tracking-widest opacity-50">Alerts</div>
+
+    <!-- 4. Alerts -->
+    <section class="mb-12 space-y-3">
+        {% let alert_type = "info" %}
+        {% let alert_title = "Info" %}
+        {% let alert_body = "This is an informational alert. Use for neutral notices." %}
+        {% include "components/alert.html" %}
+
+        {% let alert_type = "success" %}
+        {% let alert_title = "Success" %}
+        {% let alert_body = "Operation completed successfully." %}
+        {% include "components/alert.html" %}
+
+        {% let alert_type = "warning" %}
+        {% let alert_title = "Warning" %}
+        {% let alert_body = "Proceed with caution — this action may have side effects." %}
+        {% include "components/alert.html" %}
+
+        {% let alert_type = "error" %}
+        {% let alert_title = "Error" %}
+        {% let alert_body = "Something went wrong. Please try again or contact support." %}
+        {% include "components/alert.html" %}
+
+        {# Alert without title #}
+        {% let alert_type = "info" %}
+        {% let alert_title = "" %}
+        {% let alert_body = "Alert without a title — just a body message." %}
+        {% include "components/alert.html" %}
+    </section>
+
+    <div class="divider text-xs uppercase tracking-widest opacity-50">Cards</div>
+
+    <!-- 5. Cards -->
+    <section class="mb-12">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Plain card -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title">Plain Card</h2>
+                    <p class="text-base-content/70">Basic card with body only. No image.</p>
+                    <div class="card-actions justify-end mt-2">
+                        <button class="btn btn-primary btn-sm">Action</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- card-hover -->
+            <div class="card bg-base-100 shadow-xl card-hover cursor-pointer">
+                <div class="card-body">
+                    <h2 class="card-title">Hover Card</h2>
+                    <p class="text-base-content/70">Hover me — uses `.card-hover` for lift effect.</p>
+                    <div class="card-actions justify-end mt-2">
+                        <button class="btn btn-outline btn-sm">View</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Media card with image placeholder -->
+            <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group">
+                <figure class="relative aspect-video bg-base-300 overflow-hidden">
+                    <div class="w-full h-full flex items-center justify-center text-base-content/30">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <!-- Type badge overlay -->
+                    <div class="absolute top-2 left-2">
+                        <span class="badge badge-secondary badge-sm">🎥 Video</span>
+                    </div>
+                    <!-- Privacy badge overlay -->
+                    <div class="absolute top-2 right-2">
+                        <span class="badge badge-ghost badge-sm">🔒</span>
+                    </div>
+                </figure>
+                <div class="card-body p-4">
+                    <h3 class="card-title text-base line-clamp-2">Media Card with Image Area</h3>
+                    <p class="text-xs text-base-content/50">Standard media card pattern</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider text-xs uppercase tracking-widest opacity-50">Page Header</div>
+
+    <!-- 6. Page Header -->
+    <section class="mb-12">
+        <div class="bg-base-200 rounded-xl p-6">
+            <p class="text-xs text-base-content/40 mb-4 uppercase tracking-widest">Preview (`.page-header` pattern)</p>
+            <div class="page-header">
+                <div>
+                    <h1 class="page-header-title">Page Title Here</h1>
+                    <p class="page-header-subtitle">A descriptive subtitle to help users understand the context.</p>
+                </div>
+                <div class="page-header-actions">
+                    <button class="btn btn-outline btn-sm">Secondary</button>
+                    <button class="btn btn-primary btn-sm">Primary Action</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider text-xs uppercase tracking-widest opacity-50">Empty State</div>
+
+    <!-- 7. Empty State -->
+    <section class="mb-12">
+        {% let empty_icon = "🎬" %}
+        {% let empty_heading = "No videos yet" %}
+        {% let empty_desc = "Upload your first video to get started." %}
+        {% let empty_action_url = "#" %}
+        {% let empty_action_label = "Upload Video" %}
+        {% include "components/empty-state.html" %}
+    </section>
+
+    <div class="divider text-xs uppercase tracking-widest opacity-50">Stats Bar</div>
+
+    <!-- 8. Stats Bar (canonical pattern) -->
+    <section class="mb-12">
+        <div class="stats stats-horizontal shadow w-full overflow-x-auto">
+            <div class="stat">
+                <div class="stat-title">Total Items</div>
+                <div class="stat-value text-2xl">247</div>
+                <div class="stat-desc">across all types</div>
+            </div>
+            <div class="stat">
+                <div class="stat-title">Page</div>
+                <div class="stat-value text-2xl">1 / 13</div>
+                <div class="stat-desc">current / total</div>
+            </div>
+            <div class="stat">
+                <div class="stat-title">Sort</div>
+                <div class="stat-value text-2xl text-sm font-normal pt-2">Updated ↓</div>
+                <div class="stat-desc">active order</div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider text-xs uppercase tracking-widest opacity-50">Pagination</div>
+
+    <!-- 9. Pagination -->
+    <section class="mb-12">
+        {% let current_page = 3_usize %}
+        {% let total_pages = 8_usize %}
+        {% let base_url = "#" %}
+        {% include "components/pagination.html" %}
+    </section>
+
+    <div class="divider text-xs uppercase tracking-widest opacity-50">Confirm Dialog</div>
+
+    <!-- 10. Confirm Dialog -->
+    <section class="mb-12" x-data="confirmDialog()">
+        {% include "components/confirm-dialog.html" %}
+        <div class="flex gap-3 flex-wrap">
+            <button
+                class="btn btn-error"
+                @click="show('Delete Item', 'Are you sure you want to delete this item? This action cannot be undone.', '#', 'DELETE')"
+            >
+                Delete (triggers confirm dialog)
+            </button>
+            <button
+                class="btn btn-warning"
+                @click="show('Archive Content', 'This will archive all selected items and hide them from public view.', '#', 'POST')"
+            >
+                Archive (different message)
+            </button>
+        </div>
+        <p class="text-xs text-base-content/40 mt-2">
+            Alpine component: <code class="font-mono">confirmDialog()</code> registered globally in base-tailwind.html
+        </p>
+    </section>
+
+    <div class="divider text-xs uppercase tracking-widest opacity-50">Action Menu</div>
+
+    <!-- 11. Action Menu -->
+    <section class="mb-12">
+        <div class="flex gap-6 flex-wrap">
+            <!-- Card with action menu overlay -->
+            <div class="card bg-base-100 shadow-xl w-56 group relative" x-data="actionMenu()">
+                <figure class="aspect-video bg-base-300 overflow-hidden">
+                    <div class="w-full h-full flex items-center justify-center text-base-content/20">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+                        </svg>
+                    </div>
+                </figure>
+                <div class="card-body p-3">
+                    <div class="flex items-start justify-between">
+                        <h3 class="text-sm font-semibold line-clamp-2">Sample media item</h3>
+                        <!-- Three-dot menu -->
+                        <div class="relative ml-1 flex-shrink-0">
+                            <button
+                                class="btn btn-ghost btn-xs btn-circle opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                                @click.stop="toggle()"
+                                aria-label="More actions"
+                                aria-haspopup="true"
+                                :aria-expanded="open"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                </svg>
+                            </button>
+                            <ul
+                                x-show="open"
+                                x-cloak
+                                @click.outside="close()"
+                                @keydown.escape="close()"
+                                class="absolute right-0 mt-1 z-10 menu menu-sm bg-base-200 shadow-lg rounded-box w-40"
+                                role="menu"
+                            >
+                                <li role="menuitem"><a href="#">✏️ Edit</a></li>
+                                <li role="menuitem"><a href="#">👁 Toggle visibility</a></li>
+                                <li role="menuitem"><a href="#" class="text-error">🗑 Delete</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <p class="text-xs text-base-content/40 mt-3">
+            Alpine component: <code class="font-mono">actionMenu()</code> registered globally. Menu visible on card hover or button focus.
+        </p>
+    </section>
+
+    <div class="divider text-xs uppercase tracking-widest opacity-50">Forms</div>
+
+    <!-- 12. Forms -->
+    <section class="mb-12">
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title mb-4">Standard Form Elements</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Text input -->
+                    <div class="form-control">
+                        <label class="label" for="demo-input">
+                            <span class="label-text font-medium">Text Input</span>
+                            <span class="label-text-alt text-base-content/50">required</span>
+                        </label>
+                        <input id="demo-input" type="text" placeholder="Enter text…" class="input input-bordered w-full" />
+                        <label class="label">
+                            <span class="label-text-alt text-base-content/50">Helper text goes here</span>
+                        </label>
+                    </div>
+
+                    <!-- Select -->
+                    <div class="form-control">
+                        <label class="label" for="demo-select">
+                            <span class="label-text font-medium">Select</span>
+                        </label>
+                        <select id="demo-select" class="select select-bordered w-full">
+                            <option disabled selected>Pick an option</option>
+                            <option>Option A</option>
+                            <option>Option B</option>
+                            <option>Option C</option>
+                        </select>
+                    </div>
+
+                    <!-- Textarea -->
+                    <div class="form-control md:col-span-2">
+                        <label class="label" for="demo-textarea">
+                            <span class="label-text font-medium">Textarea</span>
+                        </label>
+                        <textarea id="demo-textarea" class="textarea textarea-bordered w-full" rows="3" placeholder="Enter a longer description…"></textarea>
+                    </div>
+
+                    <!-- Error state input -->
+                    <div class="form-control">
+                        <label class="label" for="demo-error">
+                            <span class="label-text font-medium">Error State</span>
+                        </label>
+                        <input id="demo-error" type="text" value="Invalid value" class="input input-bordered input-error w-full" aria-invalid="true" aria-describedby="demo-error-msg" />
+                        <label class="label" id="demo-error-msg">
+                            <span class="label-text-alt text-error">This field is required and must be a valid value.</span>
+                        </label>
+                    </div>
+
+                    <!-- Checkboxes + toggles -->
+                    <div class="form-control space-y-2">
+                        <label class="label cursor-pointer justify-start gap-3">
+                            <input type="checkbox" checked class="checkbox checkbox-primary" id="demo-check" />
+                            <span class="label-text" for="demo-check">Checkbox (checked)</span>
+                        </label>
+                        <label class="label cursor-pointer justify-start gap-3">
+                            <input type="checkbox" class="checkbox" id="demo-check2" />
+                            <span class="label-text" for="demo-check2">Checkbox (unchecked)</span>
+                        </label>
+                        <label class="label cursor-pointer justify-start gap-3">
+                            <input type="checkbox" class="toggle toggle-primary" id="demo-toggle" checked />
+                            <span class="label-text" for="demo-toggle">Toggle (on)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="card-actions justify-end mt-4">
+                    <button class="btn btn-ghost">Cancel</button>
+                    <button class="btn btn-primary">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider text-xs uppercase tracking-widest opacity-50">Theme</div>
+
+    <!-- 13. Theme info -->
+    <section class="mb-12">
+        <div class="alert alert-info">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <div>
+                <p>Use the <strong>moon/sun toggle</strong> in the top navbar to switch between light and dark themes.</p>
+                <p class="text-sm opacity-70 mt-1">Theme is persisted in <code class="font-mono">localStorage</code>.</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+            <div class="p-4 rounded-xl bg-base-100 border border-base-300 text-center">
+                <div class="text-xs text-base-content/40 mb-1">base-100</div>
+                <div class="text-base-content font-mono text-sm">bg-base-100</div>
+            </div>
+            <div class="p-4 rounded-xl bg-base-200 border border-base-300 text-center">
+                <div class="text-xs text-base-content/40 mb-1">base-200</div>
+                <div class="text-base-content font-mono text-sm">bg-base-200</div>
+            </div>
+            <div class="p-4 rounded-xl bg-base-300 border border-base-300 text-center">
+                <div class="text-xs text-base-content/40 mb-1">base-300</div>
+                <div class="text-base-content font-mono text-sm">bg-base-300</div>
+            </div>
+            <div class="p-4 rounded-xl bg-primary text-primary-content text-center">
+                <div class="text-xs text-primary-content/60 mb-1">primary</div>
+                <div class="font-mono text-sm">bg-primary</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer note -->
+    <div class="text-center text-xs text-base-content/30 pb-8">
+        This page is only available in development mode (<code class="font-mono">ENABLE_DEV_ROUTES=true</code>)
+    </div>
+
+</div>
+{% endblock %}

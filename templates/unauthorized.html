@@ -1,16 +1,15 @@
 {% extends "base-tailwind.html" %}
-
 {% block title %}Authentication Required{% endblock %}
-
 {% block content %}
-<div class="container">
-    <div class="error">
-        <h1>🔒 Authentication Required</h1>
-        <p>You must be logged in to access this page.</p>
-        <div class="buttons">
-            <a href="/login" class="btn btn-primary">Login</a>
-            <a href="/" class="btn btn-secondary">Go to Home</a>
-        </div>
+<div class="container mx-auto px-4 py-16 max-w-lg">
+    {% let empty_icon = "🔒" %}
+    {% let empty_heading = "Authentication Required" %}
+    {% let empty_desc = "You must be logged in to access this page." %}
+    {% let empty_action_url = "/login" %}
+    {% let empty_action_label = "Login" %}
+    {% include "components/empty-state.html" %}
+    <div class="flex justify-center mt-4">
+        <a href="/" class="btn btn-ghost">Go to Home</a>
     </div>
 </div>
 {% endblock %}

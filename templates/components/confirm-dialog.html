@@ -1,23 +1,28 @@
-{#
-  Confirm Dialog Component (Alpine.js)
+{# Confirm Dialog Component (Alpine.js) Requires the parent element (or an
+ancestor) to have x-data="confirmDialog()". The confirmDialog Alpine component
+is registered globally in base-tailwind.html. ── Form-submission mode (default)
+────────────────────────────────────────── 1. Add x-data="confirmDialog()" to a
+wrapper div around your content 2. Include this partial inside that wrapper: {%
+include "components/confirm-dialog.html" %} 3. Trigger from any button:
+<button
+    @click="show('Delete item', 'Are you sure?', '/items/42/delete', 'POST')"
+>
+    Delete
+</button>
 
-  Requires the parent element (or an ancestor) to have x-data="confirmDialog()".
-  The confirmDialog Alpine component is registered globally in base-tailwind.html.
+── Callback mode (for REST DELETE / fetch-based actions) ─────────────────── Use
+showWithCallback() when the confirmation should trigger a JS function instead of
+a form submission (e.g. a fetch() DELETE call):
+<button
+    @click="showWithCallback('Delete item', 'Are you sure?', () => doDelete('42'))"
+>
+    Delete
+</button>
 
-  Usage:
-    1. Add x-data="confirmDialog()" to a wrapper div around your list
-    2. Include this partial inside that wrapper:
-         {% include "components/confirm-dialog.html" %}
-    3. Trigger from any button:
-         <button @click="show('Delete item', 'Are you sure?', '/items/42/delete', 'DELETE')">
-             Delete
-         </button>
-
-  NOTE: modal-open is bound dynamically via Alpine (:class) so that DaisyUI's
-  :root:has(.modal.modal-open) scroll-lock rule only fires when the dialog is
-  actually open. A static 'modal-open' class would be present in the DOM on
-  page load and permanently suppress page scrolling via the CSS :has() selector.
-#}
+NOTE: modal-open is bound dynamically via Alpine (:class) so that DaisyUI's
+:root:has(.modal.modal-open) scroll-lock rule only fires when the dialog is
+actually open. A static 'modal-open' class present in the DOM on page load would
+permanently suppress page scrolling via the CSS :has() selector. #}
 <div
     x-show="open"
     x-cloak
@@ -34,19 +39,40 @@
             class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
             @click="close()"
             aria-label="Close dialog"
-        >✕</button>
+        >
+            ✕
+        </button>
 
         <h3 class="font-bold text-lg mb-2" x-text="title"></h3>
         <p class="text-base-content/70 mb-6" x-text="message"></p>
 
         <div class="modal-action">
             <button class="btn btn-ghost" @click="close()">Cancel</button>
-            <form :action="actionUrl" :method="method === 'GET' ? 'GET' : 'POST'" @submit="close()">
-                <template x-if="method !== 'GET' && method !== 'POST'">
-                    <input type="hidden" name="_method" :value="method" />
-                </template>
-                <button type="submit" class="btn btn-error">Confirm</button>
-            </form>
+
+            <!-- Callback mode: calls the provided JS function then closes -->
+            <template x-if="callback">
+                <button
+                    type="button"
+                    class="btn btn-error"
+                    @click="callback(); close()"
+                >
+                    Confirm
+                </button>
+            </template>
+
+            <!-- Form-submission mode: POST (or method-override) via <form> -->
+            <template x-if="!callback">
+                <form
+                    :action="actionUrl"
+                    :method="method === 'GET' ? 'GET' : 'POST'"
+                    @submit="close()"
+                >
+                    <template x-if="method !== 'GET' && method !== 'POST'">
+                        <input type="hidden" name="_method" :value="method" />
+                    </template>
+                    <button type="submit" class="btn btn-error">Confirm</button>
+                </form>
+            </template>
         </div>
     </div>
 </div>

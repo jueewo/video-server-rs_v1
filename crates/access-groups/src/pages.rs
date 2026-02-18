@@ -82,6 +82,8 @@ pub async fn create_group_page_handler(session: Session) -> Result<Response> {
 #[template(path = "groups/detail.html")]
 struct GroupDetailTemplate {
     authenticated: bool,
+    page_title: String,
+    page_subtitle: String,
     group: crate::models::AccessGroup,
     members: Vec<MemberWithUser>,
     member_count: usize,
@@ -184,6 +186,16 @@ pub async fn group_detail_page_handler(
 
     let template = GroupDetailTemplate {
         authenticated: true,
+        page_title: group.name.clone(),
+        page_subtitle: format!(
+            "{} {}",
+            member_count,
+            if member_count == 1 {
+                "member"
+            } else {
+                "members"
+            }
+        ),
         group,
         members,
         member_count,

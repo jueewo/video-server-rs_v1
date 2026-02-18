@@ -6,6 +6,7 @@ use askama::Template;
 #[template(path = "docs/editor.html")]
 pub struct EditorTemplate {
     pub authenticated: bool,
+    pub page_title: String,
     pub title: String,
     pub slug: String,
     pub content: String,
@@ -26,9 +27,11 @@ impl EditorTemplate {
     ) -> Self {
         let save_url = format!("/api/media/{}/save", slug);
         let cancel_url = format!("/media/{}/view", slug);
+        let page_title = format!("✏️ Edit: {}", title);
 
         Self {
             authenticated,
+            page_title,
             title,
             slug,
             content,
@@ -50,8 +53,10 @@ impl EditorTemplate {
         save_url: String,
         cancel_url: String,
     ) -> Self {
+        let page_title = format!("✏️ Edit: {}", title);
         Self {
             authenticated,
+            page_title,
             title,
             slug,
             content,

@@ -1,11 +1,10 @@
 {% extends "base-tailwind.html" %} {% block title %}Profile - Media Server{%
 endblock %} {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-4xl">
-    <!-- Header -->
-    <div class="mb-8">
-        <h1 class="text-4xl font-bold mb-2">👤 My Profile</h1>
-        <p class="text-base-content/70">Manage your account and preferences</p>
-    </div>
+    <!-- Page Header -->
+    {% let page_title = "👤 My Profile" %} {% let page_subtitle = "Manage your
+    account and preferences" %}
+    <div class="page-header">{% include "components/page-header.html" %}</div>
 
     <!-- Profile Card -->
     <div class="card bg-base-200 shadow-xl mb-6">

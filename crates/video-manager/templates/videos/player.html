@@ -28,19 +28,7 @@
     border-radius: 12px;
 }
 
-.video-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-    flex-wrap: wrap;
-    gap: 15px;
-}
 
-.video-header h1 {
-    margin-bottom: 0;
-    flex: 1;
-}
 
 .video-details {
     background: #f8f9fa;
@@ -128,13 +116,18 @@
 
 {% block content %}
 <div class="container video-container">
-    <div class="video-header">
-        <h1>{{ title }}</h1>
-        {% if is_public %}
-            <span class="status-badge public">📺 Public</span>
-        {% else %}
-            <span class="status-badge private">🔒 Private</span>
-        {% endif %}
+    <!-- Page Header -->
+    {% let page_title = title %}
+    {% let page_subtitle = "" %}
+    <div class="page-header">
+        {% include "components/page-header.html" %}
+        <div class="page-header-actions">
+            {% if is_public %}
+            <span class="badge badge-success badge-lg gap-2">📺 Public</span>
+            {% else %}
+            <span class="badge badge-warning badge-lg gap-2">🔒 Private</span>
+            {% endif %}
+        </div>
     </div>
 
     <div class="player-status" id="player-info">Initializing player...</div>

@@ -49,22 +49,39 @@
             document.addEventListener("alpine:init", () => {
                 // Confirm dialog
                 // Usage: wrap a section with x-data="confirmDialog()"
-                // Trigger: $refs.dialog.show(title, message, actionUrl, method)
+                //
+                // Form-submission mode (default):
+                //   show(title, message, actionUrl, method = "POST")
+                //   — submits a form to actionUrl with the given method
+                //
+                // Callback mode (for JS/fetch actions, e.g. REST DELETE):
+                //   showWithCallback(title, message, callbackFn)
+                //   — calls callbackFn() when the user confirms
                 Alpine.data("confirmDialog", () => ({
                     open: false,
                     title: "",
                     message: "",
                     actionUrl: "",
                     method: "POST",
+                    callback: null,
                     show(title, message, url, method = "POST") {
                         this.title = title;
                         this.message = message;
                         this.actionUrl = url;
                         this.method = method;
+                        this.callback = null;
+                        this.open = true;
+                    },
+                    showWithCallback(title, message, cb) {
+                        this.title = title;
+                        this.message = message;
+                        this.actionUrl = "";
+                        this.callback = cb;
                         this.open = true;
                     },
                     close() {
                         this.open = false;
+                        this.callback = null;
                     },
                 }));
 

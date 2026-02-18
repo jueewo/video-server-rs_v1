@@ -1,8 +1,5 @@
-{% extends "base-tailwind.html" %}
-
-{% block title %}Edit {{ title }}{% endblock %}
-
-{% block extra_head %}
+{% extends "base-tailwind.html" %} {% block title %}Edit {{ title }}{% endblock
+%} {% block extra_head %}
 <style>
     #editor-container {
         height: calc(100vh - 250px);
@@ -42,9 +39,7 @@
         color: #ef4444;
     }
 </style>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="container mx-auto px-4 py-8">
     <!-- Breadcrumb -->
     <div class="text-sm breadcrumbs mb-4">
@@ -56,28 +51,25 @@
         </ul>
     </div>
 
+    <!-- Page Header -->
+    {% let page_subtitle = filename %}
+    <div class="page-header">
+        {% include "components/page-header.html" %}
+        <div class="page-header-actions">
+            <span id="save-indicator" class="save-indicator text-sm"></span>
+            <button
+                onclick="saveDocument()"
+                class="btn btn-primary btn-sm"
+                id="save-btn"
+            >
+                💾 Save
+            </button>
+            <a href="{{ cancel_url }}" class="btn btn-ghost btn-sm">← Cancel</a>
+        </div>
+    </div>
+
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-            <!-- Header -->
-            <div class="flex justify-between items-start mb-4">
-                <div>
-                    <h1 class="text-3xl font-bold mb-2">Edit: {{ title }}</h1>
-                    <div class="flex gap-3 text-sm text-base-content/60">
-                        <span>📄 {{ filename }}</span>
-                        <span>•</span>
-                        <span id="save-indicator" class="save-indicator"></span>
-                    </div>
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="saveDocument()" class="btn btn-primary btn-sm" id="save-btn">
-                        💾 Save
-                    </button>
-                    <a href="{{ cancel_url }}" class="btn btn-ghost btn-sm">
-                        ← Cancel
-                    </a>
-                </div>
-            </div>
-
             <div class="divider"></div>
 
             <!-- Monaco Editor -->
@@ -85,9 +77,7 @@
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_scripts %}
+{% endblock %} {% block extra_scripts %}
 <!-- Monaco Editor from CDN -->
 <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
 <script>

@@ -350,6 +350,7 @@ pub async fn show_upload_form(
             .success
             .map(|_| "File uploaded successfully!".to_string()),
         error_message: params.error,
+        authenticated: true,
     };
 
     match template.render() {
@@ -482,13 +483,12 @@ pub async fn toggle_visibility(
 
     // Update only the row that belongs to this user — prevents horizontal privilege escalation.
     // Rows with NULL user_id (legacy uploads) are intentionally excluded.
-    let result =
-        sqlx::query("UPDATE media_items SET is_public = ? WHERE slug = ? AND user_id = ?")
-            .bind(is_public_int)
-            .bind(&slug)
-            .bind(&session_user_id)
-            .execute(&state.pool)
-            .await;
+    let result = sqlx::query("UPDATE media_items SET is_public = ? WHERE slug = ? AND user_id = ?")
+        .bind(is_public_int)
+        .bind(&slug)
+        .bind(&session_user_id)
+        .execute(&state.pool)
+        .await;
 
     match result {
         Ok(result) if result.rows_affected() > 0 => {

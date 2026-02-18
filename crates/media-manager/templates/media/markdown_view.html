@@ -1,8 +1,5 @@
-{% extends "base-tailwind.html" %}
-
-{% block title %}{{ title }} - Markdown View{% endblock %}
-
-{% block extra_head %}
+{% extends "base-tailwind.html" %} {% block title %}{{ title }} - Markdown
+View{% endblock %} {% block extra_head %}
 <style>
     /* Markdown styles */
     .markdown-content {
@@ -39,7 +36,8 @@
     .markdown-content p {
         margin-bottom: 1em;
     }
-    .markdown-content ul, .markdown-content ol {
+    .markdown-content ul,
+    .markdown-content ol {
         margin-bottom: 1em;
         padding-left: 2em;
     }
@@ -78,7 +76,8 @@
         width: 100%;
         margin-bottom: 1em;
     }
-    .markdown-content th, .markdown-content td {
+    .markdown-content th,
+    .markdown-content td {
         border: 1px solid #e5e7eb;
         padding: 0.5em;
         text-align: left;
@@ -104,9 +103,7 @@
         margin: 2em 0;
     }
 </style>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="container mx-auto px-4 py-8">
     <!-- Breadcrumb -->
     <div class="text-sm breadcrumbs mb-4">
@@ -118,52 +115,47 @@
         </ul>
     </div>
 
+    <!-- Page Header -->
+    {% let page_title = title %} {% let page_subtitle = filename %}
+    <div class="page-header">
+        {% include "components/page-header.html" %}
+        <div class="page-header-actions">
+            {% if authenticated %}
+            <a href="/media/{{ slug }}/edit" class="btn btn-sm btn-primary"
+                >✏️ Edit</a
+            >
+            {% endif %}
+            <button onclick="toggleRaw()" class="btn btn-sm btn-outline">
+                🔍 Toggle Raw
+            </button>
+            <button onclick="copyMarkdown()" class="btn btn-sm btn-outline">
+                📋 Copy
+            </button>
+            <a href="/media" class="btn btn-sm btn-ghost">← Back to Media</a>
+        </div>
+    </div>
+
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-            <div class="flex justify-between items-start mb-6">
-                <div>
-                    <h1 class="text-3xl font-bold mb-2">{{ title }}</h1>
-                    <div class="flex gap-3 text-sm text-base-content/60">
-                        <span>📄 {{ filename }}</span>
-                        <span>•</span>
-                        <span>📅 {{ created_at }}</span>
-                    </div>
-                </div>
-                <div class="flex gap-2">
-                    {% if authenticated %}
-                    <a href="/media/{{ slug }}/edit" class="btn btn-sm btn-primary">
-                        ✏️ Edit
-                    </a>
-                    {% endif %}
-                    <button onclick="toggleRaw()" class="btn btn-sm btn-outline">
-                        🔍 Toggle Raw
-                    </button>
-                    <button onclick="copyMarkdown()" class="btn btn-sm btn-outline">
-                        📋 Copy
-                    </button>
-                    <a href="/media" class="btn btn-sm btn-ghost">
-                        ← Back to Media
-                    </a>
-                </div>
+            <div class="flex gap-3 text-sm text-base-content/60 mb-4">
+                <span>📅 {{ created_at }}</span>
             </div>
 
             <div class="divider"></div>
 
             <!-- Rendered markdown -->
-            <div id="rendered" class="markdown-content">
-                {{ content|safe }}
-            </div>
+            <div id="rendered" class="markdown-content">{{ content|safe }}</div>
 
             <!-- Raw markdown (hidden by default) -->
             <div id="raw" class="hidden">
-                <pre class="bg-base-200 p-4 rounded-lg overflow-x-auto"><code>{{ raw_markdown }}</code></pre>
+                <pre
+                    class="bg-base-200 p-4 rounded-lg overflow-x-auto"
+                ><code>{{ raw_markdown }}</code></pre>
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_scripts %}
+{% endblock %} {% block extra_scripts %}
 <script>
     function toggleRaw() {
         const rendered = document.getElementById('rendered');

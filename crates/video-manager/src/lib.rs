@@ -56,6 +56,7 @@ use crate::upload::{handle_video_upload, UploadState};
 pub struct VideoListTemplate {
     authenticated: bool,
     page_title: String,
+    page_subtitle: String,
     public_videos: Vec<(String, String, i32)>,
     private_videos: Vec<(String, String, i32)>,
 }
@@ -359,9 +360,14 @@ pub async fn videos_list_handler(
     );
 
     let page_title = if authenticated {
-        "Videos".to_string()
+        "🎥 Videos".to_string()
     } else {
-        "Public Videos".to_string()
+        "🎥 Public Videos".to_string()
+    };
+    let page_subtitle = if authenticated {
+        "Browse your entire video collection".to_string()
+    } else {
+        "Discover our public video content".to_string()
     };
 
     // Separate videos into public and private
@@ -380,6 +386,7 @@ pub async fn videos_list_handler(
         VideoListTemplate {
             authenticated,
             page_title,
+            page_subtitle,
             public_videos,
             private_videos,
         }
@@ -462,9 +469,11 @@ pub async fn video_player_handler(
             layer_checked = ?decision.layer,
             "Access denied to video"
         );
-        let html = UnauthorizedTemplate { authenticated: false }
-            .render()
-            .unwrap_or_default();
+        let html = UnauthorizedTemplate {
+            authenticated: false,
+        }
+        .render()
+        .unwrap_or_default();
         return Err((StatusCode::UNAUTHORIZED, Html(html)).into_response());
     }
 

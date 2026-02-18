@@ -1,14 +1,34 @@
 {#
   Page Header Component
-  Variables: page_title (string), page_subtitle (string, "" to omit)
-  Place a .page-header-actions div immediately after this include for action buttons.
-#}
-<div class="page-header">
-    <div>
-        <h1 class="page-header-title">{{ page_title }}</h1>
-        {% if page_subtitle != "" %}
-        <p class="page-header-subtitle">{{ page_subtitle }}</p>
-        {% endif %}
+
+  Required variables (struct field or {% let %} before include):
+    page_title    — the main h1 text
+    page_subtitle — subtitle text; pass "" to omit
+
+  Usage — no actions:
+    {% let page_title = "My Page" %}
+    {% let page_subtitle = "A helpful description." %}
+    <div class="page-header">
+      {% include "components/page-header.html" %}
     </div>
-    {# Caller places .page-header-actions div directly after this include #}
+
+  Usage — with action buttons:
+    {% let page_title = "My Page" %}
+    {% let page_subtitle = "A helpful description." %}
+    <div class="page-header">
+      {% include "components/page-header.html" %}
+      <div class="page-header-actions">
+        <a href="/new" class="btn btn-primary">New</a>
+      </div>
+    </div>
+
+  Note: the outer .page-header wrapper is intentionally NOT part of this
+  component so callers can co-locate action buttons inside the same flex row.
+  CSS is in static/css/input.css.
+#}
+<div>
+    <h1 class="page-header-title">{{ page_title }}</h1>
+    {% if page_subtitle != "" %}
+    <p class="page-header-subtitle">{{ page_subtitle }}</p>
+    {% endif %}
 </div>

@@ -20,6 +20,8 @@ struct ViewerTemplate {
 #[template(path = "error.html")]
 struct ErrorTemplate {
     error: ErrorResponse,
+    /// Required by base-tailwind user-menu component
+    authenticated: bool,
 }
 
 /// Handler for /3d and /digital-twin routes
@@ -53,7 +55,10 @@ pub async fn viewer_page(Query(query): Query<GalleryQuery>) -> Response {
 ///
 /// Renders an error page with appropriate message
 pub async fn error_page(error: ErrorResponse) -> Response {
-    let template = ErrorTemplate { error };
+    let template = ErrorTemplate {
+        error,
+        authenticated: false,
+    };
 
     match template.render() {
         Ok(html) => (StatusCode::BAD_REQUEST, Html(html)).into_response(),

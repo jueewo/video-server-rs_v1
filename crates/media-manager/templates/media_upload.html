@@ -1,798 +1,572 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload Media - Media Hub</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #f5f5f5;
-            color: #333;
-            line-height: 1.6;
-        }
-
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        header {
-            background: white;
-            padding: 20px;
-            margin-bottom: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        h1 {
-            font-size: 2rem;
-            margin-bottom: 10px;
-            color: #2c3e50;
-        }
-
-        .subtitle {
-            color: #7f8c8d;
-            font-size: 0.95rem;
-        }
-
-        .nav-links {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #e0e0e0;
-        }
-
-        .nav-links a {
-            color: #3498db;
-            text-decoration: none;
-            margin-right: 20px;
-            font-size: 0.9rem;
-        }
-
-        .nav-links a:hover {
-            text-decoration: underline;
-        }
-
-        .alert {
-            padding: 15px 20px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            font-weight: 500;
-        }
-
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .upload-card {
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-        }
-
-        .upload-section {
-            margin-bottom: 30px;
-        }
-
-        .upload-section h2 {
-            font-size: 1.3rem;
-            margin-bottom: 15px;
-            color: #2c3e50;
-        }
-
-        .drop-zone {
-            border: 2px dashed #bdc3c7;
-            border-radius: 8px;
-            padding: 60px 20px;
-            text-align: center;
-            background: #f8f9fa;
-            transition: all 0.3s;
-            cursor: pointer;
-            position: relative;
-        }
-
-        .drop-zone:hover,
-        .drop-zone.drag-over {
-            border-color: #3498db;
-            background: #e8f4f8;
-        }
-
-        .drop-zone input[type="file"] {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            opacity: 0;
-            cursor: pointer;
-        }
-
-        .drop-zone-icon {
-            font-size: 3rem;
-            margin-bottom: 15px;
-            color: #95a5a6;
-        }
-
-        .drop-zone-text {
-            font-size: 1.1rem;
-            color: #7f8c8d;
-            margin-bottom: 10px;
-        }
-
-        .drop-zone-hint {
-            font-size: 0.9rem;
-            color: #95a5a6;
-        }
-
-        .file-preview {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 6px;
-            display: none;
-        }
-
-        .file-preview.active {
-            display: block;
-        }
-
-        .file-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .file-icon {
-            font-size: 2rem;
-        }
-
-        .file-details {
-            flex: 1;
-        }
-
-        .file-name {
-            font-weight: 600;
-            color: #2c3e50;
-            margin-bottom: 5px;
-        }
-
-        .file-meta {
-            font-size: 0.85rem;
-            color: #7f8c8d;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #2c3e50;
-        }
-
-        label .optional {
-            font-weight: 400;
-            color: #95a5a6;
-            font-size: 0.9rem;
-        }
-
-        input[type="text"],
-        input[type="url"],
-        textarea,
-        select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 1rem;
-            font-family: inherit;
-            transition: border-color 0.3s;
-        }
-
-        input[type="text"]:focus,
-        input[type="url"]:focus,
-        textarea:focus,
-        select:focus {
-            outline: none;
-            border-color: #3498db;
-        }
-
-        textarea {
-            min-height: 100px;
-            resize: vertical;
-        }
-
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-        }
-
-        .checkbox-label {
-            font-weight: 400;
-            margin: 0;
-            cursor: pointer;
-        }
-
-        .form-hint {
-            font-size: 0.9rem;
-            color: #666;
-            margin-top: 5px;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.3s;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: #007bff;
-        }
-
-        .type-indicator {
-            display: inline-block;
-            padding: 4px 12px;
-            background: #ecf0f1;
-            border-radius: 4px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #555;
-            margin-top: 10px;
-        }
-
-        .type-video { background: rgba(231, 76, 60, 0.1); color: #e74c3c; }
-        .type-image { background: rgba(46, 204, 113, 0.1); color: #2ecc71; }
-        .type-document { background: rgba(52, 152, 219, 0.1); color: #3498db; }
-
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 30px;
-        }
-
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 6px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-decoration: none;
-            display: inline-block;
-        }
-
-        .btn-primary {
-            background: #3498db;
-            color: white;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-            background: #2980b9;
-        }
-
-        .btn-primary:disabled {
-            background: #bdc3c7;
-            cursor: not-allowed;
-        }
-
-        .btn-secondary {
-            background: #ecf0f1;
-            color: #555;
-        }
-
-        .btn-secondary:hover {
-            background: #d5dbdc;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 6px;
-            background: #ecf0f1;
-            border-radius: 3px;
-            overflow: hidden;
-            margin-top: 15px;
-            display: none;
-        }
-
-        .progress-bar.active {
-            display: block;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: #3498db;
-            transition: width 0.3s;
-            width: 0%;
-        }
-
-        .supported-types {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-
-        .supported-types h3 {
-            font-size: 1.1rem;
-            margin-bottom: 15px;
-            color: #2c3e50;
-        }
-
-        .type-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-
-        .type-category {
-            background: white;
-            padding: 15px;
-            border-radius: 6px;
-        }
-
-        .type-category h4 {
-            font-size: 0.95rem;
-            margin-bottom: 8px;
-            color: #555;
-        }
-
-        .type-category ul {
-            list-style: none;
-            font-size: 0.85rem;
-            color: #7f8c8d;
-            line-height: 1.8;
-        }
-
-        .type-category ul li:before {
-            content: "✓ ";
-            color: #2ecc71;
-            font-weight: bold;
-            margin-right: 5px;
-        }
-
-        @media (max-width: 768px) {
-            .type-list {
-                grid-template-columns: 1fr;
-            }
-
-            .button-group {
-                flex-direction: column;
-            }
-
-            .btn {
-                width: 100%;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>Upload Media</h1>
-            <p class="subtitle">Upload videos, images, or documents - type will be auto-detected</p>
-            <div class="nav-links">
-                <a href="/">🏠 Home</a>
-                <a href="/videos">🎥 Videos</a>
-                <a href="/media">🎨 All Media</a>
-                <a href="/groups">👥 Groups</a>
-                <a href="/test">📡 Live</a>
-            </div>
-        </header>
-
-        {% match success_message %}
-        {% when Some with (msg) %}
-        <div class="alert alert-success">
-            ✓ {{ msg }}
-        </div>
-        {% when None %}
-        {% endmatch %}
-
-        {% match error_message %}
-        {% when Some with (msg) %}
-        <div class="alert alert-error">
-            ✗ {{ msg }}
-        </div>
-        {% when None %}
-        {% endmatch %}
-
-        <div class="upload-card">
-            <div class="upload-section">
-                <h2>Select File</h2>
-                <form id="uploadForm" action="/api/media/upload" method="post" enctype="multipart/form-data">
-                    <div class="drop-zone" id="dropZone">
-                        <input type="file" name="file" id="fileInput" accept="video/*,image/*,.pdf,.csv,.xml,.md,.mdx,.json,.bpmn,.txt,.doc,.docx" required>
-                        <div class="drop-zone-icon">📁</div>
-                        <div class="drop-zone-text">Drag & drop your file here</div>
-                        <div class="drop-zone-hint">or click to browse (max {{ self.max_size_formatted() }})</div>
-                    </div>
-
-                    <div class="file-preview" id="filePreview">
-                        <div class="file-info">
-                            <div class="file-icon" id="fileIcon">📄</div>
-                            <div class="file-details">
-                                <div class="file-name" id="fileName"></div>
-                                <div class="file-meta">
-                                    <span id="fileSize"></span> •
-                                    <span id="fileType"></span>
-                                </div>
-                                <span class="type-indicator" id="typeIndicator"></span>
+{% extends "base-tailwind.html" %} {% block title %}Upload Media{% endblock %}
+{% block extra_head %}
+<style>
+    .drop-zone {
+        border: 2px dashed oklch(var(--bc) / 0.3);
+        border-radius: 0.75rem;
+        padding: 3rem 1.5rem;
+        text-align: center;
+        background: oklch(var(--b2));
+        transition:
+            border-color 0.2s,
+            background 0.2s;
+        cursor: pointer;
+        position: relative;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+        border-color: oklch(var(--p));
+        background: oklch(var(--p) / 0.06);
+    }
+
+    .drop-zone input[type="file"] {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    .file-preview {
+        display: none;
+        margin-top: 1rem;
+        padding: 1rem;
+        background: oklch(var(--b2));
+        border-radius: 0.5rem;
+    }
+
+    .file-preview.active {
+        display: block;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 6px;
+        background: oklch(var(--b3));
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 1rem;
+        display: none;
+    }
+
+    .progress-bar.active {
+        display: block;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: oklch(var(--p));
+        transition: width 0.3s;
+        width: 0%;
+    }
+
+    .type-indicator {
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-top: 0.5rem;
+        background: oklch(var(--b3));
+        color: oklch(var(--bc));
+    }
+
+    .type-video {
+        background: oklch(var(--er) / 0.12);
+        color: oklch(var(--er));
+    }
+    .type-image {
+        background: oklch(var(--su) / 0.12);
+        color: oklch(var(--su));
+    }
+    .type-document {
+        background: oklch(var(--in) / 0.12);
+        color: oklch(var(--in));
+    }
+</style>
+{% endblock %} {% block content %}
+<div class="container mx-auto px-4 py-8 max-w-3xl">
+    <!-- Page Header -->
+    {% let page_title = "📤 Upload Media" %}
+    {% let page_subtitle = "Upload videos, images, or documents — type is auto-detected" %}
+    <div class="page-header">{% include "components/page-header.html" %}</div>
+
+    <!-- Flash messages -->
+    {% match success_message %} {% when Some with (msg) %}
+    <div class="alert alert-success mb-6">
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="stroke-current shrink-0 h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+        >
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+        </svg>
+        <span>{{ msg }}</span>
+    </div>
+    {% when None %} {% endmatch %} {% match error_message %} {% when Some with
+    (msg) %}
+    <div class="alert alert-error mb-6">
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="stroke-current shrink-0 h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+        >
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+        </svg>
+        <span>{{ msg }}</span>
+    </div>
+    {% when None %} {% endmatch %}
+
+    <!-- Upload Card -->
+    <div class="card bg-base-100 shadow-xl mb-8">
+        <div class="card-body">
+            <h2 class="card-title text-lg mb-4">Select File</h2>
+
+            <form
+                id="uploadForm"
+                action="/api/media/upload"
+                method="post"
+                enctype="multipart/form-data"
+            >
+                <!-- Drop Zone -->
+                <div class="drop-zone" id="dropZone">
+                    <input
+                        type="file"
+                        name="file"
+                        id="fileInput"
+                        accept="video/*,image/*,.pdf,.csv,.xml,.md,.mdx,.json,.bpmn,.txt,.doc,.docx"
+                        required
+                    />
+                    <div class="text-5xl mb-3 text-base-content/30">📁</div>
+                    <p class="text-base font-medium text-base-content/70">
+                        Drag &amp; drop your file here
+                    </p>
+                    <p class="text-sm text-base-content/40 mt-1">
+                        or click to browse (max {{ self.max_size_formatted() }})
+                    </p>
+                </div>
+
+                <!-- File Preview -->
+                <div class="file-preview" id="filePreview">
+                    <div class="flex items-center gap-4">
+                        <div class="text-4xl" id="fileIcon">📄</div>
+                        <div class="flex-1 min-w-0">
+                            <div
+                                class="font-semibold truncate"
+                                id="fileName"
+                            ></div>
+                            <div class="text-sm text-base-content/60 mt-0.5">
+                                <span id="fileSize"></span> &bull;
+                                <span id="fileType"></span>
                             </div>
+                            <span
+                                class="type-indicator"
+                                id="typeIndicator"
+                            ></span>
                         </div>
-                        <div class="progress-bar" id="progressBar">
-                            <div class="progress-fill" id="progressFill"></div>
-                        </div>
                     </div>
+                    <div class="progress-bar" id="progressBar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                </div>
 
-                    <div class="form-group">
-                        <label for="title">Title</label>
-                        <input type="text" id="title" name="title" placeholder="Enter a descriptive title" required>
-                        <div class="form-hint">A clear, searchable title for your media</div>
-                    </div>
+                <div class="divider"></div>
 
-                    <div class="form-group">
-                        <label for="description">Description <span class="optional">(optional)</span></label>
-                        <textarea id="description" name="description" placeholder="Add a detailed description..."></textarea>
-                    </div>
+                <!-- Title -->
+                <div class="form-control mb-4">
+                    <label class="label" for="title">
+                        <span class="label-text font-semibold">Title</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="title"
+                        name="title"
+                        class="input input-bordered w-full"
+                        placeholder="Enter a descriptive title"
+                        required
+                    />
+                    <label class="label">
+                        <span class="label-text-alt text-base-content/50"
+                            >A clear, searchable title for your media</span
+                        >
+                    </label>
+                </div>
 
-                    <div class="form-group">
-                        <label for="category">Category <span class="optional">(optional)</span></label>
-                        <input type="text" id="category" name="category" placeholder="e.g., Tutorial, Documentation, Presentation">
-                    </div>
+                <!-- Description -->
+                <div class="form-control mb-4">
+                    <label class="label" for="description">
+                        <span class="label-text font-semibold"
+                            >Description</span
+                        >
+                        <span class="label-text-alt">optional</span>
+                    </label>
+                    <textarea
+                        id="description"
+                        name="description"
+                        class="textarea textarea-bordered w-full"
+                        rows="3"
+                        placeholder="Add a detailed description..."
+                    ></textarea>
+                </div>
 
-                    <div class="form-group">
-                        <label for="vault_id">Storage Vault</label>
-                        <select id="vault_id" name="vault_id" class="form-control" required>
-                            <option value="">Loading vaults...</option>
-                        </select>
-                        <div class="form-hint">Select the vault where your media will be stored</div>
-                    </div>
+                <!-- Category -->
+                <div class="form-control mb-4">
+                    <label class="label" for="category">
+                        <span class="label-text font-semibold">Category</span>
+                        <span class="label-text-alt">optional</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="category"
+                        name="category"
+                        class="input input-bordered w-full"
+                        placeholder="e.g., Tutorial, Documentation, Presentation"
+                    />
+                </div>
 
-                    <div class="form-group">
-                        <label for="group_id">Access Group <span class="optional">(optional)</span></label>
-                        <select id="group_id" name="group_id" class="form-control">
-                            <option value="">No Group (Private)</option>
-                        </select>
-                        <div class="form-hint">Assign to a group for shared access control</div>
-                    </div>
+                <!-- Vault -->
+                <div class="form-control mb-4">
+                    <label class="label" for="vault_id">
+                        <span class="label-text font-semibold"
+                            >Storage Vault</span
+                        >
+                    </label>
+                    <select
+                        id="vault_id"
+                        name="vault_id"
+                        class="select select-bordered w-full"
+                        required
+                    >
+                        <option value="">Loading vaults...</option>
+                    </select>
+                    <label class="label">
+                        <span class="label-text-alt text-base-content/50"
+                            >Select the vault where your media will be
+                            stored</span
+                        >
+                    </label>
+                </div>
 
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="is_public" name="is_public" value="true">
-                        <label for="is_public" class="checkbox-label">Make this media publicly accessible</label>
-                    </div>
+                <!-- Access Group -->
+                <div class="form-control mb-4">
+                    <label class="label" for="group_id">
+                        <span class="label-text font-semibold"
+                            >Access Group</span
+                        >
+                        <span class="label-text-alt">optional</span>
+                    </label>
+                    <select
+                        id="group_id"
+                        name="group_id"
+                        class="select select-bordered w-full"
+                    >
+                        <option value="">No Group (Private)</option>
+                    </select>
+                    <label class="label">
+                        <span class="label-text-alt text-base-content/50"
+                            >Assign to a group for shared access control</span
+                        >
+                    </label>
+                </div>
 
-                    <div class="button-group">
-                        <button type="submit" class="btn btn-primary" id="uploadBtn">
-                            Upload Media
-                        </button>
-                        <a href="/media" class="btn btn-secondary">Cancel</a>
-                    </div>
-                </form>
-            </div>
+                <!-- Public checkbox -->
+                <div class="form-control mb-6">
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input
+                            type="checkbox"
+                            id="is_public"
+                            name="is_public"
+                            value="true"
+                            class="checkbox"
+                        />
+                        <span class="label-text"
+                            >Make this media publicly accessible</span
+                        >
+                    </label>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex gap-3">
+                    <button
+                        type="submit"
+                        class="btn btn-primary flex-1"
+                        id="uploadBtn"
+                    >
+                        📤 Upload Media
+                    </button>
+                    <a href="/media" class="btn btn-ghost">Cancel</a>
+                </div>
+            </form>
         </div>
+    </div>
 
-        <div class="supported-types">
-            <h3>Supported File Types</h3>
-            <div class="type-list">
-                <div class="type-category">
-                    <h4>📹 Videos</h4>
-                    <ul>
-                        <li>MP4 (H.264, H.265)</li>
-                        <li>WebM (VP8, VP9)</li>
-                        <li>MOV (QuickTime)</li>
-                        <li>AVI, MKV</li>
+    <!-- Supported Types -->
+    <div class="card bg-base-200 shadow">
+        <div class="card-body">
+            <h3 class="card-title text-base mb-4">Supported File Types</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-base-100 rounded-lg p-4">
+                    <h4 class="font-semibold mb-2">📹 Videos</h4>
+                    <ul class="text-sm text-base-content/70 space-y-1">
+                        <li>✓ MP4 (H.264, H.265)</li>
+                        <li>✓ WebM (VP8, VP9)</li>
+                        <li>✓ MOV (QuickTime)</li>
+                        <li>✓ AVI, MKV</li>
                     </ul>
                 </div>
-                <div class="type-category">
-                    <h4>🖼️ Images</h4></h4>
-                    <ul>
-                        <li>JPEG / JPG</li>
-                        <li>PNG</li>
-                        <li>WebP</li>
-                        <li>GIF</li>
+                <div class="bg-base-100 rounded-lg p-4">
+                    <h4 class="font-semibold mb-2">🖼️ Images</h4>
+                    <ul class="text-sm text-base-content/70 space-y-1">
+                        <li>✓ JPEG / JPG</li>
+                        <li>✓ PNG</li>
+                        <li>✓ WebP</li>
+                        <li>✓ GIF</li>
                     </ul>
                 </div>
-                <div class="type-category">
-                    <h4>📄 Documents</h4>
-                    <ul>
-                        <li>PDF</li>
-                        <li>CSV</li>
-                        <li>Markdown (.md, .mdx)</li>
-                        <li>JSON, XML</li>
-                        <li>BPMN</li>
-                        <li>Text (.txt)</li>
+                <div class="bg-base-100 rounded-lg p-4">
+                    <h4 class="font-semibold mb-2">📄 Documents</h4>
+                    <ul class="text-sm text-base-content/70 space-y-1">
+                        <li>✓ PDF</li>
+                        <li>✓ CSV</li>
+                        <li>✓ Markdown (.md, .mdx)</li>
+                        <li>✓ JSON, XML, BPMN</li>
+                        <li>✓ Text (.txt)</li>
                     </ul>
                 </div>
             </div>
         </div>
     </div>
+</div>
+{% endblock %} {% block extra_scripts %}
+<script>
+    const dropZone = document.getElementById("dropZone");
+    const fileInput = document.getElementById("fileInput");
+    const filePreview = document.getElementById("filePreview");
+    const uploadForm = document.getElementById("uploadForm");
+    const uploadBtn = document.getElementById("uploadBtn");
+    const progressBar = document.getElementById("progressBar");
+    const progressFill = document.getElementById("progressFill");
+    const groupSelect = document.getElementById("group_id");
+    const vaultSelect = document.getElementById("vault_id");
 
-    <script>
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('fileInput');
-        const filePreview = document.getElementById('filePreview');
-        const uploadForm = document.getElementById('uploadForm');
-        const uploadBtn = document.getElementById('uploadBtn');
-        const progressBar = document.getElementById('progressBar');
-        const progressFill = document.getElementById('progressFill');
-        const groupSelect = document.getElementById('group_id');
-        const vaultSelect = document.getElementById('vault_id');
+    // ── Vault & Group loading ─────────────────────────────────────────────────
 
-        // Load user's vaults
-        async function loadVaults() {
-            try {
-                const response = await fetch('/api/user/vaults');
-                if (response.ok) {
-                    const vaults = await response.json();
-                    // Clear loading message
-                    vaultSelect.innerHTML = '';
-
-                    if (vaults.length === 0) {
-                        const option = document.createElement('option');
-                        option.value = '';
-                        option.textContent = 'No vaults available';
-                        vaultSelect.appendChild(option);
-                    } else {
-                        vaults.forEach(vault => {
-                            const option = document.createElement('option');
-                            option.value = vault.vault_id;
-                            option.textContent = vault.vault_name;
-                            // Mark default vault
-                            if (vault.is_default) {
-                                option.setAttribute('data-default', 'true');
-                            }
-                            vaultSelect.appendChild(option);
-                        });
-
-                        // If only one vault, pre-select it
-                        if (vaults.length === 1) {
-                            vaultSelect.value = vaults[0].vault_id;
-                        } else {
-                            // Pre-select the default vault if multiple exist
-                            const defaultVault = vaults.find(v => v.is_default);
-                            if (defaultVault) {
-                                vaultSelect.value = defaultVault.vault_id;
-                            }
-                        }
-
-                        console.log(`Loaded ${vaults.length} vaults`);
-                    }
-                }
-            } catch (error) {
-                console.error('Could not load vaults:', error);
-                vaultSelect.innerHTML = '<option value="">Error loading vaults</option>';
-            }
-        }
-
-        // Load available groups
-        async function loadGroups() {
-            try {
-                const response = await fetch('/api/groups');
-                if (response.ok) {
-                    const groups = await response.json();
-                    groups.forEach(group => {
-                        const option = document.createElement('option');
-                        option.value = group.id;
-                        option.textContent = group.name;
-                        groupSelect.appendChild(option);
-                    });
-                    console.log(`Loaded ${groups.length} groups`);
-                }
-            } catch (error) {
-                console.warn('Could not load groups:', error);
-                // Not critical - form still works without groups
-            }
-        }
-
-        // Load vaults and groups on page load
-        loadVaults();
-        loadGroups();
-
-        // Drag and drop
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, preventDefaults, false);
-        });
-
-        function preventDefaults(e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, () => {
-                dropZone.classList.add('drag-over');
-            }, false);
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, () => {
-                dropZone.classList.remove('drag-over');
-            }, false);
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            fileInput.files = files;
-            handleFileSelect();
-        }, false);
-
-        fileInput.addEventListener('change', handleFileSelect);
-
-        function handleFileSelect() {
-            const file = fileInput.files[0];
-            if (!file) return;
-
-            // Show preview
-            filePreview.classList.add('active');
-
-            // Set file details
-            document.getElementById('fileName').textContent = file.name;
-            document.getElementById('fileSize').textContent = formatFileSize(file.size);
-            document.getElementById('fileType').textContent = file.type || 'Unknown';
-
-            // Detect type and set icon/indicator
-            const mediaType = detectMediaType(file);
-            const icon = getFileIcon(mediaType);
-            const indicator = document.getElementById('typeIndicator');
-
-            document.getElementById('fileIcon').textContent = icon;
-            indicator.textContent = mediaType;
-            indicator.className = 'type-indicator type-' + mediaType.toLowerCase();
-
-            // Auto-populate title if empty
-            const titleInput = document.getElementById('title');
-            if (!titleInput.value) {
-                titleInput.value = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, ' ');
-            }
-        }
-
-        function detectMediaType(file) {
-            const type = file.type.toLowerCase();
-            const name = file.name.toLowerCase();
-
-            if (type.startsWith('video/')) return 'Video';
-            if (type.startsWith('image/')) return 'Image';
-            if (type === 'application/pdf' || name.endsWith('.pdf')) return 'Document';
-            if (type === 'text/csv' || name.endsWith('.csv')) return 'Document';
-            if (type === 'application/xml' || type === 'text/xml' || name.endsWith('.xml')) return 'Document';
-            if (type === 'application/json' || name.endsWith('.json')) return 'Document';
-            if (name.endsWith('.md') || name.endsWith('.mdx') || name.endsWith('.markdown')) return 'Document';
-
-            return 'Document';
-        }
-
-        function getFileIcon(type) {
-            switch(type.toLowerCase()) {
-                case 'video': return '🎬';
-                case 'image': return '🖼️';
-                case 'document': return '📄';
-                default: return '📁';
-            }
-        }
-
-        function formatFileSize(bytes) {
-            if (bytes < 1024) return bytes + ' B';
-            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-            if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-            return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
-        }
-
-        // Form submission with progress
-        uploadForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const formData = new FormData(uploadForm);
-
-            // Handle is_public checkbox - FormData only includes checked boxes
-            // We need to explicitly set it to 0 or 1
-            const isPublicCheckbox = document.getElementById('is_public');
-            formData.set('is_public', isPublicCheckbox.checked ? '1' : '0');
-
-            // Add media_type based on detected file type
-            const fileInput = document.getElementById('fileInput');
-            if (fileInput.files.length > 0) {
-                const mediaType = detectMediaType(fileInput.files[0]).toLowerCase();
-                console.log('📤 Uploading file:', fileInput.files[0].name, 'Type:', mediaType);
-                formData.set('media_type', mediaType);
-            } else {
-                console.error('No file selected');
-                alert('Please select a file to upload');
+    async function loadVaults() {
+        try {
+            const response = await fetch("/api/user/vaults");
+            if (!response.ok) throw new Error("failed");
+            const vaults = await response.json();
+            vaultSelect.innerHTML = "";
+            if (vaults.length === 0) {
+                vaultSelect.innerHTML =
+                    '<option value="">No vaults available</option>';
                 return;
             }
-
-            // Log all form data for debugging
-            console.log('Form data being sent:');
-            for (let [key, value] of formData.entries()) {
-                if (key === 'file') {
-                    console.log(`  ${key}:`, value.name, value.size, 'bytes');
-                } else {
-                    console.log(`  ${key}:`, value);
-                }
+            vaults.forEach((vault) => {
+                const opt = document.createElement("option");
+                opt.value = vault.vault_id;
+                opt.textContent = vault.vault_name;
+                if (vault.is_default) opt.setAttribute("data-default", "true");
+                vaultSelect.appendChild(opt);
+            });
+            if (vaults.length === 1) {
+                vaultSelect.value = vaults[0].vault_id;
+            } else {
+                const def = vaults.find((v) => v.is_default);
+                if (def) vaultSelect.value = def.vault_id;
             }
+        } catch {
+            vaultSelect.innerHTML =
+                '<option value="">Error loading vaults</option>';
+        }
+    }
 
-            uploadBtn.disabled = true;
-            uploadBtn.textContent = 'Uploading...';
-            progressBar.classList.add('active');
+    async function loadGroups() {
+        try {
+            const response = await fetch("/api/groups");
+            if (!response.ok) return;
+            const groups = await response.json();
+            groups.forEach((group) => {
+                const opt = document.createElement("option");
+                opt.value = group.id;
+                opt.textContent = group.name;
+                groupSelect.appendChild(opt);
+            });
+        } catch {
+            // Not critical — form still works without groups
+        }
+    }
 
-            try {
-                const xhr = new XMLHttpRequest();
+    loadVaults();
+    loadGroups();
 
-                xhr.upload.addEventListener('progress', (e) => {
-                    if (e.lengthComputable) {
-                        const percentComplete = (e.loaded / e.total) * 100;
-                        progressFill.style.width = percentComplete + '%';
-                    }
-                });
+    // ── Drag & drop ───────────────────────────────────────────────────────────
 
-                xhr.addEventListener('load', () => {
-                    if (xhr.status === 200) {
-                        const response = JSON.parse(xhr.responseText);
-                        if (response.success) {
-                            window.location.href = '/media?success=upload';
-                        } else {
-                            throw new Error(response.message || 'Upload failed');
-                        }
-                    } else {
-                        let errorMessage = 'Upload failed';
-                        try {
-                            const response = JSON.parse(xhr.responseText);
-                            errorMessage = response.error || response.message || errorMessage;
-                        } catch (e) {
-                            errorMessage += ': ' + xhr.statusText;
-                        }
-                        console.error('❌ Upload error:', xhr.status, xhr.responseText);
-                        throw new Error(errorMessage);
-                    }
-                });
+    ["dragenter", "dragover", "dragleave", "drop"].forEach((evt) =>
+        dropZone.addEventListener(
+            evt,
+            (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            },
+            false,
+        ),
+    );
+    ["dragenter", "dragover"].forEach((evt) =>
+        dropZone.addEventListener(
+            evt,
+            () => dropZone.classList.add("drag-over"),
+            false,
+        ),
+    );
+    ["dragleave", "drop"].forEach((evt) =>
+        dropZone.addEventListener(
+            evt,
+            () => dropZone.classList.remove("drag-over"),
+            false,
+        ),
+    );
+    dropZone.addEventListener(
+        "drop",
+        (e) => {
+            fileInput.files = e.dataTransfer.files;
+            handleFileSelect();
+        },
+        false,
+    );
+    fileInput.addEventListener("change", handleFileSelect);
 
-                xhr.addEventListener('error', () => {
-                    console.error('Upload network error');
-                    throw new Error('Upload failed: Network error');
-                });
+    // ── File selection ────────────────────────────────────────────────────────
 
-                xhr.open('POST', uploadForm.action);
-                xhr.send(formData);
+    function handleFileSelect() {
+        const file = fileInput.files[0];
+        if (!file) return;
 
-            } catch (error) {
-                console.error('Upload exception:', error);
-                alert('Upload failed: ' + error.message);
-                uploadBtn.disabled = false;
-                uploadBtn.textContent = 'Upload Media';
-                progressBar.classList.remove('active');
-                progressFill.style.width = '0%';
+        filePreview.classList.add("active");
+        document.getElementById("fileName").textContent = file.name;
+        document.getElementById("fileSize").textContent = formatFileSize(
+            file.size,
+        );
+        document.getElementById("fileType").textContent =
+            file.type || "Unknown";
+
+        const mediaType = detectMediaType(file);
+        document.getElementById("fileIcon").textContent =
+            getFileIcon(mediaType);
+
+        const indicator = document.getElementById("typeIndicator");
+        indicator.textContent = mediaType;
+        indicator.className = "type-indicator type-" + mediaType.toLowerCase();
+
+        const titleInput = document.getElementById("title");
+        if (!titleInput.value) {
+            titleInput.value = file.name
+                .replace(/\.[^/.]+$/, "")
+                .replace(/[-_]/g, " ");
+        }
+    }
+
+    function detectMediaType(file) {
+        const type = file.type.toLowerCase();
+        const name = file.name.toLowerCase();
+        if (type.startsWith("video/")) return "Video";
+        if (type.startsWith("image/")) return "Image";
+        return "Document";
+    }
+
+    function getFileIcon(type) {
+        return (
+            { video: "🎬", image: "🖼️", document: "📄" }[type.toLowerCase()] ||
+            "📁"
+        );
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+        if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + " MB";
+        return (bytes / 1073741824).toFixed(1) + " GB";
+    }
+
+    // ── Form submission with XHR progress ────────────────────────────────────
+
+    uploadForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const formData = new FormData(uploadForm);
+        const isPublicCheckbox = document.getElementById("is_public");
+        formData.set("is_public", isPublicCheckbox.checked ? "1" : "0");
+
+        const fi = document.getElementById("fileInput");
+        if (fi.files.length === 0) {
+            showToast("Please select a file to upload", "error");
+            return;
+        }
+        formData.set("media_type", detectMediaType(fi.files[0]).toLowerCase());
+
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = "Uploading…";
+        progressBar.classList.add("active");
+
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener("progress", (e) => {
+            if (e.lengthComputable) {
+                progressFill.style.width = (e.loaded / e.total) * 100 + "%";
             }
         });
-    </script>
-</body>
-</html>
+
+        xhr.addEventListener("load", () => {
+            if (xhr.status === 200) {
+                try {
+                    const res = JSON.parse(xhr.responseText);
+                    if (res.success) {
+                        window.location.href = "/media?success=upload";
+                        return;
+                    }
+                    showToast(res.message || "Upload failed", "error");
+                } catch {
+                    showToast("Unexpected server response", "error");
+                }
+            } else {
+                let msg = "Upload failed";
+                try {
+                    msg = JSON.parse(xhr.responseText).error || msg;
+                } catch {}
+                showToast(msg, "error");
+            }
+            resetUploadBtn();
+        });
+
+        xhr.addEventListener("error", () => {
+            showToast("Upload failed: network error", "error");
+            resetUploadBtn();
+        });
+
+        xhr.open("POST", uploadForm.action);
+        xhr.send(formData);
+    });
+
+    function resetUploadBtn() {
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = "📤 Upload Media";
+        progressBar.classList.remove("active");
+        progressFill.style.width = "0%";
+    }
+</script>
+{% endblock %}

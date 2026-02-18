@@ -2,19 +2,21 @@
 {% block title %}API Keys - Media Server{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8 max-w-6xl">
-    <!-- Header -->
-    <div class="mb-8 flex justify-between items-center">
-        <div>
-            <h1 class="text-4xl font-bold mb-2">🔑 API Keys</h1>
-            <p class="text-base-content/70">Manage your API keys for programmatic access</p>
+<div class="container mx-auto px-4 py-8 max-w-6xl" x-data="confirmDialog()">
+{% include "components/confirm-dialog.html" %}
+    <!-- Page Header -->
+    {% let page_title = "🔑 API Keys" %}
+    {% let page_subtitle = "Manage your API keys for programmatic access" %}
+    <div class="page-header">
+        {% include "components/page-header.html" %}
+        <div class="page-header-actions">
+            <a href="/profile/api-keys/create" class="btn btn-primary gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Create New Key
+            </a>
         </div>
-        <a href="/profile/api-keys/create" class="btn btn-primary gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Create New Key
-        </a>
     </div>
 
     {% if api_keys.is_empty() %}
@@ -93,11 +95,13 @@
                     </td>
                     <td>
                         {% if key.is_active %}
-                        <form method="post" action="/profile/api-keys/{{ key.id }}/revoke" class="inline">
-                            <button type="submit" class="btn btn-error btn-sm" onclick="return confirm('Are you sure you want to revoke this API key? This cannot be undone.')">
-                                Revoke
-                            </button>
-                        </form>
+                        <button
+                            type="button"
+                            class="btn btn-error btn-sm"
+                            @click="show('Revoke API Key?', 'This cannot be undone. All applications using this key will immediately stop working.', '/profile/api-keys/{{ key.id }}/revoke', 'POST')"
+                        >
+                            Revoke
+                        </button>
                         {% endif %}
                     </td>
                 </tr>
@@ -130,5 +134,6 @@
             Back to Profile
         </a>
     </div>
+</div>
 </div>
 {% endblock %}

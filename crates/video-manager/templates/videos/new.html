@@ -1,9 +1,12 @@
 {% extends "base-tailwind.html" %} {% block title %}Register New Video{%
 endblock %} {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-3xl" x-data="registerVideo()">
-    <!-- Header -->
-    <div class="mb-8">
-        <div class="flex items-center gap-4 mb-4">
+    <!-- Page Header -->
+    {% let page_title = "📋 Register New Video" %} {% let page_subtitle =
+    "Create a database entry for a video folder already on disk" %}
+    <div class="page-header">
+        {% include "components/page-header.html" %}
+        <div class="page-header-actions">
             <a href="/videos" class="btn btn-ghost btn-sm gap-2">
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -20,12 +23,6 @@ endblock %} {% block content %}
                 All Videos
             </a>
         </div>
-        <h1 class="text-4xl font-bold text-base-content mb-2">
-            Register New Video
-        </h1>
-        <p class="text-lg text-base-content/70">
-            Create a database entry for a video folder already on disk
-        </p>
     </div>
 
     <!-- Alert Messages -->

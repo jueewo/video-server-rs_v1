@@ -16,18 +16,14 @@
     <div class="text-8xl drop-shadow-lg"></div>
 </div>
 
-<div class="container mx-auto px-4 py-8 max-w-7xl">
+<div class="container mx-auto px-4 py-8 max-w-7xl" x-data="confirmDialog()">
+    {% include "components/confirm-dialog.html" %}
     <!-- Page Header -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div>
-            <h1 class="text-4xl font-bold text-base-content mb-2">
-                🎨 All Media
-            </h1>
-            <p class="text-lg text-base-content/70">
-                Unified view of videos, images, and documents
-            </p>
-        </div>
-        <div class="flex items-center gap-3">
+    {% let page_title = "🎨 All Media" %}
+    {% let page_subtitle = "Unified view of videos, images, and documents" %}
+    <div class="page-header">
+        {% include "components/page-header.html" %}
+        <div class="page-header-actions">
             <a href="/media/upload" class="btn btn-primary gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
@@ -210,7 +206,7 @@
                             </a>
                         </li>
                         <li>
-                            <a onclick="deleteMedia('{{ item.item.slug() }}', '{{ item.item.type_label() }}', '{{ item.item.title() }}')" class="text-error">
+                            <a @click="showWithCallback('Delete Media?', 'This action cannot be undone.', () => executeDeleteMedia('{{ item.item.slug() }}'))" class="text-error cursor-pointer">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
                                 </svg>
@@ -535,30 +531,24 @@
         }
     });
 
-    function deleteMedia(slug, mediaType, title) {
-        if (!confirm(`Are you sure you want to delete "${title}"?\n\nThis action cannot be undone.`)) {
-            return;
-        }
-
-        fetch(`/api/media/${slug}`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
+    async function executeDeleteMedia(slug) {
+        try {
+            const response = await fetch(`/api/media/${slug}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            const data = await response.json();
             if (data.success) {
-                // Reload page to show updated list
                 window.location.reload();
             } else {
                 alert('Failed to delete: ' + (data.error || 'Unknown error'));
             }
-        })
-        .catch(error => {
+        } catch (error) {
             console.error('Error:', error);
             alert('Failed to delete media');
-        });
+        }
     }
 </script>
 {% endblock %}

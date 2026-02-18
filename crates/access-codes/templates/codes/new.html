@@ -1,9 +1,12 @@
-{% extends "base-tailwind.html" %} {% block title %}Create Access Code{% endblock %} {%
-block content %}
+{% extends "base-tailwind.html" %} {% block title %}Create Access Code{%
+endblock %} {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-4xl">
-    <!-- Header -->
-    <div class="mb-8">
-        <div class="flex items-center gap-2 mb-4">
+    <!-- Page Header -->
+    {% let page_title = "🔑 Create Access Code" %} {% let page_subtitle = "Share
+    resources with others using a simple access code" %}
+    <div class="page-header">
+        {% include "components/page-header.html" %}
+        <div class="page-header-actions">
             <a href="/access/codes" class="btn btn-ghost btn-sm gap-1">
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -22,10 +25,6 @@ block content %}
                 Back to Access Codes
             </a>
         </div>
-        <h1 class="text-4xl font-bold mb-2">🔑 Create Access Code</h1>
-        <p class="text-base-content/70">
-            Share resources with others using a simple access code
-        </p>
     </div>
 
     <!-- Progress Indicators -->
@@ -103,7 +102,9 @@ block content %}
                             Letters, numbers, hyphens, and underscores only. Max
                             50 characters.
                         </span>
-                        <span class="label-text-alt whitespace-nowrap ml-2" id="codeNameCount"
+                        <span
+                            class="label-text-alt whitespace-nowrap ml-2"
+                            id="codeNameCount"
                             >0/50</span
                         >
                     </div>
@@ -130,7 +131,9 @@ block content %}
                         <span class="label-text-alt text-base-content/60"
                             >Help you remember the purpose of this code.</span
                         >
-                        <span class="label-text-alt whitespace-nowrap ml-2" id="descriptionCount"
+                        <span
+                            class="label-text-alt whitespace-nowrap ml-2"
+                            id="descriptionCount"
                             >0/500</span
                         >
                     </div>
@@ -608,7 +611,9 @@ block content %}
                                 Access Code Details
                             </h3>
                             <div class="space-y-2 text-sm">
-                                <div class="flex flex-wrap justify-between gap-2">
+                                <div
+                                    class="flex flex-wrap justify-between gap-2"
+                                >
                                     <span class="text-base-content/70"
                                         >Code Name:</span
                                     >
@@ -617,7 +622,9 @@ block content %}
                                         id="reviewCodeName"
                                     ></span>
                                 </div>
-                                <div class="flex flex-wrap justify-between gap-2">
+                                <div
+                                    class="flex flex-wrap justify-between gap-2"
+                                >
                                     <span class="text-base-content/70"
                                         >Description:</span
                                     >
@@ -627,7 +634,9 @@ block content %}
                                         >None</span
                                     >
                                 </div>
-                                <div class="flex flex-wrap justify-between gap-2">
+                                <div
+                                    class="flex flex-wrap justify-between gap-2"
+                                >
                                     <span class="text-base-content/70"
                                         >Expiration:</span
                                     >
@@ -637,7 +646,9 @@ block content %}
                                         >Never</span
                                     >
                                 </div>
-                                <div class="flex flex-wrap justify-between gap-2">
+                                <div
+                                    class="flex flex-wrap justify-between gap-2"
+                                >
                                     <span class="text-base-content/70"
                                         >Access Type:</span
                                     >

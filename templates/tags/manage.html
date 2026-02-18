@@ -2,18 +2,11 @@
 Server{% endblock %} {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-7xl">
     <!-- Page Header -->
-    <div class="mb-8">
-        <div
-            class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
-        >
-            <div>
-                <h1 class="text-4xl font-bold text-base-content mb-2">
-                    🏷️ Tag Management
-                </h1>
-                <p class="text-lg text-base-content/70">
-                    Organize and manage tags for your media library
-                </p>
-            </div>
+    {% let page_title = "🏷️ Tag Management" %}
+    {% let page_subtitle = "Organize and manage tags for your media library" %}
+    <div class="page-header">
+        {% include "components/page-header.html" %}
+        <div class="page-header-actions">
             <button id="createTagBtn" class="btn btn-primary gap-2">
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -32,383 +25,396 @@ Server{% endblock %} {% block content %}
         </div>
     </div>
 
-    <!-- Quick Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div class="stat bg-base-200 rounded-box shadow">
-            <div class="stat-title">Total Tags</div>
-            <div class="stat-value text-primary" id="totalTags">0</div>
-        </div>
-        <div class="stat bg-base-200 rounded-box shadow">
-            <div class="stat-title">Tags in Use</div>
-            <div class="stat-value text-success" id="usedTags">0</div>
-        </div>
-        <div class="stat bg-base-200 rounded-box shadow">
-            <div class="stat-title">Categories</div>
-            <div class="stat-value text-secondary" id="totalCategories">0</div>
-        </div>
-        <div class="stat bg-base-200 rounded-box shadow">
-            <div class="stat-title">Total Usage</div>
-            <div class="stat-value text-accent" id="totalUsage">0</div>
-        </div>
-    </div>
-
-    <!-- Filters and Search -->
-    <div class="card bg-base-200 shadow-xl mb-6">
-        <div class="card-body">
-            <div class="flex flex-col md:flex-row gap-4">
-                <div class="flex-1">
-                    <input
-                        type="text"
-                        id="searchInput"
-                        placeholder="Search tags..."
-                        class="input input-bordered w-full"
-                    />
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="stat bg-base-200 rounded-box shadow">
+                <div class="stat-title">Total Tags</div>
+                <div class="stat-value text-primary" id="totalTags">0</div>
+            </div>
+            <div class="stat bg-base-200 rounded-box shadow">
+                <div class="stat-title">Tags in Use</div>
+                <div class="stat-value text-success" id="usedTags">0</div>
+            </div>
+            <div class="stat bg-base-200 rounded-box shadow">
+                <div class="stat-title">Categories</div>
+                <div class="stat-value text-secondary" id="totalCategories">
+                    0
                 </div>
-                <select
-                    id="categoryFilter"
-                    class="select select-bordered w-full md:w-48"
-                >
-                    <option value="">All Categories</option>
-                </select>
-                <select
-                    id="sortBy"
-                    class="select select-bordered w-full md:w-48"
-                >
-                    <option value="name">Sort by Name</option>
-                    <option value="usage">Sort by Usage</option>
-                    <option value="recent">Sort by Recent</option>
-                </select>
+            </div>
+            <div class="stat bg-base-200 rounded-box shadow">
+                <div class="stat-title">Total Usage</div>
+                <div class="stat-value text-accent" id="totalUsage">0</div>
             </div>
         </div>
-    </div>
 
-    <!-- Tags Grid -->
-    <div
-        id="tagsContainer"
-        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-    >
-        <!-- Tags will be loaded here -->
-    </div>
-
-    <!-- Loading State -->
-    <div id="loadingState" class="text-center py-12">
-        <span class="loading loading-spinner loading-lg"></span>
-        <p class="mt-4 text-base-content/70">Loading tags...</p>
-    </div>
-
-    <!-- Empty State -->
-    <div id="emptyState" class="hidden text-center py-12">
-        <div class="text-6xl mb-4">🏷️</div>
-        <h3 class="text-2xl font-semibold text-base-content mb-2">
-            No tags yet
-        </h3>
-        <p class="text-base-content/70 mb-6">
-            Create your first tag to get started organizing your media
-        </p>
-        <button onclick="openCreateModal()" class="btn btn-primary">
-            Create First Tag
-        </button>
-    </div>
-</div>
-
-<!-- Create/Edit Modal -->
-<dialog id="tagModal" class="modal">
-    <div class="modal-box max-w-2xl">
-        <h3 id="modalTitle" class="font-bold text-2xl mb-4">Create Tag</h3>
-
-        <form id="tagForm" class="space-y-4">
-            <input type="hidden" id="tagId" name="id" />
-            <input type="hidden" id="originalSlug" name="originalSlug" />
-
-            <div class="form-control">
-                <label class="label">
-                    <span class="label-text">Tag Name *</span>
-                </label>
-                <input
-                    type="text"
-                    id="tagName"
-                    name="name"
-                    required
-                    placeholder="e.g., Tutorial, Marketing, Product Launch"
-                    class="input input-bordered"
-                />
-                <label class="label">
-                    <span class="label-text-alt">Display name for the tag</span>
-                </label>
-            </div>
-
-            <div class="form-control">
-                <label class="label">
-                    <span class="label-text">Slug</span>
-                </label>
-                <input
-                    type="text"
-                    id="tagSlug"
-                    name="slug"
-                    placeholder="Auto-generated from name"
-                    class="input input-bordered"
-                    readonly
-                />
-                <label class="label">
-                    <span class="label-text-alt"
-                        >URL-friendly identifier (auto-generated)</span
-                    >
-                </label>
-            </div>
-
-            <div class="form-control">
-                <label class="label">
-                    <span class="label-text">Description</span>
-                </label>
-                <textarea
-                    id="tagDescription"
-                    name="description"
-                    rows="3"
-                    placeholder="Brief description of what this tag is used for..."
-                    class="textarea textarea-bordered"
-                ></textarea>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="form-control">
-                    <label class="label">
-                        <span class="label-text">Color</span>
-                    </label>
-                    <div class="flex gap-2">
-                        <input
-                            type="color"
-                            id="tagColor"
-                            name="color"
-                            value="#667eea"
-                            class="w-20 h-10 rounded cursor-pointer"
-                        />
+        <!-- Filters and Search -->
+        <div class="card bg-base-200 shadow-xl mb-6">
+            <div class="card-body">
+                <div class="flex flex-col md:flex-row gap-4">
+                    <div class="flex-1">
                         <input
                             type="text"
-                            id="tagColorHex"
-                            placeholder="#667eea"
-                            class="input input-bordered flex-1"
+                            id="searchInput"
+                            placeholder="Search tags..."
+                            class="input input-bordered w-full"
+                        />
+                    </div>
+                    <select
+                        id="categoryFilter"
+                        class="select select-bordered w-full md:w-48"
+                    >
+                        <option value="">All Categories</option>
+                    </select>
+                    <select
+                        id="sortBy"
+                        class="select select-bordered w-full md:w-48"
+                    >
+                        <option value="name">Sort by Name</option>
+                        <option value="usage">Sort by Usage</option>
+                        <option value="recent">Sort by Recent</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tags Grid -->
+        <div
+            id="tagsContainer"
+            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+        >
+            <!-- Tags will be loaded here -->
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="text-center py-12">
+            <span class="loading loading-spinner loading-lg"></span>
+            <p class="mt-4 text-base-content/70">Loading tags...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden text-center py-12">
+            <div class="text-6xl mb-4">🏷️</div>
+            <h3 class="text-2xl font-semibold text-base-content mb-2">
+                No tags yet
+            </h3>
+            <p class="text-base-content/70 mb-6">
+                Create your first tag to get started organizing your media
+            </p>
+            <button onclick="openCreateModal()" class="btn btn-primary">
+                Create First Tag
+            </button>
+        </div>
+    </div>
+
+    <!-- Create/Edit Modal -->
+    <dialog id="tagModal" class="modal">
+        <div class="modal-box max-w-2xl">
+            <h3 id="modalTitle" class="font-bold text-2xl mb-4">Create Tag</h3>
+
+            <form id="tagForm" class="space-y-4">
+                <input type="hidden" id="tagId" name="id" />
+                <input type="hidden" id="originalSlug" name="originalSlug" />
+
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">Tag Name *</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="tagName"
+                        name="name"
+                        required
+                        placeholder="e.g., Tutorial, Marketing, Product Launch"
+                        class="input input-bordered"
+                    />
+                    <label class="label">
+                        <span class="label-text-alt"
+                            >Display name for the tag</span
+                        >
+                    </label>
+                </div>
+
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">Slug</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="tagSlug"
+                        name="slug"
+                        placeholder="Auto-generated from name"
+                        class="input input-bordered"
+                        readonly
+                    />
+                    <label class="label">
+                        <span class="label-text-alt"
+                            >URL-friendly identifier (auto-generated)</span
+                        >
+                    </label>
+                </div>
+
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">Description</span>
+                    </label>
+                    <textarea
+                        id="tagDescription"
+                        name="description"
+                        rows="3"
+                        placeholder="Brief description of what this tag is used for..."
+                        class="textarea textarea-bordered"
+                    ></textarea>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">Color</span>
+                        </label>
+                        <div class="flex gap-2">
+                            <input
+                                type="color"
+                                id="tagColor"
+                                name="color"
+                                value="#667eea"
+                                class="w-20 h-10 rounded cursor-pointer"
+                            />
+                            <input
+                                type="text"
+                                id="tagColorHex"
+                                placeholder="#667eea"
+                                class="input input-bordered flex-1"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">Icon/Emoji</span>
+                        </label>
+                        <input
+                            type="text"
+                            id="tagIcon"
+                            name="icon"
+                            placeholder="🏷️ 🎬 📚 🎨"
+                            maxlength="2"
+                            class="input input-bordered"
                         />
                     </div>
                 </div>
 
                 <div class="form-control">
                     <label class="label">
-                        <span class="label-text">Icon/Emoji</span>
+                        <span class="label-text">Category</span>
                     </label>
                     <input
                         type="text"
-                        id="tagIcon"
-                        name="icon"
-                        placeholder="🏷️ 🎬 📚 🎨"
-                        maxlength="2"
+                        id="tagCategory"
+                        name="category"
+                        placeholder="e.g., Content Type, Department, Topic"
+                        list="categoryList"
                         class="input input-bordered"
                     />
+                    <datalist id="categoryList"></datalist>
+                    <label class="label">
+                        <span class="label-text-alt"
+                            >Group related tags together</span
+                        >
+                    </label>
                 </div>
+
+                <div class="modal-action">
+                    <button type="submit" class="btn btn-primary">
+                        Save Tag
+                    </button>
+                    <button type="button" onclick="closeModal()" class="btn">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+
+    <!-- Delete Confirmation Modal -->
+    <dialog id="deleteModal" class="modal">
+        <div class="modal-box">
+            <h3 class="font-bold text-xl mb-4">Delete Tag</h3>
+
+            <div class="alert alert-warning mb-4">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="stroke-current shrink-0 h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                </svg>
+                <span>This will remove the tag from all media items!</span>
             </div>
 
-            <div class="form-control">
-                <label class="label">
-                    <span class="label-text">Category</span>
-                </label>
-                <input
-                    type="text"
-                    id="tagCategory"
-                    name="category"
-                    placeholder="e.g., Content Type, Department, Topic"
-                    list="categoryList"
-                    class="input input-bordered"
-                />
-                <datalist id="categoryList"></datalist>
-                <label class="label">
-                    <span class="label-text-alt"
-                        >Group related tags together</span
-                    >
-                </label>
+            <div class="bg-base-200 p-4 rounded-lg mb-4">
+                <p class="text-sm">
+                    Tag: <span id="deleteTagName" class="font-semibold"></span>
+                </p>
+                <p class="text-sm mt-1">
+                    Used in
+                    <span id="deleteTagUsage" class="font-semibold">0</span>
+                    items
+                </p>
             </div>
 
             <div class="modal-action">
-                <button type="submit" class="btn btn-primary">Save Tag</button>
-                <button type="button" onclick="closeModal()" class="btn">
-                    Cancel
+                <button id="confirmDeleteBtn" class="btn btn-error">
+                    Delete Tag
                 </button>
+                <button onclick="closeDeleteModal()" class="btn">Cancel</button>
             </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
         </form>
-    </div>
-    <form method="dialog" class="modal-backdrop">
-        <button>close</button>
-    </form>
-</dialog>
+    </dialog>
 
-<!-- Delete Confirmation Modal -->
-<dialog id="deleteModal" class="modal">
-    <div class="modal-box">
-        <h3 class="font-bold text-xl mb-4">Delete Tag</h3>
+    <script>
+        // State
+        let allTags = [];
+        let currentEditSlug = null;
+        let currentDeleteSlug = null;
 
-        <div class="alert alert-warning mb-4">
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="stroke-current shrink-0 h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-            >
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-            </svg>
-            <span>This will remove the tag from all media items!</span>
-        </div>
-
-        <div class="bg-base-200 p-4 rounded-lg mb-4">
-            <p class="text-sm">
-                Tag: <span id="deleteTagName" class="font-semibold"></span>
-            </p>
-            <p class="text-sm mt-1">
-                Used in
-                <span id="deleteTagUsage" class="font-semibold">0</span> items
-            </p>
-        </div>
-
-        <div class="modal-action">
-            <button id="confirmDeleteBtn" class="btn btn-error">
-                Delete Tag
-            </button>
-            <button onclick="closeDeleteModal()" class="btn">Cancel</button>
-        </div>
-    </div>
-    <form method="dialog" class="modal-backdrop">
-        <button>close</button>
-    </form>
-</dialog>
-
-<script>
-    // State
-    let allTags = [];
-    let currentEditSlug = null;
-    let currentDeleteSlug = null;
-
-    // Initialize
-    document.addEventListener("DOMContentLoaded", () => {
-        loadTags();
-        loadStats();
-        loadCategories();
-        attachEventListeners();
-    });
-
-    function attachEventListeners() {
-        document
-            .getElementById("createTagBtn")
-            .addEventListener("click", openCreateModal);
-        document
-            .getElementById("tagForm")
-            .addEventListener("submit", handleSubmit);
-        document
-            .getElementById("confirmDeleteBtn")
-            .addEventListener("click", confirmDelete);
-        document
-            .getElementById("searchInput")
-            .addEventListener("input", filterTags);
-        document
-            .getElementById("categoryFilter")
-            .addEventListener("change", filterTags);
-        document
-            .getElementById("sortBy")
-            .addEventListener("change", filterTags);
-
-        // Auto-generate slug from name
-        document.getElementById("tagName").addEventListener("input", (e) => {
-            const slug = e.target.value
-                .toLowerCase()
-                .replace(/[^a-z0-9]+/g, "-")
-                .replace(/^-+|-+$/g, "");
-            document.getElementById("tagSlug").value = slug;
+        // Initialize
+        document.addEventListener("DOMContentLoaded", () => {
+            loadTags();
+            loadStats();
+            loadCategories();
+            attachEventListeners();
         });
 
-        // Sync color picker with hex input
-        document.getElementById("tagColor").addEventListener("input", (e) => {
-            document.getElementById("tagColorHex").value = e.target.value;
-        });
-        document
-            .getElementById("tagColorHex")
-            .addEventListener("input", (e) => {
-                if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
-                    document.getElementById("tagColor").value = e.target.value;
+        function attachEventListeners() {
+            document
+                .getElementById("createTagBtn")
+                .addEventListener("click", openCreateModal);
+            document
+                .getElementById("tagForm")
+                .addEventListener("submit", handleSubmit);
+            document
+                .getElementById("confirmDeleteBtn")
+                .addEventListener("click", confirmDelete);
+            document
+                .getElementById("searchInput")
+                .addEventListener("input", filterTags);
+            document
+                .getElementById("categoryFilter")
+                .addEventListener("change", filterTags);
+            document
+                .getElementById("sortBy")
+                .addEventListener("change", filterTags);
+
+            // Auto-generate slug from name
+            document
+                .getElementById("tagName")
+                .addEventListener("input", (e) => {
+                    const slug = e.target.value
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, "-")
+                        .replace(/^-+|-+$/g, "");
+                    document.getElementById("tagSlug").value = slug;
+                });
+
+            // Sync color picker with hex input
+            document
+                .getElementById("tagColor")
+                .addEventListener("input", (e) => {
+                    document.getElementById("tagColorHex").value =
+                        e.target.value;
+                });
+            document
+                .getElementById("tagColorHex")
+                .addEventListener("input", (e) => {
+                    if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
+                        document.getElementById("tagColor").value =
+                            e.target.value;
+                    }
+                });
+        }
+
+        async function loadTags() {
+            try {
+                const response = await fetch("/api/tags");
+                const data = await response.json();
+                allTags = data.tags || [];
+                renderTags(allTags);
+
+                document.getElementById("loadingState").classList.add("hidden");
+                if (allTags.length === 0) {
+                    document
+                        .getElementById("emptyState")
+                        .classList.remove("hidden");
                 }
-            });
-    }
-
-    async function loadTags() {
-        try {
-            const response = await fetch("/api/tags");
-            const data = await response.json();
-            allTags = data.tags || [];
-            renderTags(allTags);
-
-            document.getElementById("loadingState").classList.add("hidden");
-            if (allTags.length === 0) {
-                document
-                    .getElementById("emptyState")
-                    .classList.remove("hidden");
+            } catch (error) {
+                console.error("Error loading tags:", error);
+                showToast("Failed to load tags", "error");
             }
-        } catch (error) {
-            console.error("Error loading tags:", error);
-            showToast("Failed to load tags", "error");
-        }
-    }
-
-    async function loadStats() {
-        try {
-            const response = await fetch("/api/tags/stats");
-            const stats = await response.json();
-
-            document.getElementById("totalTags").textContent =
-                stats.total_tags || 0;
-            document.getElementById("usedTags").textContent =
-                stats.tags_in_use || 0;
-            document.getElementById("totalCategories").textContent =
-                stats.categories || 0;
-            document.getElementById("totalUsage").textContent =
-                stats.total_usage || 0;
-        } catch (error) {
-            console.error("Error loading stats:", error);
-        }
-    }
-
-    async function loadCategories() {
-        try {
-            const response = await fetch("/api/tags/categories");
-            const data = await response.json();
-            const categories = data.categories || [];
-
-            const filterSelect = document.getElementById("categoryFilter");
-            const datalist = document.getElementById("categoryList");
-
-            categories.forEach((cat) => {
-                const option = document.createElement("option");
-                option.value = cat;
-                option.textContent = cat;
-                filterSelect.appendChild(option.cloneNode(true));
-                datalist.appendChild(option);
-            });
-        } catch (error) {
-            console.error("Error loading categories:", error);
-        }
-    }
-
-    function renderTags(tags) {
-        const container = document.getElementById("tagsContainer");
-
-        if (tags.length === 0) {
-            container.innerHTML =
-                '<div class="col-span-full text-center py-8 text-base-content/70">No tags found</div>';
-            return;
         }
 
-        container.innerHTML = tags
-            .map(
-                (tag) => `
+        async function loadStats() {
+            try {
+                const response = await fetch("/api/tags/stats");
+                const stats = await response.json();
+
+                document.getElementById("totalTags").textContent =
+                    stats.total_tags || 0;
+                document.getElementById("usedTags").textContent =
+                    stats.tags_in_use || 0;
+                document.getElementById("totalCategories").textContent =
+                    stats.categories || 0;
+                document.getElementById("totalUsage").textContent =
+                    stats.total_usage || 0;
+            } catch (error) {
+                console.error("Error loading stats:", error);
+            }
+        }
+
+        async function loadCategories() {
+            try {
+                const response = await fetch("/api/tags/categories");
+                const data = await response.json();
+                const categories = data.categories || [];
+
+                const filterSelect = document.getElementById("categoryFilter");
+                const datalist = document.getElementById("categoryList");
+
+                categories.forEach((cat) => {
+                    const option = document.createElement("option");
+                    option.value = cat;
+                    option.textContent = cat;
+                    filterSelect.appendChild(option.cloneNode(true));
+                    datalist.appendChild(option);
+                });
+            } catch (error) {
+                console.error("Error loading categories:", error);
+            }
+        }
+
+        function renderTags(tags) {
+            const container = document.getElementById("tagsContainer");
+
+            if (tags.length === 0) {
+                container.innerHTML =
+                    '<div class="col-span-full text-center py-8 text-base-content/70">No tags found</div>';
+                return;
+            }
+
+            container.innerHTML = tags
+                .map(
+                    (tag) => `
             <div class="card bg-base-100 shadow-xl border-l-4 hover:shadow-2xl transition-all duration-300" style="border-color: ${tag.color || "#667eea"}">
                 <div class="card-body">
                     <div class="flex justify-between items-start mb-2">
@@ -456,179 +462,182 @@ Server{% endblock %} {% block content %}
                 </div>
             </div>
         `,
-            )
-            .join("");
-    }
-
-    function filterTags() {
-        const search = document
-            .getElementById("searchInput")
-            .value.toLowerCase();
-        const category = document.getElementById("categoryFilter").value;
-        const sortBy = document.getElementById("sortBy").value;
-
-        let filtered = allTags.filter((tag) => {
-            const matchesSearch =
-                !search ||
-                tag.name.toLowerCase().includes(search) ||
-                tag.slug.toLowerCase().includes(search) ||
-                (tag.description &&
-                    tag.description.toLowerCase().includes(search));
-
-            const matchesCategory = !category || tag.category === category;
-
-            return matchesSearch && matchesCategory;
-        });
-
-        // Sort
-        filtered.sort((a, b) => {
-            if (sortBy === "usage") {
-                return (b.usage_count || 0) - (a.usage_count || 0);
-            } else if (sortBy === "recent") {
-                return new Date(b.created_at) - new Date(a.created_at);
-            } else {
-                return a.name.localeCompare(b.name);
-            }
-        });
-
-        renderTags(filtered);
-    }
-
-    function openCreateModal() {
-        document.getElementById("modalTitle").textContent = "Create Tag";
-        document.getElementById("tagForm").reset();
-        document.getElementById("tagId").value = "";
-        document.getElementById("originalSlug").value = "";
-        document.getElementById("tagColor").value = "#667eea";
-        document.getElementById("tagColorHex").value = "#667eea";
-        currentEditSlug = null;
-        document.getElementById("tagModal").showModal();
-    }
-
-    async function editTag(slug) {
-        try {
-            const response = await fetch(`/api/tags/${slug}`);
-            const tag = await response.json();
-
-            document.getElementById("modalTitle").textContent = "Edit Tag";
-            document.getElementById("tagId").value = tag.id;
-            document.getElementById("originalSlug").value = tag.slug;
-            document.getElementById("tagName").value = tag.name;
-            document.getElementById("tagSlug").value = tag.slug;
-            document.getElementById("tagDescription").value =
-                tag.description || "";
-            document.getElementById("tagColor").value = tag.color || "#667eea";
-            document.getElementById("tagColorHex").value =
-                tag.color || "#667eea";
-            document.getElementById("tagIcon").value = tag.icon || "";
-            document.getElementById("tagCategory").value = tag.category || "";
-
-            currentEditSlug = slug;
-            document.getElementById("tagModal").showModal();
-        } catch (error) {
-            console.error("Error loading tag:", error);
-            showToast("Failed to load tag", "error");
+                )
+                .join("");
         }
-    }
 
-    async function handleSubmit(e) {
-        e.preventDefault();
+        function filterTags() {
+            const search = document
+                .getElementById("searchInput")
+                .value.toLowerCase();
+            const category = document.getElementById("categoryFilter").value;
+            const sortBy = document.getElementById("sortBy").value;
 
-        const formData = {
-            name: document.getElementById("tagName").value,
-            slug: document.getElementById("tagSlug").value,
-            description:
-                document.getElementById("tagDescription").value || null,
-            color: document.getElementById("tagColor").value,
-            icon: document.getElementById("tagIcon").value || null,
-            category: document.getElementById("tagCategory").value || null,
-        };
+            let filtered = allTags.filter((tag) => {
+                const matchesSearch =
+                    !search ||
+                    tag.name.toLowerCase().includes(search) ||
+                    tag.slug.toLowerCase().includes(search) ||
+                    (tag.description &&
+                        tag.description.toLowerCase().includes(search));
 
-        try {
-            let response;
-            if (currentEditSlug) {
-                response = await fetch(`/api/tags/${currentEditSlug}`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(formData),
-                });
-            } else {
-                response = await fetch("/api/tags", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(formData),
-                });
-            }
+                const matchesCategory = !category || tag.category === category;
 
-            if (response.ok) {
-                showToast(
-                    currentEditSlug
-                        ? "Tag updated successfully"
-                        : "Tag created successfully",
-                    "success",
-                );
-                closeModal();
-                loadTags();
-                loadStats();
-                loadCategories();
-            } else {
-                const error = await response.json();
-                showToast(error.error || "Failed to save tag", "error");
-            }
-        } catch (error) {
-            console.error("Error saving tag:", error);
-            showToast("Failed to save tag", "error");
-        }
-    }
-
-    function deleteTag(slug) {
-        const tag = allTags.find((t) => t.slug === slug);
-        if (!tag) return;
-
-        document.getElementById("deleteTagName").textContent = tag.name;
-        document.getElementById("deleteTagUsage").textContent =
-            tag.usage_count || 0;
-        currentDeleteSlug = slug;
-        document.getElementById("deleteModal").showModal();
-    }
-
-    async function confirmDelete() {
-        if (!currentDeleteSlug) return;
-
-        try {
-            const response = await fetch(`/api/tags/${currentDeleteSlug}`, {
-                method: "DELETE",
+                return matchesSearch && matchesCategory;
             });
 
-            if (response.ok) {
-                showToast("Tag deleted successfully", "success");
-                closeDeleteModal();
-                loadTags();
-                loadStats();
-            } else {
-                const error = await response.json();
-                showToast(error.error || "Failed to delete tag", "error");
-            }
-        } catch (error) {
-            console.error("Error deleting tag:", error);
-            showToast("Failed to delete tag", "error");
+            // Sort
+            filtered.sort((a, b) => {
+                if (sortBy === "usage") {
+                    return (b.usage_count || 0) - (a.usage_count || 0);
+                } else if (sortBy === "recent") {
+                    return new Date(b.created_at) - new Date(a.created_at);
+                } else {
+                    return a.name.localeCompare(b.name);
+                }
+            });
+
+            renderTags(filtered);
         }
-    }
 
-    function closeModal() {
-        document.getElementById("tagModal").close();
-        currentEditSlug = null;
-    }
+        function openCreateModal() {
+            document.getElementById("modalTitle").textContent = "Create Tag";
+            document.getElementById("tagForm").reset();
+            document.getElementById("tagId").value = "";
+            document.getElementById("originalSlug").value = "";
+            document.getElementById("tagColor").value = "#667eea";
+            document.getElementById("tagColorHex").value = "#667eea";
+            currentEditSlug = null;
+            document.getElementById("tagModal").showModal();
+        }
 
-    function closeDeleteModal() {
-        document.getElementById("deleteModal").close();
-        currentDeleteSlug = null;
-    }
+        async function editTag(slug) {
+            try {
+                const response = await fetch(`/api/tags/${slug}`);
+                const tag = await response.json();
 
-    function escapeHtml(text) {
-        const div = document.createElement("div");
-        div.textContent = text;
-        return div.innerHTML;
-    }
-</script>
+                document.getElementById("modalTitle").textContent = "Edit Tag";
+                document.getElementById("tagId").value = tag.id;
+                document.getElementById("originalSlug").value = tag.slug;
+                document.getElementById("tagName").value = tag.name;
+                document.getElementById("tagSlug").value = tag.slug;
+                document.getElementById("tagDescription").value =
+                    tag.description || "";
+                document.getElementById("tagColor").value =
+                    tag.color || "#667eea";
+                document.getElementById("tagColorHex").value =
+                    tag.color || "#667eea";
+                document.getElementById("tagIcon").value = tag.icon || "";
+                document.getElementById("tagCategory").value =
+                    tag.category || "";
+
+                currentEditSlug = slug;
+                document.getElementById("tagModal").showModal();
+            } catch (error) {
+                console.error("Error loading tag:", error);
+                showToast("Failed to load tag", "error");
+            }
+        }
+
+        async function handleSubmit(e) {
+            e.preventDefault();
+
+            const formData = {
+                name: document.getElementById("tagName").value,
+                slug: document.getElementById("tagSlug").value,
+                description:
+                    document.getElementById("tagDescription").value || null,
+                color: document.getElementById("tagColor").value,
+                icon: document.getElementById("tagIcon").value || null,
+                category: document.getElementById("tagCategory").value || null,
+            };
+
+            try {
+                let response;
+                if (currentEditSlug) {
+                    response = await fetch(`/api/tags/${currentEditSlug}`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(formData),
+                    });
+                } else {
+                    response = await fetch("/api/tags", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(formData),
+                    });
+                }
+
+                if (response.ok) {
+                    showToast(
+                        currentEditSlug
+                            ? "Tag updated successfully"
+                            : "Tag created successfully",
+                        "success",
+                    );
+                    closeModal();
+                    loadTags();
+                    loadStats();
+                    loadCategories();
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || "Failed to save tag", "error");
+                }
+            } catch (error) {
+                console.error("Error saving tag:", error);
+                showToast("Failed to save tag", "error");
+            }
+        }
+
+        function deleteTag(slug) {
+            const tag = allTags.find((t) => t.slug === slug);
+            if (!tag) return;
+
+            document.getElementById("deleteTagName").textContent = tag.name;
+            document.getElementById("deleteTagUsage").textContent =
+                tag.usage_count || 0;
+            currentDeleteSlug = slug;
+            document.getElementById("deleteModal").showModal();
+        }
+
+        async function confirmDelete() {
+            if (!currentDeleteSlug) return;
+
+            try {
+                const response = await fetch(`/api/tags/${currentDeleteSlug}`, {
+                    method: "DELETE",
+                });
+
+                if (response.ok) {
+                    showToast("Tag deleted successfully", "success");
+                    closeDeleteModal();
+                    loadTags();
+                    loadStats();
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || "Failed to delete tag", "error");
+                }
+            } catch (error) {
+                console.error("Error deleting tag:", error);
+                showToast("Failed to delete tag", "error");
+            }
+        }
+
+        function closeModal() {
+            document.getElementById("tagModal").close();
+            currentEditSlug = null;
+        }
+
+        function closeDeleteModal() {
+            document.getElementById("deleteModal").close();
+            currentDeleteSlug = null;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement("div");
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</div>
 {% endblock %}

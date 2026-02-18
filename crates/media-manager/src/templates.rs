@@ -118,6 +118,9 @@ pub struct MediaUploadTemplate {
 
     /// Error message (if any)
     pub error_message: Option<String>,
+
+    /// Whether the current user is authenticated (required by base-tailwind user-menu)
+    pub authenticated: bool,
 }
 
 impl MediaUploadTemplate {
@@ -127,6 +130,7 @@ impl MediaUploadTemplate {
             max_file_size: 100 * 1024 * 1024, // 100MB
             success_message: None,
             error_message: None,
+            authenticated: true,
         }
     }
 

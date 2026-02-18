@@ -102,12 +102,12 @@ Legend:
 | `3d-gallery/viewer.html` | ❌ | — | — | ❌ | Full-screen 3D viewer — intentionally standalone; documented exception |
 | **access-codes** | | | | | |
 | `codes/list.html` | ✅ | ✅ `page-header` component | ✅ uses `confirm-dialog` (callback mode) | ✅ | ✅ Batch 2.2 done |
-| `codes/detail.html` | ✅ | ❌ inline `<h1>` + status badge | ✅ uses `confirm-dialog` (callback mode) | ✅ | Batch 2 pending — see UI_UPDATE_ONGOING.md §B3 |
+| `codes/detail.html` | ✅ | ❌ inline `<h1>` + status badge | ✅ uses `confirm-dialog` (callback mode) | ✅ | Batch 2 pending — see UI_UPDATE_DONE.md §B3 |
 | `codes/new.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2.2 done |
 | `codes/preview.html` | ✅ | ❌ inline `<h1>` | — | ✅ | Exception — centred hero layout; see Exceptions Register |
 | **access-groups** | | | | | |
 | `groups/list.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2.3 done |
-| `groups/detail.html` | ✅ | ❌ inline `<h1>` in header card | ❌ inline modal | ✅ | Batch 2 pending (Rust change needed) — see UI_UPDATE_ONGOING.md §C1 |
+| `groups/detail.html` | ✅ | ❌ inline `<h1>` in header card | ❌ inline modal | ✅ | Batch 2 pending (Rust change needed) — see UI_UPDATE_DONE.md §C1 |
 | `groups/create.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2.3 done |
 | `groups/settings.html` | ✅ | ✅ `page-header` component | ❌ inline modals | ✅ | Page-header done ✅; modals deferred to Batch 3 |
 | `invitations/accept.html` | ✅ | ❌ inline `<h1>` | — | ✅ | Exception — public centred card layout; see Exceptions Register |
@@ -117,14 +117,14 @@ Legend:
 | `api-keys/created.html` | ✅ | — | — | ✅ | Display-only success page — no page-header needed |
 | **docs-viewer** | | | | | |
 | `docs/index.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2.5 done |
-| `docs/upload.html` | ✅ | ❌ inline `<h1>` inside card body | — | ✅ | Batch 2 pending — see UI_UPDATE_ONGOING.md §A2 |
-| `docs/view.html` | ✅ | ❌ inline `<h1>` inside card body | — | ⚠️ has markdown renderer styles | Batch 2 pending — see UI_UPDATE_ONGOING.md §B1; styles are keeper |
-| `docs/editor.html` | ✅ | ❌ inline `<h1>` inside card | — | ⚠️ Monaco editor styles | Batch 2 pending (Rust change needed) — see UI_UPDATE_ONGOING.md §C2 |
+| `docs/upload.html` | ✅ | ❌ inline `<h1>` inside card body | — | ✅ | Batch 2 pending — see UI_UPDATE_DONE.md §A2 |
+| `docs/view.html` | ✅ | ❌ inline `<h1>` inside card body | — | ⚠️ has markdown renderer styles | Batch 2 pending — see UI_UPDATE_DONE.md §B1; styles are keeper |
+| `docs/editor.html` | ✅ | ❌ inline `<h1>` inside card | — | ⚠️ Monaco editor styles | Batch 2 pending (Rust change needed) — see UI_UPDATE_DONE.md §C2 |
 | **media-manager** | | | | | |
 | `media_list_tailwind.html` | ✅ | ✅ `page-header` component | ❌ inline `<dialog id="edit_modal">` + native `confirm()` | ✅ | Page-header done ✅; modals deferred to Batch 3.4 |
 | `media/detail.html` | ✅ | ❌ `<h1>` is `card-title` | — | ✅ | Exception — media item title inside display card; not a page-level header; see Exceptions Register |
-| `media/markdown_view.html` | ✅ | ❌ inline `<h1>` inside card | — | ✅ | Batch 2 pending — see UI_UPDATE_ONGOING.md §B2 |
-| `media_upload.html` | ✅ | ⚠️ inline `.page-header-title` (not using `{% include %}`) | — | ⚠️ upload-specific CSS in `extra_head` | Batch 2 pending — see UI_UPDATE_ONGOING.md §A3 |
+| `media/markdown_view.html` | ✅ | ❌ inline `<h1>` inside card | — | ✅ | Batch 2 pending — see UI_UPDATE_DONE.md §B2 |
+| `media_upload.html` | ✅ | ⚠️ inline `.page-header-title` (not using `{% include %}`) | — | ⚠️ upload-specific CSS in `extra_head` | Batch 2 pending — see UI_UPDATE_DONE.md §A3 |
 | **user-auth** | | | | | |
 | `auth/login.html` | ✅ | ❌ inline `<h1>` | — | ✅ | Exception — centred card layout (see Exceptions Register); Batch 4 empty-state candidate |
 | `auth/profile.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2.8 done |
@@ -142,7 +142,7 @@ Legend:
 | `videos/edit.html` | ✅ | ✅ `page-header` component | ❌ inline Alpine modal (`showDeleteModal`) | ✅ | Page-header done ✅; modal deferred to Batch 3.1 |
 | `videos/player.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2.1 done — public/private badge in `.page-header-actions` |
 | `videos/upload-enhanced.html` | ✅ | ❌ inline `<h1>` | — | ✅ | Exception — complex multi-step upload wizard (see Exceptions Register) |
-| `videos/live_test.html` | ✅ | ❌ inline `<h1>` | — | ✅ | Batch 2 pending — see UI_UPDATE_ONGOING.md §A1 |
+| `videos/live_test.html` | ✅ | ❌ inline `<h1>` | — | ✅ | Batch 2 pending — see UI_UPDATE_DONE.md §A1 |
 | `not_found.html` | ✅ | ❌ bare `<h1>` with inline style | — | ✅ | Batch 4 — empty-state candidate |
 | **root templates** | | | | | |
 | `index-tailwind.html` | ✅ | ❌ hero `<h1>` | — | ✅ | Exception — DaisyUI hero layout; `page-header` doesn't belong in a hero section; see Exceptions Register |
@@ -167,7 +167,7 @@ Legend:
 
 **Key takeaway:** Base layer is 100% complete. Batch 2 is complete — all eligible
 templates migrated, 4 documented exceptions registered. Batch 3 (modal consolidation)
-is next. See [UI_UPDATE_ONGOING.md](./UI_UPDATE_ONGOING.md) for per-file instructions.
+is next. See [UI_UPDATE_DONE.md](./UI_UPDATE_DONE.md) for per-file instructions.
 
 ---
 
@@ -241,7 +241,7 @@ all render a message + optional action button — exactly the `empty-state` comp
 ## Consolidation Roadmap
 
 Work is ordered by impact and risk. Each batch can be done incrementally.
-**Detailed per-file instructions for all remaining work are in [UI_UPDATE_ONGOING.md](./UI_UPDATE_ONGOING.md).**
+**Detailed per-file instructions for all remaining work are in [UI_UPDATE_DONE.md](./UI_UPDATE_DONE.md).**
 
 ### Batch 1 — Quick wins, low risk ✅ COMPLETE
 **Goal:** Eliminate `window.confirm()` and fix the missing base template.

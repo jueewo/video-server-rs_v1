@@ -163,6 +163,19 @@ pub async fn media_detail_handler(
     };
 
     let mime_type: String = row.try_get("mime_type").unwrap_or_default();
+    let filename_for_redirect: String = row.try_get("filename").unwrap_or_default();
+
+    // Auto-redirect PDF files
+    if filename_for_redirect.ends_with(".pdf") {
+        info!("📄 Redirecting PDF document to pdf view page: {}", slug);
+        return Ok(Redirect::to(&format!("/media/{}/pdf", slug)).into_response());
+    }
+
+    // Auto-redirect BPMN files
+    if filename_for_redirect.ends_with(".bpmn") {
+        info!("📊 Redirecting BPMN document to bpmn view page: {}", slug);
+        return Ok(Redirect::to(&format!("/media/{}/bpmn", slug)).into_response());
+    }
 
     // Auto-redirect to markdown view for markdown documents
     if mime_type == "text/markdown" {

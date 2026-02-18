@@ -1,0 +1,210 @@
+{% extends "base-tailwind.html" %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block extra_head %}
+<style>
+    #pdf-container {
+        background: #525659;
+        min-height: 600px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 1.5rem;
+        gap: 1rem;
+        border-radius: 0.5rem;
+        overflow-y: auto;
+    }
+    #pdf-canvas {
+        box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+        background: white;
+        display: block;
+    }
+    #pdf-loading {
+        color: #ccc;
+        font-size: 1.1rem;
+        margin: 4rem 0;
+    }
+    #pdf-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    #page-input {
+        width: 3.5rem;
+        text-align: center;
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Breadcrumb -->
+    <div class="text-sm breadcrumbs mb-4">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/media">Media</a></li>
+            <li><a href="/media/{{ slug }}">{{ title }}</a></li>
+            <li>PDF</li>
+        </ul>
+    </div>
+
+    <!-- Page header -->
+    {% let page_subtitle = filename %}
+    <div class="page-header">
+        {% include "components/page-header.html" %}
+        <div class="page-header-actions">
+            <a href="/media" class="btn btn-sm btn-ghost">← Back to Media</a>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="card bg-base-100 shadow mb-3">
+        <div class="card-body py-3">
+            <div id="pdf-toolbar">
+                <!-- Page navigation -->
+                <button id="btn-prev" onclick="prevPage()" class="btn btn-sm btn-outline" disabled>◄ Prev</button>
+                <div class="flex items-center gap-1">
+                    <input id="page-input" type="number" min="1" class="input input-sm input-bordered" value="1"
+                           onchange="goToPage(parseInt(this.value))" />
+                    <span class="text-sm text-base-content/60">/ <span id="page-count">—</span></span>
+                </div>
+                <button id="btn-next" onclick="nextPage()" class="btn btn-sm btn-outline" disabled>Next ►</button>
+
+                <div class="divider divider-horizontal mx-0"></div>
+
+                <!-- Zoom -->
+                <button onclick="zoom(-0.25)" class="btn btn-sm btn-ghost font-bold">−</button>
+                <span id="zoom-level" class="text-sm w-12 text-center">150%</span>
+                <button onclick="zoom(+0.25)" class="btn btn-sm btn-ghost font-bold">+</button>
+                <button onclick="fitWidth()" class="btn btn-sm btn-ghost">Fit</button>
+
+                <div class="flex-1"></div>
+
+                <!-- Open in browser -->
+                <a href="{{ serve_url }}" target="_blank" rel="noopener"
+                   class="btn btn-sm btn-outline">
+                    ↗ Open in Browser
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF canvas area -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body p-2">
+            <div id="pdf-container">
+                <div id="pdf-loading">Loading PDF…</div>
+                <canvas id="pdf-canvas" class="hidden"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex gap-3 text-sm text-base-content/60 mt-3">
+        <span>📅 {{ created_at }}</span>
+    </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<!-- PDF.js -->
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script>
+    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+    const SERVE_URL = {{ serve_url|tojson|safe }};
+
+    let pdfDoc   = null;
+    let pageNum  = 1;
+    let scale    = 1.5;
+    let rendering = false;
+
+    const canvas    = document.getElementById('pdf-canvas');
+    const ctx       = canvas.getContext('2d');
+    const loading   = document.getElementById('pdf-loading');
+    const pageInput = document.getElementById('page-input');
+    const pageCount = document.getElementById('page-count');
+    const zoomLabel = document.getElementById('zoom-level');
+    const btnPrev   = document.getElementById('btn-prev');
+    const btnNext   = document.getElementById('btn-next');
+
+    async function loadPdf() {
+        try {
+            pdfDoc = await pdfjsLib.getDocument(SERVE_URL).promise;
+            pageCount.textContent = pdfDoc.numPages;
+            pageInput.max = pdfDoc.numPages;
+            loading.classList.add('hidden');
+            canvas.classList.remove('hidden');
+            updateButtons();
+            await renderPage(pageNum);
+        } catch (err) {
+            loading.textContent = '❌ Failed to load PDF: ' + err.message;
+            console.error(err);
+        }
+    }
+
+    async function renderPage(num) {
+        if (rendering) return;
+        rendering = true;
+        const page     = await pdfDoc.getPage(num);
+        const viewport = page.getViewport({ scale });
+        canvas.width   = viewport.width;
+        canvas.height  = viewport.height;
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        rendering = false;
+        pageInput.value = num;
+        zoomLabel.textContent = Math.round(scale * 100) + '%';
+    }
+
+    function updateButtons() {
+        btnPrev.disabled = (pageNum <= 1);
+        btnNext.disabled = (pageNum >= pdfDoc.numPages);
+    }
+
+    async function prevPage() {
+        if (pageNum <= 1) return;
+        pageNum--;
+        updateButtons();
+        await renderPage(pageNum);
+    }
+
+    async function nextPage() {
+        if (pageNum >= pdfDoc.numPages) return;
+        pageNum++;
+        updateButtons();
+        await renderPage(pageNum);
+    }
+
+    async function goToPage(num) {
+        if (!pdfDoc || num < 1 || num > pdfDoc.numPages) return;
+        pageNum = num;
+        updateButtons();
+        await renderPage(pageNum);
+    }
+
+    async function zoom(delta) {
+        scale = Math.max(0.5, Math.min(4.0, scale + delta));
+        await renderPage(pageNum);
+    }
+
+    async function fitWidth() {
+        if (!pdfDoc) return;
+        const page     = await pdfDoc.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 1.0 });
+        const container = document.getElementById('pdf-container');
+        // target: container inner width minus 2×padding (1.5rem each side)
+        const available = container.clientWidth - 48;
+        scale = available / viewport.width;
+        await renderPage(pageNum);
+    }
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') nextPage();
+        if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   prevPage();
+        if (e.key === '+' || e.key === '=') zoom(+0.25);
+        if (e.key === '-')                  zoom(-0.25);
+    });
+
+    loadPdf();
+</script>
+{% endblock %}

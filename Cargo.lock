@@ -509,6 +509,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bpmn-viewer"
+version = "0.1.0"
+dependencies = [
+ "askama",
+ "serde",
+]
+
+[[package]]
 name = "built"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2438,12 +2446,14 @@ dependencies = [
  "anyhow",
  "askama",
  "axum",
+ "bpmn-viewer",
  "chrono",
  "common",
  "docs-viewer",
  "image 0.25.9",
  "media-core",
  "mime_guess",
+ "pdf-viewer",
  "serde",
  "serde_json",
  "sqlx",
@@ -3053,6 +3063,14 @@ name = "pathdiff"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
+
+[[package]]
+name = "pdf-viewer"
+version = "0.1.0"
+dependencies = [
+ "askama",
+ "serde",
+]
 
 [[package]]
 name = "pem-rfc7468"
@@ -5484,6 +5502,7 @@ dependencies = [
  "api-keys",
  "askama",
  "axum",
+ "bpmn-viewer",
  "common",
  "docs-viewer",
  "dotenvy",
@@ -5495,6 +5514,7 @@ dependencies = [
  "opentelemetry-appender-tracing",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
+ "pdf-viewer",
  "rate-limiter",
  "reqwest 0.12.28",
  "serde",

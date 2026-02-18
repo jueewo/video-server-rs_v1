@@ -87,6 +87,7 @@ pub struct UpdateMediaRequest {
     pub category: Option<String>,
     pub featured: Option<i32>,
     pub tags: Option<Vec<String>>,
+    pub group_id: Option<serde_json::Value>, // null = clear; integer = assign
 }
 
 // ============================================================================
@@ -727,6 +728,17 @@ pub async fn update_media_item(
         values.push(featured.to_string());
     }
 
+    // Determine group_id change: None = not in payload, Some(None) = clear, Some(Some(n)) = set
+    let group_id_change: Option<Option<i32>> = match &payload.group_id {
+        None => None,
+        Some(serde_json::Value::Null) => Some(None),
+        Some(serde_json::Value::Number(n)) => Some(Some(n.as_i64().unwrap_or(0) as i32)),
+        _ => None,
+    };
+    if group_id_change.is_some() {
+        updates.push("group_id = ?");
+    }
+
     // Always update updated_at
     updates.push("updated_at = datetime('now')");
 
@@ -738,8 +750,11 @@ pub async fn update_media_item(
         );
 
         let mut query = sqlx::query(&query_str);
-        for value in values {
+        for value in &values {
             query = query.bind(value);
+        }
+        if let Some(gid) = group_id_change {
+            query = query.bind(gid); // None → NULL, Some(n) → integer
         }
         query = query.bind(&slug);
         query = query.bind(&session_user_id);
@@ -793,6 +808,63 @@ pub async fn update_media_item(
         })),
     )
         .into_response()
+}
+
+/// List access groups owned by the authenticated user (JSON API)
+pub async fn list_user_groups(
+    State(state): State<MediaManagerState>,
+    session: Session,
+) -> impl IntoResponse {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "Authentication required"})),
+        )
+            .into_response();
+    }
+
+    let user_id: Option<String> = session.get("user_id").await.ok().flatten();
+    let user_id = match user_id {
+        Some(id) => id,
+        None => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "User ID not found in session"})),
+            )
+                .into_response();
+        }
+    };
+
+    match sqlx::query_as::<_, (i32, String)>(
+        "SELECT id, name FROM access_groups WHERE owner_id = ? AND is_active = 1 ORDER BY name",
+    )
+    .bind(&user_id)
+    .fetch_all(&state.pool)
+    .await
+    {
+        Ok(rows) => {
+            let groups: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|(id, name)| serde_json::json!({"id": id, "name": name}))
+                .collect();
+            (StatusCode::OK, Json(groups)).into_response()
+        }
+        Err(e) => {
+            error!("Failed to list user groups: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "Failed to load groups"})),
+            )
+                .into_response()
+        }
+    }
 }
 
 /// Delete a media item

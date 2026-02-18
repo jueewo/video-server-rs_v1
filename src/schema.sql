@@ -33,7 +33,7 @@ CREATE TABLE access_codes (
 CREATE TABLE access_code_permissions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     access_code_id INTEGER NOT NULL,
-    media_type TEXT NOT NULL CHECK (media_type IN ('video', 'image')),
+    media_type TEXT NOT NULL CHECK (media_type IN ('video', 'image', 'document')),
     media_slug TEXT NOT NULL,
     FOREIGN KEY (access_code_id) REFERENCES access_codes(id) ON DELETE CASCADE,
     UNIQUE(access_code_id, media_type, media_slug)

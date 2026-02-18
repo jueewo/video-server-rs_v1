@@ -60,6 +60,7 @@ pub struct MediaItem3D {
 pub enum MediaType {
     Image,
     Video,
+    Document,
 }
 
 /// 3D position vector

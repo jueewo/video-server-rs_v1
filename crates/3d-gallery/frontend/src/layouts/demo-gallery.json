@@ -121,8 +121,8 @@
           "start": [-10, 0, 4],
           "end": [-10, 0, 24],
           "slots": [
-            { "id": "mw1", "offset": 2, "height": 3, "width": 3.5 },
-            { "id": "mw2", "offset": 7, "height": 2, "width": 2 },
+            { "id": "mw1", "offset": 2, "height": 2, "width": 2 },
+            { "id": "mw2", "offset": 6.5, "height": 2.5, "width": 5 },
             { "id": "mw3", "offset": 11, "height": 2, "width": 2 },
             { "id": "mw4", "offset": 15, "height": 3, "width": 3.5 }
           ]
@@ -220,10 +220,10 @@
     "me1": { "media_id": 8, "type": "image" },
     "me2": { "media_id": 12, "type": "image" },
     "me3": { "media_id": 3, "type": "image" },
-    "mw1": null,
-    "mw2": null,
-    "mw3": null,
-    "mw4": null,
+    "mw1": { "media_id": 10, "type": "image" },
+    "mw2": { "media_id": 46, "type": "document" },
+    "mw3": { "media_id": 12, "type": "image" },
+    "mw4": { "media_id": 11, "type": "image" },
     "sn1": { "media_id": 27, "type": "video" },
     "sn2": { "media_id": 28, "type": "video" },
     "ss1": { "media_id": 29, "type": "video" },

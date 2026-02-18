@@ -6,7 +6,9 @@
 //! This crate consolidates functionality that was previously split between
 //! media-hub (listing/search/CRUD UI) and media-manager (upload/detail/serving).
 
+pub mod bpmn_view;
 pub mod detail;
+pub mod pdf_view;
 pub mod list;
 pub mod markdown_view;
 pub mod models;

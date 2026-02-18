@@ -59,6 +59,8 @@ pub fn media_routes() -> Router<MediaManagerState> {
         .route("/api/media/upload", post(crate::upload::upload_media))
         // ── Vault management ────────────────────────────────────────
         .route("/api/user/vaults", get(crate::list::get_user_vaults))
+        // ── Group selector ──────────────────────────────────────────
+        .route("/api/media/groups", get(crate::list::list_user_groups))
         // ── Detail pages (HTML) ─────────────────────────────────────
         .route("/media/{slug}", get(crate::detail::media_detail_handler))
         .route(
@@ -69,6 +71,18 @@ pub fn media_routes() -> Router<MediaManagerState> {
             "/media/{slug}/edit",
             get(crate::markdown_view::edit_markdown_handler),
         )
+        .route(
+            "/media/{slug}/bpmn",
+            get(crate::bpmn_view::view_bpmn_handler),
+        )
+        .route(
+            "/media/{slug}/pdf",
+            get(crate::pdf_view::view_pdf_handler),
+        )
+        .route(
+            "/media/{slug}/serve",
+            get(crate::pdf_view::serve_pdf_handler),
+        )
         // ── Media CRUD (JSON API) ───────────────────────────────────
         .route(
             "/api/media/{slug}/toggle-visibility",
@@ -77,6 +91,10 @@ pub fn media_routes() -> Router<MediaManagerState> {
         .route(
             "/api/media/{slug}/save",
             post(crate::markdown_view::save_markdown_handler),
+        )
+        .route(
+            "/api/media/{slug}/save-bpmn",
+            post(crate::bpmn_view::save_bpmn_handler),
         )
         .route(
             "/api/media/{slug}",

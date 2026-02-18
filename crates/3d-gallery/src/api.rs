@@ -205,6 +205,40 @@ async fn fetch_media_for_access_code(
         position_index += 1;
     }
 
+    // Fetch PDF documents
+    let doc_rows = sqlx::query(
+        "SELECT d.id, d.slug, d.filename, d.title, d.description
+         FROM media_items d
+         INNER JOIN access_code_permissions acp ON acp.media_slug = d.slug AND acp.media_type = 'document'
+         WHERE acp.access_code_id = ? AND d.media_type = 'document' AND d.filename LIKE '%.pdf'
+         ORDER BY d.id"
+    )
+    .bind(access_code_id)
+    .fetch_all(pool)
+    .await?;
+
+    for row in doc_rows {
+        let id: i64 = row.get(0);
+        let slug: String = row.get(1);
+        let _filename: String = row.get(2);
+        let title: String = row.get(3);
+        let description: Option<String> = row.get(4);
+
+        let pos = get_position_for_index(position_index);
+        items.push(MediaItem3D {
+            id: id as i32,
+            media_type: MediaType::Document,
+            url: format!("/media/{}/serve?code={}", slug, access_code_str),
+            thumbnail_url: String::new(), // No thumbnail for PDFs
+            title,
+            description,
+            position: pos.0,
+            rotation: pos.1,
+            scale: 1.0,
+        });
+        position_index += 1;
+    }
+
     Ok(items)
 }
 

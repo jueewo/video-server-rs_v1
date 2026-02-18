@@ -8,7 +8,9 @@ import {
 } from "./scene/LayoutParser";
 import { createImageFrame } from "./scene/ImageFrame";
 import { createVideoScreen } from "./scene/VideoScreen";
+import { createPdfPresentation } from "./scene/PdfPresentation";
 import { VideoPlayer } from "./components/VideoPlayer";
+import { PdfOverlay } from "./components/PdfOverlay";
 import { Minimap } from "./components/Minimap";
 import demoLayout from "./layouts/demo-gallery.json";
 
@@ -174,6 +176,7 @@ export default function GalleryApp({
     // Create frames and screens for mapped slots
     const frames = [];
     const videoScreens = [];
+    const pdfPresentations = [];
 
     mappedSlots.forEach(({ slot, media }) => {
       if (media.type === "image") {
@@ -228,16 +231,41 @@ export default function GalleryApp({
         }
 
         videoScreens.push(screen);
+      } else if (media.type === "document") {
+        const presentation = createPdfPresentation(scene, media, {
+          position: slot.position,
+          rotation: slot.rotation,
+          facingDirection: slot.facingDirection,
+          width: slot.width,
+          frameThickness: 0.12,
+        });
+
+        // Click on frame → open fullscreen PdfOverlay
+        if (presentation.framePlane) {
+          presentation.framePlane.actionManager = new BABYLON.ActionManager(scene);
+          presentation.framePlane.actionManager.registerAction(
+            new BABYLON.ExecuteCodeAction(
+              BABYLON.ActionManager.OnPickDownTrigger,
+              () => {
+                console.log("PDF clicked:", media.title);
+                setSelectedImage(media);
+              },
+            ),
+          );
+        }
+
+        pdfPresentations.push(presentation);
       }
     });
 
     console.log(
-      `Created ${frames.length} frames and ${videoScreens.length} video screens`,
+      `Created ${frames.length} frames, ${videoScreens.length} video screens, ${pdfPresentations.length} PDF presentations`,
     );
 
     // Store for cleanup
     const allFrames = frames;
     const allVideoScreens = videoScreens;
+    const allPdfPresentations = pdfPresentations;
 
     // Setup scene pointer observable to handle clicks before camera
     scene.onPointerObservable.add((pointerInfo) => {
@@ -247,7 +275,7 @@ export default function GalleryApp({
           const metadata = pickResult.pickedMesh.metadata;
           if (
             metadata &&
-            (metadata.type === "image" || metadata.type === "video")
+            (metadata.type === "image" || metadata.type === "video" || metadata.type === "document")
           ) {
             console.log("Media picked via observable:", metadata.title);
             // Prevent camera from handling this click
@@ -324,6 +352,16 @@ export default function GalleryApp({
             screen.progressBar.plane.isVisible = shouldShow;
           }
         });
+
+        // Update PDF presentation planes
+        allPdfPresentations.forEach((pres) => {
+          if (pres.framePlane) {
+            const inFrustum = pres.framePlane.isInFrustum(scene.frustumPlanes);
+            pres.framePlane.isVisible = inFrustum;
+            if (pres.prevArrow) pres.prevArrow.isVisible = inFrustum;
+            if (pres.nextArrow) pres.nextArrow.isVisible = inFrustum;
+          }
+        });
       }
 
       scene.render();
@@ -376,6 +414,11 @@ export default function GalleryApp({
       allVideoScreens.forEach((screen) => {
         if (screen.parent) screen.parent.dispose();
         if (screen.screenPlane) screen.screenPlane.dispose();
+      });
+
+      // Dispose PDF presentations
+      allPdfPresentations.forEach((pres) => {
+        if (pres.dispose) pres.dispose();
       });
 
       // Dispose gallery
@@ -709,6 +752,12 @@ export default function GalleryApp({
           >
             {selectedImage.type === "video" ? (
               <VideoPlayer url={selectedImage.url} autoPlay={true} />
+            ) : selectedImage.type === "document" ? (
+              <PdfOverlay
+                url={selectedImage.url}
+                title={selectedImage.title}
+                onClose={() => setSelectedImage(null)}
+              />
             ) : (
               <img
                 src={selectedImage.url}

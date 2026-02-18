@@ -1,0 +1,137 @@
+{% extends "base-tailwind.html" %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block extra_head %}
+<!-- bpmn-js CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bpmn-js@17/dist/assets/bpmn-js.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bpmn-js@17/dist/assets/diagram-js.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bpmn-js@17/dist/assets/bpmn-font/css/bpmn.css">
+<style>
+    #bpmn-canvas {
+        height: 600px;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        background: #fafafa;
+    }
+    /* Hide palette in view mode */
+    #bpmn-canvas.view-mode .djs-palette {
+        display: none !important;
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Breadcrumb -->
+    <div class="text-sm breadcrumbs mb-4">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/media">Media</a></li>
+            <li><a href="/media/{{ slug }}">{{ title }}</a></li>
+            <li>BPMN</li>
+        </ul>
+    </div>
+
+    <!-- Page Header -->
+    {% let page_subtitle = filename %}
+    <div class="page-header">
+        {% include "components/page-header.html" %}
+        <div class="page-header-actions">
+            <!-- View mode buttons -->
+            <div id="view-actions">
+                {% if is_owner %}
+                <button onclick="enterEditMode()" class="btn btn-sm btn-primary">✏️ Edit</button>
+                {% endif %}
+                <button onclick="fitView()" class="btn btn-sm btn-outline">⊞ Fit View</button>
+                <a href="/media" class="btn btn-sm btn-ghost">← Back to Media</a>
+            </div>
+            <!-- Edit mode buttons (hidden by default) -->
+            <div id="edit-actions" class="hidden">
+                <button onclick="saveBpmn()" class="btn btn-sm btn-success">💾 Save</button>
+                <button onclick="cancelEdit()" class="btn btn-sm btn-ghost">✗ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <div class="flex gap-3 text-sm text-base-content/60 mb-4">
+                <span>📅 {{ created_at }}</span>
+                <span id="edit-mode-indicator" class="hidden badge badge-warning">Edit Mode</span>
+            </div>
+            <div class="divider"></div>
+            <div id="bpmn-canvas" class="view-mode"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<!-- bpmn-js modeler -->
+<script src="https://cdn.jsdelivr.net/npm/bpmn-js@17/dist/bpmn-modeler.development.js"></script>
+<script>
+    const bpmnXml = {{ bpmn_xml|tojson|safe }};
+    const slug = {{ slug|tojson|safe }};
+
+    const modeler = new BpmnJS({ container: '#bpmn-canvas' });
+
+    async function loadDiagram(xml) {
+        try {
+            await modeler.importXML(xml);
+            fitView();
+        } catch (err) {
+            console.error('Failed to load BPMN diagram:', err);
+            showToast('❌ Failed to load BPMN diagram', 'error');
+        }
+    }
+
+    function fitView() {
+        const canvas = modeler.get('canvas');
+        canvas.zoom('fit-viewport', 'auto');
+    }
+
+    function enterEditMode() {
+        const canvas = document.getElementById('bpmn-canvas');
+        canvas.classList.remove('view-mode');
+        document.getElementById('view-actions').classList.add('hidden');
+        document.getElementById('edit-actions').classList.remove('hidden');
+        document.getElementById('edit-mode-indicator').classList.remove('hidden');
+    }
+
+    function cancelEdit() {
+        loadDiagram(bpmnXml).then(() => {
+            const canvas = document.getElementById('bpmn-canvas');
+            canvas.classList.add('view-mode');
+            document.getElementById('view-actions').classList.remove('hidden');
+            document.getElementById('edit-actions').classList.add('hidden');
+            document.getElementById('edit-mode-indicator').classList.add('hidden');
+        });
+    }
+
+    async function saveBpmn() {
+        try {
+            const { xml } = await modeler.saveXML({ format: true });
+            const response = await fetch(`/api/media/${slug}/save-bpmn`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: xml }),
+            });
+            const result = await response.json();
+            if (result.success) {
+                showToast('✅ BPMN saved successfully', 'success');
+                // Return to view mode with saved content
+                const canvas = document.getElementById('bpmn-canvas');
+                canvas.classList.add('view-mode');
+                document.getElementById('view-actions').classList.remove('hidden');
+                document.getElementById('edit-actions').classList.add('hidden');
+                document.getElementById('edit-mode-indicator').classList.add('hidden');
+            } else {
+                showToast('❌ ' + result.message, 'error');
+            }
+        } catch (err) {
+            console.error('Save failed:', err);
+            showToast('❌ Failed to save BPMN', 'error');
+        }
+    }
+
+    // Initial load
+    loadDiagram(bpmnXml);
+</script>
+{% endblock %}

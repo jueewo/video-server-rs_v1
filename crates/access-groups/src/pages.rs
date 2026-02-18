@@ -147,7 +147,7 @@ pub async fn group_detail_page_handler(
 
     // Get resources assigned to this group
     let videos: Vec<(String, String, String)> = sqlx::query_as(
-        "SELECT slug, title, media_type as type FROM media_items WHERE media_type = 'video' AND group_id = ? ORDER BY created_at DESC"
+        "SELECT slug, title, media_type FROM media_items WHERE media_type = 'video' AND group_id = ? ORDER BY created_at DESC"
     )
     .bind(group.id)
     .fetch_all(&pool)
@@ -155,7 +155,16 @@ pub async fn group_detail_page_handler(
     .unwrap_or_default();
 
     let images: Vec<(String, String, String)> = sqlx::query_as(
-        "SELECT slug, title, media_type as type FROM media_items WHERE media_type = 'image' AND group_id = ? ORDER BY created_at DESC"
+        "SELECT slug, title, media_type FROM media_items WHERE media_type = 'image' AND group_id = ? ORDER BY created_at DESC"
+    )
+    .bind(group.id)
+    .fetch_all(&pool)
+    .await
+    .unwrap_or_default();
+
+    // filename needed to determine the correct viewer URL
+    let documents: Vec<(String, String, String, String)> = sqlx::query_as(
+        "SELECT slug, title, media_type, filename FROM media_items WHERE media_type = 'document' AND group_id = ? ORDER BY created_at DESC"
     )
     .bind(group.id)
     .fetch_all(&pool)
@@ -167,7 +176,6 @@ pub async fn group_detail_page_handler(
     for (slug, title, resource_type) in videos {
         resources.push(ResourceItem {
             title,
-            // Phase 4.5: Use HLS endpoint for thumbnails
             thumbnail: format!("/hls/{}/thumbnail.webp", slug),
             url: format!("/watch/{}", slug),
             resource_type,
@@ -177,9 +185,29 @@ pub async fn group_detail_page_handler(
     for (slug, title, resource_type) in images {
         resources.push(ResourceItem {
             title,
-            // Phase 4.5: Use slug-based URL for thumbnails
             thumbnail: format!("/images/{}_thumb", slug),
             url: format!("/images/{}", slug),
+            resource_type,
+        });
+    }
+
+    for (slug, title, resource_type, filename) in documents {
+        let url = if filename.ends_with(".pdf") {
+            format!("/media/{}/pdf", slug)
+        } else if filename.ends_with(".bpmn") {
+            format!("/media/{}/bpmn", slug)
+        } else if filename.ends_with(".md")
+            || filename.ends_with(".mdx")
+            || filename.ends_with(".markdown")
+        {
+            format!("/media/{}/view", slug)
+        } else {
+            format!("/media/{}", slug)
+        };
+        resources.push(ResourceItem {
+            title,
+            thumbnail: String::new(), // documents have no image thumbnail
+            url,
             resource_type,
         });
     }

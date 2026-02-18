@@ -68,24 +68,6 @@
                 Shared Resources
             </h2>
 
-            <!-- Upload Button -->
-            {% if can_write %}
-            <div class="flex gap-2 mb-4">
-                <a href="/videos/upload?group={{ group.slug }}" class="btn btn-sm btn-primary gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                    </svg>
-                    Upload Video
-                </a>
-                <a href="/media/upload?group={{ group.slug }}" class="btn btn-sm btn-primary gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm-1-9.5A3.5 3.5 0 015.5 4h13A3.5 3.5 0 0122 7.5v9a3.5 3.5 0 01-3.5 3.5h-13A3.5 3.5 0 012 16.5v-9z" clip-rule="evenodd" />
-                    </svg>
-                    Upload Media
-                </a>
-            </div>
-            {% endif %}
-
             <!-- Resources List -->
             {% if resources.is_empty() %}
             <div class="text-center py-12">
@@ -94,7 +76,7 @@
                 </svg>
                 <p class="text-base-content/60">No resources shared in this group yet</p>
                 {% if can_write %}
-                <p class="text-sm text-base-content/40 mt-2">Upload videos or images to get started</p>
+                <p class="text-sm text-base-content/40 mt-2">Assign media items to this group from the Media page</p>
                 {% endif %}
             </div>
             {% else %}
@@ -102,7 +84,15 @@
                 {% for resource in resources %}
                 <div class="card card-compact bg-base-200 shadow-md hover:shadow-lg transition-shadow">
                     <figure class="aspect-video bg-base-300">
-                        <img src="{{ resource.thumbnail }}" alt="{{ resource.title }}" class="object-cover w-full h-full" onerror="this.onerror=null; this.src='{{ resource.url }}';" />
+                        {% if resource.resource_type == "document" %}
+                        <div class="flex flex-col items-center justify-center w-full h-full text-base-content/40">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        </div>
+                        {% else %}
+                        <img src="{{ resource.thumbnail }}" alt="{{ resource.title }}" class="object-cover w-full h-full" onerror="this.onerror=null; this.src='';" />
+                        {% endif %}
                     </figure>
                     <div class="card-body">
                         <h3 class="card-title text-sm">{{ resource.title }}</h3>
@@ -113,6 +103,13 @@
                                     <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
                                 </svg>
                                 Video
+                            </span>
+                            {% else if resource.resource_type == "document" %}
+                            <span class="badge badge-accent badge-sm gap-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd" />
+                                </svg>
+                                Document
                             </span>
                             {% else %}
                             <span class="badge badge-secondary badge-sm gap-1">

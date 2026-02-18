@@ -9,6 +9,8 @@ common = { path = "../common" }
 media-core = { path = "../media-core" }
 access-control = { path = "../access-control" }
 docs-viewer = { path = "../docs-viewer" }
+bpmn-viewer = { path = "../bpmn-viewer" }
+pdf-viewer = { path = "../pdf-viewer" }
 
 # Web framework
 axum = { workspace = true }

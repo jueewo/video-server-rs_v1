@@ -151,6 +151,10 @@ impl UnifiedMediaItem {
             Self::MediaItem(m) => {
                 if self.is_markdown() {
                     format!("/media/{}/view", m.slug)
+                } else if m.filename.ends_with(".bpmn") {
+                    format!("/media/{}/bpmn", m.slug)
+                } else if m.filename.ends_with(".pdf") {
+                    format!("/media/{}/pdf", m.slug)
                 } else {
                     self.public_url()
                 }

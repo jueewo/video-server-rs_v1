@@ -321,60 +321,64 @@
         </form>
         <h3 class="font-bold text-lg mb-4">Edit Media</h3>
 
-        <form id="edit_form" class="space-y-4">
+        <form id="edit_form">
             <input type="hidden" id="edit_slug" name="slug">
 
-            <!-- Title -->
-            <div class="form-control">
-                <label class="label">
-                    <span class="label-text">Title</span>
-                </label>
-                <input type="text" id="edit_title" name="title" class="input input-bordered" required>
-            </div>
-
-            <!-- Description -->
-            <div class="form-control">
-                <label class="label">
-                    <span class="label-text">Description</span>
-                </label>
-                <textarea id="edit_description" name="description" class="textarea textarea-bordered h-24"></textarea>
-            </div>
-
-            <!-- Visibility Toggle -->
-            <div class="form-control">
-                <label class="label cursor-pointer">
-                    <span class="label-text">Public</span>
-                    <input type="checkbox" id="edit_is_public" name="is_public" class="toggle toggle-primary">
-                </label>
-                <label class="label">
-                    <span class="label-text-alt">Make this media visible to everyone</span>
-                </label>
-            </div>
-
-            <!-- Tags -->
-            <div class="form-control">
-                <label class="label">
-                    <span class="label-text">Tags</span>
-                    <span class="label-text-alt">Comma-separated</span>
-                </label>
-                <input type="text" id="edit_tags" name="tags" class="input input-bordered" placeholder="tag1, tag2, tag3">
-            </div>
-
-            <!-- Category -->
-            <div class="form-control">
-                <label class="label">
-                    <span class="label-text">Category</span>
-                </label>
-                <input type="text" id="edit_category" name="category" class="input input-bordered" placeholder="Optional category">
-            </div>
-
-            <!-- Featured Toggle -->
-            <div class="form-control">
-                <label class="label cursor-pointer">
-                    <span class="label-text">Featured</span>
-                    <input type="checkbox" id="edit_featured" name="featured" class="toggle">
-                </label>
-            </div>
+            <table class="w-full text-sm">
+                <colgroup>
+                    <col class="w-32">
+                    <col>
+                </colgroup>
+                <tbody class="align-top">
+                    <tr>
+                        <td class="py-2 pr-4 text-base-content/70 font-medium whitespace-nowrap pt-3">Title</td>
+                        <td class="py-2">
+                            <input type="text" id="edit_title" name="title" class="input input-bordered input-sm w-full" required>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-4 text-base-content/70 font-medium whitespace-nowrap pt-3">Description</td>
+                        <td class="py-2">
+                            <textarea id="edit_description" name="description" class="textarea textarea-bordered textarea-sm w-full h-20"></textarea>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-4 text-base-content/70 font-medium whitespace-nowrap pt-3">Tags</td>
+                        <td class="py-2">
+                            <input type="text" id="edit_tags" name="tags" class="input input-bordered input-sm w-full" placeholder="tag1, tag2, tag3">
+                            <span class="text-xs text-base-content/50 mt-1 block">Comma-separated</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-4 text-base-content/70 font-medium whitespace-nowrap pt-3">Category</td>
+                        <td class="py-2">
+                            <input type="text" id="edit_category" name="category" class="input input-bordered input-sm w-full" placeholder="Optional">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-4 text-base-content/70 font-medium whitespace-nowrap pt-3">Group</td>
+                        <td class="py-2">
+                            <select id="edit_group_id" class="select select-bordered select-sm w-full">
+                                <option value="">— No group —</option>
+                                <!-- populated by JS on modal open -->
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-4 text-base-content/70 font-medium whitespace-nowrap pt-3">Public</td>
+                        <td class="py-2 pt-3">
+                            <input type="checkbox" id="edit_is_public" name="is_public" class="toggle toggle-primary toggle-sm">
+                            <span class="text-xs text-base-content/50 ml-2">Visible to everyone</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-4 text-base-content/70 font-medium whitespace-nowrap pt-3">Featured</td>
+                        <td class="py-2 pt-3">
+                            <input type="checkbox" id="edit_featured" name="featured" class="toggle toggle-sm">
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
 
             <!-- Form Actions -->
             <div class="modal-action">
@@ -477,6 +481,23 @@
                 document.getElementById('edit_tags').value = '';
             }
 
+            // Load groups for selector
+            const groupSelect = document.getElementById('edit_group_id');
+            groupSelect.innerHTML = '<option value="">— No group —</option>';
+            try {
+                const gResp = await fetch('/api/media/groups');
+                if (gResp.ok) {
+                    const groups = await gResp.json();
+                    groups.forEach(g => {
+                        const opt = document.createElement('option');
+                        opt.value = g.id;
+                        opt.textContent = g.name;
+                        if (media.group_id && g.id === media.group_id) opt.selected = true;
+                        groupSelect.appendChild(opt);
+                    });
+                }
+            } catch (e) { /* non-fatal: selector just stays empty */ }
+
             // Show modal
             document.getElementById('edit_modal').showModal();
         } catch (error) {
@@ -493,6 +514,7 @@
                 e.preventDefault();
 
                 const slug = document.getElementById('edit_slug').value;
+                const groupVal = document.getElementById('edit_group_id').value;
                 const formData = {
                     title: document.getElementById('edit_title').value,
                     description: document.getElementById('edit_description').value || null,
@@ -502,7 +524,8 @@
                     tags: document.getElementById('edit_tags').value
                         .split(',')
                         .map(t => t.trim())
-                        .filter(t => t.length > 0)
+                        .filter(t => t.length > 0),
+                    group_id: groupVal === '' ? null : parseInt(groupVal, 10),
                 };
 
                 try {

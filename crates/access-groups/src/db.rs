@@ -182,6 +182,9 @@ pub async fn get_user_groups(pool: &SqlitePool, user_id: &str) -> Result<Vec<Gro
 }
 
 /// Update group
+///
+/// The slug is a stable identifier set at creation and never changes,
+/// matching the "Cannot be changed" label in the settings UI.
 pub async fn update_group(
     pool: &SqlitePool,
     slug: &str,
@@ -192,37 +195,20 @@ pub async fn update_group(
     let name = request.name.unwrap_or(group.name);
     let description = request.description.or(group.description);
 
-    // Generate new slug if name changed
-    let new_slug = generate_slug(&name);
-
-    // Check if new slug conflicts
-    if new_slug != slug {
-        let existing =
-            sqlx::query_scalar::<_, i32>("SELECT COUNT(*) FROM access_groups WHERE slug = ?")
-                .bind(&new_slug)
-                .fetch_one(pool)
-                .await?;
-
-        if existing > 0 {
-            return Err(AccessGroupError::SlugExists(new_slug));
-        }
-    }
-
     sqlx::query(
         r#"
         UPDATE access_groups
-        SET name = ?, slug = ?, description = ?, updated_at = CURRENT_TIMESTAMP
+        SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
         "#,
     )
     .bind(&name)
-    .bind(&new_slug)
     .bind(&description)
     .bind(group.id)
     .execute(pool)
     .await?;
 
-    get_group_by_slug(pool, &new_slug).await
+    get_group_by_slug(pool, slug).await
 }
 
 /// Soft delete a group

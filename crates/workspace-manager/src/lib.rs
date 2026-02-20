@@ -99,6 +99,13 @@ pub struct CreateFileRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct UpdateFolderMetadataRequest {
+    pub path: String,
+    pub folder_type: FolderType,
+    pub metadata: std::collections::HashMap<String, serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ServeFileQuery {
     pub path: String,
 }
@@ -670,6 +677,46 @@ pub async fn serve_workspace_file(
 // ============================================================================
 // Upload Handler
 // ============================================================================
+
+/// PATCH /api/workspaces/{workspace_id}/folder-metadata
+pub async fn update_folder_metadata(
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(request): Json<UpdateFolderMetadataRequest>,
+) -> Result<StatusCode, StatusCode> {
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+
+    // Load workspace config
+    let mut config = WorkspaceConfig::load(&workspace_root).map_err(|e| {
+        warn!("Failed to load workspace.yaml: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Update folder type
+    config.upsert_folder(request.path.clone(), request.folder_type);
+
+    // Update metadata
+    for (key, value) in request.metadata {
+        // Convert serde_json::Value to serde_yaml::Value
+        let yaml_value = serde_yaml::to_value(&value).map_err(|e| {
+            warn!("Failed to convert metadata value: {}", e);
+            StatusCode::BAD_REQUEST
+        })?;
+        config.set_folder_metadata(&request.path, key, yaml_value);
+    }
+
+    // Save config
+    config.save(&workspace_root).map_err(|e| {
+        warn!("Failed to save workspace.yaml: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    Ok(StatusCode::OK)
+}
 
 /// POST /api/workspaces/{workspace_id}/files/upload
 ///
@@ -1370,6 +1417,10 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         .route(
             "/api/workspaces/{workspace_id}/files/publish",
             post(publish_to_vault),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/folder-metadata",
+            axum::routing::patch(update_folder_metadata),
         )
         .layer(axum::extract::DefaultBodyLimit::max(100 * 1024 * 1024)) // 100 MB per upload
         // UI pages

@@ -23,3 +23,4 @@ common = { path = "../common" }
 docs-viewer = { path = "../docs-viewer" }
 pdf-viewer = { path = "../pdf-viewer" }
 bpmn-viewer = { path = "../bpmn-viewer" }
+course-processor = { path = "../workspace-processors/course-processor" }

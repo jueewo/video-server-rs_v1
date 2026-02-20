@@ -10,6 +10,7 @@ use axum::{
 };
 use bpmn_viewer::BpmnViewerTemplate;
 use common::storage::{generate_workspace_id, MediaType, UserStorageManager};
+use course_processor::CourseConfig;
 use docs_viewer::{editor::EditorTemplate, MarkdownRenderer};
 use pdf_viewer::PdfViewerTemplate;
 use serde::{Deserialize, Serialize};
@@ -132,6 +133,24 @@ pub struct PublishResponse {
     pub slug: String,
     pub media_url: String,
     pub share_url: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PublishCourseRequest {
+    pub folder_path: String,
+    pub vault_id: String,
+    pub title: String,
+    pub access_code: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PublishCourseResponse {
+    pub slug: String,
+    pub media_url: String,
+    pub share_url: Option<String>,
+    pub module_count: i32,
+    pub lesson_count: usize,
+    pub total_duration_minutes: i32,
 }
 
 /// Body sent by bpmn-js saveBpmn() — `{ "content": "..." }`
@@ -1503,6 +1522,254 @@ pub async fn publish_to_vault(
     }))
 }
 
+/// POST /api/workspaces/{workspace_id}/course/publish
+///
+/// Publishes a course folder to a vault as a course manifest.
+pub async fn publish_course(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(request): Json<PublishCourseRequest>,
+) -> Result<Json<PublishCourseResponse>, StatusCode> {
+    check_scope(&user, "write")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    // Verify vault belongs to this user
+    let vault_exists: Option<String> = sqlx::query_scalar(
+        "SELECT vault_id FROM storage_vaults WHERE vault_id = ? AND user_id = ?",
+    )
+    .bind(&request.vault_id)
+    .bind(&user_id)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    if vault_exists.is_none() {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    // Validate inputs
+    if request.folder_path.trim().is_empty() || request.title.trim().is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    // Get course folder path
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let clean = request.folder_path.trim_start_matches('/');
+    for seg in clean.split('/') {
+        if seg == ".." || seg == "." {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+    }
+    let course_folder = workspace_root.join(clean);
+    if !course_folder.exists() || !course_folder.is_dir() {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    // Load workspace config and verify folder is a course
+    let config = WorkspaceConfig::load(&workspace_root).map_err(|e| {
+        warn!("Failed to load workspace config: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let folder_config = config
+        .get_folder(&request.folder_path)
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    if folder_config.folder_type != FolderType::Course {
+        warn!(
+            "Folder {} is not a course (type: {:?})",
+            request.folder_path, folder_config.folder_type
+        );
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    // Load and validate course structure
+    let course_config = CourseConfig::load(&course_folder).map_err(|e| {
+        warn!("Failed to load course.yaml: {}", e);
+        StatusCode::BAD_REQUEST
+    })?;
+
+    // Validate all lesson files exist
+    for module in &course_config.modules {
+        for lesson in &module.lessons {
+            let lesson_path = course_folder.join(&lesson.file);
+            if !lesson_path.exists() {
+                warn!(
+                    "Lesson file not found: {} (module: {})",
+                    lesson.file, module.title
+                );
+                return Err(StatusCode::BAD_REQUEST);
+            }
+        }
+    }
+
+    // TODO: Validate media references exist in vault
+    // For now, we'll just log warnings for missing media
+    for module in &course_config.modules {
+        for lesson in &module.lessons {
+            for media_ref in &lesson.media_refs {
+                let media_exists: Option<i64> = sqlx::query_scalar(
+                    "SELECT id FROM media_items WHERE slug = ? AND vault_id = ?",
+                )
+                .bind(&media_ref.slug)
+                .bind(media_ref.vault_id.as_ref().unwrap_or(&request.vault_id))
+                .fetch_optional(&state.pool)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+                if media_exists.is_none() {
+                    warn!(
+                        "Media reference not found in vault: {} (lesson: {})",
+                        media_ref.slug, lesson.title
+                    );
+                    // Continue for now - media might be added later
+                }
+            }
+        }
+    }
+
+    // Generate course manifest JSON
+    let manifest = course_processor::generate_manifest(&course_folder).map_err(|e| {
+        warn!("Failed to generate course manifest: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let manifest_json = serde_json::to_string_pretty(&manifest).map_err(|e| {
+        warn!("Failed to serialize manifest: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Generate unique slug from title
+    let base_slug = slugify(request.title.trim());
+    let slug = {
+        let mut candidate = base_slug.clone();
+        let mut attempt = 2u32;
+        loop {
+            let exists: Option<i64> =
+                sqlx::query_scalar("SELECT id FROM media_items WHERE slug = ?")
+                    .bind(&candidate)
+                    .fetch_optional(&state.pool)
+                    .await
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            if exists.is_none() {
+                break candidate;
+            }
+            if attempt > 100 {
+                return Err(StatusCode::CONFLICT);
+            }
+            candidate = format!("{}_{}", base_slug, attempt);
+            attempt += 1;
+        }
+    };
+
+    // Ensure vault storage dirs exist
+    state
+        .storage
+        .ensure_vault_storage(&request.vault_id)
+        .map_err(|e| {
+            warn!("Failed to ensure vault storage: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    // Save manifest JSON to vault
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let stored_filename = format!("{}_course-manifest.json", timestamp);
+
+    let dest_dir = state
+        .storage
+        .vault_media_dir(&request.vault_id, MediaType::Document);
+    let dest = dest_dir.join(&stored_filename);
+
+    std::fs::write(&dest, manifest_json.as_bytes()).map_err(|e| {
+        warn!("Failed to write course manifest {:?}: {}", dest, e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let file_size = manifest_json.len() as i64;
+
+    // Insert media_items record with media_type='course'
+    sqlx::query(
+        "INSERT INTO media_items
+         (slug, media_type, title, filename, original_filename, mime_type, file_size,
+          is_public, user_id, vault_id, status, allow_download, allow_comments, mature_content)
+         VALUES (?, 'course', ?, ?, ?, 'application/json', ?, 0, ?, ?, 'active', 1, 1, 0)",
+    )
+    .bind(&slug)
+    .bind(request.title.trim())
+    .bind(&stored_filename)
+    .bind("course-manifest.json")
+    .bind(file_size)
+    .bind(&user_id)
+    .bind(&request.vault_id)
+    .execute(&state.pool)
+    .await
+    .map_err(|e| {
+        warn!("Failed to insert course media_items record: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Optionally create + link access code
+    let share_url = if let Some(ref code) = request.access_code {
+        let code = code.trim();
+        if !code.is_empty() {
+            // Insert access code
+            let access_code_id: i64 = sqlx::query_scalar(
+                "INSERT INTO access_codes (code, created_by, permission_level, is_active, created_at)
+                 VALUES (?, ?, 'read', 1, datetime('now'))
+                 RETURNING id",
+            )
+            .bind(code)
+            .bind(&user_id)
+            .fetch_one(&state.pool)
+            .await
+            .map_err(|e| {
+                warn!("Failed to insert access_code: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+
+            // Link access code to course
+            sqlx::query(
+                "INSERT INTO access_code_permissions (access_code_id, media_type, media_slug)
+                 VALUES (?, 'course', ?)",
+            )
+            .bind(access_code_id)
+            .bind(&slug)
+            .execute(&state.pool)
+            .await
+            .map_err(|e| {
+                warn!("Failed to insert access_code_permissions: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+
+            Some(format!("/course/{}?code={}", slug, urlencoding::encode(code)))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    info!(
+        "Published course {} to vault {} as slug {}",
+        request.folder_path, request.vault_id, slug
+    );
+
+    Ok(Json(PublishCourseResponse {
+        media_url: format!("/course/{}", slug),
+        share_url,
+        slug,
+        module_count: course_config.modules.len() as i32,
+        lesson_count: course_config.lesson_count(),
+        total_duration_minutes: course_config.total_duration_minutes(),
+    }))
+}
+
 // ============================================================================
 // Router
 // ============================================================================
@@ -1551,6 +1818,10 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         .route(
             "/api/workspaces/{workspace_id}/files/publish",
             post(publish_to_vault),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/course/publish",
+            post(publish_course),
         )
         .route(
             "/api/workspaces/{workspace_id}/folder-config",

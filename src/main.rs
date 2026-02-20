@@ -72,6 +72,7 @@ use access_control::AccessControlService;
 use access_groups;
 use api_keys::{middleware::api_key_or_session_auth, routes::api_key_routes};
 use common::{create_search_routes, create_tag_routes, request_id::request_id_middleware};
+use course_viewer::{course_viewer_routes, CourseViewerState};
 use docs_viewer::{docs_routes, markdown::MarkdownRenderer, DocsState};
 use gallery3d;
 use media_manager::{media_routes, MediaManagerState};
@@ -695,6 +696,13 @@ async fn main() -> anyhow::Result<()> {
     println!("📚 Docs Viewer initialized");
     println!("   - Docs root: {}", docs_root.display());
 
+    // Initialize Course Viewer state
+    let course_viewer_state = Arc::new(CourseViewerState {
+        pool: pool.clone(),
+        storage_path: storage_dir.to_string_lossy().to_string(),
+    });
+    println!("🎓 Course Viewer initialized");
+
     // Load application configuration
     let app_config = AppConfig::load();
     println!("📋 Application Configuration:");
@@ -868,6 +876,8 @@ async fn main() -> anyhow::Result<()> {
             axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
         ))
         .merge(gallery3d::router(Arc::new(pool.clone())))
+        // Course viewer (standalone course presentation)
+        .merge(course_viewer_routes(course_viewer_state))
         // Documentation viewer (markdown preview)
         .nest(
             "/docs",

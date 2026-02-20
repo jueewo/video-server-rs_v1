@@ -147,22 +147,6 @@
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
-<!-- New Folder Modal -->
-<dialog id="new-folder-modal" class="modal">
-    <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4">📁 New Folder</h3>
-        <div class="form-control mb-4">
-            <label class="label"><span class="label-text">Folder name</span></label>
-            <input type="text" id="new-folder-name" placeholder="e.g. diagrams" class="input input-bordered" />
-        </div>
-        <div class="modal-action">
-            <button onclick="document.getElementById('new-folder-modal').close()" class="btn btn-ghost">Cancel</button>
-            <button onclick="submitNewFolder()" class="btn btn-primary">Create</button>
-        </div>
-    </div>
-    <form method="dialog" class="modal-backdrop"><button>close</button></form>
-</dialog>
-
 <!-- Publish to Vault Modal -->
 <dialog id="publish-modal" class="modal">
     <div class="modal-box">
@@ -194,8 +178,9 @@
 <!-- Folder Settings Modal -->
 <dialog id="folder-settings-modal" class="modal">
     <div class="modal-box max-w-2xl">
-        <h3 class="font-bold text-lg mb-4">⚙️ Folder Settings</h3>
+        <h3 id="folder-settings-title" class="font-bold text-lg mb-4">⚙️ Folder Settings</h3>
         <input type="hidden" id="folder-settings-path" />
+        <input type="hidden" id="folder-settings-mode" value="edit" />
 
         <table class="table table-sm mb-4">
             <tbody>
@@ -233,6 +218,7 @@
                             <option value="agent-collection">🤖 Agent Collection — AI agents</option>
                             <option value="documentation">📚 Documentation — Docs projects</option>
                             <option value="data-pipeline">📊 Data Pipeline — ETL workflows</option>
+                            <option value="course">🎓 Course — Educational content</option>
                         </select>
                     </td>
                 </tr>
@@ -245,10 +231,10 @@
         </div>
 
         <div class="modal-action justify-between">
-            <button onclick="confirmDeleteFolder()" class="btn btn-error btn-outline">🗑️ Delete Folder</button>
+            <button id="delete-folder-btn" onclick="confirmDeleteFolder()" class="btn btn-error btn-outline">🗑️ Delete Folder</button>
             <div class="flex gap-2">
                 <button onclick="document.getElementById('folder-settings-modal').close()" class="btn btn-ghost">Cancel</button>
-                <button onclick="saveFolderSettings()" class="btn btn-primary">💾 Save Settings</button>
+                <button id="save-folder-btn" onclick="saveFolderSettings()" class="btn btn-primary">💾 Save Settings</button>
             </div>
         </div>
     </div>
@@ -331,8 +317,20 @@
     }
 
     function newFolder() {
-        document.getElementById('new-folder-name').value = '';
-        document.getElementById('new-folder-modal').showModal();
+        // Open folder settings modal in create mode
+        document.getElementById('folder-settings-mode').value = 'create';
+        document.getElementById('folder-settings-title').textContent = '📁 Create New Folder';
+        document.getElementById('folder-settings-path').value = '';
+        document.getElementById('folder-name').value = '';
+        document.getElementById('folder-description').value = '';
+        document.getElementById('folder-type').value = 'plain';
+
+        // Hide delete button in create mode
+        document.getElementById('delete-folder-btn').style.display = 'none';
+        document.getElementById('save-folder-btn').textContent = '✨ Create Folder';
+
+        updateMetadataFields();
+        document.getElementById('folder-settings-modal').showModal();
     }
 
     function generateBpmnId(prefix) {
@@ -388,27 +386,6 @@
         }
     }
 
-    async function submitNewFolder() {
-        const name = document.getElementById('new-folder-name').value.trim();
-        if (!name) return;
-        const fullPath = pathJoin(CURRENT_PATH, name);
-        try {
-            const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/mkdir`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: fullPath }),
-            });
-            if (r.ok) {
-                document.getElementById('new-folder-modal').close();
-                window.location.reload();
-            } else {
-                alert('Failed to create folder');
-            }
-        } catch (e) {
-            alert('Network error: ' + e.message);
-        }
-    }
-
     // ── Delete ──────────────────────────────────────────────────────────────
 
     async function deleteItem(path, isDir) {
@@ -432,6 +409,12 @@
 
     async function openFolderSettings(folderPath, folderName) {
         event.stopPropagation(); // Prevent navigation to folder
+
+        // Set edit mode
+        document.getElementById('folder-settings-mode').value = 'edit';
+        document.getElementById('folder-settings-title').textContent = '⚙️ Folder Settings';
+        document.getElementById('delete-folder-btn').style.display = 'block';
+        document.getElementById('save-folder-btn').textContent = '💾 Save Settings';
 
         document.getElementById('folder-settings-path').value = folderPath;
         document.getElementById('folder-name').value = folderName;
@@ -591,6 +574,49 @@
                 `;
                 break;
 
+            case 'course':
+                container.innerHTML = `
+                    <div class="alert alert-info mb-4">
+                        <div>
+                            <h4 class="font-bold">🎓 Course Folder</h4>
+                            <p class="text-sm mt-1">Create a <code>course.yaml</code> file in this folder to define your course structure.</p>
+                            <p class="text-sm mt-2">Once configured, you can publish the course to a vault via the API.</p>
+                        </div>
+                    </div>
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <td class="font-medium w-1/3">Course Config</td>
+                                <td><span class="badge badge-neutral">course.yaml</span></td>
+                            </tr>
+                            <tr>
+                                <td class="font-medium">Publish Endpoint</td>
+                                <td><code class="text-xs">/api/workspaces/{id}/course/publish</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <details class="collapse collapse-arrow bg-base-200 mt-3">
+                        <summary class="collapse-title text-sm font-medium">
+                            📖 Course Structure Example
+                        </summary>
+                        <div class="collapse-content">
+                            <pre class="text-xs bg-base-100 p-3 rounded overflow-x-auto"><code>title: "My Course"
+instructor: "Your Name"
+level: "beginner"
+entry_point: "index.md"
+
+modules:
+  - title: "Module 1"
+    order: 1
+    lessons:
+      - title: "Lesson 1"
+        file: "lesson1.md"
+        duration_minutes: 30</code></pre>
+                        </div>
+                    </details>
+                `;
+                break;
+
             case 'plain':
             default:
                 container.innerHTML = `
@@ -603,6 +629,7 @@
     }
 
     async function saveFolderSettings() {
+        const mode = document.getElementById('folder-settings-mode').value;
         const path = document.getElementById('folder-settings-path').value;
         const newName = document.getElementById('folder-name').value.trim();
         const description = document.getElementById('folder-description').value.trim();
@@ -628,27 +655,70 @@
         });
 
         try {
-            const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/folder-metadata`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    path: path,
-                    new_name: newName,
-                    description: description || null,
-                    folder_type: folderType,
-                    metadata: metadata
-                }),
-            });
+            if (mode === 'create') {
+                // Create mode: first create the folder via mkdir API
+                const mkdirRes = await fetch(`/api/workspaces/${WORKSPACE_ID}/mkdir`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: newName }),
+                });
 
-            if (r.ok) {
-                document.getElementById('folder-settings-modal').close();
-                showToast('Folder settings saved!', 'success');
-                setTimeout(() => window.location.reload(), 500);
-            } else if (r.status === 409) {
-                showToast('A folder with that name already exists', 'error');
+                if (!mkdirRes.ok) {
+                    if (mkdirRes.status === 409) {
+                        showToast('A folder with that name already exists', 'error');
+                    } else {
+                        const error = await mkdirRes.text();
+                        showToast('Failed to create folder: ' + error, 'error');
+                    }
+                    return;
+                }
+
+                // Now set folder metadata (type, description, metadata)
+                const metadataRes = await fetch(`/api/workspaces/${WORKSPACE_ID}/folder-metadata`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: newName,
+                        new_name: newName,
+                        description: description || null,
+                        folder_type: folderType,
+                        metadata: metadata
+                    }),
+                });
+
+                if (metadataRes.ok) {
+                    document.getElementById('folder-settings-modal').close();
+                    showToast('Folder created successfully!', 'success');
+                    setTimeout(() => window.location.reload(), 500);
+                } else {
+                    const error = await metadataRes.text();
+                    showToast('Folder created but failed to save settings: ' + error, 'error');
+                    setTimeout(() => window.location.reload(), 500);
+                }
             } else {
-                const error = await r.text();
-                showToast('Failed to save: ' + error, 'error');
+                // Edit mode: update existing folder settings
+                const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/folder-metadata`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: path,
+                        new_name: newName,
+                        description: description || null,
+                        folder_type: folderType,
+                        metadata: metadata
+                    }),
+                });
+
+                if (r.ok) {
+                    document.getElementById('folder-settings-modal').close();
+                    showToast('Folder settings saved!', 'success');
+                    setTimeout(() => window.location.reload(), 500);
+                } else if (r.status === 409) {
+                    showToast('A folder with that name already exists', 'error');
+                } else {
+                    const error = await r.text();
+                    showToast('Failed to save: ' + error, 'error');
+                }
             }
         } catch (e) {
             showToast('Network error: ' + e.message, 'error');

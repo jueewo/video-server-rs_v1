@@ -44,6 +44,8 @@ pub enum FolderType {
     Documentation,
     /// Data pipeline
     DataPipeline,
+    /// Structured online course
+    Course,
 }
 
 impl Default for FolderType {

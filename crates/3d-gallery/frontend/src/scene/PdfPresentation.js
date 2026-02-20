@@ -45,13 +45,22 @@ async function loadPdfJs() {
   pdfJsLoadPromise = import("pdfjs-dist")
     .then((module) => {
       pdfjsLib = module;
+      console.log("📦 PDF.js module loaded, version:", pdfjsLib.version);
+
       // Point the worker to the CDN so esbuild doesn't bundle it
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-      console.log("✅ PDF.js loaded successfully");
+      const workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+      console.log("✅ PDF.js worker configured:", workerSrc);
+
       return pdfjsLib;
     })
     .catch((error) => {
-      console.error("❌ Failed to load PDF.js:", error);
+      console.error("❌ Failed to load PDF.js module:", error);
+      console.error("Error details:", {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      });
       pdfJsLoading = false;
       pdfJsLoadPromise = null;
       throw error;
@@ -341,14 +350,24 @@ export function createPdfPresentation(scene, media, options) {
 
   // Load PDF with lazy-loaded PDF.js library
   loadPdfJs()
-    .then((lib) => lib.getDocument(media.url).promise)
+    .then((lib) => {
+      console.log("📄 Loading PDF document:", media.url);
+      return lib.getDocument(media.url).promise;
+    })
     .then(async (doc) => {
       pdfDoc = doc;
       console.log(`✅ PDF loaded: ${media.title} (${doc.numPages} pages)`);
       await renderPage(pdfDoc, 1, texCtx, texture);
     })
     .catch((err) => {
-      console.error("❌ Failed to load PDF for 3D gallery:", err);
+      console.error("❌ Failed to load PDF for 3D gallery:", media.title);
+      console.error("PDF error details:", {
+        name: err.name,
+        message: err.message,
+        url: media.url,
+      });
+
+      // Show error on canvas
       texCtx.fillStyle = "#1a1a2e";
       texCtx.fillRect(0, 0, TEX_W, TEX_H);
       texCtx.fillStyle = "#e94560";
@@ -356,6 +375,16 @@ export function createPdfPresentation(scene, media, options) {
       texCtx.textAlign = "center";
       texCtx.textBaseline = "middle";
       texCtx.fillText("Failed to load PDF", TEX_W / 2, TEX_H / 2);
+
+      // Show error details
+      texCtx.font = "20px sans-serif";
+      texCtx.fillStyle = "rgba(255,255,255,0.7)";
+      texCtx.fillText(
+        err.message || "Unknown error",
+        TEX_W / 2,
+        TEX_H / 2 + 60,
+      );
+
       texture.update();
     });
 

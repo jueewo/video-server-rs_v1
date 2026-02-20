@@ -413,13 +413,38 @@
 
     // ── Folder Settings ─────────────────────────────────────────────────────
 
-    function openFolderSettings(folderPath, folderName) {
+    async function openFolderSettings(folderPath, folderName) {
         event.stopPropagation(); // Prevent navigation to folder
+
         document.getElementById('folder-settings-path').value = folderPath;
         document.getElementById('folder-name').value = folderName;
-        document.getElementById('folder-description').value = ''; // TODO: Load from workspace.yaml if exists
-        document.getElementById('folder-type').value = 'plain'; // TODO: Load from workspace.yaml if exists
-        updateMetadataFields();
+
+        // Load existing folder config from workspace.yaml
+        try {
+            const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/folder-config?path=${encodeURIComponent(folderPath)}`);
+            if (r.ok) {
+                const config = await r.json();
+                document.getElementById('folder-type').value = config.type || 'plain';
+                document.getElementById('folder-description').value = config.description || '';
+
+                // Update metadata fields for this type
+                updateMetadataFields();
+
+                // Populate metadata fields if they exist
+                if (config.metadata) {
+                    Object.entries(config.metadata).forEach(([key, value]) => {
+                        const fieldId = `meta-${key.replace(/_/g, '-')}`;
+                        const field = document.getElementById(fieldId);
+                        if (field) {
+                            field.value = value;
+                        }
+                    });
+                }
+            }
+        } catch (e) {
+            console.error('Failed to load folder config:', e);
+        }
+
         document.getElementById('folder-settings-modal').showModal();
     }
 
@@ -434,90 +459,118 @@
         switch (type) {
             case 'static-site':
                 container.innerHTML = `
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Framework</span></label>
-                        <select id="meta-framework" class="select select-bordered select-sm">
-                            <option value="plain-html">Plain HTML</option>
-                            <option value="hugo">Hugo</option>
-                            <option value="jekyll">Jekyll</option>
-                        </select>
-                    </div>
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Entry Point</span></label>
-                        <input type="text" id="meta-entry-point" value="index.html" class="input input-bordered input-sm" />
-                    </div>
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Theme (optional)</span></label>
-                        <input type="text" id="meta-theme" placeholder="e.g. minimal" class="input input-bordered input-sm" />
-                    </div>
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <td class="font-medium w-1/3">Framework</td>
+                                <td>
+                                    <select id="meta-framework" class="select select-bordered select-sm w-full">
+                                        <option value="plain-html">Plain HTML</option>
+                                        <option value="hugo">Hugo</option>
+                                        <option value="jekyll">Jekyll</option>
+                                        <option value="astro-appkask">Astro Appkask</option>
+                                        <option value="docs-appkask">Docs Appkask</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="font-medium">Entry Point</td>
+                                <td><input type="text" id="meta-entry-point" value="index.html" class="input input-bordered input-sm w-full" /></td>
+                            </tr>
+                            <tr>
+                                <td class="font-medium">Theme <span class="text-base-content/50">(optional)</span></td>
+                                <td><input type="text" id="meta-theme" placeholder="e.g. minimal" class="input input-bordered input-sm w-full" /></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 `;
                 break;
 
             case 'bpmn-simulator':
                 container.innerHTML = `
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Main Process File</span></label>
-                        <input type="text" id="meta-main-process" placeholder="e.g. order-flow.bpmn" class="input input-bordered input-sm" />
-                    </div>
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Default Timeout (seconds)</span></label>
-                        <input type="number" id="meta-timeout" value="3600" class="input input-bordered input-sm" />
-                    </div>
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Max Retries</span></label>
-                        <input type="number" id="meta-retries" value="3" class="input input-bordered input-sm" />
-                    </div>
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <td class="font-medium w-1/3">Main Process File</td>
+                                <td><input type="text" id="meta-main-process" placeholder="e.g. order-flow.bpmn" class="input input-bordered input-sm w-full" /></td>
+                            </tr>
+                            <tr>
+                                <td class="font-medium">Default Timeout <span class="text-base-content/50">(seconds)</span></td>
+                                <td><input type="number" id="meta-timeout" value="3600" class="input input-bordered input-sm w-full" /></td>
+                            </tr>
+                            <tr>
+                                <td class="font-medium">Max Retries</td>
+                                <td><input type="number" id="meta-retries" value="3" class="input input-bordered input-sm w-full" /></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 `;
                 break;
 
             case 'agent-collection':
                 container.innerHTML = `
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Default Model</span></label>
-                        <select id="meta-model" class="select select-bordered select-sm">
-                            <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
-                            <option value="claude-opus-4.6">Claude Opus 4.6</option>
-                            <option value="claude-haiku-4.5">Claude Haiku 4.5</option>
-                        </select>
-                    </div>
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Shared Context File (optional)</span></label>
-                        <input type="text" id="meta-shared-context" placeholder="e.g. context/docs.md" class="input input-bordered input-sm" />
-                    </div>
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Memory Directory (optional)</span></label>
-                        <input type="text" id="meta-memory-dir" placeholder="e.g. .memory/" class="input input-bordered input-sm" />
-                    </div>
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <td class="font-medium w-1/3">Default Model</td>
+                                <td>
+                                    <select id="meta-model" class="select select-bordered select-sm w-full">
+                                        <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
+                                        <option value="claude-opus-4.6">Claude Opus 4.6</option>
+                                        <option value="claude-haiku-4.5">Claude Haiku 4.5</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="font-medium">Shared Context <span class="text-base-content/50">(optional)</span></td>
+                                <td><input type="text" id="meta-shared-context" placeholder="e.g. context/docs.md" class="input input-bordered input-sm w-full" /></td>
+                            </tr>
+                            <tr>
+                                <td class="font-medium">Memory Directory <span class="text-base-content/50">(optional)</span></td>
+                                <td><input type="text" id="meta-memory-dir" placeholder="e.g. .memory/" class="input input-bordered input-sm w-full" /></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 `;
                 break;
 
             case 'documentation':
                 container.innerHTML = `
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Documentation Format</span></label>
-                        <select id="meta-format" class="select select-bordered select-sm">
-                            <option value="mdbook">mdBook</option>
-                            <option value="sphinx">Sphinx</option>
-                            <option value="docusaurus">Docusaurus</option>
-                        </select>
-                    </div>
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Index File</span></label>
-                        <input type="text" id="meta-index" value="SUMMARY.md" class="input input-bordered input-sm" />
-                    </div>
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <td class="font-medium w-1/3">Documentation Format</td>
+                                <td>
+                                    <select id="meta-format" class="select select-bordered select-sm w-full">
+                                        <option value="mdbook">mdBook</option>
+                                        <option value="sphinx">Sphinx</option>
+                                        <option value="docusaurus">Docusaurus</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="font-medium">Index File</td>
+                                <td><input type="text" id="meta-index" value="SUMMARY.md" class="input input-bordered input-sm w-full" /></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 `;
                 break;
 
             case 'data-pipeline':
                 container.innerHTML = `
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Workflow File</span></label>
-                        <input type="text" id="meta-workflow" placeholder="e.g. pipeline.yaml" class="input input-bordered input-sm" />
-                    </div>
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Schedule (cron format, optional)</span></label>
-                        <input type="text" id="meta-schedule" placeholder="e.g. 0 */6 * * *" class="input input-bordered input-sm" />
-                    </div>
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <td class="font-medium w-1/3">Workflow File</td>
+                                <td><input type="text" id="meta-workflow" placeholder="e.g. pipeline.yaml" class="input input-bordered input-sm w-full" /></td>
+                            </tr>
+                            <tr>
+                                <td class="font-medium">Schedule <span class="text-base-content/50">(cron, optional)</span></td>
+                                <td><input type="text" id="meta-schedule" placeholder="e.g. 0 */6 * * *" class="input input-bordered input-sm w-full" /></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 `;
                 break;
 

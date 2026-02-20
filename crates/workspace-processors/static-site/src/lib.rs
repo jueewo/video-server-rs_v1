@@ -66,6 +66,8 @@ pub fn build_site(folder_path: &Path, config: &StaticSiteConfig) -> Result<Vec<u
         "plain-html" => build_plain_html(folder_path, config),
         "hugo" => build_hugo(folder_path, config),
         "jekyll" => build_jekyll(folder_path, config),
+        "astro-appkask" => build_astro_appkask(folder_path, config),
+        "docs-appkask" => build_docs_appkask(folder_path, config),
         _ => anyhow::bail!("Unsupported framework: {}", config.build.framework),
     }
 }
@@ -92,6 +94,22 @@ fn build_jekyll(_folder_path: &Path, _config: &StaticSiteConfig) -> Result<Vec<u
     // - Collect output from _site/ directory
     // - Create ZIP archive
     anyhow::bail!("Jekyll building not yet implemented")
+}
+
+fn build_docs_appkask(_folder_path: &Path, _config: &StaticSiteConfig) -> Result<Vec<u8>> {
+    // TODO: Execute jekyll build command
+    // - Run `jekyll build` CLI
+    // - Collect output from _site/ directory
+    // - Create ZIP archive
+    anyhow::bail!("Docs-Appkask building not yet implemented")
+}
+
+fn build_astro_appkask(_folder_path: &Path, _config: &StaticSiteConfig) -> Result<Vec<u8>> {
+    // TODO: Execute jekyll build command
+    // - Run `jekyll build` CLI
+    // - Collect output from _site/ directory
+    // - Create ZIP archive
+    anyhow::bail!("Astro-Appkask building not yet implemented")
 }
 
 #[cfg(test)]

@@ -680,6 +680,44 @@ pub async fn serve_workspace_file(
 // Upload Handler
 // ============================================================================
 
+/// GET /api/workspaces/{workspace_id}/folder-config?path=...
+pub async fn get_folder_config(
+    Path(workspace_id): Path<String>,
+    Query(query): Query<ServeFileQuery>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+
+    // Load workspace config
+    let config = WorkspaceConfig::load(&workspace_root).map_err(|e| {
+        warn!("Failed to load workspace.yaml: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Get folder config
+    let folder_config = config.get_folder(&query.path);
+
+    let response = if let Some(fc) = folder_config {
+        serde_json::json!({
+            "type": fc.folder_type,
+            "description": fc.description,
+            "metadata": fc.metadata,
+        })
+    } else {
+        serde_json::json!({
+            "type": "plain",
+            "description": null,
+            "metadata": {},
+        })
+    };
+
+    Ok(Json(response))
+}
+
 /// PATCH /api/workspaces/{workspace_id}/folder-metadata
 pub async fn update_folder_metadata(
     Path(workspace_id): Path<String>,
@@ -1462,6 +1500,10 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         .route(
             "/api/workspaces/{workspace_id}/files/publish",
             post(publish_to_vault),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/folder-config",
+            get(get_folder_config),
         )
         .route(
             "/api/workspaces/{workspace_id}/folder-metadata",

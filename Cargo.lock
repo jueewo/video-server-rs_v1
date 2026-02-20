@@ -5533,6 +5533,7 @@ dependencies = [
  "user-auth",
  "vault-manager",
  "video-manager",
+ "workspace-manager",
 ]
 
 [[package]]
@@ -6165,6 +6166,29 @@ dependencies = [
  "serde_json",
  "unicode-xid",
  "wasmparser",
+]
+
+[[package]]
+name = "workspace-manager"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "askama",
+ "axum",
+ "bpmn-viewer",
+ "common",
+ "docs-viewer",
+ "mime_guess",
+ "pdf-viewer",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "time",
+ "tokio",
+ "tower-sessions",
+ "tracing",
+ "urlencoding",
+ "walkdir",
 ]
 
 [[package]]

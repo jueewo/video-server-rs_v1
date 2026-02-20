@@ -66,6 +66,23 @@ pub fn generate_vault_id() -> String {
     format!("vault-{:08x}", random_part)
 }
 
+/// Generate a random workspace ID
+///
+/// Format: workspace-{8 random hex chars}
+/// Example: workspace-a1b2c3d4
+pub fn generate_workspace_id() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+
+    // Add small offset to avoid collisions with generate_vault_id called at same nanosecond
+    let random_part: u32 = ((timestamp.wrapping_add(0x9e37_79b9)) % (u32::MAX as u128)) as u32;
+    format!("workspace-{:08x}", random_part)
+}
+
 impl UserStorageManager {
     /// Create a new UserStorageManager
     pub fn new(base_dir: impl Into<PathBuf>) -> Self {
@@ -295,6 +312,30 @@ impl UserStorageManager {
     pub fn file_exists(&self, user_id: &str, media_type: MediaType, slug: &str) -> bool {
         self.find_file_location(user_id, media_type, slug)
             .is_some()
+    }
+
+    /// Get the workspaces root directory
+    ///
+    /// Returns: `storage/workspaces/`
+    pub fn workspaces_root(&self) -> PathBuf {
+        self.base_dir.join("workspaces")
+    }
+
+    /// Get the root storage directory for a specific workspace
+    ///
+    /// Returns: `storage/workspaces/{workspace_id}/`
+    pub fn workspace_root(&self, workspace_id: &str) -> PathBuf {
+        self.workspaces_root().join(workspace_id)
+    }
+
+    /// Ensure workspace root directory exists
+    ///
+    /// Creates: `storage/workspaces/{workspace_id}/`
+    pub fn ensure_workspace_storage(&self, workspace_id: &str) -> Result<()> {
+        let workspace_root = self.workspace_root(workspace_id);
+        ensure_dir_exists(&workspace_root)?;
+        info!("Ensured storage directory for workspace: {}", workspace_id);
+        Ok(())
     }
 
     /// Get temporary directory path

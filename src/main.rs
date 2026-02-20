@@ -79,6 +79,7 @@ use rate_limiter::RateLimitConfig;
 use user_auth::{auth_routes, AuthState, OidcConfig};
 use vault_manager::{vault_routes, VaultManagerState};
 use video_manager::{rtmp_publish_token, video_routes, VideoManagerState};
+use workspace_manager::{workspace_routes, WorkspaceManagerState};
 
 // -------------------------------
 // Production Secret Validation (TD-001)
@@ -611,10 +612,8 @@ async fn main() -> anyhow::Result<()> {
     let storage_dir = std::env::current_dir()?.join("storage");
     std::fs::create_dir_all(&storage_dir)?;
 
-    // Create storage directories (single folder structure)
+    // Create legacy video directory (still used by video-manager for HLS)
     std::fs::create_dir_all(storage_dir.join("videos"))?;
-    std::fs::create_dir_all(storage_dir.join("images"))?;
-    std::fs::create_dir_all(storage_dir.join("documents"))?;
 
     // Create HTTP client for MediaMTX communication
     let http_client = Client::builder()
@@ -668,6 +667,9 @@ async fn main() -> anyhow::Result<()> {
 
     // Initialize Vault Manager State
     let vault_state = Arc::new(VaultManagerState::new(pool.clone(), user_storage.clone()));
+
+    // Initialize Workspace Manager State
+    let workspace_state = Arc::new(WorkspaceManagerState::new(pool.clone(), user_storage.clone()));
 
     // Initialize Access Control Service with audit logging enabled
     let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));
@@ -837,6 +839,10 @@ async fn main() -> anyhow::Result<()> {
                 r
             }
         })
+        // Workspace manager — auth middleware
+        .merge(workspace_routes(workspace_state).route_layer(
+            axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
+        ))
         .merge(
             access_groups::routes::create_routes(pool.clone()).route_layer(
                 axum::middleware::from_fn_with_state(
@@ -946,6 +952,7 @@ async fn main() -> anyhow::Result<()> {
     println!("   ✅ access-codes     (Shared media access)");
     println!("   ✅ access-control   (4-layer access with audit logging)");
     println!("   ✅ rate-limiter     (Per-IP endpoint-class rate limiting)");
+    println!("   ✅ workspace-manager (Project workspaces with files and documents)");
 
     println!("📊 SERVER ENDPOINTS:");
     println!("   • Web UI:        http://{}", addr);

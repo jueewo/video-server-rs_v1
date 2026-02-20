@@ -14,6 +14,10 @@ pub struct EditorTemplate {
     pub language: String, // monaco language: markdown, yaml, json, etc.
     pub save_url: String,
     pub cancel_url: String,
+    /// URL for the parent breadcrumb section. Defaults to `/media`.
+    pub back_url: String,
+    /// Label for the parent breadcrumb section. Defaults to `"Media"`.
+    pub back_label: String,
 }
 
 impl EditorTemplate {
@@ -39,6 +43,8 @@ impl EditorTemplate {
             language: "markdown".to_string(),
             save_url,
             cancel_url,
+            back_url: "/media".to_string(),
+            back_label: "Media".to_string(),
         }
     }
 
@@ -64,6 +70,8 @@ impl EditorTemplate {
             language,
             save_url,
             cancel_url,
+            back_url: "/media".to_string(),
+            back_label: "Media".to_string(),
         }
     }
 }

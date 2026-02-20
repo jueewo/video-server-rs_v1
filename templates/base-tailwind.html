@@ -134,20 +134,14 @@
                 updateThemeIcon(newTheme);
             }
 
-            // Update theme icon based on current theme
+            // Update theme icons (multiple instances for desktop + mobile)
             function updateThemeIcon(theme) {
-                const moonIcon = document.getElementById("moonIcon");
-                const sunIcon = document.getElementById("sunIcon");
-
-                if (theme === "dark") {
-                    // Dark mode - show sun icon
-                    moonIcon.classList.add("hidden");
-                    sunIcon.classList.remove("hidden");
-                } else {
-                    // Light mode - show moon icon
-                    moonIcon.classList.remove("hidden");
-                    sunIcon.classList.add("hidden");
-                }
+                document.querySelectorAll(".theme-moon-icon").forEach(el => {
+                    el.classList.toggle("hidden", theme === "dark");
+                });
+                document.querySelectorAll(".theme-sun-icon").forEach(el => {
+                    el.classList.toggle("hidden", theme !== "dark");
+                });
             }
 
             // Load saved theme

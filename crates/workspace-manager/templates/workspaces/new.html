@@ -1,0 +1,105 @@
+{% extends "base-tailwind.html" %}
+{% block title %}New Workspace{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+    <div class="mb-6">
+        <a href="/workspaces" class="btn btn-ghost btn-sm gap-1">
+            ← All Workspaces
+        </a>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title text-2xl mb-4">🗂️ Create New Workspace</h2>
+
+            <div id="error-alert" class="alert alert-error mb-4 hidden">
+                <span id="error-message"></span>
+            </div>
+
+            <div class="form-control mb-4">
+                <label class="label" for="name">
+                    <span class="label-text font-semibold">Workspace Name <span class="text-error">*</span></span>
+                </label>
+                <input
+                    type="text"
+                    id="name"
+                    placeholder="e.g. Project Alpha"
+                    class="input input-bordered"
+                    maxlength="100"
+                    required
+                />
+            </div>
+
+            <div class="form-control mb-6">
+                <label class="label" for="description">
+                    <span class="label-text font-semibold">Description</span>
+                    <span class="label-text-alt text-base-content/50">Optional</span>
+                </label>
+                <textarea
+                    id="description"
+                    placeholder="Brief description of this workspace..."
+                    class="textarea textarea-bordered"
+                    rows="3"
+                    maxlength="500"
+                ></textarea>
+            </div>
+
+            <div class="card-actions justify-end gap-3">
+                <a href="/workspaces" class="btn btn-ghost">Cancel</a>
+                <button id="create-btn" onclick="createWorkspace()" class="btn btn-primary">
+                    Create Workspace
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+    document.getElementById('name').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') createWorkspace();
+    });
+
+    async function createWorkspace() {
+        const name = document.getElementById('name').value.trim();
+        const description = document.getElementById('description').value.trim();
+
+        if (!name) {
+            showError("Workspace name is required.");
+            return;
+        }
+
+        const btn = document.getElementById('create-btn');
+        btn.disabled = true;
+        btn.textContent = "Creating...";
+
+        try {
+            const response = await fetch('/api/user/workspaces', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description: description || null }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                window.location.href = `/workspaces/${data.workspace_id}`;
+            } else {
+                const text = await response.text();
+                showError("Failed to create workspace: " + (text || response.statusText));
+                btn.disabled = false;
+                btn.textContent = "Create Workspace";
+            }
+        } catch (e) {
+            showError("Network error: " + e.message);
+            btn.disabled = false;
+            btn.textContent = "Create Workspace";
+        }
+    }
+
+    function showError(msg) {
+        const el = document.getElementById('error-alert');
+        document.getElementById('error-message').textContent = msg;
+        el.classList.remove('hidden');
+    }
+</script>
+{% endblock %}

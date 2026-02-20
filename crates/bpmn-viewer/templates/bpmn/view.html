@@ -24,8 +24,8 @@
     <div class="text-sm breadcrumbs mb-4">
         <ul>
             <li><a href="/">Home</a></li>
-            <li><a href="/media">Media</a></li>
-            <li><a href="/media/{{ slug }}">{{ title }}</a></li>
+            <li><a href="{{ back_url }}">{{ back_label }}</a></li>
+            <li>{{ title }}</li>
             <li>BPMN</li>
         </ul>
     </div>
@@ -41,7 +41,7 @@
                 <button onclick="enterEditMode()" class="btn btn-sm btn-primary">✏️ Edit</button>
                 {% endif %}
                 <button onclick="fitView()" class="btn btn-sm btn-outline">⊞ Fit View</button>
-                <a href="/media" class="btn btn-sm btn-ghost">← Back to Media</a>
+                <a href="{{ back_url }}" class="btn btn-sm btn-ghost">← Back to {{ back_label }}</a>
             </div>
             <!-- Edit mode buttons (hidden by default) -->
             <div id="edit-actions" class="hidden">
@@ -108,7 +108,7 @@
     async function saveBpmn() {
         try {
             const { xml } = await modeler.saveXML({ format: true });
-            const response = await fetch(`/api/media/${slug}/save-bpmn`, {
+            const response = await fetch({{ save_url|tojson|safe }}, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ content: xml }),

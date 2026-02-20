@@ -4,14 +4,14 @@
     #editor-container {
         height: calc(100vh - 250px);
         min-height: 500px;
-        border: 2px solid #e5e7eb;
+        border: 2px solid oklch(var(--b3));
         border-radius: 8px;
         overflow: hidden;
     }
 
     .editor-toolbar {
-        background: #f8f9fa;
-        border-bottom: 1px solid #e5e7eb;
+        background: oklch(var(--b2));
+        border-bottom: 1px solid oklch(var(--b3));
         padding: 12px 16px;
         display: flex;
         justify-content: space-between;
@@ -20,23 +20,23 @@
 
     .save-indicator {
         display: none;
-        color: #10b981;
+        color: oklch(var(--su));
         font-size: 0.9rem;
     }
 
     .save-indicator.saving {
         display: inline;
-        color: #f59e0b;
+        color: oklch(var(--wa));
     }
 
     .save-indicator.saved {
         display: inline;
-        color: #10b981;
+        color: oklch(var(--su));
     }
 
     .save-indicator.error {
         display: inline;
-        color: #ef4444;
+        color: oklch(var(--er));
     }
 </style>
 {% endblock %} {% block content %}
@@ -45,7 +45,7 @@
     <div class="text-sm breadcrumbs mb-4">
         <ul>
             <li><a href="/">Home</a></li>
-            <li><a href="/media">Media</a></li>
+            <li><a href="{{ back_url }}">{{ back_label }}</a></li>
             <li><a href="{{ cancel_url }}">{{ title }}</a></li>
             <li>Edit</li>
         </ul>
@@ -92,11 +92,19 @@
         }
     });
 
+    // Detect current theme (light/dark)
+    function getMonacoTheme() {
+        const htmlTheme = document.documentElement.getAttribute('data-theme');
+        const isDark = htmlTheme === 'dark' ||
+                      (!htmlTheme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        return isDark ? 'vs-dark' : 'vs';
+    }
+
     require(['vs/editor/editor.main'], function() {
         editor = monaco.editor.create(document.getElementById('editor-container'), {
             value: originalContent,
             language: '{{ language }}',
-            theme: 'vs-dark',
+            theme: getMonacoTheme(),
             automaticLayout: true,
             fontSize: 14,
             lineNumbers: 'on',
@@ -105,6 +113,15 @@
             formatOnPaste: true,
             formatOnType: true,
             scrollBeyondLastLine: false,
+        });
+
+        // Listen for theme changes
+        const observer = new MutationObserver(() => {
+            monaco.editor.setTheme(getMonacoTheme());
+        });
+        observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['data-theme']
         });
 
         // Track changes

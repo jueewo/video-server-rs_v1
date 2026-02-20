@@ -1,5 +1,6 @@
-{% extends "base-tailwind.html" %} {% block title %}{{ title }} -
-Documentation{% endblock %} {% block extra_head %}
+{% extends "base-tailwind.html" %}
+{% block title %}{{ title }} — {{ workspace_name }}{% endblock %}
+{% block extra_head %}
 <style>
     /* Markdown styles */
     .markdown-content {
@@ -104,45 +105,41 @@ Documentation{% endblock %} {% block extra_head %}
         border-top: 2px solid oklch(var(--b3));
         margin: 2em 0;
     }
-
-    /* Syntax highlighting adjustments */
     .markdown-content pre code {
         display: block;
     }
 </style>
-{% endblock %} {% block content %} {% let page_title = title %} {% let
-page_subtitle = file_path %}
-<div class="container mx-auto px-4 py-8">
-    <div class="page-header">
-        {% include "components/page-header.html" %}
-        <div class="page-header-actions">
-            <button onclick="toggleRaw()" class="btn btn-sm btn-outline">
-                🔍 Toggle Raw
-            </button>
-            <button onclick="copyMarkdown()" class="btn btn-sm btn-outline">
-                📋 Copy Markdown
-            </button>
-            <a href="/docs" class="btn btn-sm btn-ghost">← Back to Docs</a>
+{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-5xl">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold">{{ title }}</h1>
+            <p class="text-sm text-base-content/60 mt-1">{{ file_path }}</p>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+            <a href="{{ edit_url }}" class="btn btn-sm btn-primary gap-1">✏️ Edit</a>
+            <button onclick="toggleRaw()" class="btn btn-sm btn-outline gap-1">🔍 Toggle Raw</button>
+            <button onclick="copyMarkdown()" class="btn btn-sm btn-outline gap-1">📋 Copy</button>
+            <a href="{{ back_url }}" class="btn btn-sm btn-ghost">← {{ back_label }}</a>
         </div>
     </div>
 
-    <div class="card bg-base-100 shadow-xl">
+    <div class="card bg-base-100 shadow border border-base-300">
         <div class="card-body">
-            <div class="divider"></div>
-
             <!-- Rendered markdown -->
             <div id="rendered" class="markdown-content">{{ content|safe }}</div>
 
             <!-- Raw markdown (hidden by default) -->
             <div id="raw" class="hidden">
-                <pre
-                    class="bg-base-200 p-4 rounded-lg overflow-x-auto"
-                ><code>{{ raw_markdown }}</code></pre>
+                <pre class="bg-base-200 p-4 rounded-lg overflow-x-auto"><code>{{ raw_markdown }}</code></pre>
             </div>
         </div>
     </div>
 </div>
-{% endblock %} {% block extra_scripts %}
+{% endblock %}
+{% block extra_scripts %}
 <script>
     function toggleRaw() {
         const rendered = document.getElementById('rendered');

@@ -14,6 +14,7 @@ members = [
     "crates/rate-limiter",
     "crates/bpmn-viewer",
     "crates/pdf-viewer",
+    "crates/workspace-manager",
     # TODO: Uncomment when implementing CLI (see MEDIA_CLI_PROGRESS.md)
     # "crates/media-cli",
 ]
@@ -52,6 +53,7 @@ docs-viewer = { path = "crates/docs-viewer" }
 bpmn-viewer = { path = "crates/bpmn-viewer" }
 pdf-viewer = { path = "crates/pdf-viewer" }
 vault-manager = { path = "crates/vault-manager" }
+workspace-manager = { path = "crates/workspace-manager" }
 rate-limiter = { path = "crates/rate-limiter" }
 
 # Web framework

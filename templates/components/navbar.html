@@ -1,56 +1,95 @@
 <!-- Navbar Component -->
-<div class="navbar bg-base-300 shadow-lg sticky top-0 z-50">
-    <div class="flex-1">
-        <a href="/" class="btn btn-ghost normal-case text-xl">
-            <span class="text-2xl">🎬</span>
-            <span class="ml-2">Media Server</span>
-        </a>
+<div x-data="{ mobileOpen: false }" class="sticky top-0 z-50">
+
+    <!-- Main bar -->
+    <div class="navbar bg-base-300 shadow-lg">
+
+        <!-- Left: Logo -->
+        <div class="flex-1">
+            <a href="/" class="btn btn-ghost normal-case text-xl">
+                <span class="text-2xl">🎬</span>
+                <span class="ml-2 hidden sm:inline">Media Server</span>
+            </a>
+        </div>
+
+        <!-- Desktop nav (md and up) -->
+        <div class="nav-desktop flex-none">
+            <ul class="menu menu-horizontal px-1">
+                <li><a href="/">🏠 Home</a></li>
+                <li><a href="/media">🎨 All Media</a></li>
+                <li><a href="/videos">🎥 Videos</a></li>
+                <li><a href="/test">📡 Live</a></li>
+            </ul>
+
+            <!-- Theme toggle (desktop) -->
+            <button class="btn btn-ghost btn-circle ml-2" onclick="toggleTheme()" title="Toggle theme">
+                <svg class="theme-moon-icon h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
+                </svg>
+                <svg class="theme-sun-icon h-5 w-5 hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>
+                </svg>
+            </button>
+
+            <!-- User menu avatar dropdown (desktop) -->
+            {% include "components/user-menu.html" %}
+        </div>
+
+        <!-- Mobile right side: theme + hamburger -->
+        <div class="nav-mobile gap-1">
+            <button class="btn btn-ghost btn-circle" onclick="toggleTheme()" title="Toggle theme">
+                <svg class="theme-moon-icon h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
+                </svg>
+                <svg class="theme-sun-icon h-5 w-5 hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>
+                </svg>
+            </button>
+
+            <button class="btn btn-ghost btn-circle" @click="mobileOpen = !mobileOpen" aria-label="Toggle menu">
+                <!-- Hamburger -->
+                <svg x-show="!mobileOpen" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+                <!-- X (close) -->
+                <svg x-show="mobileOpen" x-cloak xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
     </div>
 
-    <div class="flex-none">
-        <ul class="menu menu-horizontal px-1">
-            <li><a href="/">🏠 Home</a></li>
-            <li><a href="/media">🎨 All Media</a></li>
-            <li><a href="/videos">🎥 Videos</a></li>
-            <li><a href="/test">📡 Live</a></li>
+    <!-- Mobile dropdown menu -->
+    <div
+        x-show="mobileOpen"
+        x-cloak
+        x-transition:enter="transition ease-out duration-150"
+        x-transition:enter-start="opacity-0 -translate-y-2"
+        x-transition:enter-end="opacity-100 translate-y-0"
+        x-transition:leave="transition ease-in duration-100"
+        x-transition:leave-start="opacity-100 translate-y-0"
+        x-transition:leave-end="opacity-0 -translate-y-2"
+        @click.outside="mobileOpen = false"
+        class="nav-mobile-menu bg-base-200 border-t border-base-300 shadow-lg"
+    >
+        <ul class="menu p-3 w-full text-base">
+            <li><a href="/" @click="mobileOpen = false">🏠 Home</a></li>
+            <li><a href="/media" @click="mobileOpen = false">🎨 All Media</a></li>
+            <li><a href="/videos" @click="mobileOpen = false">🎥 Videos</a></li>
+            <li><a href="/test" @click="mobileOpen = false">📡 Live</a></li>
+
+            {% if authenticated %}
+            <li class="menu-title pt-3">Account</li>
+            <li><a href="/profile" @click="mobileOpen = false">👤 Profile</a></li>
+            <li><a href="/groups" @click="mobileOpen = false">👥 Groups</a></li>
+            <li><a href="/vaults" @click="mobileOpen = false">📦 Vaults</a></li>
+            <li><a href="/workspaces" @click="mobileOpen = false">🗂️ Workspaces</a></li>
+            <li><a href="/tags/cloud" @click="mobileOpen = false">🏷️ Tags</a></li>
+            <li class="pt-1"><a href="/logout" class="text-error">🚪 Logout</a></li>
+            {% else %}
+            <li class="pt-1"><a href="/login" class="font-semibold">🔐 Login</a></li>
+            {% endif %}
         </ul>
-
-        <!-- Theme Toggle -->
-        <button
-            id="themeToggle"
-            class="btn btn-ghost btn-circle ml-2"
-            onclick="toggleTheme()"
-            title="Toggle theme"
-        >
-            <!-- Moon icon (shown in light mode) -->
-            <svg
-                id="moonIcon"
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-            >
-                <path
-                    d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"
-                />
-            </svg>
-            <!-- Sun icon (shown in dark mode) -->
-            <svg
-                id="sunIcon"
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5 hidden"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-            >
-                <path
-                    fill-rule="evenodd"
-                    d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
-                    clip-rule="evenodd"
-                />
-            </svg>
-        </button>
-
-        <!-- User Menu -->
-        {% include "components/user-menu.html" %}
     </div>
+
 </div>

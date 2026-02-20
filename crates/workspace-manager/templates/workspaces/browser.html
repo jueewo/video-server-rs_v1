@@ -1,0 +1,453 @@
+{% extends "base-tailwind.html" %}
+{% block title %}Browse — {{ workspace_name }}{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+    <!-- Breadcrumbs -->
+    <div class="text-sm breadcrumbs mb-4">
+        <ul>
+            <li><a href="/workspaces">Workspaces</a></li>
+            {% for (label, url) in breadcrumbs %}
+            <li><a href="{{ url }}">{{ label }}</a></li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <h1 class="text-2xl font-bold">
+            📁 {% if current_path.is_empty() %}{{ workspace_name }}{% else %}{{ current_path }}{% endif %}
+        </h1>
+        <div class="flex gap-2 flex-wrap">
+            <button onclick="newFile()" class="btn btn-sm btn-primary gap-1">📄 New File</button>
+            <button onclick="newFolder()" class="btn btn-sm btn-outline gap-1">📁 New Folder</button>
+            <button onclick="document.getElementById('upload-files-input').click()" class="btn btn-sm btn-outline gap-1">⬆️ Upload Files</button>
+            <button onclick="document.getElementById('upload-folder-input').click()" class="btn btn-sm btn-outline gap-1">📦 Upload Folder</button>
+        </div>
+    </div>
+
+    <!-- Hidden file inputs -->
+    <input type="file" id="upload-files-input" multiple class="hidden" onchange="startUpload(this.files, false)" />
+    <input type="file" id="upload-folder-input" webkitdirectory multiple class="hidden" onchange="startUpload(this.files, true)" />
+
+    <!-- Upload progress bar (hidden until active) -->
+    <div id="upload-progress" class="hidden mb-6">
+        <div class="alert alert-info shadow">
+            <div class="flex items-center gap-3 w-full">
+                <span class="loading loading-spinner loading-sm"></span>
+                <div class="flex-1">
+                    <div id="upload-status" class="text-sm font-medium">Uploading…</div>
+                    <progress id="upload-bar" class="progress progress-primary w-full mt-1" value="0" max="100"></progress>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Folders -->
+    {% if !folders.is_empty() %}
+    <div class="mb-6">
+        <h2 class="text-lg font-semibold mb-3 text-base-content/70">Folders</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {% for folder in folders %}
+            <a href="/workspaces/{{ workspace_id }}/browse/{{ folder.path }}"
+               class="card bg-base-100 border border-base-300 hover:border-primary hover:shadow-md transition-all duration-150 cursor-pointer">
+                <div class="card-body items-center text-center p-4">
+                    <div class="text-3xl mb-1">📁</div>
+                    <div class="text-sm font-medium truncate w-full text-center">{{ folder.name }}</div>
+                    <div class="text-xs text-base-content/50">{{ folder.file_count }} file{% if folder.file_count != 1 %}s{% endif %}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Files -->
+    {% if !files.is_empty() %}
+    <div>
+        <h2 class="text-lg font-semibold mb-3 text-base-content/70">Files</h2>
+        <div class="card bg-base-100 shadow border border-base-300">
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Size</th>
+                            <th>Modified</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for file in files %}
+                        <tr class="hover">
+                            <td class="font-medium">
+                                <span class="mr-1">{{ file.icon }}</span>
+                                {{ file.name }}
+                            </td>
+                            <td class="text-xs text-base-content/60">{{ file.mime_type }}</td>
+                            <td class="text-xs text-base-content/60">{{ file.size_str }}</td>
+                            <td class="text-xs text-base-content/60">{{ file.modified }}</td>
+                            <td>
+                                <div class="flex gap-1">
+                                    {% if file.is_editable %}
+                                    <a href="/workspaces/{{ workspace_id }}/edit?file={{ file.path }}"
+                                       class="btn btn-xs btn-outline">Open</a>
+                                    <button onclick="openPublishModal('{{ file.path }}', '{{ file.name }}')"
+                                            class="btn btn-xs btn-outline btn-accent">📤 Publish</button>
+                                    {% endif %}
+                                    <button onclick="deleteItem('{{ file.path }}', false)"
+                                            class="btn btn-xs btn-error btn-outline">🗑️</button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if folders.is_empty() && files.is_empty() %}
+    <div class="card bg-base-200 shadow">
+        <div class="card-body items-center text-center py-12">
+            <div class="text-5xl mb-3">📂</div>
+            <h3 class="text-xl font-semibold mb-2">Empty Directory</h3>
+            <p class="text-base-content/60 mb-4">Create or upload files to get started.</p>
+            <div class="flex gap-3 flex-wrap justify-center">
+                <button onclick="newFile()" class="btn btn-primary">📄 New File</button>
+                <button onclick="newFolder()" class="btn btn-outline">📁 New Folder</button>
+                <button onclick="document.getElementById('upload-files-input').click()" class="btn btn-outline">⬆️ Upload Files</button>
+                <button onclick="document.getElementById('upload-folder-input').click()" class="btn btn-outline">📦 Upload Folder</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- New File Modal -->
+<dialog id="new-file-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">📄 New File</h3>
+        <div class="form-control mb-4">
+            <label class="label"><span class="label-text">Filename</span></label>
+            <input type="text" id="new-file-name" placeholder="e.g. notes.md" class="input input-bordered" />
+            <label class="label"><span class="label-text-alt text-base-content/50">Will be created in the current directory.</span></label>
+        </div>
+        <div class="modal-action">
+            <button onclick="document.getElementById('new-file-modal').close()" class="btn btn-ghost">Cancel</button>
+            <button onclick="submitNewFile()" class="btn btn-primary">Create</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- New Folder Modal -->
+<dialog id="new-folder-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">📁 New Folder</h3>
+        <div class="form-control mb-4">
+            <label class="label"><span class="label-text">Folder name</span></label>
+            <input type="text" id="new-folder-name" placeholder="e.g. diagrams" class="input input-bordered" />
+        </div>
+        <div class="modal-action">
+            <button onclick="document.getElementById('new-folder-modal').close()" class="btn btn-ghost">Cancel</button>
+            <button onclick="submitNewFolder()" class="btn btn-primary">Create</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Publish to Vault Modal -->
+<dialog id="publish-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">📤 Publish to Vault</h3>
+        <input type="hidden" id="pub-file-path" />
+        <div class="form-control mb-3">
+            <label class="label"><span class="label-text">Title</span></label>
+            <input type="text" id="pub-title" placeholder="e.g. Q1 Report" class="input input-bordered" />
+        </div>
+        <div class="form-control mb-3">
+            <label class="label"><span class="label-text">Vault</span></label>
+            <select id="pub-vault" class="select select-bordered">
+                <option value="">Loading vaults…</option>
+            </select>
+        </div>
+        <div class="form-control mb-4">
+            <label class="label"><span class="label-text">Access Code <span class="text-base-content/50">(optional)</span></span></label>
+            <input type="text" id="pub-access-code" placeholder="Leave empty for no restriction" class="input input-bordered" />
+        </div>
+        <div id="pub-result" class="hidden alert mb-3"></div>
+        <div class="modal-action">
+            <button onclick="document.getElementById('publish-modal').close()" class="btn btn-ghost">Cancel</button>
+            <button onclick="submitPublish()" id="pub-submit-btn" class="btn btn-accent">Publish</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+    const WORKSPACE_ID = "{{ workspace_id }}";
+    const CURRENT_PATH = "{{ current_path }}";
+
+    function pathJoin(...parts) {
+        return parts.filter(p => p).join('/');
+    }
+
+    // ── Upload ──────────────────────────────────────────────────────────────
+
+    async function startUpload(fileList, isFolder) {
+        const files = Array.from(fileList);
+        if (files.length === 0) return;
+
+        const progress = document.getElementById('upload-progress');
+        const bar = document.getElementById('upload-bar');
+        const status = document.getElementById('upload-status');
+        progress.classList.remove('hidden');
+
+        let done = 0;
+        const errors = [];
+
+        for (const file of files) {
+            // Determine workspace-relative path:
+            //   folder upload → preserve webkitRelativePath (includes top folder name)
+            //   file upload   → just the filename, placed in current directory
+            const relPath = isFolder && file.webkitRelativePath
+                ? pathJoin(CURRENT_PATH, file.webkitRelativePath)
+                : pathJoin(CURRENT_PATH, file.name);
+
+            status.textContent = `Uploading ${done + 1} / ${files.length}: ${file.name}`;
+            bar.value = Math.round((done / files.length) * 100);
+
+            try {
+                const fd = new FormData();
+                fd.append('path', relPath);
+                fd.append('file', file);
+
+                const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/upload`, {
+                    method: 'POST',
+                    body: fd,
+                });
+
+                if (!r.ok) errors.push(`${file.name}: server error ${r.status}`);
+            } catch (e) {
+                errors.push(`${file.name}: ${e.message}`);
+            }
+
+            done++;
+            bar.value = Math.round((done / files.length) * 100);
+        }
+
+        // Reset the input so the same folder/files can be selected again if needed
+        document.getElementById('upload-files-input').value = '';
+        document.getElementById('upload-folder-input').value = '';
+
+        progress.classList.add('hidden');
+
+        if (errors.length > 0) {
+            showToast(`${done - errors.length}/${files.length} uploaded. Errors: ${errors.join('; ')}`, 'error');
+        } else {
+            showToast(`${done} file${done !== 1 ? 's' : ''} uploaded successfully!`, 'success');
+        }
+
+        window.location.reload();
+    }
+
+    // ── New File ────────────────────────────────────────────────────────────
+
+    function newFile() {
+        document.getElementById('new-file-name').value = '';
+        document.getElementById('new-file-modal').showModal();
+    }
+
+    function newFolder() {
+        document.getElementById('new-folder-name').value = '';
+        document.getElementById('new-folder-modal').showModal();
+    }
+
+    function generateBpmnId(prefix) {
+        const randomPart = Math.random().toString(36).substring(2, 9);
+        return `${prefix}_${randomPart}`;
+    }
+
+    function getBpmnTemplate() {
+        const processId = generateBpmnId('Process');
+        const definitionsId = generateBpmnId('Definitions');
+        const diagramId = generateBpmnId('BPMNDiagram');
+        const planeId = generateBpmnId('BPMNPlane');
+
+        return `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" id="${definitionsId}" targetNamespace="http://bpmn.io/schema/bpmn" exporter="bpmn-js (https://demo.bpmn.io)" exporterVersion="18.12.0">
+  <bpmn:process id="${processId}" isExecutable="false">
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="${diagramId}">
+    <bpmndi:BPMNPlane id="${planeId}" bpmnElement="${processId}">
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>`;
+    }
+
+    async function submitNewFile() {
+        const name = document.getElementById('new-file-name').value.trim();
+        if (!name) return;
+        const fullPath = pathJoin(CURRENT_PATH, name);
+
+        // Generate BPMN template for .bpmn files
+        let content = null;
+        if (name.toLowerCase().endsWith('.bpmn')) {
+            content = getBpmnTemplate();
+        }
+
+        try {
+            const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/new`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    path: fullPath,
+                    content: content
+                }),
+            });
+            if (r.ok) {
+                document.getElementById('new-file-modal').close();
+                window.location.href = `/workspaces/${WORKSPACE_ID}/edit?file=${encodeURIComponent(fullPath)}`;
+            } else {
+                alert('Failed to create file');
+            }
+        } catch (e) {
+            alert('Network error: ' + e.message);
+        }
+    }
+
+    async function submitNewFolder() {
+        const name = document.getElementById('new-folder-name').value.trim();
+        if (!name) return;
+        const fullPath = pathJoin(CURRENT_PATH, name);
+        try {
+            const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/mkdir`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: fullPath }),
+            });
+            if (r.ok) {
+                document.getElementById('new-folder-modal').close();
+                window.location.reload();
+            } else {
+                alert('Failed to create folder');
+            }
+        } catch (e) {
+            alert('Network error: ' + e.message);
+        }
+    }
+
+    // ── Delete ──────────────────────────────────────────────────────────────
+
+    async function deleteItem(path, isDir) {
+        const kind = isDir ? 'folder' : 'file';
+        if (!confirm(`Delete this ${kind}? This cannot be undone.`)) return;
+        try {
+            const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/files?path=${encodeURIComponent(path)}`, {
+                method: 'DELETE',
+            });
+            if (r.status === 204) {
+                window.location.reload();
+            } else {
+                alert('Failed to delete ' + kind);
+            }
+        } catch (e) {
+            alert('Network error: ' + e.message);
+        }
+    }
+
+    // ── Publish to Vault ────────────────────────────────────────────────────
+
+    async function openPublishModal(filePath, fileName) {
+        document.getElementById('pub-file-path').value = filePath;
+        // Pre-fill title from filename stem (strip extension)
+        const stem = fileName.includes('.') ? fileName.slice(0, fileName.lastIndexOf('.')) : fileName;
+        document.getElementById('pub-title').value = stem;
+        document.getElementById('pub-access-code').value = '';
+        document.getElementById('pub-result').classList.add('hidden');
+        document.getElementById('pub-submit-btn').disabled = false;
+
+        // Fetch user's vaults
+        const vaultSel = document.getElementById('pub-vault');
+        vaultSel.innerHTML = '<option value="">Loading…</option>';
+        try {
+            const r = await fetch('/api/user/vaults');
+            if (r.ok) {
+                const vaults = await r.json();
+                if (vaults.length === 0) {
+                    vaultSel.innerHTML = '<option value="">No vaults found — create one first</option>';
+                } else {
+                    vaultSel.innerHTML = vaults.map(v =>
+                        `<option value="${v.vault_id}">${v.vault_name || v.vault_id}</option>`
+                    ).join('');
+                }
+            } else {
+                vaultSel.innerHTML = '<option value="">Failed to load vaults</option>';
+            }
+        } catch (e) {
+            vaultSel.innerHTML = '<option value="">Network error</option>';
+        }
+
+        document.getElementById('publish-modal').showModal();
+    }
+
+    async function submitPublish() {
+        const filePath = document.getElementById('pub-file-path').value;
+        const vaultId = document.getElementById('pub-vault').value;
+        const title = document.getElementById('pub-title').value.trim();
+        const accessCode = document.getElementById('pub-access-code').value.trim();
+        const resultEl = document.getElementById('pub-result');
+        const submitBtn = document.getElementById('pub-submit-btn');
+
+        if (!vaultId) { alert('Please select a vault.'); return; }
+        if (!title) { alert('Please enter a title.'); return; }
+
+        submitBtn.disabled = true;
+        resultEl.classList.add('hidden');
+
+        try {
+            const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/publish`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    file_path: filePath,
+                    vault_id: vaultId,
+                    title: title,
+                    access_code: accessCode || null,
+                }),
+            });
+
+            if (r.ok) {
+                const data = await r.json();
+                const url = data.share_url || data.media_url;
+                resultEl.className = 'alert alert-success mb-3';
+                resultEl.innerHTML = `
+                    <div>
+                        <p class="font-semibold">Published!</p>
+                        <p class="text-sm mt-1">
+                            <a href="${url}" target="_blank" class="link link-primary">${url}</a>
+                            <button onclick="navigator.clipboard.writeText(window.location.origin + '${url}').then(() => showToast('URL copied!', 'success'))"
+                                    class="btn btn-xs btn-ghost ml-2">📋 Copy</button>
+                        </p>
+                    </div>`;
+                resultEl.classList.remove('hidden');
+                showToast('Published to vault!', 'success');
+            } else {
+                const text = await r.text();
+                resultEl.className = 'alert alert-error mb-3';
+                resultEl.textContent = `Error ${r.status}: ${text}`;
+                resultEl.classList.remove('hidden');
+                submitBtn.disabled = false;
+            }
+        } catch (e) {
+            resultEl.className = 'alert alert-error mb-3';
+            resultEl.textContent = 'Network error: ' + e.message;
+            resultEl.classList.remove('hidden');
+            submitBtn.disabled = false;
+        }
+    }
+</script>
+{% endblock %}

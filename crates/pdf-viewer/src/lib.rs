@@ -16,6 +16,10 @@ pub struct PdfViewerTemplate {
     pub created_at: String,
     /// Raw URL PDF.js will fetch — includes ?code= if an access code was used.
     pub serve_url: String,
+    /// URL for the back/cancel button. Defaults to `/media`.
+    pub back_url: String,
+    /// Label for the back button and breadcrumb. Defaults to `"Media"`.
+    pub back_label: String,
 }
 
 impl PdfViewerTemplate {
@@ -41,6 +45,8 @@ impl PdfViewerTemplate {
             filename,
             created_at,
             serve_url,
+            back_url: "/media".to_string(),
+            back_label: "Media".to_string(),
         }
     }
 }

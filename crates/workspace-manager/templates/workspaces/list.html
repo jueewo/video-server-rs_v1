@@ -1,0 +1,193 @@
+{% extends "base-tailwind.html" %}
+{% block title %}Workspaces{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-3xl font-bold">🗂️ Workspaces</h1>
+            <p class="text-base-content/60 mt-1">Project workspaces with documents, diagrams, and notes</p>
+        </div>
+        <a href="/workspaces/new" class="btn btn-primary gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
+            </svg>
+            New Workspace
+        </a>
+    </div>
+
+    {% if workspaces.is_empty() %}
+    <!-- Empty State -->
+    <div class="card bg-base-200 shadow-xl">
+        <div class="card-body items-center text-center py-16">
+            <div class="text-6xl mb-4">🗂️</div>
+            <h2 class="card-title text-2xl mb-2">No Workspaces Yet</h2>
+            <p class="text-base-content/70 mb-6">
+                Create your first workspace to organize project documents, BPMN diagrams, and notes.
+            </p>
+            <a href="/workspaces/new" class="btn btn-primary">Create Your First Workspace</a>
+        </div>
+    </div>
+    {% else %}
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {% for ws in workspaces %}
+        <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-200 border border-base-300">
+            <div class="card-body">
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="card-title text-lg">
+                        <a href="/workspaces/{{ ws.workspace_id }}" class="hover:text-primary">{{ ws.name }}</a>
+                    </h3>
+                </div>
+
+                {% if !ws.description.is_empty() %}
+                <p class="text-sm text-base-content/70 mb-2 line-clamp-2">{{ ws.description }}</p>
+                {% endif %}
+
+                <code class="font-mono text-xs text-base-content/50 bg-base-200 px-2 py-1 rounded mb-2 inline-block">
+                    {{ ws.workspace_id }}
+                </code>
+
+                <div class="divider my-2"></div>
+                <div class="flex gap-6 mb-2">
+                    <div class="flex flex-col">
+                        <span class="text-xs text-base-content/50 uppercase tracking-wide">Files</span>
+                        <span class="text-2xl font-bold">{{ ws.file_count }}</span>
+                    </div>
+                </div>
+
+                <p class="text-sm text-base-content/60 mb-3">Created {{ ws.created_at_human }}</p>
+
+                <div class="card-actions flex-wrap gap-2">
+                    <a href="/workspaces/{{ ws.workspace_id }}" class="btn btn-sm btn-primary gap-1">
+                        📋 Open
+                    </a>
+                    <a href="/workspaces/{{ ws.workspace_id }}/browse" class="btn btn-sm btn-outline gap-1">
+                        📁 Browse
+                    </a>
+                    <button
+                        onclick="openEditModal('{{ ws.workspace_id }}', this)"
+                        data-name="{{ ws.name }}"
+                        data-description="{{ ws.description }}"
+                        class="btn btn-sm btn-outline gap-1">
+                        ✏️ Edit
+                    </button>
+                    <button onclick="deleteWorkspace('{{ ws.workspace_id }}')" class="btn btn-sm btn-error btn-outline gap-1">
+                        🗑️ Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Edit Workspace Modal -->
+<dialog id="edit-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">✏️ Edit Workspace</h3>
+
+        <div id="edit-error" class="alert alert-error mb-4 hidden">
+            <span id="edit-error-msg"></span>
+        </div>
+
+        <div class="form-control mb-4">
+            <label class="label" for="edit-name">
+                <span class="label-text font-semibold">Name <span class="text-error">*</span></span>
+            </label>
+            <input type="text" id="edit-name" class="input input-bordered" maxlength="100" />
+        </div>
+
+        <div class="form-control mb-6">
+            <label class="label" for="edit-description">
+                <span class="label-text font-semibold">Description</span>
+                <span class="label-text-alt text-base-content/50">Optional</span>
+            </label>
+            <textarea id="edit-description" class="textarea textarea-bordered" rows="3" maxlength="500"
+                      placeholder="Brief description of this workspace..."></textarea>
+        </div>
+
+        <div class="modal-action">
+            <button onclick="document.getElementById('edit-modal').close()" class="btn btn-ghost">Cancel</button>
+            <button id="edit-save-btn" onclick="saveEdit()" class="btn btn-primary">Save Changes</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+    let editingWorkspaceId = null;
+
+    function openEditModal(workspaceId, btn) {
+        editingWorkspaceId = workspaceId;
+        document.getElementById('edit-name').value = btn.dataset.name || '';
+        document.getElementById('edit-description').value = btn.dataset.description || '';
+        document.getElementById('edit-error').classList.add('hidden');
+        document.getElementById('edit-save-btn').disabled = false;
+        document.getElementById('edit-save-btn').textContent = 'Save Changes';
+        document.getElementById('edit-modal').showModal();
+        document.getElementById('edit-name').focus();
+    }
+
+    async function saveEdit() {
+        const name = document.getElementById('edit-name').value.trim();
+        const description = document.getElementById('edit-description').value.trim();
+
+        if (!name) {
+            document.getElementById('edit-error-msg').textContent = 'Name is required.';
+            document.getElementById('edit-error').classList.remove('hidden');
+            return;
+        }
+
+        const btn = document.getElementById('edit-save-btn');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+
+        try {
+            const response = await fetch(`/api/user/workspaces/${editingWorkspaceId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description: description || null }),
+            });
+            if (response.ok) {
+                document.getElementById('edit-modal').close();
+                showToast('Workspace updated!', 'success');
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                document.getElementById('edit-error-msg').textContent = 'Failed to save changes.';
+                document.getElementById('edit-error').classList.remove('hidden');
+                btn.disabled = false;
+                btn.textContent = 'Save Changes';
+            }
+        } catch (e) {
+            document.getElementById('edit-error-msg').textContent = 'Network error: ' + e.message;
+            document.getElementById('edit-error').classList.remove('hidden');
+            btn.disabled = false;
+            btn.textContent = 'Save Changes';
+        }
+    }
+
+    // Submit on Enter in the name field
+    document.getElementById('edit-name').addEventListener('keydown', e => {
+        if (e.key === 'Enter') saveEdit();
+    });
+
+    async function deleteWorkspace(workspaceId) {
+        if (!confirm('Delete this workspace? All files will be permanently removed.')) return;
+        try {
+            const response = await fetch(`/api/user/workspaces/${workspaceId}`, {
+                method: 'DELETE',
+            });
+            if (response.status === 204) {
+                showToast('Workspace deleted!', 'success');
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                showToast('Failed to delete workspace', 'error');
+            }
+        } catch (e) {
+            showToast('Network error', 'error');
+        }
+    }
+</script>
+{% endblock %}

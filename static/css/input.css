@@ -43,6 +43,37 @@
 
 /* Custom component classes */
 @layer components {
+    /* Responsive navbar helpers — avoids Tailwind v4 utility ordering issue
+       where base `.hidden` overrides `md:flex` in the cascade */
+    .nav-desktop {
+        display: none;
+    }
+    @media (min-width: 768px) {
+        .nav-desktop {
+            display: flex;
+            align-items: center;
+        }
+    }
+
+    .nav-mobile {
+        display: flex;
+        align-items: center;
+    }
+    @media (min-width: 768px) {
+        .nav-mobile {
+            display: none !important;
+        }
+    }
+
+    /* Mobile dropdown — always hidden on desktop regardless of Alpine state */
+    .nav-mobile-menu {
+        display: block;
+    }
+    @media (min-width: 768px) {
+        .nav-mobile-menu {
+            display: none !important;
+        }
+    }
     /* Standard page header — flex between title+subtitle and action buttons */
     .page-header {
         display: flex;

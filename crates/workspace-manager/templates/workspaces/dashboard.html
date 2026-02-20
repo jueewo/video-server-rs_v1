@@ -1,0 +1,199 @@
+{% extends "base-tailwind.html" %}
+{% block title %}{{ workspace.name }} — Workspace{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+    <!-- Breadcrumb -->
+    <div class="text-sm breadcrumbs mb-4">
+        <ul>
+            <li><a href="/workspaces">Workspaces</a></li>
+            <li>{{ workspace.name }}</li>
+        </ul>
+    </div>
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-3xl font-bold">🗂️ {{ workspace.name }}</h1>
+            {% if !workspace.description.is_empty() %}
+            <p class="text-base-content/70 mt-1">{{ workspace.description }}</p>
+            {% endif %}
+            <p class="text-sm text-base-content/50 mt-1">
+                <code class="font-mono">{{ workspace.workspace_id }}</code>
+                &nbsp;·&nbsp; Created {{ workspace.created_at_human }}
+                &nbsp;·&nbsp; {{ workspace.file_count }} file{% if workspace.file_count != 1 %}s{% endif %}
+            </p>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+            <a href="/workspaces/{{ workspace.workspace_id }}/browse" class="btn btn-primary gap-2">
+                📁 Browse Files
+            </a>
+            <button onclick="newFile('{{ workspace.workspace_id }}')" class="btn btn-outline gap-2">
+                📄 New File
+            </button>
+            <button onclick="newFolder('{{ workspace.workspace_id }}')" class="btn btn-outline gap-2">
+                📁 New Folder
+            </button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Folders -->
+        <div class="lg:col-span-1">
+            <div class="card bg-base-100 shadow border border-base-300">
+                <div class="card-body">
+                    <h2 class="card-title text-lg mb-3">📁 Folders</h2>
+                    {% if folders.is_empty() %}
+                    <p class="text-base-content/50 text-sm">No folders yet.</p>
+                    {% else %}
+                    <ul class="space-y-2">
+                        {% for folder in folders %}
+                        <li>
+                            <a href="/workspaces/{{ workspace.workspace_id }}/browse/{{ folder.path }}"
+                               class="flex items-center gap-2 hover:text-primary p-2 rounded hover:bg-base-200 transition-colors">
+                                <span class="text-lg">📁</span>
+                                <span class="flex-1 font-medium">{{ folder.name }}</span>
+                                <span class="badge badge-sm badge-neutral">{{ folder.file_count }}</span>
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Files -->
+        <div class="lg:col-span-2">
+            <div class="card bg-base-100 shadow border border-base-300">
+                <div class="card-body">
+                    <h2 class="card-title text-lg mb-3">🕐 Recent Files</h2>
+                    {% if recent_files.is_empty() %}
+                    <p class="text-base-content/50 text-sm">No files yet. Start by creating a document or importing files.</p>
+                    {% else %}
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Path</th>
+                                    <th>Size</th>
+                                    <th>Modified</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in recent_files %}
+                                <tr class="hover">
+                                    <td class="font-medium">
+                                        <span class="mr-1">{{ file.icon }}</span>
+                                        {{ file.name }}
+                                    </td>
+                                    <td class="text-xs text-base-content/50 font-mono">{{ file.path }}</td>
+                                    <td class="text-xs text-base-content/60">{{ file.size_str }}</td>
+                                    <td class="text-xs text-base-content/60">{{ file.modified }}</td>
+                                    <td>
+                                        {% if file.is_editable %}
+                                        <a href="/workspaces/{{ workspace.workspace_id }}/edit?file={{ file.path }}"
+                                           class="btn btn-xs btn-outline">Open</a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New File Modal -->
+<dialog id="new-file-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">📄 New File</h3>
+        <div class="form-control mb-4">
+            <label class="label"><span class="label-text">File path (relative to workspace root)</span></label>
+            <input type="text" id="new-file-path" placeholder="e.g. notes/meeting.md" class="input input-bordered" />
+            <label class="label"><span class="label-text-alt text-base-content/50">Use / for subdirectories. Extension determines type.</span></label>
+        </div>
+        <div class="modal-action">
+            <button onclick="document.getElementById('new-file-modal').close()" class="btn btn-ghost">Cancel</button>
+            <button onclick="submitNewFile()" class="btn btn-primary">Create</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- New Folder Modal -->
+<dialog id="new-folder-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">📁 New Folder</h3>
+        <div class="form-control mb-4">
+            <label class="label"><span class="label-text">Folder path (relative to workspace root)</span></label>
+            <input type="text" id="new-folder-path" placeholder="e.g. designs" class="input input-bordered" />
+        </div>
+        <div class="modal-action">
+            <button onclick="document.getElementById('new-folder-modal').close()" class="btn btn-ghost">Cancel</button>
+            <button onclick="submitNewFolder()" class="btn btn-primary">Create</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+    const WORKSPACE_ID = "{{ workspace.workspace_id }}";
+
+    function newFile() {
+        document.getElementById('new-file-path').value = '';
+        document.getElementById('new-file-modal').showModal();
+    }
+
+    function newFolder() {
+        document.getElementById('new-folder-path').value = '';
+        document.getElementById('new-folder-modal').showModal();
+    }
+
+    async function submitNewFile() {
+        const path = document.getElementById('new-file-path').value.trim();
+        if (!path) return;
+        try {
+            const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/new`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path }),
+            });
+            if (r.ok) {
+                document.getElementById('new-file-modal').close();
+                window.location.href = `/workspaces/${WORKSPACE_ID}/edit?file=${encodeURIComponent(path)}`;
+            } else {
+                alert('Failed to create file');
+            }
+        } catch (e) {
+            alert('Network error: ' + e.message);
+        }
+    }
+
+    async function submitNewFolder() {
+        const path = document.getElementById('new-folder-path').value.trim();
+        if (!path) return;
+        try {
+            const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/mkdir`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path }),
+            });
+            if (r.ok) {
+                document.getElementById('new-folder-modal').close();
+                window.location.reload();
+            } else {
+                alert('Failed to create folder');
+            }
+        } catch (e) {
+            alert('Network error: ' + e.message);
+        }
+    }
+</script>
+{% endblock %}

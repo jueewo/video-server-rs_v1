@@ -41,8 +41,8 @@
     <div class="text-sm breadcrumbs mb-4">
         <ul>
             <li><a href="/">Home</a></li>
-            <li><a href="/media">Media</a></li>
-            <li><a href="/media/{{ slug }}">{{ title }}</a></li>
+            <li><a href="{{ back_url }}">{{ back_label }}</a></li>
+            <li>{{ title }}</li>
             <li>PDF</li>
         </ul>
     </div>
@@ -52,7 +52,7 @@
     <div class="page-header">
         {% include "components/page-header.html" %}
         <div class="page-header-actions">
-            <a href="/media" class="btn btn-sm btn-ghost">← Back to Media</a>
+            <a href="{{ back_url }}" class="btn btn-sm btn-ghost">← Back to {{ back_label }}</a>
         </div>
     </div>
 

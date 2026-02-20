@@ -839,10 +839,17 @@ async fn main() -> anyhow::Result<()> {
                 r
             }
         })
-        // Workspace manager — auth middleware
-        .merge(workspace_routes(workspace_state).route_layer(
-            axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
-        ))
+        // Workspace manager — auth middleware + API mutate rate limit
+        .merge({
+            let r = workspace_routes(workspace_state).route_layer(
+                axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
+            );
+            if let Some(layer) = rate_limit.api_mutate_layer() {
+                r.layer(layer)
+            } else {
+                r
+            }
+        })
         .merge(
             access_groups::routes::create_routes(pool.clone()).route_layer(
                 axum::middleware::from_fn_with_state(

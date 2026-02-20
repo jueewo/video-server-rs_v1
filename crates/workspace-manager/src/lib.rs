@@ -1,3 +1,4 @@
+use api_keys::middleware::{require_scope, AuthenticatedUser};
 use askama::Template;
 use axum::{
     body::Body,
@@ -5,7 +6,7 @@ use axum::{
     http::{header, StatusCode},
     response::{Html, Json, Response},
     routing::{delete, get, post, put},
-    Router,
+    Extension, Router,
 };
 use bpmn_viewer::BpmnViewerTemplate;
 use common::storage::{generate_workspace_id, MediaType, UserStorageManager};
@@ -319,6 +320,14 @@ async fn verify_workspace_ownership(
     row.ok_or(StatusCode::NOT_FOUND)
 }
 
+/// Check API key scope if authenticated via API key (session auth has full permissions)
+fn check_scope(user_ext: &Option<Extension<AuthenticatedUser>>, scope: &str) -> Result<(), StatusCode> {
+    if let Some(Extension(user)) = user_ext {
+        require_scope(user, scope)?;
+    }
+    Ok(())
+}
+
 /// Map a file extension to a Monaco editor language identifier.
 fn monaco_language(ext: &str) -> &'static str {
     match ext {
@@ -358,10 +367,12 @@ fn parent_browse_url(workspace_id: &str, file_path: &str) -> String {
 
 /// POST /api/user/workspaces — create a new workspace
 pub async fn create_workspace(
+    user: Option<Extension<AuthenticatedUser>>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
     Json(request): Json<CreateWorkspaceRequest>,
 ) -> Result<Json<WorkspaceResponse>, StatusCode> {
+    check_scope(&user, "write")?;
     let user_id = require_auth(&session).await?;
 
     if request.name.trim().is_empty() {
@@ -417,11 +428,13 @@ pub async fn create_workspace(
 
 /// PUT /api/user/workspaces/{workspace_id} — update name/description
 pub async fn update_workspace(
+    user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
     Json(request): Json<UpdateWorkspaceRequest>,
 ) -> Result<StatusCode, StatusCode> {
+    check_scope(&user, "write")?;
     let user_id = require_auth(&session).await?;
     verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
@@ -447,10 +460,12 @@ pub async fn update_workspace(
 
 /// DELETE /api/user/workspaces/{workspace_id} — delete workspace
 pub async fn delete_workspace(
+    user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<StatusCode, StatusCode> {
+    check_scope(&user, "write")?;
     let user_id = require_auth(&session).await?;
     verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
@@ -481,11 +496,13 @@ pub async fn delete_workspace(
 
 /// POST /api/workspaces/{workspace_id}/files/save
 pub async fn save_file(
+    user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
     Json(request): Json<SaveFileRequest>,
 ) -> Result<StatusCode, StatusCode> {
+    check_scope(&user, "write")?;
     let user_id = require_auth(&session).await?;
     verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
@@ -500,11 +517,13 @@ pub async fn save_file(
 
 /// POST /api/workspaces/{workspace_id}/mkdir
 pub async fn create_folder(
+    user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
     Json(request): Json<MkdirRequest>,
 ) -> Result<StatusCode, StatusCode> {
+    check_scope(&user, "write")?;
     let user_id = require_auth(&session).await?;
     verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
@@ -528,11 +547,13 @@ pub async fn create_folder(
 
 /// DELETE /api/workspaces/{workspace_id}/files?path=...
 pub async fn delete_file(
+    user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     Query(query): Query<DeleteFileQuery>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<StatusCode, StatusCode> {
+    check_scope(&user, "write")?;
     let user_id = require_auth(&session).await?;
     verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
@@ -563,11 +584,13 @@ pub async fn delete_file(
 
 /// POST /api/workspaces/{workspace_id}/files/new
 pub async fn create_file(
+    user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
     Json(request): Json<CreateFileRequest>,
 ) -> Result<StatusCode, StatusCode> {
+    check_scope(&user, "write")?;
     let user_id = require_auth(&session).await?;
     verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
@@ -585,12 +608,14 @@ pub async fn create_file(
 ///
 /// Compatible with Monaco EditorTemplate's `saveDocument()` — body is `{ "content": "..." }`.
 pub async fn save_text_content(
+    user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     Query(query): Query<ServeFileQuery>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
     Json(body): Json<SaveTextBody>,
 ) -> Result<StatusCode, StatusCode> {
+    check_scope(&user, "write")?;
     let user_id = require_auth(&session).await?;
     verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
@@ -608,12 +633,14 @@ pub async fn save_text_content(
 /// Compatible with bpmn-js's `saveBpmn()` — body is `{ "content": "<xml>..." }`,
 /// response is `{ "success": true }`.
 pub async fn save_bpmn_content(
+    user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     Query(query): Query<ServeFileQuery>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
     Json(body): Json<SaveBpmnBody>,
 ) -> Result<Json<BpmnSaveResponse>, StatusCode> {
+    check_scope(&user, "write")?;
     let user_id = require_auth(&session).await?;
     verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
@@ -633,11 +660,13 @@ pub async fn save_bpmn_content(
 ///
 /// Serves raw file bytes — used by PDF.js to fetch the PDF content.
 pub async fn serve_workspace_file(
+    user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     Query(query): Query<ServeFileQuery>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<Response, StatusCode> {
+    check_scope(&user, "read")?;
     let user_id = require_auth(&session).await?;
     verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
@@ -682,11 +711,13 @@ pub async fn serve_workspace_file(
 
 /// GET /api/workspaces/{workspace_id}/folder-config?path=...
 pub async fn get_folder_config(
+    user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     Query(query): Query<ServeFileQuery>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "read")?;
     let user_id = require_auth(&session).await?;
     verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
@@ -720,11 +751,13 @@ pub async fn get_folder_config(
 
 /// PATCH /api/workspaces/{workspace_id}/folder-metadata
 pub async fn update_folder_metadata(
+    user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
     Json(request): Json<UpdateFolderMetadataRequest>,
 ) -> Result<StatusCode, StatusCode> {
+    check_scope(&user, "write")?;
     let user_id = require_auth(&session).await?;
     verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
@@ -809,11 +842,13 @@ pub async fn update_folder_metadata(
 ///
 /// The browser sends one request per file; the JS layer calls this in a loop.
 pub async fn upload_file(
+    user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
     mut multipart: Multipart,
 ) -> Result<StatusCode, StatusCode> {
+    check_scope(&user, "write")?;
     let user_id = require_auth(&session).await?;
     verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
@@ -868,9 +903,11 @@ pub async fn upload_file(
 
 /// GET /workspaces — list workspaces
 pub async fn list_workspaces_page(
+    user: Option<Extension<AuthenticatedUser>>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<Html<String>, StatusCode> {
+    check_scope(&user, "read")?;
     let user_id = require_auth(&session).await?;
 
     let rows: Vec<(String, String, Option<String>, String)> = sqlx::query_as(
@@ -910,9 +947,11 @@ pub async fn list_workspaces_page(
 
 /// GET /workspaces/new — new workspace form
 pub async fn new_workspace_page(
+    user: Option<Extension<AuthenticatedUser>>,
     session: Session,
     State(_state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<Html<String>, StatusCode> {
+    check_scope(&user, "read")?;
     require_auth(&session).await?;
 
     let template = NewWorkspaceTemplate { authenticated: true };
@@ -924,10 +963,12 @@ pub async fn new_workspace_page(
 
 /// GET /workspaces/{workspace_id} — workspace dashboard
 pub async fn workspace_dashboard(
+    user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<Html<String>, StatusCode> {
+    check_scope(&user, "read")?;
     let user_id = require_auth(&session).await?;
     let (name, description) =
         verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
@@ -977,20 +1018,24 @@ pub async fn workspace_dashboard(
 
 /// GET /workspaces/{workspace_id}/browse/{*path}
 pub async fn file_browser_page(
+    user: Option<Extension<AuthenticatedUser>>,
     Path(path_parts): Path<(String, String)>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<Html<String>, StatusCode> {
+    check_scope(&user, "read")?;
     let (workspace_id, subpath) = path_parts;
     file_browser_handler(workspace_id, subpath, session, state).await
 }
 
 /// GET /workspaces/{workspace_id}/browse
 pub async fn file_browser_root_page(
+    user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<Html<String>, StatusCode> {
+    check_scope(&user, "read")?;
     file_browser_handler(workspace_id, String::new(), session, state).await
 }
 
@@ -1052,11 +1097,13 @@ async fn file_browser_handler(
 ///
 /// Opens a text file directly in Monaco editor (bypassing preview for markdown).
 pub async fn edit_text_file_page(
+    user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     Query(query): Query<FileQuery>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<Html<String>, StatusCode> {
+    check_scope(&user, "read")?;
     let user_id = require_auth(&session).await?;
     let (workspace_name, _) =
         verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
@@ -1120,11 +1167,13 @@ pub async fn edit_text_file_page(
 /// - `.md`, `.markdown` → Markdown preview (with Edit button)
 /// - other text files → Monaco editor
 pub async fn open_file_page(
+    user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     Query(query): Query<FileQuery>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<Html<String>, StatusCode> {
+    check_scope(&user, "read")?;
     let user_id = require_auth(&session).await?;
     let (workspace_name, _) =
         verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
@@ -1256,11 +1305,13 @@ pub async fn open_file_page(
 /// Copies a workspace file into a vault, creates a `media_items` record, and
 /// optionally assigns an access code — giving the file a shareable URL.
 pub async fn publish_to_vault(
+    user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
     Json(request): Json<PublishRequest>,
 ) -> Result<Json<PublishResponse>, StatusCode> {
+    check_scope(&user, "write")?;
     let user_id = require_auth(&session).await?;
     verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 

@@ -94,10 +94,15 @@ impl WorkspaceConfig {
 
     /// Add or update a folder in the config
     pub fn upsert_folder(&mut self, path: String, folder_type: FolderType) {
-        self.folders.entry(path).or_insert_with(|| FolderConfig {
-            folder_type,
-            metadata: HashMap::new(),
-        });
+        self.folders
+            .entry(path)
+            .and_modify(|config| {
+                config.folder_type = folder_type.clone();
+            })
+            .or_insert_with(|| FolderConfig {
+                folder_type,
+                metadata: HashMap::new(),
+            });
     }
 
     /// Remove a folder from the config
@@ -181,6 +186,28 @@ mod tests {
             config.folders.get("agents").unwrap().folder_type,
             FolderType::AgentCollection
         );
+    }
+
+    #[test]
+    fn test_upsert_folder_updates_type() {
+        let mut config = WorkspaceConfig::new("Test".to_string(), String::new());
+
+        // First insert as Plain
+        config.upsert_folder("my-folder".to_string(), FolderType::Plain);
+        assert_eq!(
+            config.folders.get("my-folder").unwrap().folder_type,
+            FolderType::Plain
+        );
+
+        // Update to StaticSite
+        config.upsert_folder("my-folder".to_string(), FolderType::StaticSite);
+        assert_eq!(
+            config.folders.get("my-folder").unwrap().folder_type,
+            FolderType::StaticSite
+        );
+
+        // Should still be only one folder
+        assert_eq!(config.folders.len(), 1);
     }
 
     #[test]

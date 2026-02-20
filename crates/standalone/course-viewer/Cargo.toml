@@ -1,0 +1,47 @@
+[package]
+name = "course-viewer"
+version = "0.1.0"
+edition = "2021"
+authors = ["Media Server Team"]
+description = "Standalone course viewer for published courses"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+# Local crates
+common = { path = "../../common" }
+course-processor = { path = "../../workspace-processors/course-processor" }
+access-control = { path = "../../access-control" }
+
+# Web framework
+axum = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = "1.0"
+
+# Templates
+askama = { workspace = true }
+
+# Database
+sqlx = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Markdown rendering
+pulldown-cmark = "0.9"
+
+# Utilities
+time = { workspace = true }
+
+[features]
+default = []
+# Enable progress tracking (requires authentication)
+progress-tracking = []

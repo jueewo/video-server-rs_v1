@@ -1,0 +1,71 @@
+# Example course.yaml
+# This file goes in the root of a course folder in a workspace
+
+title: "Introduction to Rust Programming"
+description: "Learn Rust from the ground up with hands-on examples and projects"
+instructor: "Jane Doe"
+level: "beginner"
+entry_point: "index.md"
+
+modules:
+  - title: "Module 1: Rust Basics"
+    order: 1
+    description: "Get started with Rust syntax and fundamentals"
+    lessons:
+      - title: "Variables and Data Types"
+        file: "module1/01-variables.md"
+        duration_minutes: 45
+        media_refs:
+          - slug: "rust-variables-video"
+            vault_id: "vault-123"
+            media_type: "video"
+            description: "Video tutorial explaining Rust variables"
+          - slug: "rust-syntax-cheatsheet"
+            vault_id: "vault-123"
+            media_type: "pdf"
+            description: "Quick reference for Rust syntax"
+
+      - title: "Control Flow"
+        file: "module1/02-control-flow.md"
+        duration_minutes: 60
+        media_refs:
+          - slug: "control-flow-diagrams"
+            media_type: "image"
+            description: "Visual diagrams of if/else and loops"
+
+  - title: "Module 2: Ownership and Borrowing"
+    order: 2
+    description: "Master Rust's unique ownership system"
+    lessons:
+      - title: "Understanding Ownership"
+        file: "module2/01-ownership.md"
+        duration_minutes: 90
+        media_refs:
+          - slug: "ownership-explained-video"
+            media_type: "video"
+          - slug: "ownership-exercises-data"
+            media_type: "data"
+            description: "Practice exercises dataset (CSV)"
+
+      - title: "References and Borrowing"
+        file: "module2/02-borrowing.md"
+        duration_minutes: 75
+
+  - title: "Module 3: Hands-On Project"
+    order: 3
+    description: "Build a real-world CLI application"
+    lessons:
+      - title: "Project Setup"
+        file: "module3/01-setup.md"
+        duration_minutes: 30
+
+      - title: "Implementation"
+        file: "module3/02-implementation.md"
+        duration_minutes: 120
+        media_refs:
+          - slug: "project-walkthrough-video"
+            media_type: "video"
+            description: "Step-by-step implementation guide"
+          - slug: "starter-code-zip"
+            media_type: "archive"
+            description: "Starter code template"

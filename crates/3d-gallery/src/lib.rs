@@ -18,72 +18,79 @@ pub mod api;
 pub mod models;
 pub mod routes;
 
-/// Serve bundle.js with correct MIME type
-async fn serve_bundle_js() -> Response {
+/// Serve JavaScript files with correct MIME type
+/// Handles index.js, bundle.js, and all chunk files
+async fn serve_js_file(filename: &str) -> Response {
     // Use GALLERY_STATIC_DIR environment variable, or fall back to common paths
     let base_dir = std::env::var("GALLERY_STATIC_DIR").unwrap_or_else(|_| ".".to_string());
 
     let paths = [
-        format!("{}/crates/3d-gallery/static/bundle.js", base_dir),
-        format!("{}/static/3d-gallery/bundle.js", base_dir),
-        "crates/3d-gallery/static/bundle.js".to_string(),
-        "static/3d-gallery/bundle.js".to_string(),
+        format!("{}/crates/3d-gallery/static/{}", base_dir, filename),
+        format!("{}/static/3d-gallery/{}", base_dir, filename),
+        format!("crates/3d-gallery/static/{}", filename),
+        format!("static/3d-gallery/{}", filename),
     ];
 
     for path in &paths {
         if let Ok(content) = tokio::fs::read(path).await {
-            tracing::info!("✅ Served bundle.js from: {}", path);
-            return (
-                StatusCode::OK,
-                [(
-                    header::CONTENT_TYPE,
-                    "application/javascript; charset=utf-8",
-                )],
-                content,
-            )
-                .into_response();
+            tracing::info!("✅ Served {} from: {}", filename, path);
+
+            // Determine MIME type based on file extension
+            let mime_type = if filename.ends_with(".js") {
+                "application/javascript; charset=utf-8"
+            } else if filename.ends_with(".js.map") {
+                "application/json; charset=utf-8"
+            } else {
+                "application/octet-stream"
+            };
+
+            return (StatusCode::OK, [(header::CONTENT_TYPE, mime_type)], content).into_response();
         }
     }
 
     let cwd = std::env::current_dir().unwrap_or_default();
     tracing::error!(
-        "🚫 bundle.js not found. CWD: {:?}, tried paths: {:?}",
+        "🚫 {} not found. CWD: {:?}, tried paths: {:?}",
+        filename,
         cwd,
         paths
     );
     (
         StatusCode::NOT_FOUND,
-        format!("File not found. CWD: {:?}", cwd),
+        format!("File not found: {}", filename),
     )
         .into_response()
 }
 
-/// Serve bundle.js.map with correct MIME type
+/// Handler for bundle.js (backward compatibility)
+async fn serve_bundle_js() -> Response {
+    serve_js_file("bundle.js").await
+}
+
+/// Handler for bundle.js.map (backward compatibility)
 async fn serve_bundle_js_map() -> Response {
-    // Use GALLERY_STATIC_DIR environment variable, or fall back to common paths
-    let base_dir = std::env::var("GALLERY_STATIC_DIR").unwrap_or_else(|_| ".".to_string());
+    serve_js_file("bundle.js.map").await
+}
 
-    let paths = [
-        format!("{}/crates/3d-gallery/static/bundle.js.map", base_dir),
-        format!("{}/static/3d-gallery/bundle.js.map", base_dir),
-        "crates/3d-gallery/static/bundle.js.map".to_string(),
-        "static/3d-gallery/bundle.js.map".to_string(),
-    ];
+/// Handler for index.js (new code-split entry point)
+async fn serve_index_js() -> Response {
+    serve_js_file("index.js").await
+}
 
-    for path in &paths {
-        if let Ok(content) = tokio::fs::read(path).await {
-            tracing::info!("✅ Served bundle.js.map from: {}", path);
-            return (
-                StatusCode::OK,
-                [(header::CONTENT_TYPE, "application/json; charset=utf-8")],
-                content,
-            )
-                .into_response();
-        }
+/// Handler for index.js.map
+async fn serve_index_js_map() -> Response {
+    serve_js_file("index.js.map").await
+}
+
+/// Handler for chunk files (e.g., chunk-ABC123.js)
+async fn serve_chunk_js(axum::extract::Path(filename): axum::extract::Path<String>) -> Response {
+    // Validate filename to prevent directory traversal
+    if filename.contains("..") || filename.contains('/') || filename.contains('\\') {
+        tracing::warn!("🚫 Invalid filename attempted: {}", filename);
+        return (StatusCode::BAD_REQUEST, "Invalid filename").into_response();
     }
 
-    tracing::error!("🚫 bundle.js.map not found");
-    (StatusCode::NOT_FOUND, "File not found").into_response()
+    serve_js_file(&filename).await
 }
 
 /// Create the 3D gallery router with database pool
@@ -92,7 +99,7 @@ async fn serve_bundle_js_map() -> Response {
 /// - GET /3d - Main 3D viewer page (requires ?code= parameter)
 /// - GET /digital-twin - Alternative route to viewer
 /// - GET /api/3d/gallery - JSON API for gallery data
-/// - GET /static/3d-gallery/* - Static assets (bundle.js, etc.)
+/// - GET /static/3d-gallery/* - Static assets (index.js, bundle.js, chunks, etc.)
 pub fn router(pool: Arc<SqlitePool>) -> Router {
     Router::new()
         // Main viewer pages
@@ -101,9 +108,15 @@ pub fn router(pool: Arc<SqlitePool>) -> Router {
         // API endpoints (with database state)
         .route("/api/3d/gallery", get(api::get_gallery_data))
         .with_state(pool)
-        // Static file serving for frontend bundle with proper MIME types
+        // Static file serving for frontend with proper MIME types
+        // New code-split entry point
+        .route("/static/3d-gallery/index.js", get(serve_index_js))
+        .route("/static/3d-gallery/index.js.map", get(serve_index_js_map))
+        // Legacy bundle.js (backward compatibility)
         .route("/static/3d-gallery/bundle.js", get(serve_bundle_js))
         .route("/static/3d-gallery/bundle.js.map", get(serve_bundle_js_map))
+        // Chunk files (e.g., chunk-ABC123.js, chunk-ABC123.js.map)
+        .route("/static/3d-gallery/{filename}", get(serve_chunk_js))
 }
 
 // Tests removed - router requires database pool parameter

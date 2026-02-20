@@ -5,38 +5,51 @@
  * Handles image loading, frame creation, and interactions.
  */
 
-import * as BABYLON from "@babylonjs/core";
+import {
+  Scene,
+  Vector3,
+  Color3,
+  TransformNode,
+  MeshBuilder,
+  Mesh,
+  StandardMaterial,
+  Texture,
+  Engine,
+  Material,
+  ActionManager,
+  ExecuteCodeAction,
+} from "@babylonjs/core";
 
 /**
  * Create a picture frame with an image texture
  *
- * @param {BABYLON.Scene} scene - The Babylon.js scene
+ * @param {Scene} scene - The Babylon.js scene
  * @param {Object} imageData - Image data from API
  * @param {Object} options - Frame configuration
  * @returns {Object} Frame object with mesh and metadata
  */
 export function createImageFrame(scene, imageData, options = {}) {
   const {
-    position = new BABYLON.Vector3(0, 2, -5),
-    rotation = new BABYLON.Vector3(0, 0, 0),
+    position = new Vector3(0, 2, -5),
+    rotation = new Vector3(0, 0, 0),
     facingDirection = null,
     width = 2,
     aspectRatio = 16 / 9,
     frameThickness = 0.1,
-    frameColor = new BABYLON.Color3(0.1, 0.08, 0.05), // Dark wood
+    frameColor = new Color3(0.1, 0.08, 0.05), // Dark wood
   } = options;
 
   const height = width / aspectRatio;
 
   // Create parent node for the entire frame
-  const frameParent = new BABYLON.TransformNode(`frame_${imageData.id}`, scene);
+  const frameParent = new TransformNode(`frame_${imageData.id}`, scene);
   frameParent.position = position;
 
   // Compute rotation so that local -Z points toward room (into the room)
   // For a plane with normal (0,0,-1), rotation.y = atan2(-fx, -fz) makes it face (fx, 0, fz)
   if (facingDirection) {
     const rotY = Math.atan2(-facingDirection.x, -facingDirection.z);
-    frameParent.rotation = new BABYLON.Vector3(0, rotY, 0);
+    frameParent.rotation = new Vector3(0, rotY, 0);
   } else {
     frameParent.rotation = rotation;
   }
@@ -53,9 +66,9 @@ export function createImageFrame(scene, imageData, options = {}) {
   // Frame borders at local z = -0.025 are correctly inside room,
   // so image at local z = -0.01 will also be inside room.
   // FRONTSIDE: visible face normal is local -Z, which points toward room center.
-  const imagePlane = BABYLON.MeshBuilder.CreatePlane(
+  const imagePlane = MeshBuilder.CreatePlane(
     `image_${imageData.id}`,
-    { width, height, sideOrientation: BABYLON.Mesh.FRONTSIDE },
+    { width, height, sideOrientation: Mesh.FRONTSIDE },
     scene,
   );
   imagePlane.parent = frameParent;
@@ -66,20 +79,17 @@ export function createImageFrame(scene, imageData, options = {}) {
   );
 
   // Create image material with texture
-  const imageMaterial = new BABYLON.StandardMaterial(
-    `imageMat_${imageData.id}`,
-    scene,
-  );
+  const imageMaterial = new StandardMaterial(`imageMat_${imageData.id}`, scene);
 
   // Load the image texture with error handling
   console.log(`Loading texture for ${imageData.title} from: ${imageData.url}`);
 
-  const texture = new BABYLON.Texture(
+  const texture = new Texture(
     imageData.url,
     scene,
     false,
     false,
-    BABYLON.Texture.TRILINEAR_SAMPLINGMODE,
+    Texture.TRILINEAR_SAMPLINGMODE,
     () => {
       // onLoad callback
       console.log(`✓ Texture loaded: ${imageData.title}`, {
@@ -98,8 +108,8 @@ export function createImageFrame(scene, imageData, options = {}) {
       console.warn(`Using placeholder color for: ${imageData.title}`);
       // Use a solid color as fallback
       imageMaterial.diffuseTexture = null;
-      imageMaterial.diffuseColor = new BABYLON.Color3(0.7, 0.7, 0.8);
-      imageMaterial.emissiveColor = new BABYLON.Color3(0.2, 0.2, 0.25);
+      imageMaterial.diffuseColor = new Color3(0.7, 0.7, 0.8);
+      imageMaterial.emissiveColor = new Color3(0.2, 0.2, 0.25);
     },
   );
 
@@ -109,12 +119,12 @@ export function createImageFrame(scene, imageData, options = {}) {
 
   imageMaterial.diffuseTexture = texture;
   // No emissive texture - prevents bleeding through walls
-  imageMaterial.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
-  imageMaterial.emissiveColor = new BABYLON.Color3(0, 0, 0); // No emissive
+  imageMaterial.specularColor = new Color3(0.1, 0.1, 0.1);
+  imageMaterial.emissiveColor = new Color3(0, 0, 0); // No emissive
   imageMaterial.backFaceCulling = true; // Only render front side (faces into room)
-  imageMaterial.alphaMode = BABYLON.Engine.ALPHA_DISABLE;
+  imageMaterial.alphaMode = Engine.ALPHA_DISABLE;
   imageMaterial.disableDepthWrite = false;
-  imageMaterial.transparencyMode = BABYLON.Material.MATERIAL_OPAQUE;
+  imageMaterial.transparencyMode = Material.MATERIAL_OPAQUE;
 
   // Small z-offset to prevent z-fighting with walls
   imageMaterial.zOffset = 1;
@@ -125,7 +135,7 @@ export function createImageFrame(scene, imageData, options = {}) {
   imagePlane.checkCollisions = false;
 
   // Force the engine to respect backface culling
-  scene.getEngine().setDepthFunction(BABYLON.Engine.LEQUAL);
+  scene.getEngine().setDepthFunction(Engine.LEQUAL);
 
   console.log(
     `Image plane visibility: ${imagePlane.isVisible}, material applied: ${!!imagePlane.material}`,
@@ -170,24 +180,18 @@ export function createImageFrame(scene, imageData, options = {}) {
   imagePlane.isPickable = true;
 
   // Add subtle hover glow effect
-  imagePlane.actionManager = new BABYLON.ActionManager(scene);
+  imagePlane.actionManager = new ActionManager(scene);
 
   imagePlane.actionManager.registerAction(
-    new BABYLON.ExecuteCodeAction(
-      BABYLON.ActionManager.OnPointerOverTrigger,
-      () => {
-        imageMaterial.emissiveColor = new BABYLON.Color3(0.2, 0.2, 0.2);
-      },
-    ),
+    new ExecuteCodeAction(ActionManager.OnPointerOverTrigger, () => {
+      imageMaterial.emissiveColor = new Color3(0.2, 0.2, 0.2);
+    }),
   );
 
   imagePlane.actionManager.registerAction(
-    new BABYLON.ExecuteCodeAction(
-      BABYLON.ActionManager.OnPointerOutTrigger,
-      () => {
-        imageMaterial.emissiveColor = new BABYLON.Color3(0.1, 0.1, 0.1);
-      },
-    ),
+    new ExecuteCodeAction(ActionManager.OnPointerOutTrigger, () => {
+      imageMaterial.emissiveColor = new Color3(0.1, 0.1, 0.1);
+    }),
   );
 
   console.log(`Created frame for image: ${imageData.title || imageData.id}`);
@@ -207,12 +211,12 @@ function createFrameBorder(scene, width, height, thickness, color, id) {
   const border = [];
   const depth = thickness / 2;
 
-  const frameMaterial = new BABYLON.StandardMaterial(`frameMat_${id}`, scene);
+  const frameMaterial = new StandardMaterial(`frameMat_${id}`, scene);
   frameMaterial.diffuseColor = color;
-  frameMaterial.specularColor = new BABYLON.Color3(0.3, 0.25, 0.2);
+  frameMaterial.specularColor = new Color3(0.3, 0.25, 0.2);
 
   // Top border
-  const top = BABYLON.MeshBuilder.CreateBox(
+  const top = MeshBuilder.CreateBox(
     `frameTop_${id}`,
     { width: width + thickness * 2, height: thickness, depth },
     scene,
@@ -225,7 +229,7 @@ function createFrameBorder(scene, width, height, thickness, color, id) {
   border.push(top);
 
   // Bottom border
-  const bottom = BABYLON.MeshBuilder.CreateBox(
+  const bottom = MeshBuilder.CreateBox(
     `frameBottom_${id}`,
     { width: width + thickness * 2, height: thickness, depth },
     scene,
@@ -238,7 +242,7 @@ function createFrameBorder(scene, width, height, thickness, color, id) {
   border.push(bottom);
 
   // Left border
-  const left = BABYLON.MeshBuilder.CreateBox(
+  const left = MeshBuilder.CreateBox(
     `frameLeft_${id}`,
     { width: thickness, height: height, depth },
     scene,
@@ -251,7 +255,7 @@ function createFrameBorder(scene, width, height, thickness, color, id) {
   border.push(left);
 
   // Right border
-  const right = BABYLON.MeshBuilder.CreateBox(
+  const right = MeshBuilder.CreateBox(
     `frameRight_${id}`,
     { width: thickness, height: height, depth },
     scene,
@@ -269,7 +273,7 @@ function createFrameBorder(scene, width, height, thickness, color, id) {
 /**
  * Create multiple image frames and position them on walls
  *
- * @param {BABYLON.Scene} scene - The Babylon.js scene
+ * @param {Scene} scene - The Babylon.js scene
  * @param {Array} images - Array of image data objects
  * @param {Array} positions - Array of position objects from getWallPositions
  * @param {Object} options - Frame options
@@ -319,22 +323,17 @@ export function setupFrameInteractions(frames, onImageClick) {
     const imagePlane = frame.imagePlane;
 
     if (!imagePlane.actionManager) {
-      imagePlane.actionManager = new BABYLON.ActionManager(
-        imagePlane.getScene(),
-      );
+      imagePlane.actionManager = new ActionManager(imagePlane.getScene());
     }
 
     // Add click action with high priority (executes before camera drag)
     imagePlane.actionManager.registerAction(
-      new BABYLON.ExecuteCodeAction(
-        BABYLON.ActionManager.OnPickDownTrigger,
-        () => {
-          if (onImageClick) {
-            console.log("Image pick triggered:", frame.metadata.title);
-            onImageClick(frame.metadata);
-          }
-        },
-      ),
+      new ExecuteCodeAction(ActionManager.OnPickDownTrigger, () => {
+        if (onImageClick) {
+          console.log("Image pick triggered:", frame.metadata.title);
+          onImageClick(frame.metadata);
+        }
+      }),
     );
   });
 

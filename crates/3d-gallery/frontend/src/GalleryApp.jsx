@@ -1,6 +1,21 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import * as BABYLON from "@babylonjs/core";
+import {
+  Engine,
+  Scene,
+  Color4,
+  Color3,
+  Vector3,
+  UniversalCamera,
+  Camera,
+  TransformNode,
+  MeshBuilder,
+  ActionManager,
+  ExecuteCodeAction,
+  PointerEventTypes,
+  Axis,
+} from "@babylonjs/core";
 import { fetchGalleryData } from "./api/galleryApi";
+import { getAutoQualitySettings } from "./utils/deviceDetection";
 import {
   createGalleryFromLayout,
   mapMediaToSlots,
@@ -33,6 +48,22 @@ export default function GalleryApp({
   const [minimapVisible, setMinimapVisible] = useState(true);
   const [helpVisible, setHelpVisible] = useState(false);
   const [gallery, setGallery] = useState(null);
+  const [qualityConfig, setQualityConfig] = useState(null);
+
+  // Detect device capabilities and quality settings on mount
+  useEffect(() => {
+    const config = getAutoQualitySettings();
+    setQualityConfig(config);
+    console.log("🎮 Device detected:", config.capabilities.deviceType);
+    console.log("⚙️ Quality profile:", config.profile);
+
+    // Show warning for low-end devices
+    if (config.profile === "ultra_low") {
+      console.warn(
+        "⚠️ Mobile VR detected - using ultra-low quality settings for performance",
+      );
+    }
+  }, []);
 
   // Fetch gallery data on mount
   useEffect(() => {
@@ -59,33 +90,38 @@ export default function GalleryApp({
 
   // Initialize Babylon.js scene - only once when data is loaded
   useEffect(() => {
-    if (loading || !canvasRef.current || !galleryData) {
+    if (loading || !canvasRef.current || !galleryData || !qualityConfig) {
       return;
     }
 
     console.log("Initializing Babylon.js gallery scene...");
     console.log("Gallery data:", galleryData);
+    console.log("Quality settings:", qualityConfig.settings);
 
-    // Create engine
-    const engine = new BABYLON.Engine(canvasRef.current, true, {
+    const settings = qualityConfig.settings;
+
+    // Create engine with mobile-optimized settings
+    const engine = new Engine(canvasRef.current, settings.antialiasing, {
       preserveDrawingBuffer: true,
-      stencil: true,
+      stencil: settings.useShadows,
+      powerPreference:
+        settings.profile === "ultra_low" ? "low-power" : "high-performance",
     });
 
     // Create scene
-    const scene = new BABYLON.Scene(engine);
-    scene.clearColor = new BABYLON.Color4(0.1, 0.1, 0.15, 1.0);
+    const scene = new Scene(engine);
+    scene.clearColor = new Color4(0.1, 0.1, 0.15, 1.0);
 
     // Store scene ref for pointer event control
     sceneRef.current = scene;
 
     // Create camera - FPS style camera for walking around
-    const camera = new BABYLON.UniversalCamera(
+    const camera = new UniversalCamera(
       "camera",
-      new BABYLON.Vector3(0, 1.8, -5), // Start position - eye level, facing north
+      new Vector3(0, 1.8, -5), // Start position - eye level, facing north
       scene,
     );
-    camera.setTarget(new BABYLON.Vector3(0, 1.8, 0)); // Look at center
+    camera.setTarget(new Vector3(0, 1.8, 0)); // Look at center
     camera.attachControl(canvasRef.current, true);
 
     // Camera movement settings
@@ -105,7 +141,7 @@ export default function GalleryApp({
     setCameraReady(true); // Trigger re-render to show minimap
 
     // Fix aspect ratio
-    camera.mode = BABYLON.Camera.PERSPECTIVE_CAMERA;
+    camera.mode = Camera.PERSPECTIVE_CAMERA;
     const updateAspectRatio = () => {
       const canvas = canvasRef.current;
       if (canvas) {
@@ -114,13 +150,13 @@ export default function GalleryApp({
     };
     updateAspectRatio();
 
-    // Create gallery from JSON layout
+    // Create gallery from JSON layout with quality settings
     console.log("Loading gallery layout...");
-    const galleryObj = createGalleryFromLayout(scene, demoLayout);
+    const galleryObj = createGalleryFromLayout(scene, demoLayout, settings);
     setGallery(galleryObj);
 
     // Create player avatar for shadow casting
-    const playerAvatar = BABYLON.MeshBuilder.CreateCylinder(
+    const playerAvatar = MeshBuilder.CreateCylinder(
       "playerAvatar",
       { height: 1.6, diameter: 0.5 },
       scene,
@@ -136,8 +172,8 @@ export default function GalleryApp({
     // Set camera spawn point from layout
     if (demoLayout.spawn_point) {
       const spawn = demoLayout.spawn_point;
-      camera.position = new BABYLON.Vector3(...spawn.position);
-      camera.rotation = new BABYLON.Vector3(...spawn.rotation);
+      camera.position = new Vector3(...spawn.position);
+      camera.rotation = new Vector3(...spawn.rotation);
       playerAvatar.position.x = spawn.position[0];
       playerAvatar.position.z = spawn.position[2];
     }
@@ -187,21 +223,18 @@ export default function GalleryApp({
           position: slot.position,
           rotation: slot.rotation,
           facingDirection: slot.facingDirection,
-          width: slot.width,
-          frameThickness: 0.12,
+          width: slot.width || 2,
+          frameThickness: settings.simplifiedGeometry ? 0.03 : 0.05,
         });
 
         // Setup click interaction
         if (frame.framePlane) {
-          frame.framePlane.actionManager = new BABYLON.ActionManager(scene);
+          frame.framePlane.actionManager = new ActionManager(scene);
           frame.framePlane.actionManager.registerAction(
-            new BABYLON.ExecuteCodeAction(
-              BABYLON.ActionManager.OnPickDownTrigger,
-              () => {
-                console.log("Image clicked:", media.title);
-                setSelectedImage(media);
-              },
-            ),
+            new ExecuteCodeAction(ActionManager.OnPickDownTrigger, () => {
+              console.log("Image clicked:", media.title);
+              setSelectedImage(media);
+            }),
           );
         }
 
@@ -220,18 +253,15 @@ export default function GalleryApp({
         // Setup click interaction (don't overwrite actionManager — it already has hover/leave handlers from setupVideoInteractions)
         if (screen.screenPlane) {
           if (!screen.screenPlane.actionManager) {
-            screen.screenPlane.actionManager = new BABYLON.ActionManager(scene);
+            screen.screenPlane.actionManager = new ActionManager(scene);
           }
           screen.screenPlane.actionManager.registerAction(
-            new BABYLON.ExecuteCodeAction(
-              BABYLON.ActionManager.OnPickDownTrigger,
-              () => {
-                console.log("Video clicked:", media.title);
-                const currentTime = screen.videoElement?.currentTime || 0;
-                screen.videoElement?.pause();
-                setSelectedImage({ ...media, currentTime });
-              },
-            ),
+            new ExecuteCodeAction(ActionManager.OnPickDownTrigger, () => {
+              console.log("Video clicked:", media.title);
+              const currentTime = screen.videoElement?.currentTime || 0;
+              screen.videoElement?.pause();
+              setSelectedImage({ ...media, currentTime });
+            }),
           );
         }
 
@@ -247,15 +277,12 @@ export default function GalleryApp({
 
         // Click on frame → open fullscreen PdfOverlay
         if (presentation.framePlane) {
-          presentation.framePlane.actionManager = new BABYLON.ActionManager(scene);
+          presentation.framePlane.actionManager = new ActionManager(scene);
           presentation.framePlane.actionManager.registerAction(
-            new BABYLON.ExecuteCodeAction(
-              BABYLON.ActionManager.OnPickDownTrigger,
-              () => {
-                console.log("PDF clicked:", media.title);
-                setSelectedImage(media);
-              },
-            ),
+            new ExecuteCodeAction(ActionManager.OnPickDownTrigger, () => {
+              console.log("PDF clicked:", media.title);
+              setSelectedImage(media);
+            }),
           );
         }
 
@@ -276,13 +303,15 @@ export default function GalleryApp({
 
     // Setup scene pointer observable to handle clicks before camera
     scene.onPointerObservable.add((pointerInfo) => {
-      if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN) {
+      if (pointerInfo.type === PointerEventTypes.POINTERDOWN) {
         const pickResult = pointerInfo.pickInfo;
         if (pickResult.hit && pickResult.pickedMesh) {
           const metadata = pickResult.pickedMesh.metadata;
           if (
             metadata &&
-            (metadata.type === "image" || metadata.type === "video" || metadata.type === "document")
+            (metadata.type === "image" ||
+              metadata.type === "video" ||
+              metadata.type === "document")
           ) {
             console.log("Media picked via observable:", metadata.title);
             pointerInfo.event.preventDefault();
@@ -539,11 +568,11 @@ export default function GalleryApp({
       let moved = false;
 
       // Get camera forward direction on XZ plane only (ignore vertical look)
-      const forward = camera.getDirection(BABYLON.Axis.Z);
+      const forward = camera.getDirection(Axis.Z);
       forward.y = 0; // Zero out vertical component
       forward.normalize(); // Re-normalize after modification
 
-      const right = camera.getDirection(BABYLON.Axis.X);
+      const right = camera.getDirection(Axis.X);
       right.y = 0; // Zero out vertical component
       right.normalize(); // Re-normalize after modification
 
@@ -794,7 +823,12 @@ export default function GalleryApp({
             onClick={(e) => e.stopPropagation()}
           >
             {selectedImage.type === "video" ? (
-              <VideoPlayer url={selectedImage.url} autoPlay={true} initialTime={selectedImage.currentTime || 0} videoRef={overlayVideoRef} />
+              <VideoPlayer
+                url={selectedImage.url}
+                autoPlay={true}
+                initialTime={selectedImage.currentTime || 0}
+                videoRef={overlayVideoRef}
+              />
             ) : selectedImage.type === "document" ? (
               <PdfOverlay
                 url={selectedImage.url}

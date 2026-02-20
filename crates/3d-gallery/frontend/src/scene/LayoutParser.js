@@ -5,16 +5,30 @@
  * and media placement slots using Babylon.js.
  */
 
-import * as BABYLON from "@babylonjs/core";
+import {
+  Scene,
+  Vector3,
+  Color3,
+  Color4,
+  MeshBuilder,
+  StandardMaterial,
+  Material,
+  Mesh,
+  HemisphericLight,
+  DirectionalLight,
+  ShadowGenerator,
+  TransformNode,
+} from "@babylonjs/core";
 
 /**
  * Parse a gallery layout JSON and create all rooms in the scene
  *
- * @param {BABYLON.Scene} scene - The Babylon.js scene
+ * @param {Scene} scene - The Babylon.js scene
  * @param {Object} layout - The parsed JSON layout object
+ * @param {Object} qualitySettings - Optional quality settings for mobile optimization
  * @returns {Object} Generated gallery structure
  */
-export function createGalleryFromLayout(scene, layout) {
+export function createGalleryFromLayout(scene, layout, qualitySettings = null) {
   console.log(`Creating gallery: ${layout.name}`);
   console.log(`Description: ${layout.description}`);
 
@@ -28,9 +42,9 @@ export function createGalleryFromLayout(scene, layout) {
     shadowGenerators: [],
   };
 
-  // Create each room
+  // Create each room with quality settings
   layout.rooms.forEach((roomConfig) => {
-    const room = createRoom(scene, roomConfig);
+    const room = createRoom(scene, roomConfig, qualitySettings);
     gallery.rooms.push(room);
     gallery.walls.push(...room.walls);
     gallery.slots.push(...room.slots);
@@ -51,11 +65,12 @@ export function createGalleryFromLayout(scene, layout) {
 /**
  * Create a single room from configuration
  *
- * @param {BABYLON.Scene} scene - The Babylon.js scene
+ * @param {Scene} scene - The Babylon.js scene
  * @param {Object} roomConfig - Room configuration from JSON
+ * @param {Object} qualitySettings - Optional quality settings
  * @returns {Object} Room structure
  */
-function createRoom(scene, roomConfig) {
+function createRoom(scene, roomConfig, qualitySettings = null) {
   const { id, name, floor_color, ceiling_color, height } = roomConfig;
   const dimensions = roomConfig.dimensions || { height: height || 4 };
 
@@ -98,10 +113,11 @@ function createRoom(scene, roomConfig) {
 
   console.log(
     `  Actual bounds: X[${minX},${maxX}] Z[${minZ},${maxZ}] center=[${actualCenterX},${actualCenterZ}]`,
+    qualitySettings ? `[Quality: ${qualitySettings.profile || "default"}]` : "",
   );
 
   // Store calculated room center
-  room.position = new BABYLON.Vector3(actualCenterX, 0, actualCenterZ);
+  room.position = new Vector3(actualCenterX, 0, actualCenterZ);
   room.dimensions = {
     width: actualWidth,
     depth: actualDepth,
@@ -115,7 +131,7 @@ function createRoom(scene, roomConfig) {
       ...roomConfig,
       dimensions: room.dimensions,
     },
-    new BABYLON.Vector3(actualCenterX, 0, actualCenterZ),
+    new Vector3(actualCenterX, 0, actualCenterZ),
     floor_color,
   );
 
@@ -126,7 +142,7 @@ function createRoom(scene, roomConfig) {
       ...roomConfig,
       dimensions: room.dimensions,
     },
-    new BABYLON.Vector3(actualCenterX, roomHeight, actualCenterZ),
+    new Vector3(actualCenterX, roomHeight, actualCenterZ),
     ceiling_color,
   );
 
@@ -176,21 +192,21 @@ function createRoom(scene, roomConfig) {
 function createFloor(scene, roomConfig, position, color) {
   const { width, depth } = roomConfig.dimensions;
 
-  const floor = BABYLON.MeshBuilder.CreateGround(
+  const floor = MeshBuilder.CreateGround(
     `floor_${roomConfig.id}`,
     { width, height: depth },
     scene,
   );
 
-  const floorMaterial = new BABYLON.StandardMaterial(
+  const floorMaterial = new StandardMaterial(
     `floorMat_${roomConfig.id}`,
     scene,
   );
-  floorMaterial.diffuseColor = new BABYLON.Color3(...color);
-  floorMaterial.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+  floorMaterial.diffuseColor = new Color3(...color);
+  floorMaterial.specularColor = new Color3(0.1, 0.1, 0.1);
 
   floor.material = floorMaterial;
-  floor.position = new BABYLON.Vector3(position.x, position.y, position.z);
+  floor.position = new Vector3(position.x, position.y, position.z);
   floor.receiveShadows = true;
   floor.renderingGroupId = 0; // Same group as walls
 
@@ -203,18 +219,18 @@ function createFloor(scene, roomConfig, position, color) {
 function createCeiling(scene, roomConfig, position, color) {
   const { width, depth } = roomConfig.dimensions;
 
-  const ceiling = BABYLON.MeshBuilder.CreatePlane(
+  const ceiling = MeshBuilder.CreatePlane(
     `ceiling_${roomConfig.id}`,
     { width, height: depth },
     scene,
   );
 
-  const ceilingMaterial = new BABYLON.StandardMaterial(
+  const ceilingMaterial = new StandardMaterial(
     `ceilingMat_${roomConfig.id}`,
     scene,
   );
-  ceilingMaterial.diffuseColor = new BABYLON.Color3(...color);
-  ceilingMaterial.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+  ceilingMaterial.diffuseColor = new Color3(...color);
+  ceilingMaterial.specularColor = new Color3(0.05, 0.05, 0.05);
   ceilingMaterial.backFaceCulling = false;
   ceilingMaterial.alpha = 1.0;
 
@@ -241,16 +257,16 @@ function createWall(
   const height = roomHeight;
 
   // Calculate wall parameters
-  const startPos = new BABYLON.Vector3(...start);
-  const endPos = new BABYLON.Vector3(...end);
+  const startPos = new Vector3(...start);
+  const endPos = new Vector3(...end);
   const wallVector = endPos.subtract(startPos);
   const wallLength = wallVector.length();
-  const wallCenter = BABYLON.Vector3.Lerp(startPos, endPos, 0.5);
+  const wallCenter = Vector3.Lerp(startPos, endPos, 0.5);
   wallCenter.y = height / 2;
 
   // Calculate wall rotation to face inward toward room center
   const wallDirection = wallVector.normalize();
-  const roomCenter = new BABYLON.Vector3(roomCenterX, 0, roomCenterZ);
+  const roomCenter = new Vector3(roomCenterX, 0, roomCenterZ);
 
   // Vector from wall center to room center
   const toRoomCenter = roomCenter.subtract(wallCenter);
@@ -258,13 +274,10 @@ function createWall(
 
   // Calculate the normal direction (perpendicular to wall)
   // Cross product of wall direction with up vector gives the normal
-  const normal = BABYLON.Vector3.Cross(
-    wallDirection,
-    new BABYLON.Vector3(0, 1, 0),
-  );
+  const normal = Vector3.Cross(wallDirection, new Vector3(0, 1, 0));
 
   // Check if normal points toward room center, if not flip it
-  const dotProduct = BABYLON.Vector3.Dot(normal, toRoomCenter);
+  const dotProduct = Vector3.Dot(normal, toRoomCenter);
   const facingDirection = dotProduct > 0 ? normal : normal.scale(-1);
 
   // Calculate angle from the facing direction
@@ -275,12 +288,12 @@ function createWall(
   );
 
   // Create single wall segment (walls are pre-split in JSON)
-  const wallMaterial = new BABYLON.StandardMaterial(`wallMat_${id}`, scene);
-  wallMaterial.diffuseColor = new BABYLON.Color3(...roomConfig.wall_color);
-  wallMaterial.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+  const wallMaterial = new StandardMaterial(`wallMat_${id}`, scene);
+  wallMaterial.diffuseColor = new Color3(...roomConfig.wall_color);
+  wallMaterial.specularColor = new Color3(0.1, 0.1, 0.1);
   wallMaterial.backFaceCulling = false;
   wallMaterial.alpha = 1.0; // Fully opaque
-  wallMaterial.transparencyMode = BABYLON.Material.MATERIAL_OPAQUE;
+  wallMaterial.transparencyMode = Material.MATERIAL_OPAQUE;
 
   const segment = createWallSegment(
     scene,
@@ -334,7 +347,7 @@ function createWallSegment(
   material,
   angle,
 ) {
-  const segment = BABYLON.MeshBuilder.CreatePlane(
+  const segment = MeshBuilder.CreatePlane(
     `wall_${id}`,
     { width: length, height },
     scene,
@@ -382,7 +395,7 @@ function calculateSlotPosition(
   return {
     id,
     position: slotPosition,
-    rotation: new BABYLON.Vector3(0, wallAngle, 0),
+    rotation: new Vector3(0, wallAngle, 0),
     facingDirection: facingDir,
     width,
     height,
@@ -410,26 +423,26 @@ function createRoomLighting(
   const z = centerZ;
 
   // Bright ambient light for overall illumination
-  const ambient = new BABYLON.HemisphericLight(
+  const ambient = new HemisphericLight(
     `ambient_${roomConfig.id}`,
-    new BABYLON.Vector3(0, 1, 0),
+    new Vector3(0, 1, 0),
     scene,
   );
   ambient.intensity = 0.7;
-  ambient.diffuse = new BABYLON.Color3(1, 1, 0.98);
+  ambient.diffuse = new Color3(1, 1, 0.98);
   lights.push(ambient);
 
   // Main directional light for shadow casting
-  const mainLight = new BABYLON.DirectionalLight(
+  const mainLight = new DirectionalLight(
     `main_${roomConfig.id}`,
-    new BABYLON.Vector3(0.3, -1, 0.2),
+    new Vector3(0.3, -1, 0.2),
     scene,
   );
-  mainLight.position = new BABYLON.Vector3(x, y + height * 0.9, z);
+  mainLight.position = new Vector3(x, y + height * 0.9, z);
   mainLight.intensity = 0.8;
 
   // Enable shadows for this light
-  const shadowGenerator = new BABYLON.ShadowGenerator(1024, mainLight);
+  const shadowGenerator = new ShadowGenerator(1024, mainLight);
   shadowGenerator.useBlurExponentialShadowMap = true;
   shadowGenerator.blurScale = 2;
   shadowGenerator.setDarkness(0.3);
@@ -485,7 +498,9 @@ export function mapMediaToSlots(gallery, mediaMapping, mediaItems) {
           media: mediaItem,
         });
       } else {
-        console.warn(`No media found for slot ${slot.id}: media_id=${mapping.media_id}, type=${mapping.type}`);
+        console.warn(
+          `No media found for slot ${slot.id}: media_id=${mapping.media_id}, type=${mapping.type}`,
+        );
       }
     }
   });

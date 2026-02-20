@@ -18,6 +18,8 @@ members = [
     "crates/workspace-processors/static-site",
     "crates/workspace-processors/bpmn-simulator",
     "crates/workspace-processors/agent-collection",
+    "crates/workspace-processors/course-processor",
+    "crates/standalone/course-viewer",
     # TODO: Uncomment when implementing CLI (see MEDIA_CLI_PROGRESS.md)
     # "crates/media-cli",
 ]
@@ -58,6 +60,7 @@ pdf-viewer = { path = "crates/pdf-viewer" }
 vault-manager = { path = "crates/vault-manager" }
 workspace-manager = { path = "crates/workspace-manager" }
 rate-limiter = { path = "crates/rate-limiter" }
+course-viewer = { path = "crates/standalone/course-viewer" }
 
 # Web framework
 axum = { version = "0.8", features = ["multipart"] }

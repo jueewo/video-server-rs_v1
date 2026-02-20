@@ -5,12 +5,22 @@
  * Designed for displaying images and videos in an immersive space.
  */
 
-import * as BABYLON from "@babylonjs/core";
+import {
+  Scene,
+  Color3,
+  Vector3,
+  MeshBuilder,
+  StandardMaterial,
+  HemisphericLight,
+  DirectionalLight,
+  SpotLight,
+  Mesh,
+} from "@babylonjs/core";
 
 /**
  * Create a complete gallery room with walls, floor, ceiling, and lighting
  *
- * @param {BABYLON.Scene} scene - The Babylon.js scene
+ * @param {Scene} scene - The Babylon.js scene
  * @param {Object} options - Room configuration options
  * @returns {Object} Room components (walls, floor, ceiling, lights)
  */
@@ -19,9 +29,10 @@ export function createGalleryRoom(scene, options = {}) {
     width = 20,
     depth = 20,
     height = 4,
-    wallColor = new BABYLON.Color3(0.95, 0.95, 0.95), // Light gray walls
-    floorColor = new BABYLON.Color3(0.3, 0.25, 0.2), // Dark wood floor
-    ceilingColor = new BABYLON.Color3(0.9, 0.9, 0.9), // Light ceiling
+    wallColor = new Color3(0.95, 0.95, 0.95), // Light gray walls
+    floorColor = new Color3(0.3, 0.25, 0.2), // Dark wood floor
+    ceilingColor = new Color3(0.9, 0.9, 0.9), // Light ceiling
+    qualitySettings = null, // Optional quality settings for mobile optimization
   } = options;
 
   const room = {
@@ -40,8 +51,14 @@ export function createGalleryRoom(scene, options = {}) {
   // Create 4 walls
   room.walls = createWalls(scene, width, depth, height, wallColor);
 
-  // Create gallery lighting
-  room.lights = createGalleryLighting(scene, width, depth, height);
+  // Create gallery lighting (with quality settings for mobile optimization)
+  room.lights = createGalleryLighting(
+    scene,
+    width,
+    depth,
+    height,
+    qualitySettings,
+  );
 
   console.log("Gallery room created:", {
     dimensions: { width, depth, height },
@@ -56,15 +73,15 @@ export function createGalleryRoom(scene, options = {}) {
  * Create the floor of the gallery
  */
 function createFloor(scene, width, depth, color) {
-  const floor = BABYLON.MeshBuilder.CreateGround(
+  const floor = MeshBuilder.CreateGround(
     "floor",
     { width, height: depth },
     scene,
   );
 
-  const floorMaterial = new BABYLON.StandardMaterial("floorMaterial", scene);
+  const floorMaterial = new StandardMaterial("floorMaterial", scene);
   floorMaterial.diffuseColor = color;
-  floorMaterial.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+  floorMaterial.specularColor = new Color3(0.1, 0.1, 0.1);
   floorMaterial.backFaceCulling = false;
 
   // Add subtle texture pattern
@@ -85,18 +102,15 @@ function createFloor(scene, width, depth, color) {
  * Create the ceiling of the gallery
  */
 function createCeiling(scene, width, depth, height, color) {
-  const ceiling = BABYLON.MeshBuilder.CreatePlane(
+  const ceiling = MeshBuilder.CreatePlane(
     "ceiling",
     { width, height: depth },
     scene,
   );
 
-  const ceilingMaterial = new BABYLON.StandardMaterial(
-    "ceilingMaterial",
-    scene,
-  );
+  const ceilingMaterial = new StandardMaterial("ceilingMaterial", scene);
   ceilingMaterial.diffuseColor = color;
-  ceilingMaterial.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+  ceilingMaterial.specularColor = new Color3(0.05, 0.05, 0.05);
   ceilingMaterial.backFaceCulling = false;
 
   ceiling.material = ceilingMaterial;
@@ -111,9 +125,9 @@ function createCeiling(scene, width, depth, height, color) {
  */
 function createWalls(scene, width, depth, height, color) {
   const walls = [];
-  const wallMaterial = new BABYLON.StandardMaterial("wallMaterial", scene);
+  const wallMaterial = new StandardMaterial("wallMaterial", scene);
   wallMaterial.diffuseColor = color;
-  wallMaterial.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+  wallMaterial.specularColor = new Color3(0.1, 0.1, 0.1);
   wallMaterial.backFaceCulling = false; // Visible from both sides
 
   // Wall configurations: [position, rotation, width]
@@ -121,35 +135,35 @@ function createWalls(scene, width, depth, height, color) {
     // North wall (back)
     {
       name: "northWall",
-      position: new BABYLON.Vector3(0, height / 2, -depth / 2),
-      rotation: new BABYLON.Vector3(0, 0, 0),
+      position: new Vector3(0, height / 2, -depth / 2),
+      rotation: new Vector3(0, 0, 0),
       width: width,
     },
     // South wall (front)
     {
       name: "southWall",
-      position: new BABYLON.Vector3(0, height / 2, depth / 2),
-      rotation: new BABYLON.Vector3(0, Math.PI, 0),
+      position: new Vector3(0, height / 2, depth / 2),
+      rotation: new Vector3(0, Math.PI, 0),
       width: width,
     },
     // East wall (right)
     {
       name: "eastWall",
-      position: new BABYLON.Vector3(width / 2, height / 2, 0),
-      rotation: new BABYLON.Vector3(0, Math.PI / 2, 0),
+      position: new Vector3(width / 2, height / 2, 0),
+      rotation: new Vector3(0, Math.PI / 2, 0),
       width: depth,
     },
     // West wall (left)
     {
       name: "westWall",
-      position: new BABYLON.Vector3(-width / 2, height / 2, 0),
-      rotation: new BABYLON.Vector3(0, -Math.PI / 2, 0),
+      position: new Vector3(-width / 2, height / 2, 0),
+      rotation: new Vector3(0, -Math.PI / 2, 0),
       width: depth,
     },
   ];
 
   wallConfigs.forEach((config) => {
-    const wall = BABYLON.MeshBuilder.CreatePlane(
+    const wall = MeshBuilder.CreatePlane(
       config.name,
       { width: config.width, height: height },
       scene,
@@ -174,55 +188,92 @@ function createWalls(scene, width, depth, height, color) {
 }
 
 /**
- * Create gallery lighting setup
+ * Create gallery lighting setup with mobile optimization
+ *
+ * @param {Scene} scene - The Babylon.js scene
+ * @param {number} width - Room width
+ * @param {number} depth - Room depth
+ * @param {number} height - Room height
+ * @param {Object} qualitySettings - Optional quality settings from device detection
  */
-function createGalleryLighting(scene, width, depth, height) {
+function createGalleryLighting(
+  scene,
+  width,
+  depth,
+  height,
+  qualitySettings = null,
+) {
   const lights = [];
 
-  // Ambient light (soft overall illumination)
-  const ambientLight = new BABYLON.HemisphericLight(
-    "ambientLight",
-    new BABYLON.Vector3(0, 1, 0),
-    scene,
-  );
-  ambientLight.intensity = 0.5;
-  ambientLight.diffuse = new BABYLON.Color3(1, 1, 0.98);
-  lights.push(ambientLight);
+  // Determine if we should use simplified lighting (mobile VR optimization)
+  const useMobileLighting = qualitySettings && qualitySettings.maxLights <= 1;
+  const useSpotlights = qualitySettings ? qualitySettings.useSpotlights : true;
+  const maxLights = qualitySettings ? qualitySettings.maxLights : 6;
 
-  // Directional light (main light source from above)
-  const mainLight = new BABYLON.DirectionalLight(
-    "mainLight",
-    new BABYLON.Vector3(0.5, -1, 0.3),
-    scene,
-  );
-  mainLight.position = new BABYLON.Vector3(0, height * 0.8, 0);
-  mainLight.intensity = 0.6;
-  mainLight.diffuse = new BABYLON.Color3(1, 1, 1);
-  lights.push(mainLight);
-
-  // Spotlights for gallery feel (positioned at ceiling corners)
-  const spotlightPositions = [
-    new BABYLON.Vector3(width * 0.3, height * 0.9, depth * 0.3),
-    new BABYLON.Vector3(-width * 0.3, height * 0.9, depth * 0.3),
-    new BABYLON.Vector3(width * 0.3, height * 0.9, -depth * 0.3),
-    new BABYLON.Vector3(-width * 0.3, height * 0.9, -depth * 0.3),
-  ];
-
-  spotlightPositions.forEach((pos, index) => {
-    const spotlight = new BABYLON.SpotLight(
-      `spotlight${index}`,
-      pos,
-      new BABYLON.Vector3(0, -1, 0),
-      Math.PI / 3,
-      2,
+  if (useMobileLighting) {
+    // ULTRA LOW: Single hemispheric light for mobile VR (HTC Vive Flow, etc.)
+    console.log("🔋 Using mobile VR optimized lighting (single light)");
+    const ambientLight = new HemisphericLight(
+      "ambientLight",
+      new Vector3(0, 1, 0),
       scene,
     );
-    spotlight.intensity = 0.4;
-    spotlight.diffuse = new BABYLON.Color3(1, 0.98, 0.95);
-    lights.push(spotlight);
-  });
+    ambientLight.intensity = 1.2; // Increase intensity since it's the only light
+    ambientLight.diffuse = new Color3(1, 1, 0.98);
+    lights.push(ambientLight);
+  } else {
+    // Standard lighting for desktop/capable devices
+    // Ambient light (soft overall illumination)
+    const ambientLight = new HemisphericLight(
+      "ambientLight",
+      new Vector3(0, 1, 0),
+      scene,
+    );
+    ambientLight.intensity = 0.5;
+    ambientLight.diffuse = new Color3(1, 1, 0.98);
+    lights.push(ambientLight);
 
-  console.log(`Created ${lights.length} lights for gallery`);
+    if (maxLights >= 2) {
+      // Directional light (main light source from above)
+      const mainLight = new DirectionalLight(
+        "mainLight",
+        new Vector3(0.5, -1, 0.3),
+        scene,
+      );
+      mainLight.position = new Vector3(0, height * 0.8, 0);
+      mainLight.intensity = 0.6;
+      mainLight.diffuse = new Color3(1, 1, 1);
+      lights.push(mainLight);
+    }
+
+    // Spotlights for gallery feel (only if quality allows)
+    if (useSpotlights && maxLights >= 6) {
+      const spotlightPositions = [
+        new Vector3(width * 0.3, height * 0.9, depth * 0.3),
+        new Vector3(-width * 0.3, height * 0.9, depth * 0.3),
+        new Vector3(width * 0.3, height * 0.9, -depth * 0.3),
+        new Vector3(-width * 0.3, height * 0.9, -depth * 0.3),
+      ];
+
+      spotlightPositions.forEach((pos, index) => {
+        const spotlight = new SpotLight(
+          `spotlight${index}`,
+          pos,
+          new Vector3(0, -1, 0),
+          Math.PI / 3,
+          2,
+          scene,
+        );
+        spotlight.intensity = 0.4;
+        spotlight.diffuse = new Color3(1, 0.98, 0.95);
+        lights.push(spotlight);
+      });
+    }
+  }
+
+  console.log(
+    `Created ${lights.length} lights for gallery (max: ${maxLights})`,
+  );
   return lights;
 }
 
@@ -268,28 +319,28 @@ export function getWallPositions(walls, options = {}) {
 
       if (wallName === "northWall") {
         // North wall faces south (positive Z), place images in front (positive Z)
-        worldPos = new BABYLON.Vector3(
+        worldPos = new Vector3(
           localX,
           verticalOffset,
           wall.position.z + offset,
         );
       } else if (wallName === "southWall") {
         // South wall faces north (negative Z), place images in front (negative Z)
-        worldPos = new BABYLON.Vector3(
+        worldPos = new Vector3(
           -localX,
           verticalOffset,
           wall.position.z - offset,
         );
       } else if (wallName === "eastWall") {
         // East wall faces west (negative X), place images in front (negative X)
-        worldPos = new BABYLON.Vector3(
+        worldPos = new Vector3(
           wall.position.x - offset,
           verticalOffset,
           -localX,
         );
       } else if (wallName === "westWall") {
         // West wall faces east (positive X), place images in front (positive X)
-        worldPos = new BABYLON.Vector3(
+        worldPos = new Vector3(
           wall.position.x + offset,
           verticalOffset,
           localX,

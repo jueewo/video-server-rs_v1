@@ -797,6 +797,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "course-processor"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tracing",
+]
+
+[[package]]
+name = "course-viewer"
+version = "0.1.0"
+dependencies = [
+ "access-control",
+ "anyhow",
+ "askama",
+ "axum",
+ "common",
+ "course-processor",
+ "pulldown-cmark 0.9.6",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror 1.0.69",
+ "time",
+ "tokio",
+ "tower",
+ "tower-http",
+ "tracing",
+]
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1068,7 +1101,7 @@ dependencies = [
  "askama",
  "axum",
  "mime_guess",
- "pulldown-cmark",
+ "pulldown-cmark 0.11.3",
  "serde",
  "serde_json",
  "syntect",
@@ -3376,6 +3409,18 @@ dependencies = [
 
 [[package]]
 name = "pulldown-cmark"
+version = "0.9.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57206b407293d2bcd3af849ce869d52068623f19e1b5ff8e8778e3309439682b"
+dependencies = [
+ "bitflags 2.11.0",
+ "getopts",
+ "memchr",
+ "unicase",
+]
+
+[[package]]
+name = "pulldown-cmark"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "679341d22c78c6c649893cbd6c3278dcbe9fc4faa62fea3a9296ae2b50c14625"
@@ -5536,6 +5581,7 @@ dependencies = [
  "axum",
  "bpmn-viewer",
  "common",
+ "course-viewer",
  "docs-viewer",
  "dotenvy",
  "gallery3d",
@@ -6210,6 +6256,7 @@ dependencies = [
  "axum",
  "bpmn-viewer",
  "common",
+ "course-processor",
  "docs-viewer",
  "mime_guess",
  "pdf-viewer",

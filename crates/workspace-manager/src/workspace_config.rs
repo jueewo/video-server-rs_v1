@@ -22,6 +22,8 @@ pub struct WorkspaceConfig {
 pub struct FolderConfig {
     #[serde(rename = "type")]
     pub folder_type: FolderType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     #[serde(default)]
     pub metadata: HashMap<String, serde_yaml::Value>,
 }
@@ -101,8 +103,26 @@ impl WorkspaceConfig {
             })
             .or_insert_with(|| FolderConfig {
                 folder_type,
+                description: None,
                 metadata: HashMap::new(),
             });
+    }
+
+    /// Set folder description
+    pub fn set_folder_description(&mut self, path: &str, description: Option<String>) {
+        if let Some(folder) = self.folders.get_mut(path) {
+            folder.description = description;
+        }
+    }
+
+    /// Rename a folder (updates the key in folders map)
+    pub fn rename_folder(&mut self, old_path: &str, new_path: String) -> bool {
+        if let Some(config) = self.folders.remove(old_path) {
+            self.folders.insert(new_path, config);
+            true
+        } else {
+            false
+        }
     }
 
     /// Remove a folder from the config
@@ -149,6 +169,7 @@ impl WorkspaceConfig {
                     // Add to config if not present (as Plain type)
                     self.folders.entry(path).or_insert_with(|| FolderConfig {
                         folder_type: FolderType::Plain,
+                        description: None,
                         metadata: HashMap::new(),
                     });
                 }

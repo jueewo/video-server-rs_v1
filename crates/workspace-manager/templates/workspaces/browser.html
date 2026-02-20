@@ -194,8 +194,21 @@
 <!-- Folder Settings Modal -->
 <dialog id="folder-settings-modal" class="modal">
     <div class="modal-box max-w-2xl">
-        <h3 class="font-bold text-lg mb-4">⚙️ Folder Settings: <span id="folder-settings-name"></span></h3>
+        <h3 class="font-bold text-lg mb-4">⚙️ Folder Settings</h3>
         <input type="hidden" id="folder-settings-path" />
+
+        <div class="form-control mb-3">
+            <label class="label"><span class="label-text font-semibold">Folder Name</span></label>
+            <input type="text" id="folder-name" class="input input-bordered" placeholder="e.g. my-agents" />
+            <label class="label"><span class="label-text-alt text-base-content/50">Changing the name will rename the folder on disk</span></label>
+        </div>
+
+        <div class="form-control mb-4">
+            <label class="label"><span class="label-text font-semibold">Description <span class="text-base-content/50">(optional)</span></span></label>
+            <textarea id="folder-description" class="textarea textarea-bordered" rows="2" placeholder="What is this folder for?"></textarea>
+        </div>
+
+        <div class="divider"></div>
 
         <div class="form-control mb-4">
             <label class="label"><span class="label-text font-semibold">Folder Type</span></label>
@@ -214,9 +227,12 @@
             <!-- Populated by JavaScript based on folder type -->
         </div>
 
-        <div class="modal-action">
-            <button onclick="document.getElementById('folder-settings-modal').close()" class="btn btn-ghost">Cancel</button>
-            <button onclick="saveFolderSettings()" class="btn btn-primary">💾 Save Settings</button>
+        <div class="modal-action justify-between">
+            <button onclick="confirmDeleteFolder()" class="btn btn-error btn-outline">🗑️ Delete Folder</button>
+            <div class="flex gap-2">
+                <button onclick="document.getElementById('folder-settings-modal').close()" class="btn btn-ghost">Cancel</button>
+                <button onclick="saveFolderSettings()" class="btn btn-primary">💾 Save Settings</button>
+            </div>
         </div>
     </div>
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
@@ -400,8 +416,9 @@
     function openFolderSettings(folderPath, folderName) {
         event.stopPropagation(); // Prevent navigation to folder
         document.getElementById('folder-settings-path').value = folderPath;
-        document.getElementById('folder-settings-name').textContent = folderName;
-        document.getElementById('folder-type').value = 'plain'; // Default
+        document.getElementById('folder-name').value = folderName;
+        document.getElementById('folder-description').value = ''; // TODO: Load from workspace.yaml if exists
+        document.getElementById('folder-type').value = 'plain'; // TODO: Load from workspace.yaml if exists
         updateMetadataFields();
         document.getElementById('folder-settings-modal').showModal();
     }
@@ -517,7 +534,14 @@
 
     async function saveFolderSettings() {
         const path = document.getElementById('folder-settings-path').value;
+        const newName = document.getElementById('folder-name').value.trim();
+        const description = document.getElementById('folder-description').value.trim();
         const folderType = document.getElementById('folder-type').value;
+
+        if (!newName) {
+            showToast('Folder name cannot be empty', 'error');
+            return;
+        }
 
         // Collect metadata based on type
         const metadata = {};
@@ -527,7 +551,9 @@
         container.querySelectorAll('input, select').forEach(el => {
             if (el.id.startsWith('meta-')) {
                 const key = el.id.replace('meta-', '').replace(/-/g, '_');
-                metadata[key] = el.value;
+                if (el.value) { // Only include non-empty values
+                    metadata[key] = el.value;
+                }
             }
         });
 
@@ -537,6 +563,8 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     path: path,
+                    new_name: newName,
+                    description: description || null,
                     folder_type: folderType,
                     metadata: metadata
                 }),
@@ -545,10 +573,40 @@
             if (r.ok) {
                 document.getElementById('folder-settings-modal').close();
                 showToast('Folder settings saved!', 'success');
-                // Optionally reload to show updated folder icon/badge
+                setTimeout(() => window.location.reload(), 500);
+            } else if (r.status === 409) {
+                showToast('A folder with that name already exists', 'error');
             } else {
                 const error = await r.text();
                 showToast('Failed to save: ' + error, 'error');
+            }
+        } catch (e) {
+            showToast('Network error: ' + e.message, 'error');
+        }
+    }
+
+    function confirmDeleteFolder() {
+        const folderName = document.getElementById('folder-name').value;
+        if (confirm(`Delete folder "${folderName}" and all its contents? This cannot be undone.`)) {
+            deleteFolder();
+        }
+    }
+
+    async function deleteFolder() {
+        const path = document.getElementById('folder-settings-path').value;
+
+        try {
+            const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/files?path=${encodeURIComponent(path)}`, {
+                method: 'DELETE',
+            });
+
+            if (r.status === 204) {
+                document.getElementById('folder-settings-modal').close();
+                showToast('Folder deleted', 'success');
+                setTimeout(() => window.location.reload(), 500);
+            } else {
+                const error = await r.text();
+                showToast('Failed to delete: ' + error, 'error');
             }
         } catch (e) {
             showToast('Network error: ' + e.message, 'error');

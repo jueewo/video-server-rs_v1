@@ -101,6 +101,8 @@ pub struct CreateFileRequest {
 #[derive(Debug, Deserialize)]
 pub struct UpdateFolderMetadataRequest {
     pub path: String,
+    pub new_name: Option<String>, // For rename
+    pub description: Option<String>,
     pub folder_type: FolderType,
     pub metadata: std::collections::HashMap<String, serde_json::Value>,
 }
@@ -689,6 +691,41 @@ pub async fn update_folder_metadata(
     verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
     let workspace_root = state.storage.workspace_root(&workspace_id);
+    let mut final_path = request.path.clone();
+
+    // Handle rename if new_name is provided
+    if let Some(new_name) = &request.new_name {
+        if !new_name.is_empty() && new_name != &request.path {
+            let old_path = workspace_root.join(&request.path);
+
+            // Compute new path (same parent, new name)
+            let new_path = if let Some(parent) = std::path::Path::new(&request.path).parent() {
+                if parent.as_os_str().is_empty() {
+                    new_name.clone()
+                } else {
+                    format!("{}/{}", parent.to_str().unwrap_or(""), new_name)
+                }
+            } else {
+                new_name.clone()
+            };
+
+            let new_path_abs = workspace_root.join(&new_path);
+
+            // Check if new path already exists
+            if new_path_abs.exists() {
+                warn!("Cannot rename: destination already exists");
+                return Err(StatusCode::CONFLICT);
+            }
+
+            // Rename on filesystem
+            std::fs::rename(&old_path, &new_path_abs).map_err(|e| {
+                warn!("Failed to rename folder: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+
+            final_path = new_path;
+        }
+    }
 
     // Load workspace config
     let mut config = WorkspaceConfig::load(&workspace_root).map_err(|e| {
@@ -696,8 +733,16 @@ pub async fn update_folder_metadata(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
+    // If we renamed, update the config key
+    if final_path != request.path {
+        config.rename_folder(&request.path, final_path.clone());
+    }
+
     // Update folder type
-    config.upsert_folder(request.path.clone(), request.folder_type);
+    config.upsert_folder(final_path.clone(), request.folder_type);
+
+    // Update description
+    config.set_folder_description(&final_path, request.description);
 
     // Update metadata
     for (key, value) in request.metadata {
@@ -706,7 +751,7 @@ pub async fn update_folder_metadata(
             warn!("Failed to convert metadata value: {}", e);
             StatusCode::BAD_REQUEST
         })?;
-        config.set_folder_metadata(&request.path, key, yaml_value);
+        config.set_folder_metadata(&final_path, key, yaml_value);
     }
 
     // Save config

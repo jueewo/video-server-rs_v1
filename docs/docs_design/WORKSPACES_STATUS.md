@@ -198,21 +198,80 @@ graph LR
 
 ---
 
+## Workspace.yaml — Live Manifest ✅
+
+**Implemented:** 2026-02-19
+
+The `workspace.yaml` file serves as a **live manifest** and **metadata store** for workspace folders. It automatically syncs with filesystem changes and enables special-purpose folder types.
+
+### Features
+- **Auto-sync** — updates when folders created/deleted
+- **Folder typing** — classify folders by purpose
+- **Metadata storage** — custom properties per folder
+- **Processor integration** — configuration for specialized handlers
+
+### Folder Types Supported
+
+| Type | Purpose | Status |
+|------|---------|--------|
+| `plain` | Regular file storage | ✅ Implemented |
+| `static-site` | Static website projects | 🔲 Processor placeholder |
+| `bpmn-simulator` | Process diagram execution | 🔲 Processor placeholder |
+| `agent-collection` | AI agent definitions | 🔲 Processor placeholder |
+| `documentation` | Docs projects (mdBook, etc.) | 🔲 Future |
+| `data-pipeline` | ETL workflows | 🔲 Future |
+
+### Example workspace.yaml
+
+```yaml
+name: "Engineering Workspace"
+description: "Process models and agent workflows"
+
+folders:
+  agents:
+    type: agent-collection
+    metadata:
+      agents:
+        - file: coder.md
+          role: code-generation
+          model: claude-sonnet-4.5
+      shared_context: context/docs.md
+
+  website-project:
+    type: static-site
+    metadata:
+      entry_point: index.html
+      framework: hugo
+      theme: minimal
+```
+
+### Processor Crates
+
+Created placeholder crates for future folder processors:
+- `crates/workspace-processors/static-site/` — Build static websites
+- `crates/workspace-processors/bpmn-simulator/` — Execute BPMN diagrams
+- `crates/workspace-processors/agent-collection/` — Manage AI agents
+
+See `crates/workspace-processors/README.md` for architecture details.
+
+---
+
 ## Known Limitations & Future Enhancements
 
 ### Current Limitations
 - No collaborative editing (single-user workspaces)
 - No version history or git integration
-- No workspace templates or presets
+- Processor implementations are placeholders (not yet functional)
 - Published files don't maintain link to workspace original
 
 ### Potential Future Enhancements
-1. **Workspace templates** — quick-start for common workflows
-2. **Git integration** — commit/push from workspace UI
-3. **Two-way sync** — update vault file updates workspace original
-4. **Workspace sharing** — invite collaborators to workspace
-5. **Import from vault** — pull vault file into workspace for editing
-6. **Bulk publish** — select multiple files to publish at once
+1. **Implement processors** — make folder types functional
+2. **Workspace templates** — quick-start for common workflows
+3. **Git integration** — commit/push from workspace UI
+4. **Two-way sync** — update vault file updates workspace original
+5. **Workspace sharing** — invite collaborators to workspace
+6. **Import from vault** — pull vault file into workspace for editing
+7. **Bulk publish** — select multiple files to publish at once
 
 ---
 

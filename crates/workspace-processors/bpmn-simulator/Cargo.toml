@@ -1,0 +1,16 @@
+[package]
+name = "bpmn-simulator-processor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+serde_json = { workspace = true }
+tracing = { workspace = true }
+
+# TODO: Add BPMN processing dependencies when implementing
+# - XML parsing (quick-xml, roxmltree)
+# - Process execution engine
+# - State machine implementation

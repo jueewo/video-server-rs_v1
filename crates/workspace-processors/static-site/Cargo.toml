@@ -1,0 +1,15 @@
+[package]
+name = "static-site-processor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+tracing = { workspace = true }
+
+# TODO: Add static site building dependencies when implementing
+# - Templating engine (e.g., tera, handlebars)
+# - Asset processing (e.g., grass for SCSS, lightningcss)
+# - HTML minification

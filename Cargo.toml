@@ -15,6 +15,9 @@ members = [
     "crates/bpmn-viewer",
     "crates/pdf-viewer",
     "crates/workspace-manager",
+    "crates/workspace-processors/static-site",
+    "crates/workspace-processors/bpmn-simulator",
+    "crates/workspace-processors/agent-collection",
     # TODO: Uncomment when implementing CLI (see MEDIA_CLI_PROGRESS.md)
     # "crates/media-cli",
 ]

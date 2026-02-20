@@ -21,8 +21,10 @@ use tracing::{info, warn};
 
 mod file_browser;
 mod file_editor;
+mod workspace_config;
 
 pub use file_browser::{FileEntry, FolderEntry};
+pub use workspace_config::{FolderConfig, FolderType, WorkspaceConfig};
 
 // ============================================================================
 // State
@@ -383,18 +385,13 @@ pub async fn create_workspace(
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    // Write workspace.yaml
+    // Write workspace.yaml using WorkspaceConfig
     let workspace_root = state.storage.workspace_root(&workspace_id);
-    let yaml_content = format!(
-        "name: \"{}\"\ndescription: \"{}\"\nfolders: {{}}\n",
-        request.name.trim().replace('"', "\\\""),
-        request
-            .description
-            .as_deref()
-            .unwrap_or("")
-            .replace('"', "\\\"")
+    let config = WorkspaceConfig::new(
+        request.name.clone(),
+        request.description.clone().unwrap_or_default(),
     );
-    std::fs::write(workspace_root.join("workspace.yaml"), yaml_content).map_err(|e| {
+    config.save(&workspace_root).map_err(|e| {
         warn!("Failed to write workspace.yaml: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
@@ -508,6 +505,15 @@ pub async fn create_folder(
         StatusCode::BAD_REQUEST
     })?;
 
+    // Update workspace.yaml with new folder
+    if let Ok(mut config) = WorkspaceConfig::load(&workspace_root) {
+        config.upsert_folder(request.path.clone(), FolderType::Plain);
+        if let Err(e) = config.save(&workspace_root) {
+            warn!("Failed to update workspace.yaml: {}", e);
+            // Don't fail the request - folder is already created
+        }
+    }
+
     Ok(StatusCode::OK)
 }
 
@@ -522,10 +528,26 @@ pub async fn delete_file(
     verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
     let workspace_root = state.storage.workspace_root(&workspace_id);
+
+    // Check if it's a directory before deleting
+    let abs_path = workspace_root.join(&query.path);
+    let is_dir = abs_path.is_dir();
+
     file_editor::delete_path(&workspace_root, &query.path).map_err(|e| {
         warn!("Failed to delete path: {}", e);
         StatusCode::BAD_REQUEST
     })?;
+
+    // If it was a directory, remove from workspace.yaml
+    if is_dir {
+        if let Ok(mut config) = WorkspaceConfig::load(&workspace_root) {
+            config.remove_folder(&query.path);
+            if let Err(e) = config.save(&workspace_root) {
+                warn!("Failed to update workspace.yaml: {}", e);
+                // Don't fail the request - file/folder is already deleted
+            }
+        }
+    }
 
     Ok(StatusCode::NO_CONTENT)
 }

@@ -81,43 +81,79 @@ export function createImageFrame(scene, imageData, options = {}) {
   // Create image material with texture
   const imageMaterial = new StandardMaterial(`imageMat_${imageData.id}`, scene);
 
-  // Load the image texture with error handling
-  console.log(`Loading texture for ${imageData.title} from: ${imageData.url}`);
+  // Progressive loading: Load thumbnail first, then swap to full resolution
+  const hasThumbnail =
+    imageData.thumbnail_url && imageData.thumbnail_url !== imageData.url;
 
-  const texture = new Texture(
-    imageData.url,
-    scene,
-    false,
-    false,
-    Texture.TRILINEAR_SAMPLINGMODE,
-    () => {
-      // onLoad callback
-      console.log(`✓ Texture loaded: ${imageData.title}`, {
-        width: texture.getSize().width,
-        height: texture.getSize().height,
-        isReady: texture.isReady(),
-      });
-    },
-    (message, exception) => {
-      // onError callback
-      console.error(
-        `✗ Failed to load texture: ${imageData.url}`,
-        message,
-        exception,
-      );
-      console.warn(`Using placeholder color for: ${imageData.title}`);
-      // Use a solid color as fallback
-      imageMaterial.diffuseTexture = null;
-      imageMaterial.diffuseColor = new Color3(0.7, 0.7, 0.8);
-      imageMaterial.emissiveColor = new Color3(0.2, 0.2, 0.25);
-    },
-  );
+  if (hasThumbnail) {
+    console.log(`🖼️ Progressive loading for ${imageData.title}:`);
+    console.log(`   1. Loading thumbnail: ${imageData.thumbnail_url}`);
 
-  texture.hasAlpha = false;
-  texture.vScale = -1; // Flip vertically to correct upside-down images
-  texture.uScale = 1; // No horizontal flip needed - orientation is correct
+    // Load thumbnail first (small, fast)
+    const thumbnailTexture = new Texture(
+      imageData.thumbnail_url,
+      scene,
+      false,
+      false,
+      Texture.TRILINEAR_SAMPLINGMODE,
+      () => {
+        console.log(`✓ Thumbnail loaded: ${imageData.title}`);
+        // Start loading full resolution in background
+        console.log(`   2. Loading full resolution: ${imageData.url}`);
 
-  imageMaterial.diffuseTexture = texture;
+        const fullResTexture = new Texture(
+          imageData.url,
+          scene,
+          false,
+          false,
+          Texture.TRILINEAR_SAMPLINGMODE,
+          () => {
+            // onLoad: Swap from thumbnail to full resolution
+            console.log(
+              `✓ Full resolution loaded: ${imageData.title}, swapping textures`,
+            );
+
+            // Dispose old thumbnail
+            if (imageMaterial.diffuseTexture) {
+              imageMaterial.diffuseTexture.dispose();
+            }
+
+            // Apply full resolution texture
+            fullResTexture.hasAlpha = false;
+            fullResTexture.vScale = -1;
+            fullResTexture.uScale = 1;
+            imageMaterial.diffuseTexture = fullResTexture;
+          },
+          (message, exception) => {
+            // Full res failed, keep thumbnail
+            console.warn(
+              `⚠️ Full resolution failed for ${imageData.title}, keeping thumbnail`,
+              message,
+            );
+          },
+        );
+      },
+      (message, exception) => {
+        // Thumbnail failed, try full resolution directly
+        console.warn(
+          `⚠️ Thumbnail failed for ${imageData.title}, loading full resolution`,
+          message,
+        );
+        loadFullResolutionTexture(imageData, scene, imageMaterial);
+      },
+    );
+
+    thumbnailTexture.hasAlpha = false;
+    thumbnailTexture.vScale = -1;
+    thumbnailTexture.uScale = 1;
+    imageMaterial.diffuseTexture = thumbnailTexture;
+  } else {
+    // No thumbnail available, load full resolution directly
+    console.log(
+      `Loading texture for ${imageData.title} from: ${imageData.url}`,
+    );
+    loadFullResolutionTexture(imageData, scene, imageMaterial);
+  }
   // No emissive texture - prevents bleeding through walls
   imageMaterial.specularColor = new Color3(0.1, 0.1, 0.1);
   imageMaterial.emissiveColor = new Color3(0, 0, 0); // No emissive
@@ -202,6 +238,46 @@ export function createImageFrame(scene, imageData, options = {}) {
     frameBorder,
     metadata: imagePlane.metadata,
   };
+}
+
+/**
+ * Load full resolution texture (helper function for progressive loading)
+ */
+function loadFullResolutionTexture(imageData, scene, imageMaterial) {
+  const texture = new Texture(
+    imageData.url,
+    scene,
+    false,
+    false,
+    Texture.TRILINEAR_SAMPLINGMODE,
+    () => {
+      // onLoad callback
+      console.log(`✓ Texture loaded: ${imageData.title}`, {
+        width: texture.getSize().width,
+        height: texture.getSize().height,
+        isReady: texture.isReady(),
+      });
+    },
+    (message, exception) => {
+      // onError callback
+      console.error(
+        `✗ Failed to load texture: ${imageData.url}`,
+        message,
+        exception,
+      );
+      console.warn(`Using placeholder color for: ${imageData.title}`);
+      // Use a solid color as fallback
+      imageMaterial.diffuseTexture = null;
+      imageMaterial.diffuseColor = new Color3(0.7, 0.7, 0.8);
+      imageMaterial.emissiveColor = new Color3(0.2, 0.2, 0.25);
+    },
+  );
+
+  texture.hasAlpha = false;
+  texture.vScale = -1; // Flip vertically to correct upside-down images
+  texture.uScale = 1; // No horizontal flip needed - orientation is correct
+
+  imageMaterial.diffuseTexture = texture;
 }
 
 /**

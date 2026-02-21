@@ -1,0 +1,77 @@
+# ============================================================================
+# RATE LIMITING CONFIGURATION
+# ============================================================================
+# Add these lines to your .env and .env.example files
+# ============================================================================
+
+# ── Rate Limiting Master Switch ─────────────────────────────────────────────
+# Set to 'false' to disable all rate limiting (NOT recommended for production)
+RATE_LIMIT_ENABLED=true
+
+# ── Authentication Endpoints ────────────────────────────────────────────────
+# Login, OIDC, emergency auth - strict limits for brute-force protection
+RATE_LIMIT_AUTH_RPM=10
+RATE_LIMIT_AUTH_BURST=5
+
+# ── Media Upload Endpoints ──────────────────────────────────────────────────
+# Upload handlers - moderate limits for resource protection
+RATE_LIMIT_UPLOAD_RPM=15
+RATE_LIMIT_UPLOAD_BURST=5
+
+# ── Media Serving Endpoints (NEW) ───────────────────────────────────────────
+# Images, PDFs, video serving - lenient limits for gallery support
+# This is the key setting for 3D gallery media loading!
+#
+# Default (300 RPM / burst 100) supports galleries with 100+ items
+# Increase for larger galleries or more concurrent viewers
+RATE_LIMIT_MEDIA_SERVING_RPM=300
+RATE_LIMIT_MEDIA_SERVING_BURST=100
+
+# ── Access Code Validation ──────────────────────────────────────────────────
+# Access code checks, stream token validation - moderate limits
+RATE_LIMIT_VALIDATION_RPM=20
+RATE_LIMIT_VALIDATION_BURST=10
+
+# ── API Mutation Endpoints ──────────────────────────────────────────────────
+# Create, update, delete operations - moderate limits
+RATE_LIMIT_API_MUTATE_RPM=30
+RATE_LIMIT_API_MUTATE_BURST=10
+
+# ── General Endpoints ───────────────────────────────────────────────────────
+# All other endpoints - lenient default limits
+RATE_LIMIT_GENERAL_RPM=120
+RATE_LIMIT_GENERAL_BURST=30
+
+# ============================================================================
+# COMMON CONFIGURATION SCENARIOS
+# ============================================================================
+
+# Scenario 1: Large galleries (200+ items)
+# RATE_LIMIT_MEDIA_SERVING_RPM=500
+# RATE_LIMIT_MEDIA_SERVING_BURST=200
+
+# Scenario 2: Multiple concurrent viewers (shared IPs)
+# RATE_LIMIT_MEDIA_SERVING_RPM=1000
+# RATE_LIMIT_MEDIA_SERVING_BURST=300
+
+# Scenario 3: VR galleries with high-res assets
+# RATE_LIMIT_MEDIA_SERVING_RPM=1000
+# RATE_LIMIT_MEDIA_SERVING_BURST=500
+
+# Scenario 4: Maximum security (under attack)
+# RATE_LIMIT_MEDIA_SERVING_RPM=50
+# RATE_LIMIT_MEDIA_SERVING_BURST=10
+# RATE_LIMIT_GENERAL_RPM=30
+
+# Scenario 5: Development/Testing ONLY (DO NOT USE IN PRODUCTION!)
+# RATE_LIMIT_ENABLED=false
+
+# ============================================================================
+# NOTES
+# ============================================================================
+# - RPM = Requests Per Minute (per IP address)
+# - Burst = Number of concurrent requests allowed
+# - Changes require server restart to take effect
+# - Monitor logs on startup to verify configuration
+# - See crates/3d-gallery/RATE_LIMIT_CONFIG.md for detailed guide
+# ============================================================================

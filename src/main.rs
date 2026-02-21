@@ -75,7 +75,7 @@ use common::{create_search_routes, create_tag_routes, request_id::request_id_mid
 use course_viewer::{course_viewer_routes, CourseViewerState};
 use docs_viewer::{docs_routes, markdown::MarkdownRenderer, DocsState};
 use gallery3d;
-use media_manager::{media_routes, MediaManagerState};
+use media_manager::{media_routes, media_serving_routes, media_upload_routes, MediaManagerState};
 use rate_limiter::RateLimitConfig;
 use user_auth::{auth_routes, AuthState, OidcConfig};
 use vault_manager::{vault_routes, VaultManagerState};
@@ -670,7 +670,10 @@ async fn main() -> anyhow::Result<()> {
     let vault_state = Arc::new(VaultManagerState::new(pool.clone(), user_storage.clone()));
 
     // Initialize Workspace Manager State
-    let workspace_state = Arc::new(WorkspaceManagerState::new(pool.clone(), user_storage.clone()));
+    let workspace_state = Arc::new(WorkspaceManagerState::new(
+        pool.clone(),
+        user_storage.clone(),
+    ));
 
     // Initialize Access Control Service with audit logging enabled
     let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));
@@ -777,9 +780,7 @@ async fn main() -> anyhow::Result<()> {
     // Conditionally expose dev routes (ENABLE_DEV_ROUTES=true)
     let app = if dev_routes_enabled {
         tracing::warn!("DEV ROUTES ENABLED — do not use in production");
-        base_router.merge(
-            Router::new().route("/dev/components", get(dev_components_handler)),
-        )
+        base_router.merge(Router::new().route("/dev/components", get(dev_components_handler)))
     } else {
         base_router
     };
@@ -798,9 +799,18 @@ async fn main() -> anyhow::Result<()> {
         .merge(api_key_routes(Arc::new(pool.clone())).route_layer(
             axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
         ))
-        // Unified media manager — listing, search, upload, detail, CRUD, image serving
+        // Unified media manager — listing, search, detail, CRUD (no rate limit on reads)
+        .merge(
+            media_routes()
+                .with_state((*media_manager_state).clone())
+                .route_layer(axum::middleware::from_fn_with_state(
+                    Arc::new(pool.clone()),
+                    api_key_or_session_auth,
+                )),
+        )
+        // Media uploads — strict rate limiting for resource protection
         .merge({
-            let r = media_routes()
+            let r = media_upload_routes()
                 .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // 100MB limit for media uploads
                 .with_state((*media_manager_state).clone())
                 .route_layer(axum::middleware::from_fn_with_state(
@@ -808,6 +818,20 @@ async fn main() -> anyhow::Result<()> {
                     api_key_or_session_auth,
                 ));
             if let Some(layer) = rate_limit.upload_layer() {
+                r.layer(layer)
+            } else {
+                r
+            }
+        })
+        // Media serving (images, PDFs) — lenient rate limiting for gallery support
+        .merge({
+            let r = media_serving_routes()
+                .with_state((*media_manager_state).clone())
+                .route_layer(axum::middleware::from_fn_with_state(
+                    Arc::new(pool.clone()),
+                    api_key_or_session_auth,
+                ));
+            if let Some(layer) = rate_limit.media_serving_layer() {
                 r.layer(layer)
             } else {
                 r
@@ -850,7 +874,10 @@ async fn main() -> anyhow::Result<()> {
         // Workspace manager — auth middleware + API mutate rate limit
         .merge({
             let r = workspace_routes(workspace_state).route_layer(
-                axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
+                axum::middleware::from_fn_with_state(
+                    Arc::new(pool.clone()),
+                    api_key_or_session_auth,
+                ),
             );
             if let Some(layer) = rate_limit.api_mutate_layer() {
                 r.layer(layer)

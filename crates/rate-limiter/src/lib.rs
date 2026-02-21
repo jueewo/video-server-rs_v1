@@ -3,6 +3,7 @@
 //! Provides configurable per-IP rate limiting for different endpoint classes:
 //! - **Auth**: login, OIDC, emergency auth — strict (brute-force protection)
 //! - **Upload**: media upload — moderate (resource protection)
+//! - **MediaServing**: serving images, PDFs, videos — lenient (high-volume reads)
 //! - **Validation**: access codes, stream tokens — moderate (abuse prevention)
 //! - **ApiMutate**: create/update/delete operations — moderate
 //! - **General**: all other endpoints — lenient
@@ -15,6 +16,8 @@
 //! RATE_LIMIT_AUTH_BURST=5         # burst allowance
 //! RATE_LIMIT_UPLOAD_RPM=15
 //! RATE_LIMIT_UPLOAD_BURST=5
+//! RATE_LIMIT_MEDIA_SERVING_RPM=300
+//! RATE_LIMIT_MEDIA_SERVING_BURST=100
 //! RATE_LIMIT_VALIDATION_RPM=20
 //! RATE_LIMIT_VALIDATION_BURST=10
 //! RATE_LIMIT_API_MUTATE_RPM=30
@@ -64,6 +67,8 @@ pub enum EndpointClass {
     Auth,
     /// Media upload — moderate limits
     Upload,
+    /// Media serving (images, PDFs, videos) — high limits for read operations
+    MediaServing,
     /// Access-code validation, stream-token validation
     Validation,
     /// API create / update / delete operations
@@ -77,6 +82,7 @@ impl std::fmt::Display for EndpointClass {
         match self {
             Self::Auth => write!(f, "auth"),
             Self::Upload => write!(f, "upload"),
+            Self::MediaServing => write!(f, "media_serving"),
             Self::Validation => write!(f, "validation"),
             Self::ApiMutate => write!(f, "api_mutate"),
             Self::General => write!(f, "general"),
@@ -108,6 +114,7 @@ pub struct RateLimitConfig {
     pub enabled: bool,
     pub auth: ClassLimit,
     pub upload: ClassLimit,
+    pub media_serving: ClassLimit,
     pub validation: ClassLimit,
     pub api_mutate: ClassLimit,
     pub general: ClassLimit,
@@ -124,6 +131,10 @@ impl Default for RateLimitConfig {
             upload: ClassLimit {
                 requests_per_minute: 15,
                 burst: 5,
+            },
+            media_serving: ClassLimit {
+                requests_per_minute: 300,
+                burst: 100,
             },
             validation: ClassLimit {
                 requests_per_minute: 20,
@@ -172,6 +183,18 @@ impl RateLimitConfig {
         if let Ok(v) = std::env::var("RATE_LIMIT_UPLOAD_BURST") {
             if let Ok(n) = v.parse() {
                 config.upload.burst = n;
+            }
+        }
+
+        // Media Serving
+        if let Ok(v) = std::env::var("RATE_LIMIT_MEDIA_SERVING_RPM") {
+            if let Ok(n) = v.parse() {
+                config.media_serving.requests_per_minute = n;
+            }
+        }
+        if let Ok(v) = std::env::var("RATE_LIMIT_MEDIA_SERVING_BURST") {
+            if let Ok(n) = v.parse() {
+                config.media_serving.burst = n;
             }
         }
 
@@ -225,6 +248,7 @@ impl RateLimitConfig {
         let limit = match class {
             EndpointClass::Auth => self.auth,
             EndpointClass::Upload => self.upload,
+            EndpointClass::MediaServing => self.media_serving,
             EndpointClass::Validation => self.validation,
             EndpointClass::ApiMutate => self.api_mutate,
             EndpointClass::General => self.general,
@@ -243,6 +267,11 @@ impl RateLimitConfig {
     /// Upload rate-limiter layer.
     pub fn upload_layer(&self) -> Option<RateLimitLayer> {
         self.layer_for(EndpointClass::Upload)
+    }
+
+    /// Media serving rate-limiter layer (images, PDFs, videos).
+    pub fn media_serving_layer(&self) -> Option<RateLimitLayer> {
+        self.layer_for(EndpointClass::MediaServing)
     }
 
     /// Validation rate-limiter layer (access codes, stream tokens).
@@ -274,6 +303,10 @@ impl RateLimitConfig {
         println!(
             "   - Upload:     {} rpm, burst {}",
             self.upload.requests_per_minute, self.upload.burst
+        );
+        println!(
+            "   - Media Serving: {} rpm, burst {}",
+            self.media_serving.requests_per_minute, self.media_serving.burst
         );
         println!(
             "   - Validation: {} rpm, burst {}",
@@ -344,6 +377,8 @@ mod tests {
         assert_eq!(config.auth.requests_per_minute, 10);
         assert_eq!(config.auth.burst, 5);
         assert_eq!(config.upload.requests_per_minute, 15);
+        assert_eq!(config.media_serving.requests_per_minute, 300);
+        assert_eq!(config.media_serving.burst, 100);
         assert_eq!(config.general.requests_per_minute, 120);
     }
 
@@ -353,6 +388,7 @@ mod tests {
         config.enabled = false;
         assert!(config.auth_layer().is_none());
         assert!(config.upload_layer().is_none());
+        assert!(config.media_serving_layer().is_none());
         assert!(config.general_layer().is_none());
     }
 
@@ -361,6 +397,7 @@ mod tests {
         let config = RateLimitConfig::default();
         assert!(config.auth_layer().is_some());
         assert!(config.upload_layer().is_some());
+        assert!(config.media_serving_layer().is_some());
         assert!(config.validation_layer().is_some());
         assert!(config.api_mutate_layer().is_some());
         assert!(config.general_layer().is_some());
@@ -370,6 +407,7 @@ mod tests {
     fn endpoint_class_display() {
         assert_eq!(EndpointClass::Auth.to_string(), "auth");
         assert_eq!(EndpointClass::Upload.to_string(), "upload");
+        assert_eq!(EndpointClass::MediaServing.to_string(), "media_serving");
         assert_eq!(EndpointClass::Validation.to_string(), "validation");
         assert_eq!(EndpointClass::ApiMutate.to_string(), "api_mutate");
         assert_eq!(EndpointClass::General.to_string(), "general");

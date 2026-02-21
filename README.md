@@ -74,9 +74,27 @@ See `docker/README.md` and `docker/DOCKER.md` for complete Docker documentation.
 
 ### Prerequisites
 
+#### Required System Tools
+
 1. **Rust** (already installed ✓)
-2. **FFmpeg** (for streaming)
+2. **FFmpeg** (for video streaming and processing)
 3. **MediaMTX** (streaming server)
+4. **Ghostscript** (for PDF thumbnail generation)
+5. **WebP tools** (for image optimization)
+
+**Installation:**
+
+```bash
+# macOS
+brew install ffmpeg mediamtx ghostscript webp
+
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install -y ffmpeg ghostscript webp
+
+# Alpine (Docker)
+apk add --no-cache ffmpeg ghostscript libwebp-tools
+```
 
 ### Install MediaMTX
 
@@ -502,11 +520,27 @@ video-server-rs_v1/
 - `serde` - Serialization
 - `tracing` - Logging
 
-### External
-- **MediaMTX** - Streaming server
-- **FFmpeg** - Streaming client
-- **Caddy** (optional) - Reverse proxy
-- **SQLite** - Database
+### System Dependencies
+
+| Tool | Purpose | Required | Installation |
+|------|---------|----------|--------------|
+| **FFmpeg** | Video streaming & transcoding | ✅ Yes | `brew install ffmpeg` |
+| **MediaMTX** | RTMP/HLS streaming server | ✅ Yes | `brew install mediamtx` |
+| **Ghostscript** | PDF thumbnail generation | ✅ Yes | `brew install ghostscript` |
+| **WebP tools** | Image optimization (cwebp) | ✅ Yes | `brew install webp` |
+| **SQLite** | Database | ✅ Yes | Usually pre-installed |
+| **Caddy** | HTTPS reverse proxy | ⚠️ Optional | `brew install caddy` |
+
+**Verify Installation:**
+```bash
+ffmpeg -version          # Video processing
+mediamtx --version       # Streaming server
+gs --version             # PDF rendering
+cwebp -version           # WebP conversion
+sqlite3 --version        # Database
+```
+
+**Docker:** All dependencies are included in the Dockerfile.
 
 ## Features
 

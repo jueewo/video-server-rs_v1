@@ -338,3 +338,123 @@ async fn serve_image_variant(
 
     Ok(builder.body(body).unwrap())
 }
+
+/// Serve document thumbnail
+/// GET /documents/:slug/thumbnail
+pub async fn serve_document_thumbnail(
+    State(state): State<MediaManagerState>,
+    session: Session,
+    Path(slug): Path<String>,
+    Query(query): Query<AccessQuery>,
+) -> Result<Response, StatusCode> {
+    debug!("Serving document thumbnail: {}", slug);
+
+    // Get authenticated user
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    let user_id: Option<String> = if authenticated {
+        session.get("user_id").await.ok().flatten()
+    } else {
+        None
+    };
+
+    // Lookup document in database
+    let media: Option<(i32, Option<String>, Option<String>, i32)> = sqlx::query_as(
+        "SELECT id, user_id, vault_id, is_public FROM media_items WHERE slug = ? AND media_type = 'document'",
+    )
+    .bind(&slug)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|e| {
+        error!("Database error: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let (media_id, owner_user_id, vault_id, is_public) =
+        media.ok_or(StatusCode::NOT_FOUND)?;
+
+    // Check access control
+    if is_public == 0 {
+        // Private document - check ownership or access code
+        let has_access = if let Some(ref uid) = user_id {
+            // Check if user owns the document
+            owner_user_id.as_ref() == Some(uid)
+        } else {
+            false
+        };
+
+        if !has_access {
+            // Check access code if provided
+            if let Some(code) = query.code {
+                let access_decision = state
+                    .access_control
+                    .check_access(
+                        access_control::AccessContext::new(
+                            common::ResourceType::File,
+                            media_id,
+                        )
+                        .with_key(code),
+                        access_control::Permission::Read,
+                    )
+                    .await
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+                if !access_decision.granted {
+                    return Err(StatusCode::FORBIDDEN);
+                }
+            } else {
+                return Err(StatusCode::UNAUTHORIZED);
+            }
+        }
+    }
+
+    // Determine thumbnail path
+    let thumb_filename = format!("{}_thumb.webp", slug);
+    let thumb_path = if let Some(ref vid) = vault_id {
+        state
+            .user_storage
+            .vault_thumbnails_dir(vid, common::storage::MediaType::Document)
+            .join(&thumb_filename)
+    } else if let Some(ref uid) = owner_user_id {
+        state
+            .user_storage
+            .thumbnails_dir(uid, common::storage::MediaType::Document)
+            .join(&thumb_filename)
+    } else {
+        std::path::PathBuf::from(&state.storage_dir)
+            .join("thumbnails")
+            .join("documents")
+            .join(&thumb_filename)
+    };
+
+    // Check if thumbnail exists
+    if !thumb_path.exists() {
+        debug!(
+            "Thumbnail not found at {:?}, returning 404",
+            thumb_path
+        );
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    // Open and stream file
+    let file = File::open(&thumb_path).await.map_err(|e| {
+        error!("Failed to open thumbnail: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let stream = ReaderStream::new(file);
+    let body = Body::from_stream(stream);
+
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "image/webp")
+        .header(header::CACHE_CONTROL, "public, max-age=31536000") // Cache for 1 year
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*") // Allow embedding
+        .body(body)
+        .unwrap())
+}

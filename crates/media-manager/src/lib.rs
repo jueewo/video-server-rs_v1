@@ -8,17 +8,18 @@
 
 pub mod bpmn_view;
 pub mod detail;
-pub mod pdf_view;
 pub mod list;
 pub mod markdown_view;
 pub mod models;
+pub mod pdf_thumbnail;
+pub mod pdf_view;
 pub mod routes;
 pub mod search;
 pub mod serve;
 pub mod templates;
 pub mod upload;
 
-pub use routes::{media_routes, MediaManagerState};
+pub use routes::{media_routes, media_serving_routes, media_upload_routes, MediaManagerState};
 
 /// Version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

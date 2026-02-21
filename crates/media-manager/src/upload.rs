@@ -10,6 +10,7 @@ use serde_json::Value;
 use tower_sessions::Session;
 use tracing::{error, info, warn};
 
+use crate::pdf_thumbnail::{spawn_thumbnail_generation, PdfThumbnailContext};
 use crate::routes::MediaManagerState;
 
 // ── media-core validation re-exports ────────────────────────────────────
@@ -785,7 +786,7 @@ async fn process_document_upload(
         is_public,
         user_id: Some(user_id.clone()),
         group_id,
-        vault_id: Some(vault_id),
+        vault_id: Some(vault_id.clone()),
         status: Some("active".to_string()),
         featured: Some(0),
         category,
@@ -853,6 +854,20 @@ async fn process_document_upload(
             .execute(&state.pool)
             .await;
         }
+    }
+
+    // Generate PDF thumbnail asynchronously in background
+    if mime_type == "application/pdf" {
+        let thumb_context = PdfThumbnailContext {
+            media_id,
+            slug: slug.clone(),
+            vault_id: vault_id.clone(),
+            pdf_path: document_path.clone(),
+            pool: state.pool.clone(),
+            user_storage: state.user_storage.clone(),
+        };
+
+        spawn_thumbnail_generation(thumb_context);
     }
 
     info!(

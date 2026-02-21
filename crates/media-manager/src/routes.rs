@@ -10,7 +10,7 @@
 //! - Vault management
 
 use axum::{
-    routing::{delete, get, post, put},
+    routing::{get, post},
     Router,
 };
 use common::storage::UserStorageManager;
@@ -54,9 +54,6 @@ pub fn media_routes() -> Router<MediaManagerState> {
         // ── Listing & Search (JSON API) ─────────────────────────────
         .route("/api/media", get(crate::list::list_media_json))
         .route("/api/media/search", get(crate::list::search_media_json))
-        // ── Upload ──────────────────────────────────────────────────
-        .route("/media/upload", get(crate::list::show_upload_form))
-        .route("/api/media/upload", post(crate::upload::upload_media))
         // ── Vault management ────────────────────────────────────────
         .route("/api/user/vaults", get(crate::list::get_user_vaults))
         // ── Group selector ──────────────────────────────────────────
@@ -75,14 +72,7 @@ pub fn media_routes() -> Router<MediaManagerState> {
             "/media/{slug}/bpmn",
             get(crate::bpmn_view::view_bpmn_handler),
         )
-        .route(
-            "/media/{slug}/pdf",
-            get(crate::pdf_view::view_pdf_handler),
-        )
-        .route(
-            "/media/{slug}/serve",
-            get(crate::pdf_view::serve_pdf_handler),
-        )
+        .route("/media/{slug}/pdf", get(crate::pdf_view::view_pdf_handler))
         // ── Media CRUD (JSON API) ───────────────────────────────────
         .route(
             "/api/media/{slug}/toggle-visibility",
@@ -101,6 +91,36 @@ pub fn media_routes() -> Router<MediaManagerState> {
             get(crate::list::get_media_item)
                 .put(crate::list::update_media_item)
                 .delete(crate::list::delete_media),
+        )
+}
+
+/// Create media upload routes (strict rate limiting)
+///
+/// These routes handle resource-intensive upload operations and should have
+/// moderate rate limits (15 RPM) to prevent abuse and resource exhaustion.
+pub fn media_upload_routes() -> Router<MediaManagerState> {
+    Router::new()
+        // ── Upload ──────────────────────────────────────────────────
+        .route("/media/upload", get(crate::list::show_upload_form))
+        .route("/api/media/upload", post(crate::upload::upload_media))
+}
+
+/// Create media serving routes (lenient rate limiting)
+///
+/// These routes serve media files (images, PDFs, videos) and need high rate limits
+/// (300+ RPM) to support galleries loading many assets concurrently. Access is
+/// controlled by access codes, not rate limiting.
+pub fn media_serving_routes() -> Router<MediaManagerState> {
+    Router::new()
+        // ── PDF serving ─────────────────────────────────────────────
+        .route(
+            "/media/{slug}/serve",
+            get(crate::pdf_view::serve_pdf_handler),
+        )
+        // ── Document thumbnails ─────────────────────────────────────
+        .route(
+            "/documents/{slug}/thumbnail",
+            get(crate::serve::serve_document_thumbnail),
         )
         // ── Image serving ───────────────────────────────────────────
         .route(

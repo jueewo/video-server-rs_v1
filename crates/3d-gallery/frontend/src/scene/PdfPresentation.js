@@ -73,17 +73,47 @@ async function loadPdfJs() {
 const TEX_W = 1024;
 const TEX_H = 768;
 
-function drawPlaceholder(ctx) {
+function drawPlaceholder(ctx, title = "Document", showLoading = true) {
+  // Background
   ctx.fillStyle = "#1a1a2e";
   ctx.fillRect(0, 0, TEX_W, TEX_H);
+
+  // Draw document icon (simplified PDF icon)
   ctx.fillStyle = "#e94560";
-  ctx.font = "bold 80px sans-serif";
+
+  // Document body
+  ctx.fillRect(TEX_W / 2 - 80, TEX_H / 2 - 120, 160, 200);
+
+  // Document fold (top-right corner)
+  ctx.fillStyle = "#c73e54";
+  ctx.beginPath();
+  ctx.moveTo(TEX_W / 2 + 40, TEX_H / 2 - 120);
+  ctx.lineTo(TEX_W / 2 + 40, TEX_H / 2 - 80);
+  ctx.lineTo(TEX_W / 2 + 80, TEX_H / 2 - 80);
+  ctx.closePath();
+  ctx.fill();
+
+  // PDF text on icon
+  ctx.fillStyle = "white";
+  ctx.font = "bold 36px sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("PDF", TEX_W / 2, TEX_H / 2 - 40);
-  ctx.fillStyle = "rgba(255,255,255,0.6)";
-  ctx.font = "28px sans-serif";
-  ctx.fillText("Loading…", TEX_W / 2, TEX_H / 2 + 50);
+  ctx.fillText("PDF", TEX_W / 2, TEX_H / 2 - 20);
+
+  // Document title
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
+  ctx.font = "24px sans-serif";
+  const maxTitleWidth = TEX_W - 100;
+  const truncatedTitle =
+    title.length > 40 ? title.substring(0, 37) + "..." : title;
+  ctx.fillText(truncatedTitle, TEX_W / 2, TEX_H / 2 + 120);
+
+  // Loading indicator (optional)
+  if (showLoading) {
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.font = "20px sans-serif";
+    ctx.fillText("Loading…", TEX_W / 2, TEX_H / 2 + 160);
+  }
 }
 
 function drawPageIndicator(ctx, current, total) {
@@ -276,7 +306,7 @@ export function createPdfPresentation(scene, media, options) {
   texCanvas.width = TEX_W;
   texCanvas.height = TEX_H;
   const texCtx = texCanvas.getContext("2d");
-  drawPlaceholder(texCtx);
+  drawPlaceholder(texCtx, media.title);
 
   const texture = new DynamicTexture(`pdfTex_${id}`, texCanvas, scene, false);
   texture.hasAlpha = false;
@@ -348,45 +378,124 @@ export function createPdfPresentation(scene, media, options) {
     ),
   );
 
-  // Load PDF with lazy-loaded PDF.js library
-  loadPdfJs()
-    .then((lib) => {
-      console.log("📄 Loading PDF document:", media.url);
-      return lib.getDocument(media.url).promise;
-    })
-    .then(async (doc) => {
-      pdfDoc = doc;
-      console.log(`✅ PDF loaded: ${media.title} (${doc.numPages} pages)`);
-      await renderPage(pdfDoc, 1, texCtx, texture);
-    })
-    .catch((err) => {
-      console.error("❌ Failed to load PDF for 3D gallery:", media.title);
-      console.error("PDF error details:", {
-        name: err.name,
-        message: err.message,
-        url: media.url,
-      });
+  // Progressive loading: Show thumbnail first, then PDF
+  const hasThumbnail = media.thumbnail_url && media.thumbnail_url.trim() !== "";
 
-      // Show error on canvas
-      texCtx.fillStyle = "#1a1a2e";
-      texCtx.fillRect(0, 0, TEX_W, TEX_H);
-      texCtx.fillStyle = "#e94560";
-      texCtx.font = "bold 48px sans-serif";
-      texCtx.textAlign = "center";
-      texCtx.textBaseline = "middle";
-      texCtx.fillText("Failed to load PDF", TEX_W / 2, TEX_H / 2);
+  if (hasThumbnail) {
+    console.log(`📄 Progressive loading PDF: ${media.title}`);
+    console.log(`   1. Loading PDF thumbnail: ${media.thumbnail_url}`);
 
-      // Show error details
-      texCtx.font = "20px sans-serif";
-      texCtx.fillStyle = "rgba(255,255,255,0.7)";
-      texCtx.fillText(
-        err.message || "Unknown error",
-        TEX_W / 2,
-        TEX_H / 2 + 60,
-      );
+    // Load thumbnail image first
+    const thumbnailImg = new Image();
+    thumbnailImg.crossOrigin = "anonymous";
 
+    thumbnailImg.onload = () => {
+      console.log(`✅ PDF thumbnail loaded: ${media.title}`);
+      console.log(`   2. Displaying thumbnail`);
+
+      // Draw thumbnail to canvas
+      texCtx.clearRect(0, 0, TEX_W, TEX_H);
+      // Scale thumbnail to fit canvas while maintaining aspect ratio
+      const imgAspect = thumbnailImg.width / thumbnailImg.height;
+      const canvasAspect = TEX_W / TEX_H;
+      let drawWidth, drawHeight, drawX, drawY;
+
+      if (imgAspect > canvasAspect) {
+        // Image is wider than canvas aspect
+        drawWidth = TEX_W;
+        drawHeight = TEX_W / imgAspect;
+        drawX = 0;
+        drawY = (TEX_H - drawHeight) / 2;
+      } else {
+        // Image is taller than canvas aspect
+        drawHeight = TEX_H;
+        drawWidth = TEX_H * imgAspect;
+        drawX = (TEX_W - drawWidth) / 2;
+        drawY = 0;
+      }
+
+      texCtx.drawImage(thumbnailImg, drawX, drawY, drawWidth, drawHeight);
       texture.update();
-    });
+
+      // Now load the full PDF in background
+      loadFullPdf();
+    };
+
+    thumbnailImg.onerror = () => {
+      console.warn(
+        `❌ Failed to load PDF thumbnail: ${media.thumbnail_url}, falling back to placeholder`,
+      );
+      // Draw placeholder without loading indicator (since we're about to load PDF)
+      drawPlaceholder(texCtx, media.title, false);
+      texture.update();
+      // Load PDF directly
+      loadFullPdf();
+    };
+
+    thumbnailImg.src = media.thumbnail_url;
+  } else {
+    // No thumbnail available, show placeholder and load PDF
+    console.log(`📄 Loading PDF: ${media.title} (no thumbnail available)`);
+    console.log(`   1. Showing PDF placeholder icon`);
+    loadFullPdf();
+  }
+
+  function loadFullPdf() {
+    // Load PDF with lazy-loaded PDF.js library
+    loadPdfJs()
+      .then((lib) => {
+        console.log(
+          `   ${hasThumbnail ? "3" : "2"}. Loading PDF document: ${media.url}`,
+        );
+        return lib.getDocument(media.url).promise;
+      })
+      .then(async (doc) => {
+        pdfDoc = doc;
+        console.log(`✅ PDF loaded: ${media.title} (${doc.numPages} pages)`);
+        console.log(`   ${hasThumbnail ? "4" : "3"}. Rendering first page`);
+        await renderPage(pdfDoc, 1, texCtx, texture);
+      })
+      .catch((err) => {
+        console.error("❌ Failed to load PDF for 3D gallery:", media.title);
+        console.error("PDF error details:", {
+          name: err.name,
+          message: err.message,
+          url: media.url,
+        });
+
+        // Show error on canvas
+        texCtx.fillStyle = "#1a1a2e";
+        texCtx.fillRect(0, 0, TEX_W, TEX_H);
+
+        // Error icon (X in circle)
+        texCtx.strokeStyle = "#e94560";
+        texCtx.lineWidth = 8;
+        texCtx.beginPath();
+        texCtx.arc(TEX_W / 2, TEX_H / 2 - 50, 60, 0, Math.PI * 2);
+        texCtx.stroke();
+
+        texCtx.beginPath();
+        texCtx.moveTo(TEX_W / 2 - 30, TEX_H / 2 - 80);
+        texCtx.lineTo(TEX_W / 2 + 30, TEX_H / 2 - 20);
+        texCtx.moveTo(TEX_W / 2 + 30, TEX_H / 2 - 80);
+        texCtx.lineTo(TEX_W / 2 - 30, TEX_H / 2 - 20);
+        texCtx.stroke();
+
+        texCtx.fillStyle = "#e94560";
+        texCtx.font = "bold 36px sans-serif";
+        texCtx.textAlign = "center";
+        texCtx.textBaseline = "middle";
+        texCtx.fillText("Failed to load PDF", TEX_W / 2, TEX_H / 2 + 50);
+
+        // Show error details
+        texCtx.font = "18px sans-serif";
+        texCtx.fillStyle = "rgba(255,255,255,0.7)";
+        const errorMsg = err.message || "Unknown error";
+        texCtx.fillText(errorMsg.substring(0, 50), TEX_W / 2, TEX_H / 2 + 90);
+
+        texture.update();
+      });
+  }
 
   function dispose() {
     parent.dispose(); // disposes all children too

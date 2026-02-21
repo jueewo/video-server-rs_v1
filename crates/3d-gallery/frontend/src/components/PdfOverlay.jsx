@@ -45,7 +45,9 @@ export function PdfOverlay({ url, title, initialPage = 1, onClose }) {
   }, [url]);
 
   // Keep ref in sync so keyboard/backdrop handlers always see the latest page
-  useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
 
   // Render page whenever pdfDoc or currentPage changes
   useEffect(() => {
@@ -108,7 +110,7 @@ export function PdfOverlay({ url, title, initialPage = 1, onClose }) {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    justifyContent: "flex-start",
+    justifyContent: "center",
     zIndex: 2000,
     padding: "20px",
     overflowY: "auto",
@@ -140,12 +142,24 @@ export function PdfOverlay({ url, title, initialPage = 1, onClose }) {
     <div style={overlay} onClick={() => onClose(currentPageRef.current)}>
       {/* Inner container — clicks don't propagate to backdrop */}
       <div
-        style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          width: "100%",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Toolbar */}
         <div style={toolbar}>
-          <span style={{ fontSize: "18px", fontWeight: "bold", flex: 1, textAlign: "center" }}>
+          <span
+            style={{
+              fontSize: "18px",
+              fontWeight: "bold",
+              flex: 1,
+              textAlign: "center",
+            }}
+          >
             {title}
           </span>
           <button
@@ -155,7 +169,9 @@ export function PdfOverlay({ url, title, initialPage = 1, onClose }) {
           >
             ◄ Prev
           </button>
-          <span style={{ color: "white", fontSize: "15px", whiteSpace: "nowrap" }}>
+          <span
+            style={{ color: "white", fontSize: "15px", whiteSpace: "nowrap" }}
+          >
             {currentPage} / {totalPages}
           </span>
           <button
@@ -173,7 +189,10 @@ export function PdfOverlay({ url, title, initialPage = 1, onClose }) {
           >
             ↗ Open
           </a>
-          <button style={btnStyle} onClick={() => onClose(currentPageRef.current)}>
+          <button
+            style={btnStyle}
+            onClick={() => onClose(currentPageRef.current)}
+          >
             Close (ESC)
           </button>
         </div>
@@ -202,7 +221,13 @@ export function PdfOverlay({ url, title, initialPage = 1, onClose }) {
 
         {/* Page info + keyboard hint */}
         {!loading && !error && (
-          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "13px", marginTop: "12px" }}>
+          <p
+            style={{
+              color: "rgba(255,255,255,0.5)",
+              fontSize: "13px",
+              marginTop: "12px",
+            }}
+          >
             Use ← → arrow keys to navigate pages • Click backdrop to close
           </p>
         )}

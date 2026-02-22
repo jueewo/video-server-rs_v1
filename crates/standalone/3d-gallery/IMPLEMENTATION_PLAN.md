@@ -46,7 +46,7 @@ See [`ACCESS_MODEL.md`](./ACCESS_MODEL.md) for complete access control documenta
 ### Backend (Rust)
 
 **Deliverables:**
-- [ ] Create `crates/3d-gallery` module
+- [ ] Create `crates/standalone/3d-gallery` module
 - [ ] Basic Cargo.toml with dependencies
 - [ ] Module registration in main router
 - [ ] API endpoint: `GET /api/3d/gallery?code=xyz` - Returns media items for access code
@@ -146,7 +146,7 @@ askama = { workspace = true }
 
 **Directory Structure:**
 ```
-crates/3d-gallery/
+crates/standalone/3d-gallery/
 ├── Cargo.toml
 ├── package.json
 ├── src/
@@ -555,7 +555,7 @@ scenes: [
 
 ```bash
 # 1. Build backend
-cd crates/3d-gallery
+cd crates/standalone/3d-gallery
 cargo build
 
 # 2. Install frontend dependencies

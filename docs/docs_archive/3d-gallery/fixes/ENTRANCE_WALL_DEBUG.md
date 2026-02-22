@@ -104,7 +104,7 @@ Look for these log messages:
 
 1. **Rebuild the frontend** (IMPORTANT - JSON is bundled into JavaScript)
    ```bash
-   cd crates/3d-gallery/frontend
+   cd crates/standalone/3d-gallery/frontend
    npm run build
    ```
 
@@ -152,9 +152,9 @@ Once the issue is resolved, remove the debug code:
 
 ## Related Files
 
-- `video-server-rs_v1/crates/3d-gallery/frontend/src/scene/LayoutParser.js` - Wall creation logic
-- `video-server-rs_v1/crates/3d-gallery/frontend/src/layouts/demo-gallery.json` - Wall coordinates
-- `video-server-rs_v1/crates/3d-gallery/frontend/src/GalleryApp.jsx` - Gallery initialization
+- `video-server-rs_v1/crates/standalone/3d-gallery/frontend/src/scene/LayoutParser.js` - Wall creation logic
+- `video-server-rs_v1/crates/standalone/3d-gallery/frontend/src/layouts/demo-gallery.json` - Wall coordinates
+- `video-server-rs_v1/crates/standalone/3d-gallery/frontend/src/GalleryApp.jsx` - Gallery initialization
 
 ## Wall Coordinate Reference
 

@@ -51,7 +51,7 @@ videoTexture.vScale = 1; // Keep normal vertical orientation
 
 ### Code Changes
 
-**File:** `crates/3d-gallery/frontend/src/scene/VideoScreen.js`
+**File:** `crates/standalone/3d-gallery/frontend/src/scene/VideoScreen.js`
 
 #### 1. Removed Horizontal Flip
 ```diff

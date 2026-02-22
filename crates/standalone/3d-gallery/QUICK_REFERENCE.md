@@ -8,7 +8,7 @@
 
 ```bash
 # 1. Install frontend dependencies
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm install
 
 # 2. Build frontend bundle
@@ -29,7 +29,7 @@ cargo run
 ### Frontend
 
 ```bash
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 
 # Production build (minified)
 npm run build
@@ -106,7 +106,7 @@ http://localhost:3000/demo
 
 ### Check Bundle Exists
 ```bash
-ls -lh crates/3d-gallery/static/bundle.js
+ls -lh crates/standalone/3d-gallery/static/bundle.js
 # Should show ~3.9MB
 ```
 
@@ -131,13 +131,13 @@ https://get.webgl.org/
 
 ### "React is not defined"
 ```bash
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm run build
 ```
 
 ### Bundle 404
 ```bash
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm install
 npm run build
 ```
@@ -191,7 +191,7 @@ Cargo.toml            # Rust config
 ## 📊 Bundle Info
 
 - **Size:** 3.9 MB minified
-- **Location:** `crates/3d-gallery/static/bundle.js`
+- **Location:** `crates/standalone/3d-gallery/static/bundle.js`
 - **Format:** ESM
 - **Sourcemap:** `bundle.js.map` (16.5 MB)
 

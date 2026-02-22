@@ -51,12 +51,12 @@ Phase 1 of the 3D Gallery is complete! This includes:
 ### 1. Build the Frontend
 
 ```bash
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm install  # Already done!
 npm run build  # Already done!
 ```
 
-The bundle is generated at `crates/3d-gallery/static/bundle.js` (3.9 MB).
+The bundle is generated at `crates/standalone/3d-gallery/static/bundle.js` (3.9 MB).
 
 ### 2. Run the Server
 
@@ -110,7 +110,7 @@ When you visit `/3d?code=xxx`, you should see:
 ## 📁 Project Structure
 
 ```
-crates/3d-gallery/
+crates/standalone/3d-gallery/
 ├── src/
 │   ├── lib.rs              # Main module, exports router
 │   ├── routes.rs           # HTTP routes for viewer page
@@ -146,7 +146,7 @@ crates/3d-gallery/
 For live development with auto-rebuild:
 
 ```bash
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm run dev  # Watch mode
 ```
 
@@ -169,7 +169,7 @@ cargo run
 
 ```bash
 # Frontend
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm run build
 
 # Backend
@@ -270,11 +270,11 @@ scene.clearColor = new BABYLON.Color4(0.2, 0.1, 0.3, 1.0); // Purple!
 ### Bundle Not Found (404)
 
 ```bash
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm run build
 ```
 
-Verify `crates/3d-gallery/static/bundle.js` exists.
+Verify `crates/standalone/3d-gallery/static/bundle.js` exists.
 
 ### Black Screen
 
@@ -298,7 +298,7 @@ Verify `crates/3d-gallery/static/bundle.js` exists.
 
 ```bash
 # Clean and rebuild
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm run clean
 npm install
 npm run build

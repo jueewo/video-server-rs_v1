@@ -44,20 +44,20 @@
 
 ### Documentation (5 files)
 
-4. **`crates/3d-gallery/RATE_LIMITING_SOLUTION.md`** ✨ NEW
+4. **`crates/standalone/3d-gallery/RATE_LIMITING_SOLUTION.md`** ✨ NEW
    - Technical implementation details
    - Before/after comparison
    - Security considerations
    - 312 lines of comprehensive documentation
 
-5. **`crates/3d-gallery/RATE_LIMIT_CONFIG.md`** ✨ NEW
+5. **`crates/standalone/3d-gallery/RATE_LIMIT_CONFIG.md`** ✨ NEW
    - Configuration guide
    - Common scenarios
    - Troubleshooting steps
    - FAQ and examples
    - 402 lines
 
-6. **`crates/3d-gallery/PRODUCTION_ISSUES.md`** (updated)
+6. **`crates/standalone/3d-gallery/PRODUCTION_ISSUES.md`** (updated)
    - Marked issues as resolved
    - Added solution details
    - Updated monitoring checklist
@@ -268,9 +268,9 @@ RATE_LIMIT_ENABLED=false
 
 | Document | Purpose | Location |
 |----------|---------|----------|
-| **RATE_LIMITING_SOLUTION.md** | Technical details | `crates/3d-gallery/` |
-| **RATE_LIMIT_CONFIG.md** | Configuration guide | `crates/3d-gallery/` |
-| **PRODUCTION_ISSUES.md** | Issue resolution | `crates/3d-gallery/` |
+| **RATE_LIMITING_SOLUTION.md** | Technical details | `crates/standalone/3d-gallery/` |
+| **RATE_LIMIT_CONFIG.md** | Configuration guide | `crates/standalone/3d-gallery/` |
+| **PRODUCTION_ISSUES.md** | Issue resolution | `crates/standalone/3d-gallery/` |
 | **ENV_RATE_LIMITS.txt** | Copy-paste config | Project root |
 | **UPDATE_ENV_FILES.md** | Deployment steps | Project root |
 | **Rate limiter source** | Implementation | `crates/rate-limiter/src/lib.rs` |

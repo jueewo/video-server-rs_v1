@@ -82,7 +82,7 @@ impl std::str::FromStr for MediaStatus {
 pub struct MediaItem {
     pub id: i32,
     pub slug: String,
-    pub media_type: String,  // Stored as TEXT in DB
+    pub media_type: String, // Stored as TEXT in DB
     pub title: String,
     pub description: Option<String>,
 
@@ -99,14 +99,12 @@ pub struct MediaItem {
     pub vault_id: Option<String>,
 
     // Classification
-    pub status: String,  // Stored as TEXT in DB
+    pub status: String, // Stored as TEXT in DB
     pub featured: i32,
     pub category: Option<String>,
 
     // Media URLs
     pub thumbnail_url: Option<String>,
-    pub preview_url: Option<String>,
-    pub webp_url: Option<String>,
 
     // Analytics
     pub view_count: i32,
@@ -192,7 +190,7 @@ pub struct MediaItemSummary {
 /// DTO for creating media items
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaItemCreateDTO {
-    pub slug: Option<String>,  // Optional - can be auto-generated
+    pub slug: Option<String>, // Optional - can be auto-generated
     pub media_type: MediaType,
     pub title: String,
     pub description: Option<String>,
@@ -212,8 +210,6 @@ pub struct MediaItemCreateDTO {
     pub category: Option<String>,
 
     pub thumbnail_url: Option<String>,
-    pub preview_url: Option<String>,
-    pub webp_url: Option<String>,
 
     pub allow_download: Option<i32>,
     pub allow_comments: Option<i32>,

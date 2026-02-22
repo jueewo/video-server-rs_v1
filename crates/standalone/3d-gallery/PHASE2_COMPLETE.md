@@ -305,7 +305,7 @@ const gallery = createGalleryFromLayout(scene, layout, settings);
 ### Step 1: Build
 
 ```bash
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm run clean
 npm run build
 ```
@@ -333,7 +333,7 @@ ls -lh ../static/*.js
 ### Step 3: Test Desktop
 
 ```bash
-cd ../..  # Back to crates/3d-gallery
+cd ../..  # Back to crates/standalone/3d-gallery
 cargo run
 ```
 

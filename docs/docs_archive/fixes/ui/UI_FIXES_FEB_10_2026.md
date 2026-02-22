@@ -64,13 +64,13 @@ was blocked because of a disallowed MIME type ("text/plain").
 
 **Root Cause:**
 1. Static JavaScript files weren't being served with correct `application/javascript` MIME type
-2. The `crates/3d-gallery/static/` directory didn't exist on production server
+2. The `crates/standalone/3d-gallery/static/` directory didn't exist on production server
 3. Frontend bundle wasn't built on production
 
 **Solution:**
 
 **Step 1: Custom MIME Type Handler**
-Modified `/crates/3d-gallery/src/lib.rs` to explicitly serve JavaScript files with correct headers:
+Modified `/crates/standalone/3d-gallery/src/lib.rs` to explicitly serve JavaScript files with correct headers:
 
 ```rust
 async fn serve_bundle_js() -> Response {
@@ -78,9 +78,9 @@ async fn serve_bundle_js() -> Response {
         .unwrap_or_else(|_| ".".to_string());
 
     let paths = [
-        format!("{}/crates/3d-gallery/static/bundle.js", base_dir),
+        format!("{}/crates/standalone/3d-gallery/static/bundle.js", base_dir),
         format!("{}/static/3d-gallery/bundle.js", base_dir),
-        "crates/3d-gallery/static/bundle.js".to_string(),
+        "crates/standalone/3d-gallery/static/bundle.js".to_string(),
         "static/3d-gallery/bundle.js".to_string(),
     ];
 
@@ -120,7 +120,7 @@ Created build instructions for production deployment:
 # On production server: /root/data/rust-apps/video-server-rs_v1
 
 # 1. Build JavaScript frontend bundle
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm install
 npm run build  # Creates bundle.js in ../static/
 
@@ -136,7 +136,7 @@ systemctl restart video-server-rs_v1
 ```
 
 **Files Modified:**
-- `/crates/3d-gallery/src/lib.rs`
+- `/crates/standalone/3d-gallery/src/lib.rs`
 
 **Features Added:**
 - Multi-path resolution for different deployment scenarios
@@ -178,7 +178,7 @@ curl -sI https://media.appkask.com/static/3d-gallery/bundle.js | grep content-ty
 
 ### Modified
 1. `/crates/access-codes/templates/codes/new.html` (form layout fixes)
-2. `/crates/3d-gallery/src/lib.rs` (MIME type handling)
+2. `/crates/standalone/3d-gallery/src/lib.rs` (MIME type handling)
 
 ### Created
 1. `/Users/juergen/MyDev/MyProjects/video-server-rs_v1/deploy-production.sh` (deployment helper)
@@ -199,7 +199,7 @@ ExecStart=/usr/local/bin/video-server-rs
 **Key Paths:**
 - Working Directory: `/root/data/rust-apps/video-server-rs_v1/`
 - Binary Location: `/usr/local/bin/video-server-rs`
-- Static Files: `/root/data/rust-apps/video-server-rs_v1/crates/3d-gallery/static/`
+- Static Files: `/root/data/rust-apps/video-server-rs_v1/crates/standalone/3d-gallery/static/`
 - Environment: `/root/data/rust-apps/video-server-rs_v1/.env`
 
 **Critical:** The frontend bundle (`bundle.js`) must be built on the production server or copied there. It's NOT included in the Rust binary.

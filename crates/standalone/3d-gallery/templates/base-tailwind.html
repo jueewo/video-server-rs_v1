@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{% block title %}Media Server{% endblock %}</title>
+        <link rel="icon" type="image/webp" href="/static/icon.webp" />
+        <link rel="apple-touch-icon" href="/static/icon.webp" />
+
+        <!-- TailwindCSS + DaisyUI -->
+        <link rel="stylesheet" href="/static/css/tailwind.css" />
+
+        <!-- HTMX for dynamic interactions -->
+        <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+        <!-- Alpine.js for client-side interactivity -->
+        <script
+            defer
+            src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+        ></script>
+
+        <style>
+            [x-cloak] {
+                display: none !important;
+            }
+        </style>
+
+        {% block extra_head %}{% endblock %}
+    </head>
+    <body class="bg-base-100 min-h-screen flex flex-col">
+        <!-- Navbar -->
+        {% include "components/navbar.html" %}
+
+        <!-- Main Content -->
+        <main class="flex-1">{% block content %}{% endblock %}</main>
+
+        <!-- Toast Container -->
+        <div
+            id="toast-container"
+            class="toast toast-top toast-end z-50"
+            aria-live="polite"
+            aria-atomic="false"
+        ></div>
+
+        {% block extra_scripts %}{% endblock %}
+
+        <!-- Alpine.js reusable components (registered before Alpine initialises) -->
+        <script>
+            document.addEventListener("alpine:init", () => {
+                // Confirm dialog
+                // Usage: wrap a section with x-data="confirmDialog()"
+                //
+                // Form-submission mode (default):
+                //   show(title, message, actionUrl, method = "POST")
+                //   — submits a form to actionUrl with the given method
+                //
+                // Callback mode (for JS/fetch actions, e.g. REST DELETE):
+                //   showWithCallback(title, message, callbackFn)
+                //   — calls callbackFn() when the user confirms
+                Alpine.data("confirmDialog", () => ({
+                    open: false,
+                    title: "",
+                    message: "",
+                    actionUrl: "",
+                    method: "POST",
+                    callback: null,
+                    show(title, message, url, method = "POST") {
+                        this.title = title;
+                        this.message = message;
+                        this.actionUrl = url;
+                        this.method = method;
+                        this.callback = null;
+                        this.open = true;
+                    },
+                    showWithCallback(title, message, cb) {
+                        this.title = title;
+                        this.message = message;
+                        this.actionUrl = "";
+                        this.callback = cb;
+                        this.open = true;
+                    },
+                    close() {
+                        this.open = false;
+                        this.callback = null;
+                    },
+                }));
+
+                // Action menu (three-dot card overlay)
+                // Usage: x-data="actionMenu()" on a parent element
+                Alpine.data("actionMenu", () => ({
+                    open: false,
+                    toggle() {
+                        this.open = !this.open;
+                    },
+                    close() {
+                        this.open = false;
+                    },
+                }));
+            });
+        </script>
+
+        <script>
+            // Global utilities
+            function copyToClipboard(text) {
+                navigator.clipboard
+                    .writeText(text)
+                    .then(() => {
+                        showToast("Copied to clipboard!", "success");
+                    })
+                    .catch(() => {
+                        showToast("Failed to copy", "error");
+                    });
+            }
+
+            function showToast(message, type = "info") {
+                const toast = document.createElement("div");
+                toast.className = `alert alert-${type} shadow-lg mb-2`;
+                toast.innerHTML = `
+                <div>
+                    <span>${message}</span>
+                </div>
+            `;
+                document.getElementById("toast-container").appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+            }
+
+            // Theme switcher
+            function toggleTheme() {
+                const html = document.documentElement;
+                const current = html.getAttribute("data-theme");
+                const newTheme = current === "light" ? "dark" : "light";
+                html.setAttribute("data-theme", newTheme);
+                localStorage.setItem("theme", newTheme);
+                updateThemeIcon(newTheme);
+            }
+
+            // Update theme icons (multiple instances for desktop + mobile)
+            function updateThemeIcon(theme) {
+                document.querySelectorAll(".theme-moon-icon").forEach(el => {
+                    el.classList.toggle("hidden", theme === "dark");
+                });
+                document.querySelectorAll(".theme-sun-icon").forEach(el => {
+                    el.classList.toggle("hidden", theme !== "dark");
+                });
+            }
+
+            // Load saved theme
+            const savedTheme = localStorage.getItem("theme") || "light";
+            document.documentElement.setAttribute("data-theme", savedTheme);
+
+            // Set initial icon state
+            document.addEventListener("DOMContentLoaded", function () {
+                updateThemeIcon(savedTheme);
+            });
+        </script>
+    </body>
+</html>

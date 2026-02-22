@@ -73,5 +73,5 @@ RATE_LIMIT_GENERAL_BURST=30
 # - Burst = Number of concurrent requests allowed
 # - Changes require server restart to take effect
 # - Monitor logs on startup to verify configuration
-# - See crates/3d-gallery/RATE_LIMIT_CONFIG.md for detailed guide
+# - See crates/standalone/3d-gallery/RATE_LIMIT_CONFIG.md for detailed guide
 # ============================================================================

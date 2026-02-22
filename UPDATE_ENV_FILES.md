@@ -160,9 +160,9 @@ RATE_LIMIT_MEDIA_SERVING_BURST=30
 ## 📚 Additional Resources
 
 - **`ENV_RATE_LIMITS.txt`** - Copy-paste ready configuration
-- **`crates/3d-gallery/RATE_LIMIT_CONFIG.md`** - Detailed configuration guide
-- **`crates/3d-gallery/RATE_LIMITING_SOLUTION.md`** - Technical implementation details
-- **`crates/3d-gallery/PRODUCTION_ISSUES.md`** - Issue history and resolution
+- **`crates/standalone/3d-gallery/RATE_LIMIT_CONFIG.md`** - Detailed configuration guide
+- **`crates/standalone/3d-gallery/RATE_LIMITING_SOLUTION.md`** - Technical implementation details
+- **`crates/standalone/3d-gallery/PRODUCTION_ISSUES.md`** - Issue history and resolution
 
 ---
 

@@ -207,7 +207,7 @@ gallery3d (Rust crate)
 
 ```bash
 # Install dependencies (once)
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm install
 
 # Production build

@@ -38,7 +38,6 @@ pub struct Video {
     // Visual elements
     pub thumbnail_url: Option<String>,
     pub poster_url: Option<String>,
-    pub preview_url: Option<String>,
 
     // File information
     pub filename: Option<String>,
@@ -147,7 +146,6 @@ pub struct UpdateVideoMetadataRequest {
     // Visual elements
     pub thumbnail_url: Option<String>,
     pub poster_url: Option<String>,
-    pub preview_url: Option<String>,
 
     // File info
     pub filename: Option<String>,

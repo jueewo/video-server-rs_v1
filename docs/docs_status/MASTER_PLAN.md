@@ -2449,7 +2449,7 @@ Integrate a 3D virtual gallery using Preact and Babylon.js to display images and
 - ✅ JSON-based gallery layout system
 - ✅ Help panel (H key), minimap toggle (M key)
 - ✅ Hover-to-preview and click-to-fullscreen interactions
-- See: `crates/3d-gallery/3D_GALLERY_VISIBILITY_AND_MINIMAP_FIXES.md`
+- See: `crates/standalone/3d-gallery/3D_GALLERY_VISIBILITY_AND_MINIMAP_FIXES.md`
 
 **Key Features:**
 - **3D Gallery Rooms** - Virtual spaces with walls, floors, and proper lighting
@@ -2462,7 +2462,7 @@ Integrate a 3D virtual gallery using Preact and Babylon.js to display images and
 - **Integration** - Uses existing auth, permissions, and media APIs
 
 **Technical Stack:**
-- **Backend:** New `crates/3d-gallery` module (Rust/Axum)
+- **Backend:** New `crates/standalone/3d-gallery` module (Rust/Axum)
 - **Frontend:** Preact (UI) + Babylon.js (3D engine)
 - **Build:** esbuild for bundling
 - **APIs:** JSON endpoints for scene data
@@ -2500,12 +2500,12 @@ Integrate a 3D virtual gallery using Preact and Babylon.js to display images and
 - Differentiator from traditional media servers
 
 **Documentation:**
-- `crates/3d-gallery/IMPLEMENTATION_PLAN.md` - Complete roadmap (520+ lines)
-- `crates/3d-gallery/README.md` - Overview and quick start
-- `crates/3d-gallery/3D_GALLERY_VISIBILITY_AND_MINIMAP_FIXES.md` - Visibility, orientation & minimap fixes
-- `crates/3d-gallery/RENDERING_GROUPS_REFERENCE.md` - Babylon.js rendering group rules
-- `crates/3d-gallery/ARCHITECTURE.md` - Technical architecture (TODO)
-- `crates/3d-gallery/USER_GUIDE.md` - User documentation (TODO)
+- `crates/standalone/3d-gallery/IMPLEMENTATION_PLAN.md` - Complete roadmap (520+ lines)
+- `crates/standalone/3d-gallery/README.md` - Overview and quick start
+- `crates/standalone/3d-gallery/3D_GALLERY_VISIBILITY_AND_MINIMAP_FIXES.md` - Visibility, orientation & minimap fixes
+- `crates/standalone/3d-gallery/RENDERING_GROUPS_REFERENCE.md` - Babylon.js rendering group rules
+- `crates/standalone/3d-gallery/ARCHITECTURE.md` - Technical architecture (TODO)
+- `crates/standalone/3d-gallery/USER_GUIDE.md` - User documentation (TODO)
 
 ---
 

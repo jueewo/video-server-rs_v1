@@ -46,7 +46,7 @@ The 3D Gallery transforms your media library into an interactive 3D experience. 
 
 ```bash
 # 1. Navigate to the crate
-cd crates/3d-gallery
+cd crates/standalone/3d-gallery
 
 # 2. Install frontend dependencies
 npm install
@@ -72,7 +72,7 @@ With an access code: `http://localhost:3000/3d?code=your-access-code`
 ## 📁 Project Structure
 
 ```
-crates/3d-gallery/
+crates/standalone/3d-gallery/
 ├── Cargo.toml              # Rust dependencies
 ├── package.json            # Frontend dependencies and build scripts
 ├── README.md               # This file

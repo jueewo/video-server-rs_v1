@@ -35,8 +35,6 @@ pub struct MediaDetail {
     pub status: String,
     pub category: Option<String>,
     pub thumbnail_url: Option<String>,
-    pub webp_url: Option<String>,
-    pub preview_url: Option<String>,
     pub view_count: i32,
     pub download_count: i32,
     pub like_count: i32,
@@ -78,7 +76,7 @@ pub async fn media_detail_handler(
         r#"
         SELECT
             id, slug, media_type, title, description, filename, mime_type, file_size,
-            is_public, featured, status, category, thumbnail_url, webp_url, preview_url,
+            is_public, featured, status, category, thumbnail_url,
             view_count, download_count, like_count, share_count, created_at
         FROM media_items
         WHERE slug = ?
@@ -128,7 +126,10 @@ pub async fn media_detail_handler(
         .await
         .map_err(|e| {
             error!("Access control error: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Access error".to_string())
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Access error".to_string(),
+            )
         })?;
 
     if !decision.granted {
@@ -194,11 +195,11 @@ pub async fn media_detail_handler(
         file_size: row.try_get("file_size").unwrap_or(0),
         is_public: is_public_bool,
         featured: row.try_get::<i32, _>("featured").unwrap_or(0) == 1,
-        status: row.try_get("status").unwrap_or_else(|_| "active".to_string()),
+        status: row
+            .try_get("status")
+            .unwrap_or_else(|_| "active".to_string()),
         category: row.try_get("category").ok(),
         thumbnail_url: row.try_get("thumbnail_url").ok(),
-        webp_url: row.try_get("webp_url").ok(),
-        preview_url: row.try_get("preview_url").ok(),
         view_count: row.try_get("view_count").unwrap_or(0),
         download_count: row.try_get("download_count").unwrap_or(0),
         like_count: row.try_get("like_count").unwrap_or(0),

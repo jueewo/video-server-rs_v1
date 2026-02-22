@@ -23,7 +23,7 @@ Successfully removed `image-manager` and `document-manager` crates from the code
 ### 3. Dependent Crates
 - ✅ Updated `crates/media-hub/Cargo.toml` - removed dependencies
 - ✅ Updated `crates/media-mcp/Cargo.toml` - removed dependencies
-- ✅ Updated `crates/3d-gallery/Cargo.toml` - removed dependencies
+- ✅ Updated `crates/standalone/3d-gallery/Cargo.toml` - removed dependencies
 
 ### 4. Legacy Redirects (src/legacy_redirects.rs)
 - ✅ Created new module for backward compatibility

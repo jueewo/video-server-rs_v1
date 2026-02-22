@@ -163,7 +163,7 @@ in `UI_TEMPLATE_AUDIT.md` (Exceptions Register table), not migrated.
 | Audit `ui-components` crate templates | `crates/ui-components/templates/` | ✅ Audited — confirmed unused (no page template includes them, no Rust crate imports `ui-components`). Marked as archived in `COMPONENT_QUICK_REFERENCE.md`. Do not delete yet; keep for reference. |
 | Update `COMPONENT_QUICK_REFERENCE.md` | `docs/docs_design/COMPONENT_QUICK_REFERENCE.md` | ✅ Done — full rewrite with all 10 components, usage examples, `{% let %}` rules, exceptions register, ui-components archive note |
 | Add usage comments to component files | `templates/components/*.html` | ⚠️ Partial — `page-header.html`, `confirm-dialog.html`, `empty-state.html`, `alert.html`, `pagination.html`, `stats-bar.html` already have comment blocks. `tag-cloud.html` and `tag-filter.html` may need updates. |
-| Verify `3d-gallery/viewer.html` exception | `crates/3d-gallery/templates/viewer.html` | ✅ Confirmed — still in Exceptions Register in `UI_TEMPLATE_AUDIT.md` and `COMPONENT_QUICK_REFERENCE.md` |
+| Verify `3d-gallery/viewer.html` exception | `crates/standalone/3d-gallery/templates/viewer.html` | ✅ Confirmed — still in Exceptions Register in `UI_TEMPLATE_AUDIT.md` and `COMPONENT_QUICK_REFERENCE.md` |
 
 ### Remaining Batch 4 work
 

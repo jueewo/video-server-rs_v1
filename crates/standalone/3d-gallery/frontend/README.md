@@ -22,7 +22,7 @@ This frontend provides an immersive WebGL-based 3D environment for viewing image
 
 ```bash
 # Navigate to frontend directory
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 
 # Install dependencies
 npm install

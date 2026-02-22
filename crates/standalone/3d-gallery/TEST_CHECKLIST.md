@@ -3,7 +3,7 @@
 ## ✅ Pre-Test Setup
 
 - [ ] Server is running: `./target/release/video-server-rs`
-- [ ] Frontend bundle rebuilt: `cd crates/3d-gallery/frontend && npm run build`
+- [ ] Frontend bundle rebuilt: `cd crates/standalone/3d-gallery/frontend && npm run build`
 - [ ] Browser console is open (F12) for monitoring
 - [ ] Test URL ready: `http://localhost:3000/3d?code=testgallery`
 
@@ -148,7 +148,7 @@ Test in multiple browsers:
 
 1. Check bundle was rebuilt:
    ```bash
-   ls -lh crates/3d-gallery/static/bundle.js
+   ls -lh crates/standalone/3d-gallery/static/bundle.js
    # Should be ~4.4MB and timestamp should be recent
    ```
 
@@ -178,7 +178,7 @@ Test in multiple browsers:
 
 1. Reinstall dependencies:
    ```bash
-   cd crates/3d-gallery/frontend
+   cd crates/standalone/3d-gallery/frontend
    npm install hls.js
    npm run build
    ```

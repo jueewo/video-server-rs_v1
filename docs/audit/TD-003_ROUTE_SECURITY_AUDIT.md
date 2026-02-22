@@ -473,7 +473,7 @@ relocated to `/static/` (which is intentionally public):
 Updated references in:
 - `src/main.rs` — `AppConfig::default()` icon path
 - `templates/base-tailwind.html` — `<link rel="icon">` and `<link rel="apple-touch-icon">`
-- `crates/3d-gallery/frontend/src/scene/VideoScreen.js` — fallback thumbnail URL
+- `crates/standalone/3d-gallery/frontend/src/scene/VideoScreen.js` — fallback thumbnail URL
 
 ### 🟡 P1 — Markdown View ACL → FIXED
 
@@ -529,5 +529,5 @@ SVG files additionally receive:
 | `crates/media-manager/src/markdown_view.rs` | AccessControlService integration, `?code=` support |
 | `crates/media-manager/src/serve.rs` | SVG CSP headers, `X-Content-Type-Options: nosniff` |
 | `crates/access-codes/src/lib.rs` | Split routes into protected + public |
-| `crates/3d-gallery/frontend/src/scene/VideoScreen.js` | Updated fallback thumbnail path |
+| `crates/standalone/3d-gallery/frontend/src/scene/VideoScreen.js` | Updated fallback thumbnail path |
 | `static/icon.webp` | Copied from `storage/icon.webp` |

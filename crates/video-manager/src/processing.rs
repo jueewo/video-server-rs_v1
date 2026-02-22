@@ -916,7 +916,6 @@ async fn update_database_stage(
             thumbnail_url = ?,
             poster_url = ?,
             filename = ?,
-            preview_url = ?,
             processing_status = 'processing',
             processing_progress = 95,
             status = 'active'
@@ -948,14 +947,12 @@ async fn update_database_stage(
         UPDATE media_items
         SET
             thumbnail_url = ?,
-            preview_url = ?,
             file_size = ?,
             status = 'active'
         WHERE slug = ? AND media_type = 'video'
         "#,
     )
     .bind(&thumbnail_url)
-    .bind(&hls_url)
     .bind(metadata.file_size as i64)
     .bind(&context.slug)
     .execute(&context.pool)

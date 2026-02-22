@@ -76,7 +76,7 @@ The following files still have SQL queries to the dropped tables and will fail a
    - Group media listing
    - **Impact:** Group pages may show no media
 
-7. **crates/3d-gallery/src/api.rs** (2 queries)
+7. **crates/standalone/3d-gallery/src/api.rs** (2 queries)
    - Gallery data loading
    - **Impact:** 3D gallery may not work
 

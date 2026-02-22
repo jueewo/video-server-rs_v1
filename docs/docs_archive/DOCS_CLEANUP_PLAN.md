@@ -644,7 +644,7 @@ mkdir docs
 
 ```bash
 # 3d-gallery archive
-cd crates/3d-gallery
+cd crates/standalone/3d-gallery
 mkdir -p ../../docs_archive/3d-gallery/{fixes,summaries}
 
 # Archive summaries

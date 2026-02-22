@@ -286,7 +286,7 @@ async function loadHls() {
 **Time:** ~30 minutes
 
 ```bash
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 
 # Rebuild with new optimizations
 npm run build
@@ -370,7 +370,7 @@ Reuse materials and use instanced rendering for frame borders.
 
 ### Desktop Testing
 ```bash
-cd crates/3d-gallery
+cd crates/standalone/3d-gallery
 npm run build
 cargo run
 
@@ -498,7 +498,7 @@ const galleryObj = createGalleryFromLayout(scene, layout, settings);
 
 1. **Rebuild the bundle to see Phase 1 benefits:**
    ```bash
-   cd crates/3d-gallery/frontend
+   cd crates/standalone/3d-gallery/frontend
    npm run build
    ls -lh ../static/bundle.js  # Should be ~2.5 MB or less
    ```

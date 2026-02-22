@@ -112,12 +112,12 @@ cargo build --release
 ls -lh target/release/video-server-rs
 
 # Build frontend (if changes were made)
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm run build
 cd ../../..
 
 # Verify frontend built successfully
-ls -lh crates/3d-gallery/static/
+ls -lh crates/standalone/3d-gallery/static/
 ```
 
 ### Step 4: Deploy Binary
@@ -384,16 +384,16 @@ sqlite3 media.db "SELECT slug, thumbnail_url FROM media_items WHERE media_type='
 **Diagnosis:**
 ```bash
 # Check if frontend build includes changes
-ls -la crates/3d-gallery/static/index.js
+ls -la crates/standalone/3d-gallery/static/index.js
 
 # Check build date
-stat crates/3d-gallery/static/index.js
+stat crates/standalone/3d-gallery/static/index.js
 ```
 
 **Solution:**
 ```bash
 # Rebuild frontend
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm run build
 cd ../../..
 

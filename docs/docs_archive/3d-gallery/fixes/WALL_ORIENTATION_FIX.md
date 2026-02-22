@@ -45,7 +45,7 @@ Detect wall rotation and apply horizontal flip **only** to videos on 180° rotat
 
 ### Implementation
 
-**File:** `crates/3d-gallery/frontend/src/scene/VideoScreen.js`
+**File:** `crates/standalone/3d-gallery/frontend/src/scene/VideoScreen.js`
 
 ```javascript
 // Check if the screen is rotated 180 degrees (π radians) on Y axis

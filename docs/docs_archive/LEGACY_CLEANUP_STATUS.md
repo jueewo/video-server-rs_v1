@@ -64,7 +64,7 @@ The following files still contain SQL queries to legacy tables that no longer ex
 - `crates/media-hub/src/search.rs`
   - Lines: 115, 164, 199, 250, 285
   - Queries: `SELECT FROM videos`, `SELECT FROM images`, `SELECT FROM documents`
-- `crates/3d-gallery/src/api.rs`
+- `crates/standalone/3d-gallery/src/api.rs`
   - Lines: 128, 165
   - Queries: `SELECT FROM images`, `SELECT FROM videos`
 

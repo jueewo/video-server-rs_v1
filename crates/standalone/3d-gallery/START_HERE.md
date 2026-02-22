@@ -124,7 +124,7 @@ cargo run
 ### Files not loading?
 ```bash
 # Verify files exist
-ls -lh crates/3d-gallery/static/*.js
+ls -lh crates/standalone/3d-gallery/static/*.js
 # Should see index.js, chunks, pdf, hls files
 ```
 

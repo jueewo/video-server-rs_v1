@@ -231,7 +231,7 @@ kill $(pgrep -f video-server-rs)
 
 **Check 1: Frontend built**
 ```bash
-ls -lh crates/3d-gallery/static/index.js
+ls -lh crates/standalone/3d-gallery/static/index.js
 # Check file date/size
 ```
 

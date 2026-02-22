@@ -14,14 +14,14 @@
 
 ```bash
 # Create source files
-touch crates/3d-gallery/src/lib.rs
-touch crates/3d-gallery/src/routes.rs
-touch crates/3d-gallery/src/api.rs
-touch crates/3d-gallery/src/models.rs
+touch crates/standalone/3d-gallery/src/lib.rs
+touch crates/standalone/3d-gallery/src/routes.rs
+touch crates/standalone/3d-gallery/src/api.rs
+touch crates/standalone/3d-gallery/src/models.rs
 
 # Create templates directory
-mkdir -p crates/3d-gallery/templates
-touch crates/3d-gallery/templates/viewer.html
+mkdir -p crates/standalone/3d-gallery/templates
+touch crates/standalone/3d-gallery/templates/viewer.html
 ```
 
 **Files to create:**
@@ -93,7 +93,7 @@ let app = Router::new()
 members = [
     # ...
     "crates/media-mcp",
-    "crates/3d-gallery",  # Add this!
+    "crates/standalone/3d-gallery",  # Add this!
     # ...
 ]
 ```
@@ -106,17 +106,17 @@ members = [
 
 ```bash
 # Create frontend directories
-mkdir -p crates/3d-gallery/frontend/src/scene
-mkdir -p crates/3d-gallery/frontend/src/components
-mkdir -p crates/3d-gallery/frontend/src/api
-mkdir -p crates/3d-gallery/static
+mkdir -p crates/standalone/3d-gallery/frontend/src/scene
+mkdir -p crates/standalone/3d-gallery/frontend/src/components
+mkdir -p crates/standalone/3d-gallery/frontend/src/api
+mkdir -p crates/standalone/3d-gallery/static
 
 # Create frontend files
-touch crates/3d-gallery/frontend/package.json
-touch crates/3d-gallery/frontend/src/index.jsx
-touch crates/3d-gallery/frontend/src/GalleryApp.jsx
-touch crates/3d-gallery/frontend/src/scene/SceneManager.js
-touch crates/3d-gallery/frontend/src/api/galleryApi.js
+touch crates/standalone/3d-gallery/frontend/package.json
+touch crates/standalone/3d-gallery/frontend/src/index.jsx
+touch crates/standalone/3d-gallery/frontend/src/GalleryApp.jsx
+touch crates/standalone/3d-gallery/frontend/src/scene/SceneManager.js
+touch crates/standalone/3d-gallery/frontend/src/api/galleryApi.js
 ```
 
 #### 2.2 Setup package.json
@@ -145,7 +145,7 @@ touch crates/3d-gallery/frontend/src/api/galleryApi.js
 #### 2.3 Install Dependencies
 
 ```bash
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm install
 ```
 
@@ -226,7 +226,7 @@ export default function GalleryApp({ code }) {
 #### 2.6 Build Frontend
 
 ```bash
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm run build
 ```
 
@@ -273,7 +273,7 @@ pub fn router() -> Router {
         .route("/api/3d/gallery", get(api::get_gallery_data))
         .nest_service(
             "/static/3d-gallery",
-            ServeDir::new("crates/3d-gallery/static")
+            ServeDir::new("crates/standalone/3d-gallery/static")
         )
 }
 ```
@@ -441,21 +441,21 @@ pub async fn get_gallery_data(
 git checkout feature/3d-gallery
 
 # Create directory structure
-mkdir -p crates/3d-gallery/src
-mkdir -p crates/3d-gallery/templates
-mkdir -p crates/3d-gallery/frontend/src/scene
-mkdir -p crates/3d-gallery/frontend/src/components
-mkdir -p crates/3d-gallery/frontend/src/api
-mkdir -p crates/3d-gallery/static
+mkdir -p crates/standalone/3d-gallery/src
+mkdir -p crates/standalone/3d-gallery/templates
+mkdir -p crates/standalone/3d-gallery/frontend/src/scene
+mkdir -p crates/standalone/3d-gallery/frontend/src/components
+mkdir -p crates/standalone/3d-gallery/frontend/src/api
+mkdir -p crates/standalone/3d-gallery/static
 
 # Create placeholder files
-touch crates/3d-gallery/src/{lib.rs,routes.rs,api.rs,models.rs}
-touch crates/3d-gallery/templates/viewer.html
-touch crates/3d-gallery/frontend/package.json
-touch crates/3d-gallery/frontend/src/index.jsx
+touch crates/standalone/3d-gallery/src/{lib.rs,routes.rs,api.rs,models.rs}
+touch crates/standalone/3d-gallery/templates/viewer.html
+touch crates/standalone/3d-gallery/frontend/package.json
+touch crates/standalone/3d-gallery/frontend/src/index.jsx
 
 # Setup frontend
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm install
 npm run build
 cd ../../..
@@ -518,7 +518,7 @@ See `IMPLEMENTATION_PLAN.md` for complete roadmap.
 **Resources:**
 - Babylon.js Playground: https://playground.babylonjs.com/
 - WebGL support check: https://get.webgl.org/
-- Project README: `crates/3d-gallery/README.md`
+- Project README: `crates/standalone/3d-gallery/README.md`
 
 ---
 

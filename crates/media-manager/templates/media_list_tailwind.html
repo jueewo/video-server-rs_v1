@@ -172,15 +172,29 @@
                 <!-- Placeholder for items without thumbnails -->
                 <div class="absolute inset-0 flex items-center justify-center
                     {% if item.item.type_label() == "Video" %}bg-gradient-to-br from-red-200 via-red-300 to-pink-300
+                    {% else if item.item.type_label() == "Image" %}bg-gradient-to-br from-green-200 via-emerald-300 to-teal-300
                     {% else if item.item.type_label() == "Markdown" %}bg-gradient-to-br from-purple-200 via-purple-300 to-indigo-300
                     {% else if item.item.type_label() == "PDF" %}bg-gradient-to-br from-red-200 via-orange-300 to-amber-300
+                    {% else if item.item.type_label() == "CSV" %}bg-gradient-to-br from-emerald-200 via-green-300 to-lime-300
+                    {% else if item.item.type_label() == "JSON" %}bg-gradient-to-br from-amber-200 via-yellow-300 to-orange-300
+                    {% else if item.item.type_label() == "XML" %}bg-gradient-to-br from-purple-200 via-purple-300 to-indigo-300
+                    {% else if item.item.type_label() == "BPMN" %}bg-gradient-to-br from-blue-200 via-cyan-300 to-sky-300
+                    {% else if item.item.type_label() == "YAML" %}bg-gradient-to-br from-cyan-200 via-blue-300 to-indigo-300
                     {% else %}bg-gradient-to-br from-gray-200 via-gray-300 to-gray-300{% endif %}">
-                    <div class="text-8xl drop-shadow-lg">
-                        {% if item.item.type_label() == "Video" %}🎬
-                        {% else if item.item.type_label() == "Markdown" %}📝
-                        {% else if item.item.type_label() == "PDF" %}📕
-                        {% else %}📄{% endif %}
-                    </div>
+                    <img
+                        src="{% if item.item.type_label() == "Video" %}/static/icons/video-icon.svg
+                        {% else if item.item.type_label() == "Image" %}/static/icons/image-icon.svg
+                        {% else if item.item.type_label() == "Markdown" %}/static/icons/markdown-icon.svg
+                        {% else if item.item.type_label() == "PDF" %}/static/icons/pdf-icon.svg
+                        {% else if item.item.type_label() == "CSV" %}/static/icons/csv-icon.svg
+                        {% else if item.item.type_label() == "JSON" %}/static/icons/json-icon.svg
+                        {% else if item.item.type_label() == "XML" %}/static/icons/xml-icon.svg
+                        {% else if item.item.type_label() == "BPMN" %}/static/icons/bpmn-icon.svg
+                        {% else if item.item.type_label() == "YAML" %}/static/icons/yaml-icon.svg
+                        {% else %}/static/icons/document-icon.svg{% endif %}"
+                        alt="{{ item.item.type_label() }}"
+                        class="w-16 h-16 drop-shadow-lg"
+                    />
                 </div>
                 {% endmatch %}
                 <!-- Type Badge -->
@@ -189,6 +203,11 @@
                     {% else if item.item.type_label() == "Image" %}badge-success
                     {% else if item.item.type_label() == "Markdown" %}badge-secondary
                     {% else if item.item.type_label() == "PDF" %}badge-warning
+                    {% else if item.item.type_label() == "CSV" %}badge-success
+                    {% else if item.item.type_label() == "JSON" %}badge-warning
+                    {% else if item.item.type_label() == "XML" %}badge-secondary
+                    {% else if item.item.type_label() == "BPMN" %}badge-info
+                    {% else if item.item.type_label() == "YAML" %}badge-accent
                     {% else if item.item.type_label() == "Document" %}badge-info
                     {% else %}badge-neutral{% endif %}">
                     {{ item.item.type_label() }}
@@ -451,30 +470,37 @@
                     let emoji = '📄';
                     let gradientClasses = 'bg-gradient-to-br from-gray-200 via-gray-300 to-gray-300';
 
+                    let iconSrc = '/static/icons/document-icon.svg';
                     if (mediaType.includes('Video')) {
-                        emoji = '🎬';
+                        iconSrc = '/static/icons/video-icon.svg';
                         gradientClasses = 'bg-gradient-to-br from-red-200 via-red-300 to-pink-300';
                     } else if (mediaType.includes('Image')) {
-                        emoji = '🖼️';
+                        iconSrc = '/static/icons/image-icon.svg';
                         gradientClasses = 'bg-gradient-to-br from-green-200 via-emerald-300 to-teal-300';
                     } else if (mediaType.includes('Markdown')) {
-                        emoji = '📝';
+                        iconSrc = '/static/icons/markdown-icon.svg';
                         gradientClasses = 'bg-gradient-to-br from-purple-200 via-purple-300 to-indigo-300';
                     } else if (mediaType.includes('PDF')) {
-                        emoji = '📕';
+                        iconSrc = '/static/icons/pdf-icon.svg';
                         gradientClasses = 'bg-gradient-to-br from-red-200 via-orange-300 to-amber-300';
                     } else if (mediaType.includes('CSV')) {
-                        emoji = '📊';
+                        iconSrc = '/static/icons/csv-icon.svg';
                         gradientClasses = 'bg-gradient-to-br from-emerald-200 via-green-300 to-lime-300';
-                    } else if (mediaType.includes('JSON') || mediaType.includes('XML')) {
-                        emoji = mediaType.includes('JSON') ? '{ }' : '<>';
+                    } else if (mediaType.includes('JSON')) {
+                        iconSrc = '/static/icons/json-icon.svg';
                         gradientClasses = 'bg-gradient-to-br from-amber-200 via-yellow-300 to-orange-300';
+                    } else if (mediaType.includes('XML')) {
+                        iconSrc = '/static/icons/xml-icon.svg';
+                        gradientClasses = 'bg-gradient-to-br from-purple-200 via-purple-300 to-indigo-300';
                     } else if (mediaType.includes('BPMN')) {
-                        emoji = '⚙️';
+                        iconSrc = '/static/icons/bpmn-icon.svg';
                         gradientClasses = 'bg-gradient-to-br from-blue-200 via-cyan-300 to-sky-300';
-                    } else if (mediaType.includes('Document')) {
-                        emoji = '📄';
-                        gradientClasses = 'bg-gradient-to-br from-slate-200 via-gray-300 to-zinc-300';
+                    } else if (mediaType.includes('YAML')) {
+                        iconSrc = '/static/icons/yaml-icon.svg';
+                        gradientClasses = 'bg-gradient-to-br from-cyan-200 via-blue-300 to-indigo-300';
+                    } else {
+                        iconSrc = '/static/icons/document-icon.svg';
+                        gradientClasses = 'bg-gradient-to-br from-gray-200 via-gray-300 to-gray-300';
                     }
 
                     // Create a vibrant document preview with Tailwind/DaisyUI classes
@@ -482,11 +508,12 @@
                     fallback.className = `absolute inset-0 flex items-center justify-center ${gradientClasses}`;
 
                     // Large icon with Tailwind classes
-                    const iconDiv = document.createElement('div');
-                    iconDiv.className = 'text-8xl drop-shadow-lg';
-                    iconDiv.textContent = emoji;
+                    const iconImg = document.createElement('img');
+                    iconImg.src = iconSrc;
+                    iconImg.alt = mediaType;
+                    iconImg.className = 'w-16 h-16 drop-shadow-lg';
 
-                    fallback.appendChild(iconDiv);
+                    fallback.appendChild(iconImg);
 
                     this.style.display = 'none';
                     figure.appendChild(fallback);

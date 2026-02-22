@@ -69,7 +69,7 @@ Click each video one by one:
 
 **If BBB still mirrored:**
 - Hard refresh browser
-- Check bundle timestamp: `ls -lh crates/3d-gallery/static/bundle.js`
+- Check bundle timestamp: `ls -lh crates/standalone/3d-gallery/static/bundle.js`
 - Should be Feb 9 19:xx
 
 **If videos auto-load:**

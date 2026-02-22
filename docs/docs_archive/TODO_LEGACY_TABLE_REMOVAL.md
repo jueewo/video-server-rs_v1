@@ -33,7 +33,7 @@ Current uploads write to BOTH `media_items` AND legacy tables.
 ### Files Using Legacy Tables (20+ locations)
 
 #### 1. 3D Gallery
-- `crates/3d-gallery/src/api.rs`
+- `crates/standalone/3d-gallery/src/api.rs`
   - Queries `images` table directly
   - Queries `videos` table directly
   - **Action**: Update to use `media_items WHERE media_type = 'image'/'video'`
@@ -78,7 +78,7 @@ FROM media_items m WHERE m.media_type = 'video' AND ...
 ```
 
 **Files to update**:
-- [ ] `crates/3d-gallery/src/api.rs` - fetch_media_for_access_code()
+- [ ] `crates/standalone/3d-gallery/src/api.rs` - fetch_media_for_access_code()
 
 **Testing**:
 - [ ] Test 3D gallery loads correctly
@@ -352,7 +352,7 @@ If issues occur:
 
 ## Related Files
 
-- `crates/3d-gallery/src/api.rs`
+- `crates/standalone/3d-gallery/src/api.rs`
 - `crates/access-codes/src/lib.rs`
 - `crates/media-hub/src/routes.rs`
 - `crates/access-control/src/layers/*.rs`

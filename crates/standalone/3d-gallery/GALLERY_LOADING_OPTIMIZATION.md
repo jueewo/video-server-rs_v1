@@ -68,8 +68,8 @@ RATE_LIMIT_MEDIA_SERVING_BURST=100  # 100 concurrent requests allowed
 3. Render first page in background
 
 **Files Modified:**
-- `crates/3d-gallery/frontend/src/scene/ImageFrame.js` - Progressive image loading
-- `crates/3d-gallery/frontend/src/scene/PdfPresentation.js` - Enhanced placeholder
+- `crates/standalone/3d-gallery/frontend/src/scene/ImageFrame.js` - Progressive image loading
+- `crates/standalone/3d-gallery/frontend/src/scene/PdfPresentation.js` - Enhanced placeholder
 
 ---
 
@@ -261,7 +261,7 @@ nano .env
 cargo build --release
 
 # Build frontend (if modified)
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm run build
 cd ../../..
 

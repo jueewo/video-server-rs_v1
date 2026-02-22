@@ -902,7 +902,6 @@ async fn main() -> anyhow::Result<()> {
         .merge(create_search_routes(pool.clone()).route_layer(
             axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
         ))
-        .merge(gallery3d::router(Arc::new(pool.clone())))
         // Course viewer (standalone course presentation)
         .merge(course_viewer_routes(course_viewer_state))
         // Documentation viewer (markdown preview)
@@ -925,6 +924,7 @@ async fn main() -> anyhow::Result<()> {
                     api_key_or_session_auth,
                 )),
         )
+        .merge(gallery3d::router(Arc::new(pool.clone())))
         // Serve static CSS and assets
         .nest_service("/static", ServeDir::new("static"))
         // Apply middleware

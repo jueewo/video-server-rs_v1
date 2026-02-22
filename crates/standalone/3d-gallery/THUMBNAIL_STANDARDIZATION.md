@@ -55,7 +55,7 @@ WHERE poster_url LIKE '%/poster.webp';
 
 #### Rust Code
 
-**File: `crates/3d-gallery/src/api.rs`**
+**File: `crates/standalone/3d-gallery/src/api.rs`**
 ```diff
 - format!("/storage/videos/{}/poster.webp", slug)
 + format!("/storage/videos/{}/thumbnail.webp", slug)

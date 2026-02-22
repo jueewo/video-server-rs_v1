@@ -152,7 +152,7 @@ WHERE group_id = ? AND media_type = 'image'
 
 ---
 
-### 7. 3D Gallery (`crates/3d-gallery/src/api.rs`)
+### 7. 3D Gallery (`crates/standalone/3d-gallery/src/api.rs`)
 
 **Current Problem:**
 - Line 128: `FROM images i`

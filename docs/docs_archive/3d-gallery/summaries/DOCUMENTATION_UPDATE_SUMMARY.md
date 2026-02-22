@@ -30,7 +30,7 @@ Updated all documentation, scripts, and comments to use standardized `thumbnail.
 + 2. **Thumbnail Images:** Add a `thumbnail.webp` file to each video folder for thumbnails
 ```
 
-#### 2. **crates/3d-gallery/HLS_VIDEO_FIX.md**
+#### 2. **crates/standalone/3d-gallery/HLS_VIDEO_FIX.md**
 - Updated thumbnail fallback description
 - Fixed API response example
 - Updated changes summary
@@ -47,11 +47,11 @@ Updated all documentation, scripts, and comments to use standardized `thumbnail.
 + ✅ Fixed video thumbnails (thumbnail.webp)
 ```
 
-#### 3. **crates/3d-gallery/THUMBNAIL_FIX_SUMMARY.txt**
+#### 3. **crates/standalone/3d-gallery/THUMBNAIL_FIX_SUMMARY.txt**
 - Already uses correct terminology (created during fix)
 - Documents the poster.webp → thumbnail.webp migration
 
-#### 4. **crates/3d-gallery/THUMBNAIL_STANDARDIZATION.md**
+#### 4. **crates/standalone/3d-gallery/THUMBNAIL_STANDARDIZATION.md**
 - Already uses correct terminology (created during fix)
 - Comprehensive documentation of the standardization process
 

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Background -->
+  <rect x="8" y="4" width="48" height="56" rx="4" fill="#17A2B8"/>
+
+  <!-- Paper fold -->
+  <path d="M 56 4 L 56 16 L 44 16 L 56 4" fill="#138496"/>
+
+  <!-- YAML dashes -->
+  <line x1="20" y1="24" x2="44" y2="24" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <line x1="20" y1="32" x2="44" y2="32" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <line x1="20" y1="40" x2="44" y2="40" stroke="white" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- YAML Text -->
+  <text x="32" y="52" font-family="monospace" font-size="11" font-weight="bold" fill="white" text-anchor="middle">YAML</text>
+</svg>

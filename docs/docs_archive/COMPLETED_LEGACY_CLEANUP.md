@@ -122,7 +122,7 @@ The following files still have legacy table references but are lower priority:
 3. **`crates/document-manager/storage.rs`** - Document storage
 4. **`crates/access-codes/src/lib.rs`** - Access code mappings
 5. **`crates/access-groups/src/pages.rs`** - Group page listings
-6. **`crates/3d-gallery/src/api.rs`** - 3D gallery data
+6. **`crates/standalone/3d-gallery/src/api.rs`** - 3D gallery data
 7. **`crates/common/src/handlers/search_handlers.rs`** - Additional search handlers
 
 These can be updated as needed when those features are used. The core functionality (video streaming, media search, access control) is now fully operational.

@@ -21,7 +21,7 @@ npm install hls.js
 
 ### 2. Updated VideoScreen.js
 
-**File:** `crates/3d-gallery/frontend/src/scene/VideoScreen.js`
+**File:** `crates/standalone/3d-gallery/frontend/src/scene/VideoScreen.js`
 
 **Changes:**
 - Imported `hls.js` library
@@ -33,7 +33,7 @@ npm install hls.js
 
 ### 3. Created VideoPlayer Component
 
-**File:** `crates/3d-gallery/frontend/src/components/VideoPlayer.jsx`
+**File:** `crates/standalone/3d-gallery/frontend/src/components/VideoPlayer.jsx`
 
 **Purpose:** Reusable video player component with HLS.js support for the overlay
 
@@ -46,7 +46,7 @@ npm install hls.js
 
 ### 4. Updated GalleryApp Overlay
 
-**File:** `crates/3d-gallery/frontend/src/GalleryApp.jsx`
+**File:** `crates/standalone/3d-gallery/frontend/src/GalleryApp.jsx`
 
 **Changes:**
 - Replaced basic `<video>` element with `<VideoPlayer>` component
@@ -62,7 +62,7 @@ npm install hls.js
 
 ### 5. Fixed Video URLs
 
-**File:** `crates/3d-gallery/src/api.rs`
+**File:** `crates/standalone/3d-gallery/src/api.rs`
 
 **Changes:**
 - Changed from `index.m3u8` → `master.m3u8` (actual filename in storage)
@@ -96,7 +96,7 @@ Both components use HLS.js independently for seamless video playback.
 
 ### Prerequisites
 1. Server must be running: `./target/release/video-server-rs`
-2. Frontend bundle rebuilt: `cd crates/3d-gallery/frontend && npm run build`
+2. Frontend bundle rebuilt: `cd crates/standalone/3d-gallery/frontend && npm run build`
 
 ### Test Steps
 

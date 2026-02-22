@@ -49,3 +49,4 @@ static/css/tailwind.css
 # Generated JavaScript bundles
 bundle.js
 bundle.js.map
+media.db_

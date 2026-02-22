@@ -113,7 +113,7 @@ The JSON is bundled into JavaScript, so changes require:
 
 1. **Rebuild frontend**:
    ```bash
-   cd crates/3d-gallery/frontend
+   cd crates/standalone/3d-gallery/frontend
    npm run build
    ```
 
@@ -129,7 +129,7 @@ The JSON is bundled into JavaScript, so changes require:
 
 ### Clean Rebuild (if issues persist):
 ```bash
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm run clean
 npm run build
 ```
@@ -188,9 +188,9 @@ All rooms now properly separated with visible walls and clean doorway passages.
 
 ## Files Modified
 
-- `crates/3d-gallery/frontend/src/layouts/demo-gallery.json` - Wall coordinates and offsets
-- `crates/3d-gallery/frontend/src/scene/LayoutParser.js` - Room center calculation
-- `crates/3d-gallery/static/bundle.js` - Rebuilt with new JSON data
+- `crates/standalone/3d-gallery/frontend/src/layouts/demo-gallery.json` - Wall coordinates and offsets
+- `crates/standalone/3d-gallery/frontend/src/scene/LayoutParser.js` - Room center calculation
+- `crates/standalone/3d-gallery/static/bundle.js` - Rebuilt with new JSON data
 
 ## Testing Checklist
 

@@ -32,7 +32,7 @@
    • West wall (-90°):  ✅ Correct (no flip)
 
 🔧 CHANGES:
-   File: crates/3d-gallery/frontend/src/scene/VideoScreen.js
+   File: crates/standalone/3d-gallery/frontend/src/scene/VideoScreen.js
    • Added rotation detection logic
    • Conditional horizontal flip based on Y rotation
    • Applied to both video and poster textures

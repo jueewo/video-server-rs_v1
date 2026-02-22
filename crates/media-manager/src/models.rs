@@ -206,12 +206,37 @@ impl UnifiedMediaItem {
                     if m.mime_type.contains("markdown") {
                         return "Markdown";
                     }
+                    if m.mime_type.contains("pdf") {
+                        return "PDF";
+                    }
+                    if m.mime_type.contains("csv") {
+                        return "CSV";
+                    }
+                    if m.mime_type.contains("json") {
+                        return "JSON";
+                    }
+                    if m.mime_type.contains("bpmn")
+                        || m.mime_type.contains("xml") && m.filename.contains("bpmn")
+                    {
+                        return "BPMN";
+                    }
+                    if m.mime_type.contains("xml") {
+                        return "XML";
+                    }
+                    if m.mime_type.contains("yaml") || m.mime_type.contains("yml") {
+                        return "YAML";
+                    }
 
                     // Check category as fallback
                     if let Some(cat) = &m.category {
                         match cat.to_lowercase().as_str() {
                             "markdown" | "md" => return "Markdown",
                             "pdf" => return "PDF",
+                            "csv" => return "CSV",
+                            "json" => return "JSON",
+                            "bpmn" => return "BPMN",
+                            "xml" => return "XML",
+                            "yaml" | "yml" => return "YAML",
                             _ => {}
                         }
                     }
@@ -222,6 +247,24 @@ impl UnifiedMediaItem {
                         || m.filename.ends_with(".markdown")
                     {
                         return "Markdown";
+                    }
+                    if m.filename.ends_with(".pdf") {
+                        return "PDF";
+                    }
+                    if m.filename.ends_with(".csv") {
+                        return "CSV";
+                    }
+                    if m.filename.ends_with(".json") {
+                        return "JSON";
+                    }
+                    if m.filename.ends_with(".bpmn") {
+                        return "BPMN";
+                    }
+                    if m.filename.ends_with(".xml") {
+                        return "XML";
+                    }
+                    if m.filename.ends_with(".yaml") || m.filename.ends_with(".yml") {
+                        return "YAML";
                     }
 
                     return "Document";
@@ -425,8 +468,6 @@ mod tests {
             featured: 0,
             category: None,
             thumbnail_url: None,
-            preview_url: None,
-            webp_url: None,
             view_count: 0,
             download_count: 0,
             like_count: 0,
@@ -469,8 +510,6 @@ mod tests {
             featured: 0,
             category: None,
             thumbnail_url: None,
-            preview_url: None,
-            webp_url: None,
             view_count: 0,
             download_count: 0,
             like_count: 0,

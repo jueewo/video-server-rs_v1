@@ -36,7 +36,7 @@
 ### Step 1: Clean Previous Build
 
 ```bash
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm run clean
 ```
 
@@ -124,7 +124,7 @@ import { Engine, Scene, Vector3 } from "@babylonjs/core";
 
 ```bash
 # From project root
-cd ../..  # Back to crates/3d-gallery
+cd ../..  # Back to crates/standalone/3d-gallery
 cargo run
 ```
 

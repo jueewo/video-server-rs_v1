@@ -10,19 +10,19 @@ Before testing, verify these files exist:
 
 ```bash
 # Check backend files
-ls crates/3d-gallery/src/lib.rs
-ls crates/3d-gallery/templates/viewer.html
+ls crates/standalone/3d-gallery/src/lib.rs
+ls crates/standalone/3d-gallery/templates/viewer.html
 
 # Check frontend bundle
-ls crates/3d-gallery/static/bundle.js
+ls crates/standalone/3d-gallery/static/bundle.js
 
 # Should show ~3.9MB
-du -h crates/3d-gallery/static/bundle.js
+du -h crates/standalone/3d-gallery/static/bundle.js
 ```
 
 If `bundle.js` is missing:
 ```bash
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm install
 npm run build
 cd ../../..
@@ -210,7 +210,7 @@ Test on multiple browsers:
 
 **Solution:**
 ```bash
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm run build
 ```
 
@@ -236,12 +236,12 @@ scene.debugLayer.show();
 
 **Check:**
 ```bash
-ls -lh crates/3d-gallery/static/bundle.js
+ls -lh crates/standalone/3d-gallery/static/bundle.js
 ```
 
 If missing:
 ```bash
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm install
 npm run build
 ```

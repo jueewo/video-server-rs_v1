@@ -19,7 +19,7 @@
 
 ### 1. Integration Approach: **Module Crate**
 
-**Decision:** Create `crates/3d-gallery` as a module crate (not standalone binary)
+**Decision:** Create `crates/standalone/3d-gallery` as a module crate (not standalone binary)
 
 **Rationale:**
 - Follows established pattern (`video-manager`, `image-manager`, etc.)
@@ -85,7 +85,7 @@ Standalone Binaries (separate):
 
 ### 1. Planning Documents
 
-**`crates/3d-gallery/IMPLEMENTATION_PLAN.md`** (520 lines)
+**`crates/standalone/3d-gallery/IMPLEMENTATION_PLAN.md`** (520 lines)
 - Complete 7-8 week roadmap
 - Phase-by-phase breakdown
 - API specifications
@@ -93,7 +93,7 @@ Standalone Binaries (separate):
 - Risk assessment
 - Testing strategy
 
-**`crates/3d-gallery/README.md`** (490 lines)
+**`crates/standalone/3d-gallery/README.md`** (490 lines)
 - Project overview
 - Quick start guide
 - Directory structure
@@ -101,7 +101,7 @@ Standalone Binaries (separate):
 - Development workflow
 - Troubleshooting guide
 
-**`crates/3d-gallery/Cargo.toml`** (88 lines)
+**`crates/standalone/3d-gallery/Cargo.toml`** (88 lines)
 - Dependencies configuration
 - Feature flags (vr, advanced-rendering)
 - Implementation TODO comments

@@ -297,8 +297,8 @@ If issues arise:
 
 - `crates/rate-limiter/src/lib.rs` - Rate limiter implementation
 - `crates/media-manager/src/routes.rs` - Route separation
-- `crates/3d-gallery/PRODUCTION_ISSUES.md` - Original issue documentation
-- `crates/3d-gallery/ACCESS_MODEL.md` - Access control model
+- `crates/standalone/3d-gallery/PRODUCTION_ISSUES.md` - Original issue documentation
+- `crates/standalone/3d-gallery/ACCESS_MODEL.md` - Access control model
 
 ---
 

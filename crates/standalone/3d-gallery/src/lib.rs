@@ -6,6 +6,7 @@
 //! Access is via access codes (no authentication required).
 
 use axum::{
+    body::Body,
     http::{header, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
@@ -20,14 +21,17 @@ pub mod routes;
 
 /// Serve JavaScript files with correct MIME type
 /// Handles index.js, bundle.js, and all chunk files
-async fn serve_js_file(filename: &str) -> Response {
+async fn serve_js_file(filename: &str) -> Response<Body> {
     // Use GALLERY_STATIC_DIR environment variable, or fall back to common paths
     let base_dir = std::env::var("GALLERY_STATIC_DIR").unwrap_or_else(|_| ".".to_string());
 
     let paths = [
-        format!("{}/crates/3d-gallery/static/{}", base_dir, filename),
+        format!(
+            "{}/crates/standalone/3d-gallery/static/{}",
+            base_dir, filename
+        ),
         format!("{}/static/3d-gallery/{}", base_dir, filename),
-        format!("crates/3d-gallery/static/{}", filename),
+        format!("crates/standalone/3d-gallery/static/{}", filename),
         format!("static/3d-gallery/{}", filename),
     ];
 
@@ -44,7 +48,11 @@ async fn serve_js_file(filename: &str) -> Response {
                 "application/octet-stream"
             };
 
-            return (StatusCode::OK, [(header::CONTENT_TYPE, mime_type)], content).into_response();
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, mime_type)
+                .body(Body::from(content))
+                .unwrap();
         }
     }
 
@@ -55,39 +63,43 @@ async fn serve_js_file(filename: &str) -> Response {
         cwd,
         paths
     );
-    (
-        StatusCode::NOT_FOUND,
-        format!("File not found: {}", filename),
-    )
-        .into_response()
+    Response::builder()
+        .status(StatusCode::NOT_FOUND)
+        .body(Body::from(format!("File not found: {}", filename)))
+        .unwrap()
 }
 
 /// Handler for bundle.js (backward compatibility)
-async fn serve_bundle_js() -> Response {
+async fn serve_bundle_js() -> Response<Body> {
     serve_js_file("bundle.js").await
 }
 
 /// Handler for bundle.js.map (backward compatibility)
-async fn serve_bundle_js_map() -> Response {
+async fn serve_bundle_js_map() -> Response<Body> {
     serve_js_file("bundle.js.map").await
 }
 
 /// Handler for index.js (new code-split entry point)
-async fn serve_index_js() -> Response {
+async fn serve_index_js() -> Response<Body> {
     serve_js_file("index.js").await
 }
 
 /// Handler for index.js.map
-async fn serve_index_js_map() -> Response {
+async fn serve_index_js_map() -> Response<Body> {
     serve_js_file("index.js.map").await
 }
 
 /// Handler for chunk files (e.g., chunk-ABC123.js)
-async fn serve_chunk_js(axum::extract::Path(filename): axum::extract::Path<String>) -> Response {
+async fn serve_chunk_js(
+    axum::extract::Path(filename): axum::extract::Path<String>,
+) -> Response<Body> {
     // Validate filename to prevent directory traversal
     if filename.contains("..") || filename.contains('/') || filename.contains('\\') {
         tracing::warn!("🚫 Invalid filename attempted: {}", filename);
-        return (StatusCode::BAD_REQUEST, "Invalid filename").into_response();
+        return Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .body(Body::from("Invalid filename"))
+            .unwrap();
     }
 
     serve_js_file(&filename).await

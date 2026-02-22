@@ -22,7 +22,7 @@
 ### 1. Rebuild Bundle (5 minutes) - CRITICAL ⚠️
 
 ```bash
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm run build
 
 # Verify bundle size reduced
@@ -146,7 +146,7 @@ ls -lh ../static/
 
 ### Desktop Test:
 ```bash
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm run build
 cd ../..
 cargo run
@@ -157,13 +157,13 @@ cargo run
 
 ### Check Bundle Size:
 ```bash
-ls -lh crates/3d-gallery/static/bundle.js
+ls -lh crates/standalone/3d-gallery/static/bundle.js
 # Target: < 2.5 MB
 ```
 
 ### Verify Named Imports Working:
 ```bash
-grep "import \* as BABYLON" crates/3d-gallery/frontend/src/**/*.js*
+grep "import \* as BABYLON" crates/standalone/3d-gallery/frontend/src/**/*.js*
 # Should return NO results (all removed)
 ```
 
@@ -233,7 +233,7 @@ grep "import \* as BABYLON" crates/3d-gallery/frontend/src/**/*.js*
 1. Check `MOBILE_VR_OPTIMIZATIONS.md` for detailed explanations
 2. Check `AUDIT_PERFORMANCE_TODO.md` for full task list
 3. Review console logs - we added lots of debug output
-4. Verify bundle was rebuilt: `stat crates/3d-gallery/static/bundle.js`
+4. Verify bundle was rebuilt: `stat crates/standalone/3d-gallery/static/bundle.js`
 
 ---
 

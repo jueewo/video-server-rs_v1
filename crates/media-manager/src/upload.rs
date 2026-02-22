@@ -588,8 +588,8 @@ async fn process_image_upload(
     let result = sqlx::query(
         r#"INSERT INTO media_items
         (slug, media_type, title, description, filename, original_filename, mime_type, file_size,
-         is_public, user_id, group_id, vault_id, category, thumbnail_url, webp_url, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+         is_public, user_id, group_id, vault_id, category, thumbnail_url, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
     )
     .bind(&slug)
     .bind("image")
@@ -604,7 +604,6 @@ async fn process_image_upload(
     .bind(group_id)
     .bind(&vault_id)
     .bind(&category)
-    .bind(&thumbnail_url)
     .bind(
         webp_filename
             .as_ref()
@@ -642,8 +641,7 @@ async fn process_image_upload(
         "media_type": "image",
         "slug": slug,
         "id": media_id,
-        "webp_url": webp_filename.map(|_| format!("/images/{}.webp", slug)),
-        "thumbnail_url": thumbnail_url
+        "thumbnail_url": webp_filename.map(|_| format!("/images/{}.webp", slug))
     })))
 }
 
@@ -791,8 +789,6 @@ async fn process_document_upload(
         featured: Some(0),
         category,
         thumbnail_url: None, // No thumbnail for documents
-        preview_url: None,
-        webp_url: None,
         allow_download: Some(1),
         allow_comments: Some(1),
         mature_content: Some(0),

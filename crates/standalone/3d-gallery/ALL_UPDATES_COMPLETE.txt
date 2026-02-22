@@ -13,7 +13,7 @@
 📊 FILES UPDATED:
 
    CODE (8 files):
-   • crates/3d-gallery/src/api.rs
+   • crates/standalone/3d-gallery/src/api.rs
    • crates/access-groups/src/pages.rs
    • crates/media-hub/src/models.rs
    • crates/video-manager/src/lib.rs
@@ -31,7 +31,7 @@
 
    DOCUMENTATION (11 files):
    • VIDEO_MANAGEMENT_GUIDE.md
-   • crates/3d-gallery/HLS_VIDEO_FIX.md
+   • crates/standalone/3d-gallery/HLS_VIDEO_FIX.md
    • docs_archive/GROUP_VIDEO_DISPLAY.md
    • docs_archive/NEW_VIDEO_TESTING.md
    • docs_archive/TODO_ACCESS_MANAGEMENT_UI.md

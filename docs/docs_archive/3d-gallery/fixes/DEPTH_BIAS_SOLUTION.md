@@ -279,6 +279,6 @@ The rendering groups approach provides a **clean, scalable, and maintainable** s
 
 ## Related Files
 
-- `crates/3d-gallery/frontend/src/scene/LayoutParser.js` - Rendering groups implementation
-- `crates/3d-gallery/frontend/src/layouts/demo-gallery.json` - Room definitions (no offsets)
-- `crates/3d-gallery/WALL_SPLITTING_FIX.md` - Previous offset approach (deprecated)
+- `crates/standalone/3d-gallery/frontend/src/scene/LayoutParser.js` - Rendering groups implementation
+- `crates/standalone/3d-gallery/frontend/src/layouts/demo-gallery.json` - Room definitions (no offsets)
+- `crates/standalone/3d-gallery/WALL_SPLITTING_FIX.md` - Previous offset approach (deprecated)

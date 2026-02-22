@@ -196,14 +196,14 @@ Created 1 lights for gallery (max: 1)
 **Cause:** Build didn't complete or server not restarted  
 **Fix:**
 ```bash
-cd crates/3d-gallery/frontend
+cd crates/standalone/3d-gallery/frontend
 npm run clean && npm run build
 # Then restart: cargo run
 ```
 
 ### Issue: Console shows "BABYLON is not defined"
 **Cause:** Missed a wildcard import replacement  
-**Fix:** Check for remaining: `grep -r "BABYLON\." crates/3d-gallery/frontend/src/`
+**Fix:** Check for remaining: `grep -r "BABYLON\." crates/standalone/3d-gallery/frontend/src/`
 
 ### Issue: PDF.js or HLS.js still loading immediately
 **Cause:** Lazy loading not working  
@@ -323,16 +323,16 @@ npm run clean && npm run build
 **Quick Commands:**
 ```bash
 # Build frontend
-cd crates/3d-gallery/frontend && npm run build
+cd crates/standalone/3d-gallery/frontend && npm run build
 
 # Run server
 cargo run
 
 # Check bundle size
-ls -lh crates/3d-gallery/static/*.js
+ls -lh crates/standalone/3d-gallery/static/*.js
 
 # Verify no BABYLON wildcards
-grep -r "BABYLON\." crates/3d-gallery/frontend/src/
+grep -r "BABYLON\." crates/standalone/3d-gallery/frontend/src/
 ```
 
 ---

@@ -377,7 +377,7 @@ Quick summary:
 | Template | Exception reason |
 |---|---|
 | `crates/user-auth/templates/auth/login.html` | Standalone centred card; no navbar |
-| `crates/3d-gallery/templates/viewer.html` | Full-screen 3D viewer; custom layout |
+| `crates/standalone/3d-gallery/templates/viewer.html` | Full-screen 3D viewer; custom layout |
 | `crates/access-codes/templates/codes/preview.html` | Public hero landing page |
 | `crates/access-groups/templates/invitations/accept.html` | Public centred invitation card |
 | `crates/media-manager/templates/media/detail.html` | `<h1>` is card-title, not page-level header |

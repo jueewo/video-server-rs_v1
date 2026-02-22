@@ -16,9 +16,9 @@
         {% if media.media_type == "image" %}
         <!-- Image Display -->
         <figure class="bg-black">
-            {% if media.webp_url.is_some() %}
+            {% if media.thumbnail_url.is_some() %}
             <img
-                src="{{ media.webp_url.as_ref().unwrap() }}"
+                src="{{ media.thumbnail_url.as_ref().unwrap() }}"
                 alt="{{ media.title }}"
                 class="max-h-[600px] object-contain cursor-pointer"
                 onclick="window.open('/images/{{ media.slug }}/original')"
@@ -211,20 +211,20 @@
                     </div>
                 </div>
 
-                {% if media.media_type == "image" && media.webp_url.is_some() %}
+                {% if media.media_type == "image" && media.thumbnail_url.is_some() %}
                 <div class="form-control mt-3">
                     <label class="label">
-                        <span class="label-text">WebP Link (Optimized)</span>
+                        <span class="label-text">Optimized Image Link</span>
                     </label>
                     <div class="join">
                         <input
                             type="text"
-                            value="{{ media.webp_url.as_ref().unwrap() }}"
+                            value="{{ media.thumbnail_url.as_ref().unwrap() }}"
                             class="input input-bordered join-item flex-1"
                             readonly
-                            id="webpLink"
+                            id="thumbnailLink"
                         />
-                        <button class="btn join-item" onclick="copyWebpLink()">
+                        <button class="btn join-item" onclick="copyThumbnailLink()">
                             📋 Copy
                         </button>
                     </div>
@@ -244,12 +244,12 @@ function copyShareLink() {
     alert('Link copied to clipboard!');
 }
 
-function copyWebpLink() {
-    const link = document.getElementById('webpLink');
+function copyThumbnailLink() {
+    const link = document.getElementById('thumbnailLink');
     link.select();
     link.setSelectionRange(0, 99999);
     navigator.clipboard.writeText(window.location.origin + link.value);
-    alert('WebP link copied to clipboard!');
+    alert('Optimized image link copied to clipboard!');
 }
 </script>
 {% endblock %}

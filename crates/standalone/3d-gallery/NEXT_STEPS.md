@@ -92,7 +92,7 @@ let app = Router::new()
 [workspace]
 members = [
     # ...
-    "crates/media-mcp",
+    "crates/standalone/media-mcp",
     "crates/standalone/3d-gallery",  # Add this!
     # ...
 ]

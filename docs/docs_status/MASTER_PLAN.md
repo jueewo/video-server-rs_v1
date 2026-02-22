@@ -2601,7 +2601,7 @@ Integrate a 3D virtual gallery using Preact and Babylon.js to display images and
 > **📋 Detailed Implementation Tracking:**
 > - [API Documentation Progress](API_DOCUMENTATION_PROGRESS.md)
 > - [Media CLI Tool Progress](MEDIA_CLI_PROGRESS.md)
-> - [MCP Server Documentation](crates/media-mcp/README.md)
+> - [MCP Server Documentation](crates/standalone/media-mcp/README.md)
 
 ### API Documentation System ⭐ HIGH VALUE
 
@@ -3192,7 +3192,7 @@ This link expires in 7 days.
 **Resources:**
 - [MCP Specification](https://spec.modelcontextprotocol.io/)
 - [Claude Desktop MCP Guide](https://claude.ai/docs/mcp)
-- [Detailed Implementation Plan](crates/media-mcp/README.md)
+- [Detailed Implementation Plan](crates/standalone/media-mcp/README.md)
 
 ---
 

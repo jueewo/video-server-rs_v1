@@ -179,7 +179,7 @@ services:
   media-mcp:
     build:
       context: .
-      dockerfile: crates/media-mcp/Dockerfile
+      dockerfile: crates/standalone/media-mcp/Dockerfile
     volumes:
       - media-db:/data          # Same volume
       - media-storage:/storage  # Same volume
@@ -341,8 +341,8 @@ target/release/
 ```bash
 # Install all binaries
 cargo install --path .
-cargo install --path crates/media-cli
-cargo install --path crates/media-mcp
+cargo install --path crates/standalone/media-cli
+cargo install --path crates/standalone/media-mcp
 
 # Or copy to system path
 sudo cp target/release/video-server-rs /usr/local/bin/
@@ -352,9 +352,9 @@ sudo cp target/release/media-mcp /usr/local/bin/
 
 ## References
 
-- [`crates/media-cli/README.md`](../crates/media-cli/README.md) - CLI implementation guide
-- [`crates/media-mcp/README.md`](../crates/media-mcp/README.md) - MCP implementation guide
-- [`crates/media-mcp/ARCHITECTURE.md`](../crates/media-mcp/ARCHITECTURE.md) - Detailed MCP architecture
+- [`crates/standalone/media-cli/README.md`](../crates/standalone/media-cli/README.md) - CLI implementation guide
+- [`crates/standalone/media-mcp/README.md`](../crates/standalone/media-mcp/README.md) - MCP implementation guide
+- [`crates/standalone/media-mcp/ARCHITECTURE.md`](../crates/standalone/media-mcp/ARCHITECTURE.md) - Detailed MCP architecture
 - [`MEDIA_CLI_PROGRESS.md`](../MEDIA_CLI_PROGRESS.md) - CLI implementation roadmap
 - [`MASTER_PLAN.md`](../MASTER_PLAN.md) - Project roadmap
 

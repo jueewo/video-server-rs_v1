@@ -120,7 +120,7 @@ services:
   # 3. Restart Claude Desktop
   #
   # Alternative: Run MCP server outside Docker and connect to shared volumes
-  # See: crates/media-mcp/README.md for details
+  # See: crates/standalone/media-mcp/README.md for details
   media-mcp:
     build:
       context: ..

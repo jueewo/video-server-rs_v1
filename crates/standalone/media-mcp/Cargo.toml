@@ -12,12 +12,12 @@ path = "src/main.rs"
 
 [dependencies]
 # Local shared crates - for direct database access
-common = { path = "../common" }
-media-core = { path = "../media-core" }
-video-manager = { path = "../video-manager" }
+common = { path = "../../common" }
+media-core = { path = "../../media-core" }
+video-manager = { path = "../../video-manager" }
 # REMOVED: image-manager and document-manager - replaced by unified media-manager
-access-groups = { path = "../access-groups" }
-access-control = { path = "../access-control" }
+access-groups = { path = "../../access-groups" }
+access-control = { path = "../../access-control" }
 
 # Database - for direct SQLite access
 sqlx = { workspace = true }

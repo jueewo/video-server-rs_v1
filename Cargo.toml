@@ -8,7 +8,7 @@ members = [
     "crates/user-auth",
     "crates/access-codes",
     "crates/access-control",
-    "crates/media-mcp",
+    "crates/standalone/media-mcp",
     "crates/standalone/3d-gallery",
     "crates/api-keys", "crates/docs-viewer", "crates/vault-manager",
     "crates/rate-limiter",
@@ -20,8 +20,7 @@ members = [
     "crates/workspace-processors/agent-collection",
     "crates/workspace-processors/course-processor",
     "crates/standalone/course-viewer",
-    # TODO: Uncomment when implementing CLI (see MEDIA_CLI_PROGRESS.md)
-    # "crates/media-cli",
+    "crates/standalone/media-cli",
 ]
 resolver = "2"
 

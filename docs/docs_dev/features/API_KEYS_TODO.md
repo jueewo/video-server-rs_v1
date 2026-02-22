@@ -388,7 +388,7 @@ curl -H "Authorization: Bearer $API_KEY" \
 ```
 
 #### 4.3 Update CLI Placeholder
-**File**: `video-server-rs_v1/crates/media-cli/src/main.rs`
+**File**: `video-server-rs_v1/crates/standalone/media-cli/src/main.rs`
 
 **Tasks**:
 - [ ] Add note about API key configuration
@@ -396,7 +396,7 @@ curl -H "Authorization: Bearer $API_KEY" \
 - [ ] Document environment variable: `MEDIA_CLI_API_KEY`
 
 #### 4.4 Update MCP Placeholder
-**File**: `video-server-rs_v1/crates/media-mcp/src/main.rs`
+**File**: `video-server-rs_v1/crates/standalone/media-mcp/src/main.rs`
 
 **Tasks**:
 - [ ] Already has `--token` argument ✅

@@ -403,8 +403,8 @@ environment:
 
 ### Documentation
 
-- Full MCP documentation: `../crates/media-mcp/README.md`
-- Architecture details: `../crates/media-mcp/ARCHITECTURE.md`
+- Full MCP documentation: `../crates/standalone/media-mcp/README.md`
+- Architecture details: `../crates/standalone/media-mcp/ARCHITECTURE.md`
 
 ---
 
@@ -453,7 +453,7 @@ docker-compose up -d
 - **`DOCKER.md`** - Complete Docker guide (in this directory)
 - **`../DEPLOYMENT.md`** - General deployment guide
 - **`../README.md`** - Main project README
-- **`../crates/media-mcp/README.md`** - MCP server documentation
+- **`../crates/standalone/media-mcp/README.md`** - MCP server documentation
 - **`../docs/STANDALONE_BINARIES.md`** - Architecture of standalone binaries
 
 ---

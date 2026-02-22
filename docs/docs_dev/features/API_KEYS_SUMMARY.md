@@ -234,8 +234,8 @@ A: Not in V1. Planned for future enhancement.
 - [API Keys TODO](./API_KEYS_TODO.md) - Full implementation plan
 - [Access Codes](../auth/ACCESS_CODES.md) - For sharing resources
 - [Emergency Login](../auth/EMERGENCY_LOGIN.md) - Temporary debug access
-- [CLI Documentation](../../crates/media-cli/README.md) - Command-line tool
-- [MCP Documentation](../../crates/media-mcp/README.md) - AI assistant integration
+- [CLI Documentation](../../crates/standalone/media-cli/README.md) - Command-line tool
+- [MCP Documentation](../../crates/standalone/media-mcp/README.md) - AI assistant integration
 
 ## 🎯 Next Steps
 

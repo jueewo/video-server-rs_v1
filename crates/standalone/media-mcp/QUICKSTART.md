@@ -210,8 +210,8 @@ To prevent accidental modifications:
 
 ## What's Next?
 
-- **Full Documentation:** `crates/media-mcp/README.md`
-- **Architecture:** `crates/media-mcp/ARCHITECTURE.md`
+- **Full Documentation:** `crates/standalone/media-mcp/README.md`
+- **Architecture:** `crates/standalone/media-mcp/ARCHITECTURE.md`
 - **Docker Guide:** `docker/README.md`
 - **Standalone Binaries:** `docs/STANDALONE_BINARIES.md`
 

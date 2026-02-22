@@ -104,7 +104,7 @@ The MCP server runs alongside the web server and **directly accesses the shared 
 ### 1. Build the MCP Server
 
 ```bash
-cd crates/media-mcp
+cd crates/standalone/media-mcp
 cargo build --release
 ```
 
@@ -592,7 +592,7 @@ mcp-inspector ./target/release/media-mcp
 
 ```bash
 git clone <repo>
-cd crates/media-mcp
+cd crates/standalone/media-mcp
 cargo build
 ```
 

@@ -71,7 +71,7 @@ crates/
 
 **Date:** January 2026
 
-**Related Documents:** `MEDIA_CLI_PROGRESS.md`, `crates/media-cli/README.md`
+**Related Documents:** `MEDIA_CLI_PROGRESS.md`, `crates/standalone/media-cli/README.md`
 
 ### Context
 
@@ -310,7 +310,7 @@ pub async fn list_videos_local(config: &Config) -> Result<()> {
 ### References
 
 - Implementation Plan: `MEDIA_CLI_PROGRESS.md`
-- CLI Documentation: `crates/media-cli/README.md`
+- CLI Documentation: `crates/standalone/media-cli/README.md`
 - Master Plan: `MASTER_PLAN.md` (Infrastructure & Developer Tools section)
 
 ---

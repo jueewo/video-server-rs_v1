@@ -146,7 +146,7 @@ media-mcp → Shared Libraries → Database
 
 ### 1. Updated Dependencies
 
-**`crates/media-mcp/Cargo.toml`:**
+**`crates/standalone/media-mcp/Cargo.toml`:**
 ```toml
 [dependencies]
 # Shared library crates
@@ -191,12 +191,12 @@ services:
 
 ### 3. Documentation Created
 
-- **`crates/media-mcp/ARCHITECTURE.md`** - Detailed architecture explanation
-- **`crates/media-mcp/QUICKSTART.md`** - Quick setup guide
+- **`crates/standalone/media-mcp/ARCHITECTURE.md`** - Detailed architecture explanation
+- **`crates/standalone/media-mcp/QUICKSTART.md`** - Quick setup guide
 - **`docs/STANDALONE_BINARIES.md`** - Complete binary architecture guide
 - **`docker/Dockerfile.mcp`** - MCP server Docker image
 - **Updated `docker/README.md`** - Added MCP deployment instructions
-- **Updated `crates/media-mcp/README.md`** - Revised for direct access
+- **Updated `crates/standalone/media-mcp/README.md`** - Revised for direct access
 
 ---
 
@@ -336,15 +336,15 @@ The architecture can evolve without breaking changes:
 - ⏳ MCP protocol implementation (next phase)
 
 **Next steps:**
-Follow the roadmap in `crates/media-mcp/README.md` for implementation.
+Follow the roadmap in `crates/standalone/media-mcp/README.md` for implementation.
 
 ---
 
 **Reviewers:** Engineering Team  
 **Status:** Approved and implemented  
 **References:**
-- `crates/media-mcp/README.md`
-- `crates/media-mcp/ARCHITECTURE.md`
-- `crates/media-mcp/QUICKSTART.md`
+- `crates/standalone/media-mcp/README.md`
+- `crates/standalone/media-mcp/ARCHITECTURE.md`
+- `crates/standalone/media-mcp/QUICKSTART.md`
 - `docs/STANDALONE_BINARIES.md`
 - `docker/README.md`

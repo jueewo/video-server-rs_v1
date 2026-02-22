@@ -48,7 +48,6 @@ tokio-test = "0.4"
 [features]
 default = []
 # Future: Local database operations without requiring web server
-local-db = ["sqlx"]
 
 [profile.release]
 opt-level = 3

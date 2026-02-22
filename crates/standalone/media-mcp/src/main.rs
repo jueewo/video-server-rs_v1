@@ -60,7 +60,7 @@ async fn main() -> Result<()> {
     // - [ ] Setup error handling and recovery
 
     warn!("⚠️  MCP Server is not yet implemented!");
-    warn!("📋 This is a placeholder. See crates/media-mcp/README.md for implementation plan.");
+    warn!("📋 This is a placeholder. See crates/standalone/media-mcp/README.md for implementation plan.");
 
     // TODO: Phase 2 - Resources Implementation
     // - [ ] Implement video list resource
@@ -93,7 +93,7 @@ async fn main() -> Result<()> {
 
     // Placeholder main loop
     info!("📝 To implement this server:");
-    info!("   1. Follow the roadmap in crates/media-mcp/README.md");
+    info!("   1. Follow the roadmap in crates/standalone/media-mcp/README.md");
     info!("   2. Implement MCP protocol handler (JSON-RPC over stdio)");
     info!("   3. Add resources for read-only data access");
     info!("   4. Add tools for actions Claude can perform");

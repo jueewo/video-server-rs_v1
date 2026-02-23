@@ -1,8 +1,9 @@
 use askama::Template;
 use axum::{
+    body::Body,
     extract::{DefaultBodyLimit, Query, State},
-    http::{header::HeaderValue, Method, StatusCode},
-    response::Html,
+    http::{header, header::HeaderValue, Method, StatusCode},
+    response::{Html, IntoResponse, Response},
     routing::{get, post},
     Router,
 };
@@ -453,6 +454,57 @@ async fn webhook_stream_ready() -> StatusCode {
 async fn webhook_stream_ended() -> StatusCode {
     println!("📡 Stream has ended");
     StatusCode::OK
+}
+
+// -------------------------------
+// Static File Serving (excluding 3d-gallery)
+// -------------------------------
+
+async fn serve_static_excluding_gallery(
+    axum::extract::Path(path): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    // Exclude 3d-gallery paths (handled by gallery3d router)
+    if path.starts_with("3d-gallery/") {
+        return Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::from("Not found"))
+            .unwrap();
+    }
+
+    // Serve from static directory
+    let file_path = format!("static/{}", path);
+    match tokio::fs::read(&file_path).await {
+        Ok(content) => {
+            // Determine MIME type based on file extension
+            let mime_type = if file_path.ends_with(".css") {
+                "text/css; charset=utf-8"
+            } else if file_path.ends_with(".js") {
+                "application/javascript; charset=utf-8"
+            } else if file_path.ends_with(".png") {
+                "image/png"
+            } else if file_path.ends_with(".jpg") || file_path.ends_with(".jpeg") {
+                "image/jpeg"
+            } else if file_path.ends_with(".svg") {
+                "image/svg+xml"
+            } else if file_path.ends_with(".ico") {
+                "image/x-icon"
+            } else if file_path.ends_with(".webp") {
+                "image/webp"
+            } else {
+                "application/octet-stream"
+            };
+
+            Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, mime_type)
+                .body(Body::from(content))
+                .unwrap()
+        }
+        Err(_) => Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::from("Not found"))
+            .unwrap(),
+    }
 }
 
 // -------------------------------
@@ -925,8 +977,8 @@ async fn main() -> anyhow::Result<()> {
                 )),
         )
         .merge(gallery3d::router(Arc::new(pool.clone())))
-        // Serve static CSS and assets
-        .nest_service("/static", ServeDir::new("static"))
+        // Serve static CSS and assets (excluding 3d-gallery which is handled by gallery3d router)
+        .route("/static/{*path}", get(serve_static_excluding_gallery))
         // Apply middleware
         .layer(
             ServiceBuilder::new()
@@ -997,6 +1049,7 @@ async fn main() -> anyhow::Result<()> {
     println!("   ✅ access-control   (4-layer access with audit logging)");
     println!("   ✅ rate-limiter     (Per-IP endpoint-class rate limiting)");
     println!("   ✅ workspace-manager (Project workspaces with files and documents)");
+    println!("   ✅ gallery3d        (3D virtual gallery with Babylon.js)");
 
     println!("📊 SERVER ENDPOINTS:");
     println!("   • Web UI:        http://{}", addr);

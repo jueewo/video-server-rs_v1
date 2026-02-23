@@ -188,20 +188,39 @@ export default function GalleryApp({
     const ceiling = galleryObj.rooms[0]?.ceiling;
     const ceilingHeight = galleryObj.rooms[0]?.dimensions.height || 4;
 
-    // Prepare media items
-    const mediaItems = galleryData.items.map((item) => ({
-      id: item.id,
-      title: item.title || "Untitled",
-      description: item.description || "",
-      url: item.url,
-      thumbnail_url: item.thumbnail_url || item.url,
-      width: item.width,
-      height: item.height,
-      tags: item.tags || [],
-      duration: item.duration,
-      media_type: item.media_type,
-      type: item.media_type,
-    }));
+    // Prepare media items - convert relative URLs to absolute for VR compatibility
+    const isVR = qualityConfig.capabilities.isVR;
+    const origin = window.location.origin;
+
+    const mediaItems = galleryData.items.map((item) => {
+      // Convert relative URLs to absolute URLs for VR environments
+      const convertUrl = (url) => {
+        if (!url) return url;
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+          return url; // Already absolute
+        }
+        if (url.startsWith("/")) {
+          return `${origin}${url}`; // Convert relative to absolute
+        }
+        return url; // Leave as-is
+      };
+
+      return {
+        id: item.id,
+        title: item.title || "Untitled",
+        description: item.description || "",
+        url: isVR ? convertUrl(item.url) : item.url,
+        thumbnail_url: isVR
+          ? convertUrl(item.thumbnail_url || item.url)
+          : item.thumbnail_url || item.url,
+        width: item.width,
+        height: item.height,
+        tags: item.tags || [],
+        duration: item.duration,
+        media_type: item.media_type,
+        type: item.media_type,
+      };
+    });
 
     // Map media to slots using the layout's media_mapping
     const mappedSlots = mapMediaToSlots(

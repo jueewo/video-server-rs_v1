@@ -1,0 +1,84 @@
+{% extends "base-tailwind.html" %} {% block title %}{{ app_title }} - 3D Viewer{% endblock %} {% block content %}
+<div class="min-h-[calc(100vh-4rem)] bg-base-200 py-8">
+    <div class="container mx-auto px-4">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-base-content mb-2">3D Viewer</h1>
+            <p class="text-lg text-base-content/60">Enter an access code to view 3D content</p>
+            
+            <!-- Back to Home / Apps -->
+            <div class="mt-4 flex justify-center gap-2">
+                <a href="/" class="btn btn-ghost btn-sm gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+                    </svg>
+                    Home
+                </a>
+                <a href="/apps" class="btn btn-ghost btn-sm gap-2">
+                    Apps
+                </a>
+            </div>
+        </div>
+
+        <!-- Access Code Form -->
+        <div class="max-w-md mx-auto">
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title justify-center mb-4">Enter Access Code</h2>
+                    
+                    <form id="accessForm" class="space-y-4">
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Access Code</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="accessCode" 
+                                name="code" 
+                                placeholder="Enter access code" 
+                                class="input input-bordered w-full" 
+                                value="gallery3d"
+                                required
+                            />
+                            <label class="label">
+                                <span class="label-text-alt">Demo code: gallery3d</span>
+                            </label>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-block">
+                            Open 3D Viewer
+                        </button>
+                    </form>
+                    
+                    <div class="divider">OR</div>
+                    
+                    <a href="/3d-gallery" class="btn btn-outline btn-block">
+                        Browse 3D Gallery
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info -->
+        <div class="max-w-md mx-auto mt-8">
+            <div class="alert info">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                    <h3 class="font-bold">How it works</h3>
+                    <p class="text-sm">Enter an access code to view shared 3D content. Codes can be generated in the Access Codes section.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('accessForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const code = document.getElementById('accessCode').value;
+        window.location.href = '/3d?code=' + encodeURIComponent(code);
+    });
+</script>
+{% endblock %}

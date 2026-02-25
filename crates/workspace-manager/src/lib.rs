@@ -4,7 +4,7 @@ use axum::{
     body::Body,
     extract::{Multipart, Path, Query, State},
     http::{header, StatusCode},
-    response::{Html, Json, Response},
+    response::{Html, IntoResponse, Json, Redirect, Response},
     routing::{delete, get, post, put},
     Extension, Router,
 };
@@ -925,7 +925,18 @@ pub async fn list_workspaces_page(
     user: Option<Extension<AuthenticatedUser>>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
-) -> Result<Html<String>, StatusCode> {
+) -> Result<Response, StatusCode> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Ok(Redirect::to("/login").into_response());
+    }
+
     check_scope(&user, "read")?;
     let user_id = require_auth(&session).await?;
 
@@ -961,7 +972,7 @@ pub async fn list_workspaces_page(
     let html = template
         .render()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    Ok(Html(html))
+    Ok(Html(html).into_response())
 }
 
 /// GET /workspaces/new — new workspace form

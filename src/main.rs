@@ -204,6 +204,42 @@ struct IndexTemplate {
 }
 
 #[derive(Template)]
+#[template(path = "home.html")]
+struct HomeTemplate {
+    authenticated: bool,
+    app_title: String,
+    app_icon: String,
+    media_count: i64,
+    vault_count: i64,
+    workspace_count: i64,
+    app_count: i64,
+}
+
+#[derive(Template)]
+#[template(path = "apps.html")]
+struct AppsTemplate {
+    authenticated: bool,
+    app_title: String,
+    app_icon: String,
+}
+
+#[derive(Template)]
+#[template(path = "3d-viewer.html")]
+struct D3ViewerTemplate {
+    authenticated: bool,
+    app_title: String,
+    app_icon: String,
+}
+
+#[derive(Template)]
+#[template(path = "course-viewer.html")]
+struct CourseViewerTemplate {
+    authenticated: bool,
+    app_title: String,
+    app_icon: String,
+}
+
+#[derive(Template)]
 #[template(path = "demo.html")]
 struct DemoTemplate {
     authenticated: bool,
@@ -242,6 +278,107 @@ async fn index_handler(
         .unwrap_or(false);
 
     let template = IndexTemplate {
+        authenticated,
+        app_title: state.config.title.clone(),
+        app_icon: state.config.icon.clone(),
+    };
+    Ok(Html(template.render().unwrap()))
+}
+
+#[tracing::instrument(skip(session, state))]
+async fn home_handler(
+    session: Session,
+    State(state): State<Arc<AppState>>,
+) -> Result<Html<String>, StatusCode> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    let pool = &state.video_state.pool;
+
+    let media_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM media_items")
+        .fetch_one(pool)
+        .await
+        .unwrap_or(0);
+
+    let vault_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM storage_vaults")
+        .fetch_one(pool)
+        .await
+        .unwrap_or(0);
+
+    let workspace_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM workspaces")
+        .fetch_one(pool)
+        .await
+        .unwrap_or(0);
+
+    let template = HomeTemplate {
+        authenticated,
+        app_title: state.config.title.clone(),
+        app_icon: state.config.icon.clone(),
+        media_count,
+        vault_count,
+        workspace_count,
+        app_count: 4,
+    };
+    Ok(Html(template.render().unwrap()))
+}
+
+#[tracing::instrument(skip(session, state))]
+async fn apps_handler(
+    session: Session,
+    State(state): State<Arc<AppState>>,
+) -> Result<Html<String>, StatusCode> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    let template = AppsTemplate {
+        authenticated,
+        app_title: state.config.title.clone(),
+        app_icon: state.config.icon.clone(),
+    };
+    Ok(Html(template.render().unwrap()))
+}
+
+#[tracing::instrument(skip(session, state))]
+async fn d3_viewer_handler(
+    session: Session,
+    State(state): State<Arc<AppState>>,
+) -> Result<Html<String>, StatusCode> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    let template = D3ViewerTemplate {
+        authenticated,
+        app_title: state.config.title.clone(),
+        app_icon: state.config.icon.clone(),
+    };
+    Ok(Html(template.render().unwrap()))
+}
+
+#[tracing::instrument(skip(session, state))]
+async fn course_viewer_page_handler(
+    session: Session,
+    State(state): State<Arc<AppState>>,
+) -> Result<Html<String>, StatusCode> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    let template = CourseViewerTemplate {
         authenticated,
         app_title: state.config.title.clone(),
         app_icon: state.config.icon.clone(),
@@ -815,7 +952,12 @@ async fn main() -> anyhow::Result<()> {
     // Build the application router
     let base_router = Router::new()
         // Main routes
-        .route("/", get(index_handler))
+        .route("/", get(home_handler))
+        .route("/mediavaults", get(index_handler))
+        .route("/home", get(home_handler))
+        .route("/apps", get(apps_handler))
+        .route("/3d-viewer", get(d3_viewer_handler))
+        .route("/course-viewer", get(course_viewer_page_handler))
         .route("/demo", get(demo_handler))
         .route("/health", get(health_check))
         .route("/favicon.ico", get(favicon_handler))
@@ -911,20 +1053,8 @@ async fn main() -> anyhow::Result<()> {
                 r
             }
         })
-        // Workspace manager — auth middleware + API mutate rate limit
-        .merge({
-            let r = workspace_routes(workspace_state).route_layer(
-                axum::middleware::from_fn_with_state(
-                    Arc::new(pool.clone()),
-                    api_key_or_session_auth,
-                ),
-            );
-            if let Some(layer) = rate_limit.api_mutate_layer() {
-                r.layer(layer)
-            } else {
-                r
-            }
-        })
+        // Workspace manager — auth handled in handlers (redirects to login)
+        .merge(workspace_routes(workspace_state))
         .merge(
             access_groups::routes::create_routes(pool.clone()).route_layer(
                 axum::middleware::from_fn_with_state(

@@ -15,7 +15,7 @@ impl std::fmt::Display for ResourceType {
         match self {
             ResourceType::Video => write!(f, "video"),
             ResourceType::Image => write!(f, "image"),
-            ResourceType::File => write!(f, "file"),
+            ResourceType::File => write!(f, "document"),
             ResourceType::Folder => write!(f, "folder"),
         }
     }
@@ -28,7 +28,7 @@ impl std::str::FromStr for ResourceType {
         match s.to_lowercase().as_str() {
             "video" => Ok(ResourceType::Video),
             "image" => Ok(ResourceType::Image),
-            "file" => Ok(ResourceType::File),
+            "file" | "document" => Ok(ResourceType::File),
             "folder" => Ok(ResourceType::Folder),
             _ => Err(format!("Invalid resource type: {}", s)),
         }

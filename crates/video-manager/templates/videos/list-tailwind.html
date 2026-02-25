@@ -120,7 +120,7 @@ Server{% endblock %} {% block content %}
         >
             {% for video in public_videos %}
             <a
-                href="/watch/{{ video.0 }}"
+                href="/media/{{ video.0 }}"
                 class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group"
             >
                 <figure
@@ -205,7 +205,7 @@ Server{% endblock %} {% block content %}
         >
             {% for video in private_videos %}
             <a
-                href="/watch/{{ video.0 }}"
+                href="/media/{{ video.0 }}"
                 class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group border-2 border-primary/20"
             >
                 <figure

@@ -245,9 +245,10 @@ pub fn video_routes() -> Router<Arc<VideoManagerState>> {
         .route("/videos/new", get(video_new_page_handler))
         // Legacy upload endpoints - REMOVED: Use unified /api/media/upload instead
         // .route("/videos/upload", get(video_upload_page_handler))
-        .route("/videos/{slug}", get(video_player_handler))
-        .route("/videos/{slug}/edit", get(video_edit_page_handler))
-        .route("/watch/{slug}", get(video_player_handler))
+        // Legacy video detail routes - REMOVED: Use unified /media/{slug} instead
+        // .route("/videos/{slug}", ...) - now at /media/{slug}
+        // .route("/videos/{slug}/edit", ...) - now at /media/{slug}/edit
+        // .route("/watch/{slug}", ...) - now at /media/{slug}
         .route("/test", get(live_test_handler))
         .route("/hls/{*path}", get(hls_proxy_handler))
         .route("/api/stream/validate", get(validate_stream_handler))

@@ -4,13 +4,14 @@ use askama::Template;
 use axum::{
     extract::{Multipart, Query, State},
     http::StatusCode,
-    response::{Html, IntoResponse, Response},
+    response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
     Router,
 };
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use tower_sessions::Session;
 use walkdir::WalkDir;
 
 #[derive(Clone)]
@@ -60,12 +61,35 @@ pub fn docs_routes() -> Router<Arc<DocsState>> {
         .route("/upload", post(upload_doc))
 }
 
-async fn docs_index(State(state): State<Arc<DocsState>>) -> Result<Response, StatusCode> {
+async fn docs_index(
+    session: Session,
+    State(state): State<Arc<DocsState>>,
+) -> Result<Response, StatusCode> {
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Ok(Redirect::to("/login").into_response());
+    }
+
+    // Get user_id from session
+    let user_id: String = session
+        .get("user_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "unknown".to_string());
+
     let files = list_markdown_files(&state.docs_root)?;
 
     let template = DocsIndexTemplate {
-        authenticated: true,
-        user_id: "user".to_string(), // TODO: get from session
+        authenticated,
+        user_id,
         files,
         current_path: state.docs_root.display().to_string(),
     };
@@ -74,9 +98,30 @@ async fn docs_index(State(state): State<Arc<DocsState>>) -> Result<Response, Sta
 }
 
 async fn view_doc(
+    session: Session,
     State(state): State<Arc<DocsState>>,
     Query(query): Query<ViewQuery>,
 ) -> Result<Response, StatusCode> {
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Ok(Redirect::to("/login").into_response());
+    }
+
+    // Get user_id from session
+    let user_id: String = session
+        .get("user_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "unknown".to_string());
+
     // Security: prevent path traversal
     let file_path = PathBuf::from(&query.file);
     if file_path
@@ -105,8 +150,8 @@ async fn view_doc(
         .to_string();
 
     let template = DocsViewTemplate {
-        authenticated: true,
-        user_id: "user".to_string(), // TODO: get from session
+        authenticated,
+        user_id,
         title,
         content: html_content,
         file_path: query.file,
@@ -116,10 +161,30 @@ async fn view_doc(
     Ok(Html(template.render().unwrap()).into_response())
 }
 
-async fn upload_form() -> Result<Response, StatusCode> {
+async fn upload_form(session: Session) -> Result<Response, StatusCode> {
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Ok(Redirect::to("/login").into_response());
+    }
+
+    // Get user_id from session
+    let user_id: String = session
+        .get("user_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "unknown".to_string());
+
     let template = DocsUploadTemplate {
-        authenticated: true,
-        user_id: "user".to_string(), // TODO: get from session
+        authenticated,
+        user_id,
         message: None,
     };
 
@@ -127,9 +192,30 @@ async fn upload_form() -> Result<Response, StatusCode> {
 }
 
 async fn upload_doc(
+    session: Session,
     State(state): State<Arc<DocsState>>,
     mut multipart: Multipart,
 ) -> Result<Response, StatusCode> {
+    // Check authentication
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Ok(Redirect::to("/login").into_response());
+    }
+
+    // Get user_id from session
+    let user_id: String = session
+        .get("user_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "unknown".to_string());
+
     while let Some(field) = multipart
         .next_field()
         .await
@@ -148,8 +234,8 @@ async fn upload_doc(
 
             if !safe_filename.ends_with(".md") {
                 let template = DocsUploadTemplate {
-                    authenticated: true,
-                    user_id: "user".to_string(),
+                    authenticated,
+                    user_id: user_id.clone(),
                     message: Some("Only .md files are allowed".to_string()),
                 };
                 return Ok(Html(template.render().unwrap()).into_response());
@@ -168,8 +254,8 @@ async fn upload_doc(
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
             let template = DocsUploadTemplate {
-                authenticated: true,
-                user_id: "user".to_string(),
+                authenticated,
+                user_id,
                 message: Some(format!("Successfully uploaded {}", safe_filename)),
             };
             return Ok(Html(template.render().unwrap()).into_response());

@@ -31,7 +31,8 @@ pub enum AuthMethod {
 /// 2. If no API key, falls back to session authentication
 /// 3. If authenticated, adds AuthenticatedUser to request extensions
 /// 4. Also sets session variables for backwards compatibility with existing handlers
-/// 5. If not authenticated, returns 401 Unauthorized
+/// 5. If not authenticated but has `code` query parameter, allows through (for access code validation in handler)
+/// 6. If not authenticated, returns 401 Unauthorized
 pub async fn api_key_or_session_auth(
     State(pool): State<Arc<SqlitePool>>,
     mut session: Session,
@@ -122,11 +123,29 @@ pub async fn api_key_or_session_auth(
         return Ok(next.run(request).await);
     }
 
+    // Check if request has an access code query parameter
+    // If so, allow it through - the handler will validate the access code
+    if let Some(query_str) = request.uri().query() {
+        // Check if query contains code= with a non-empty value
+        // Match patterns like: code=abc, ?code=abc, &code=abc
+        if query_str.split('&')
+            .any(|param| param.starts_with("code=") && param.len() > 5)
+        {
+            debug!(
+                event = "auth_bypass",
+                reason = "access_code_present",
+                query = %query_str,
+                "Allowing request with access code through to handler for validation"
+            );
+            return Ok(next.run(request).await);
+        }
+    }
+
     // No authentication found
     warn!(
         event = "auth_failed",
         reason = "no_credentials",
-        "Request has no valid authentication (neither API key nor session)"
+        "Request has no valid authentication (neither API key nor session nor access code)"
     );
 
     Err(StatusCode::UNAUTHORIZED)

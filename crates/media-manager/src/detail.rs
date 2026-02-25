@@ -48,6 +48,7 @@ pub struct MediaDetail {
 pub struct MediaDetailTemplate {
     pub authenticated: bool,
     pub media: MediaDetail,
+    pub access_code: Option<String>,
 }
 
 /// Media detail page handler
@@ -169,19 +170,34 @@ pub async fn media_detail_handler(
     // Auto-redirect PDF files
     if filename_for_redirect.ends_with(".pdf") {
         info!("📄 Redirecting PDF document to pdf view page: {}", slug);
-        return Ok(Redirect::to(&format!("/media/{}/pdf", slug)).into_response());
+        let redirect_url = if let Some(ref code) = query.code {
+            format!("/media/{}/pdf?code={}", slug, code)
+        } else {
+            format!("/media/{}/pdf", slug)
+        };
+        return Ok(Redirect::to(&redirect_url).into_response());
     }
 
     // Auto-redirect BPMN files
     if filename_for_redirect.ends_with(".bpmn") {
         info!("📊 Redirecting BPMN document to bpmn view page: {}", slug);
-        return Ok(Redirect::to(&format!("/media/{}/bpmn", slug)).into_response());
+        let redirect_url = if let Some(ref code) = query.code {
+            format!("/media/{}/bpmn?code={}", slug, code)
+        } else {
+            format!("/media/{}/bpmn", slug)
+        };
+        return Ok(Redirect::to(&redirect_url).into_response());
     }
 
     // Auto-redirect to markdown view for markdown documents
     if mime_type == "text/markdown" {
         info!("📄 Redirecting markdown document to view page: {}", slug);
-        return Ok(Redirect::to(&format!("/media/{}/view", slug)).into_response());
+        let redirect_url = if let Some(ref code) = query.code {
+            format!("/media/{}/view?code={}", slug, code)
+        } else {
+            format!("/media/{}/view", slug)
+        };
+        return Ok(Redirect::to(&redirect_url).into_response());
     }
 
     let media = MediaDetail {
@@ -217,6 +233,7 @@ pub async fn media_detail_handler(
     let template = MediaDetailTemplate {
         authenticated,
         media,
+        access_code: query.code.clone(),
     };
 
     match template.render() {

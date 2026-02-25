@@ -143,13 +143,20 @@ async fn fetch_media_for_access_code(
         let thumbnail_url: Option<String> = row.get(5);
 
         let pos = get_position_for_index(position_index);
+
+        // Always append access code to thumbnail URL
+        let final_thumbnail = if let Some(thumb_url) = thumbnail_url {
+            format!("{}?code={}", thumb_url, access_code_str)
+        } else {
+            format!("/images/{}_thumb?code={}", slug, access_code_str)
+        };
+
         items.push(MediaItem3D {
             id: id as i32,
             media_type: MediaType::Image,
             // Phase 4.5: Use slug-based URLs with access code for anonymous access
             url: format!("/images/{}?code={}", slug, access_code_str),
-            thumbnail_url: thumbnail_url
-                .unwrap_or_else(|| format!("/images/{}_thumb?code={}", slug, access_code_str)),
+            thumbnail_url: final_thumbnail,
             title,
             description,
             position: pos.0,

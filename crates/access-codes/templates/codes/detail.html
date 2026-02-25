@@ -305,24 +305,42 @@ endblock %} {% block content %}
                         >
                             <div class="card-body p-4">
                                 <div class="flex items-start gap-4">
-                                    <!-- Icon -->
-                                    <div class="text-4xl">
-                                        {% if item.media_type == "video" %}🎥{%
-                                        else %}🖼️{% endif %}
+                                    <!-- Mini Preview Thumbnail -->
+                                    <div class="flex-shrink-0">
+                                        <div class="w-24 h-24 rounded-lg overflow-hidden bg-base-300 relative">
+                                            {% if item.media_type == "video" %}
+                                                <img
+                                                    src="/hls/{{ item.media_slug }}/thumbnail.webp?code={{ code.code }}"
+                                                    alt="{{ item.media_slug }}"
+                                                    class="w-full h-full object-cover"
+                                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                                />
+                                                <div class="absolute inset-0 items-center justify-center bg-gradient-to-br from-red-200 via-red-300 to-pink-300" style="display: none;">
+                                                    <span class="text-4xl">🎥</span>
+                                                </div>
+                                            {% else if item.media_type == "image" %}
+                                                <img
+                                                    src="/images/{{ item.media_slug }}/thumb?code={{ code.code }}"
+                                                    alt="{{ item.media_slug }}"
+                                                    class="w-full h-full object-cover"
+                                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                                />
+                                                <div class="absolute inset-0 items-center justify-center bg-gradient-to-br from-green-200 via-emerald-300 to-teal-300" style="display: none;">
+                                                    <span class="text-4xl">🖼️</span>
+                                                </div>
+                                            {% else %}
+                                                <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-200 via-cyan-300 to-sky-300">
+                                                    <span class="text-4xl">📄</span>
+                                                </div>
+                                            {% endif %}
+                                        </div>
                                     </div>
 
                                     <!-- Details -->
                                     <div class="flex-1 min-w-0">
-                                        <h3 class="font-bold text-lg mb-1">
+                                        <h3 class="font-bold text-lg mb-2">
                                             {{ item.media_slug }}
                                         </h3>
-                                        <div
-                                            class="flex items-center gap-2 text-sm text-base-content/60"
-                                        >
-                                            <span class="badge badge-sm"
-                                                >{{ item.media_type }}</span
-                                            >
-                                        </div>
 
                                         <!-- URL -->
                                         <div class="mt-2">
@@ -331,7 +349,7 @@ endblock %} {% block content %}
                                             >
                                                 <input
                                                     type="text"
-                                                    value="{{ base_url }}{% if item.media_type == "video" %}/watch{% else %}/images{% endif %}/{{ item.media_slug }}?code={{ code.code }}"
+                                                    value="{{ base_url }}/media/{{ item.media_slug }}?code={{ code.code }}"
                                                     readonly
                                                     class="input input-sm input-bordered flex-1 text-xs font-mono"
                                                     id="url-{{ loop.index0 }}"
@@ -360,12 +378,56 @@ endblock %} {% block content %}
                                         </div>
                                     </div>
 
-                                    <!-- Action -->
-                                    <div>
+                                    <!-- Actions -->
+                                    <div class="flex flex-col gap-2">
+                                        <!-- File Type Badge -->
+                                        <span class="badge {{ item.badge_color() }} badge-sm gap-1 self-end">
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                class="h-3 w-3"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke="currentColor"
+                                            >
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                                                />
+                                            </svg>
+                                            {{ item.file_type_label() }}
+                                        </span>
                                         <a
-                                            href="{% if item.media_type == "video" %}/watch{% else %}/media{% endif %}/{{ item.media_slug }}?code={{ code.code }}"
-                                            target="_blank"
+                                            href="/media/{{ item.media_slug }}?code={{ code.code }}"
                                             class="btn btn-sm btn-primary gap-1"
+                                        >
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                class="h-4 w-4"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke="currentColor"
+                                            >
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                                />
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                                />
+                                            </svg>
+                                            Details
+                                        </a>
+                                        <a
+                                            href="/media/{{ item.media_slug }}?code={{ code.code }}"
+                                            target="_blank"
+                                            class="btn btn-sm btn-outline gap-1"
                                         >
                                             <svg
                                                 xmlns="http://www.w3.org/2000/svg"

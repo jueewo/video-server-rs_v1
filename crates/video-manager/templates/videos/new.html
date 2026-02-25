@@ -497,7 +497,7 @@ endblock %} {% block content %}
                         this.successMessage = "Redirecting to video page...";
                         setTimeout(() => {
                             window.location.href =
-                                "/watch/" + this.formData.slug;
+                                "/media/" + this.formData.slug;
                         }, 1000);
                     } else {
                         this.errorMessage =

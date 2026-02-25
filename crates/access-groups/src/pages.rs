@@ -177,7 +177,7 @@ pub async fn group_detail_page_handler(
         resources.push(ResourceItem {
             title,
             thumbnail: format!("/hls/{}/thumbnail.webp", slug),
-            url: format!("/watch/{}", slug),
+            url: format!("/media/{}", slug),
             resource_type,
         });
     }

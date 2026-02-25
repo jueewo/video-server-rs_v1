@@ -43,8 +43,45 @@ pub struct CreateAccessCodeRequest {
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct MediaItem {
-    pub media_type: String, // "video" or "image"
+    pub media_type: String, // "video", "image", or "document"
     pub media_slug: String,
+    pub filename: String, // For file type detection (PDF, MD, BPMN, etc.)
+}
+
+impl MediaItem {
+    /// Get the specific file type label for display (PDF, MD, BPMN, etc.)
+    pub fn file_type_label(&self) -> &str {
+        if self.media_type == "video" {
+            "VIDEO"
+        } else if self.media_type == "image" {
+            "IMAGE"
+        } else if self.media_type == "document" {
+            // Check file extension for specific document types
+            if self.filename.ends_with(".pdf") {
+                "PDF"
+            } else if self.filename.ends_with(".md") || self.filename.ends_with(".markdown") {
+                "MD"
+            } else if self.filename.ends_with(".bpmn") {
+                "BPMN"
+            } else {
+                "DOC"
+            }
+        } else {
+            "FILE"
+        }
+    }
+
+    /// Get badge color class for the file type
+    pub fn badge_color(&self) -> &str {
+        match self.file_type_label() {
+            "VIDEO" => "badge-error",
+            "IMAGE" => "badge-success",
+            "PDF" => "badge-warning",
+            "MD" => "badge-secondary",
+            "BPMN" => "badge-info",
+            _ => "badge-accent",
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -193,12 +230,14 @@ pub async fn view_access_code_page(
     let (id, code_name, description, expires_at, created_at) =
         code_record.ok_or(StatusCode::NOT_FOUND)?;
 
-    // Get permissions for this code
-    let permissions = sqlx::query_as::<_, (String, String)>(
+    // Get permissions for this code with filename for file type detection
+    let permissions = sqlx::query_as::<_, (String, String, String)>(
         "SELECT
             acp.media_type,
-            acp.media_slug
+            acp.media_slug,
+            COALESCE(m.filename, acp.media_slug) as filename
         FROM access_code_permissions acp
+        LEFT JOIN media_items m ON m.slug = acp.media_slug
         WHERE acp.access_code_id = ?",
     )
     .bind(id)
@@ -208,9 +247,10 @@ pub async fn view_access_code_page(
 
     let media_items: Vec<MediaItem> = permissions
         .into_iter()
-        .map(|(media_type, media_slug)| MediaItem {
+        .map(|(media_type, media_slug, filename)| MediaItem {
             media_type,
             media_slug,
+            filename: filename.to_lowercase(), // Lowercase for consistent file type detection
         })
         .collect();
 
@@ -605,12 +645,14 @@ pub async fn list_access_codes(
     let mut access_codes = Vec::new();
 
     for (id, code, description, expires_at, created_at) in codes {
-        // Get permissions for this code
-        let permissions = sqlx::query_as::<_, (String, String)>(
+        // Get permissions for this code with filename for file type detection
+        let permissions = sqlx::query_as::<_, (String, String, String)>(
             "SELECT
             acp.media_type,
-            acp.media_slug
+            acp.media_slug,
+            COALESCE(m.filename, acp.media_slug) as filename
         FROM access_code_permissions acp
+        LEFT JOIN media_items m ON m.slug = acp.media_slug
         WHERE acp.access_code_id = ?",
         )
         .bind(id)
@@ -620,9 +662,10 @@ pub async fn list_access_codes(
 
         let media_items = permissions
             .into_iter()
-            .map(|(media_type, media_slug)| MediaItem {
+            .map(|(media_type, media_slug, filename)| MediaItem {
                 media_type,
                 media_slug,
+                filename: filename.to_lowercase(), // Lowercase for consistent file type detection
             })
             .collect();
 
@@ -745,12 +788,14 @@ pub async fn list_access_codes_page(
     let mut access_codes = Vec::new();
 
     for (id, code, description, expires_at, created_at) in codes {
-        // Get permissions for this code
-        let permissions = sqlx::query_as::<_, (String, String)>(
+        // Get permissions for this code with filename for file type detection
+        let permissions = sqlx::query_as::<_, (String, String, String)>(
             "SELECT
             acp.media_type,
-            acp.media_slug
+            acp.media_slug,
+            COALESCE(m.filename, acp.media_slug) as filename
         FROM access_code_permissions acp
+        LEFT JOIN media_items m ON m.slug = acp.media_slug
         WHERE acp.access_code_id = ?",
         )
         .bind(id)
@@ -760,9 +805,10 @@ pub async fn list_access_codes_page(
 
         let media_items: Vec<MediaItem> = permissions
             .into_iter()
-            .map(|(media_type, media_slug)| MediaItem {
+            .map(|(media_type, media_slug, filename)| MediaItem {
                 media_type,
                 media_slug,
+                filename: filename.to_lowercase(), // Lowercase for consistent file type detection
             })
             .collect();
 

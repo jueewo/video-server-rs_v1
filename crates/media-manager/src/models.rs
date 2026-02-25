@@ -130,17 +130,8 @@ impl UnifiedMediaItem {
     pub fn public_url(&self) -> String {
         match self {
             Self::MediaItem(m) => {
-                // For markdown documents, use the preview/raw view
-                if self.is_markdown() {
-                    return format!("/media/{}/view", m.slug);
-                }
-
-                match m.media_type.as_str() {
-                    "video" => format!("/videos/{}", m.slug),
-                    "image" => format!("/images/{}", m.slug),
-                    "document" => format!("/documents/{}", m.slug),
-                    _ => format!("/media/{}", m.slug),
-                }
+                // All media types now use unified /media/{slug} route
+                format!("/media/{}", m.slug)
             }
         }
     }

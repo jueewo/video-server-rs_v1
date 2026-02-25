@@ -291,21 +291,18 @@ async fn demo_handler(
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
                 for (media_type, slug) in permissions {
-                    let title = match media_type.as_str() {
-                        "video" => sqlx::query_scalar("SELECT title FROM videos WHERE slug = ?")
-                            .bind(&slug)
-                            .fetch_optional(&state.video_state.pool)
-                            .await
-                            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-                            .unwrap_or_else(|| "Unknown Video".to_string()),
-                        "image" => sqlx::query_scalar("SELECT title FROM images WHERE slug = ?")
-                            .bind(&slug)
-                            .fetch_optional(&state.video_state.pool)
-                            .await
-                            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-                            .unwrap_or_else(|| "Unknown Image".to_string()),
-                        _ => "Unknown".to_string(),
-                    };
+                    // Query unified media_items table
+                    let title: Option<String> = sqlx::query_scalar(
+                        "SELECT title FROM media_items WHERE slug = ? AND media_type = ?"
+                    )
+                    .bind(&slug)
+                    .bind(&media_type)
+                    .fetch_optional(&state.video_state.pool)
+                    .await
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+                    let title = title.unwrap_or_else(|| format!("Unknown {}", media_type));
+
                     resources.push(MediaResource {
                         media_type,
                         slug,

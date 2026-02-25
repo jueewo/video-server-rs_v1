@@ -1,60 +1,85 @@
-{% extends "base-tailwind.html" %} {% block title %}{{ app_title }} - Access Code Demo{%
-endblock %} {% block content %}
-<div class="container">
-    <h1>🔑 Access Code Demo</h1>
-    <p class="subtitle">Enter an access code to see assigned resources</p>
-
-    <form method="GET" action="/demo">
-        <div class="form-group">
-            <label for="code">Access Code:</label>
-            <input
-                type="text"
-                id="code"
-                name="code"
-                value="{{ code }}"
-                required
-            />
-        </div>
-        <button type="submit" class="btn btn-primary">View Resources</button>
-    </form>
-
-    {% if !code.is_empty() && error.is_empty() %}
-    <div
-        class="alert alert-success"
-        style="
-            margin-top: 20px;
-            padding: 20px;
-            background: #e8f5e9;
-            border: 2px solid #4caf50;
-            border-radius: 8px;
-        "
-    >
-        <h3 style="margin-top: 0; color: #2e7d32">✅ Valid Access Code!</h3>
-        <p style="margin-bottom: 15px">
-            This access code grants access to
-            <strong>{{ resource_count }}</strong> resource{% if resource_count
-            != 1 %}s{% endif %}.
-        </p>
-        <a
-            href="/access/preview?code={{ code }}"
-            class="btn btn-primary"
-            style="font-size: 16px; padding: 12px 24px"
-        >
-            🎬 View Full Preview Page →
-        </a>
-        <p style="margin-top: 15px; font-size: 14px; color: #666">
-            The preview page shows all resources in a beautiful card layout with
-            direct access links.
-        </p>
+{% extends "base-tailwind.html" %}
+{% block title %}{{ app_title }} - Access Code Demo{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+    <!-- Page Header -->
+    <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold mb-2">🔑 Access Code Demo</h1>
+        <p class="text-base-content/60">Enter an access code to see assigned resources</p>
     </div>
-    {% endif %} {% if !error.is_empty() %}
-    <div class="error">{{ error }}</div>
+
+    <!-- Access Code Form -->
+    <div class="card bg-base-100 shadow-xl mb-6">
+        <div class="card-body">
+            <form method="GET" action="/demo" class="space-y-4">
+                <div class="form-control">
+                    <label class="label" for="code">
+                        <span class="label-text font-semibold">Access Code</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="code"
+                        name="code"
+                        value="{{ code }}"
+                        placeholder="Enter your access code"
+                        class="input input-bordered w-full"
+                        required
+                        autofocus
+                    />
+                </div>
+                <button type="submit" class="btn btn-primary w-full">
+                    View Resources
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Success Message -->
+    {% if !code.is_empty() && error.is_empty() %}
+    <div class="alert alert-success shadow-lg">
+        <div>
+            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+                <h3 class="font-bold">Valid Access Code!</h3>
+                <div class="text-sm">
+                    This access code grants access to <strong>{{ resource_count }}</strong> resource{% if resource_count != 1 %}s{% endif %}.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl mt-6">
+        <div class="card-body">
+            <h2 class="card-title">Ready to view your resources?</h2>
+            <p class="text-base-content/70">
+                The preview page shows all resources in a beautiful card layout with direct access links.
+            </p>
+            <div class="card-actions justify-end mt-4">
+                <a href="/access/preview?code={{ code }}" class="btn btn-primary btn-lg">
+                    🎬 View Full Preview Page →
+                </a>
+            </div>
+        </div>
+    </div>
     {% endif %}
 
-    <div class="footer">
-        <p><a href="/">← Back to Home</a></p>
+    <!-- Error Message -->
+    {% if !error.is_empty() %}
+    <div class="alert alert-error shadow-lg">
+        <div>
+            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{{ error }}</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Back Link -->
+    <div class="mt-8 text-center">
+        <a href="/" class="btn btn-ghost">← Back to Home</a>
     </div>
 </div>
-{% endblock %} {% block extra_styles %} .resource-item { background: #f8f9fa;
-padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid
-#667eea; } .resources { margin-top: 20px; } {% endblock %}
+{% endblock %}

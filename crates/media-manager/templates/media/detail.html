@@ -18,15 +18,15 @@
         <figure class="bg-black">
             {% if media.thumbnail_url.is_some() %}
             <img
-                src="{{ media.thumbnail_url.as_ref().unwrap() }}"
+                src="{{ media.thumbnail_url.as_ref().unwrap() }}{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}"
                 alt="{{ media.title }}"
                 class="max-h-[600px] object-contain cursor-pointer"
-                onclick="window.open('/images/{{ media.slug }}/original')"
+                onclick="window.open('/images/{{ media.slug }}/original{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}')"
                 title="Click to view original"
             />
             {% else %}
             <img
-                src="/images/{{ media.slug }}"
+                src="/images/{{ media.slug }}{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}"
                 alt="{{ media.title }}"
                 class="max-h-[600px] object-contain"
             />
@@ -35,8 +35,7 @@
         {% else if media.media_type == "video" %}
         <!-- Video Player -->
         <figure class="bg-black">
-            <video controls class="w-full max-h-[600px]">
-                <source src="/videos/{{ media.slug }}/stream" type="video/mp4">
+            <video id="video-player" controls class="w-full max-h-[600px]" poster="/hls/{{ media.slug }}/thumbnail.webp{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}">
                 Your browser does not support the video tag.
             </video>
         </figure>
@@ -113,11 +112,11 @@
             <!-- Actions -->
             <div class="card-actions justify-end mt-4">
                 {% if media.media_type == "image" %}
-                <a href="/images/{{ media.slug }}/original" target="_blank" class="btn btn-outline">
+                <a href="/images/{{ media.slug }}/original{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}" target="_blank" class="btn btn-outline">
                     🖼️ View Original
                 </a>
                 {% if media.thumbnail_url.is_some() %}
-                <a href="{{ media.thumbnail_url.as_ref().unwrap() }}" target="_blank" class="btn btn-outline btn-sm">
+                <a href="{{ media.thumbnail_url.as_ref().unwrap() }}{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}" target="_blank" class="btn btn-outline btn-sm">
                     🔍 Thumbnail
                 </a>
                 {% endif %}
@@ -129,8 +128,8 @@
                 {% endif %}
                 <!-- Download handled by browser for document viewing -->
                 {% else if media.media_type == "video" %}
-                <a href="/watch/{{ media.slug }}" class="btn btn-primary">
-                    ▶️ Watch Video
+                <a href="/media/{{ media.slug }}{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}" class="btn btn-primary">
+                    ▶️ View Video
                 </a>
                 {% endif %}
 
@@ -234,6 +233,59 @@
         </div>
     </div>
 </div>
+
+{% if media.media_type == "video" %}
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script>
+// Initialize HLS video player
+(function() {
+    const video = document.getElementById('video-player');
+    if (!video) return;
+
+    const videoSrc = '/hls/{{ media.slug }}/master.m3u8{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}';
+
+    if (Hls.isSupported()) {
+        const hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: false,
+            backBufferLength: 90
+        });
+
+        hls.loadSource(videoSrc);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+            console.log('HLS player ready');
+        });
+
+        hls.on(Hls.Events.ERROR, function(event, data) {
+            console.error('HLS error:', data);
+            if (data.fatal) {
+                switch(data.type) {
+                    case Hls.ErrorTypes.NETWORK_ERROR:
+                        console.log('Network error - trying to recover...');
+                        hls.startLoad();
+                        break;
+                    case Hls.ErrorTypes.MEDIA_ERROR:
+                        console.log('Media error - trying to recover...');
+                        hls.recoverMediaError();
+                        break;
+                    default:
+                        console.error('Fatal error:', data.details);
+                        hls.destroy();
+                        break;
+                }
+            }
+        });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Native HLS support (Safari, iOS)
+        video.src = videoSrc;
+    } else {
+        console.error('HLS not supported in this browser');
+    }
+})();
+</script>
+{% endif %}
 
 <script>
 function copyShareLink() {

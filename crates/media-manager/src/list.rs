@@ -122,6 +122,10 @@ pub async fn list_media_html(
         .flatten()
         .unwrap_or(false);
 
+    if !authenticated {
+        return Redirect::to("/login").into_response();
+    }
+
     // Get user_id from session if authenticated
     let user_id: Option<String> = if authenticated {
         session.get("user_id").await.ok().flatten()
@@ -327,6 +331,14 @@ pub async fn list_media_json(
         .ok()
         .flatten()
         .unwrap_or(false);
+
+    if !authenticated {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "Authentication required"})),
+        )
+            .into_response();
+    }
 
     let search_service = MediaSearchService::new(state.pool.clone());
 

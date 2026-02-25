@@ -852,14 +852,7 @@ async fn main() -> anyhow::Result<()> {
             axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
         ))
         // Unified media manager — listing, search, detail, CRUD (no rate limit on reads)
-        .merge(
-            media_routes()
-                .with_state((*media_manager_state).clone())
-                .route_layer(axum::middleware::from_fn_with_state(
-                    Arc::new(pool.clone()),
-                    api_key_or_session_auth,
-                )),
-        )
+        .merge(media_routes().with_state((*media_manager_state).clone()))
         // Media uploads — strict rate limiting for resource protection
         .merge({
             let r = media_upload_routes()

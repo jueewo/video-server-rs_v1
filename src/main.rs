@@ -883,9 +883,7 @@ async fn main() -> anyhow::Result<()> {
             }
         })
         // Legacy video routes - kept for HLS streaming
-        .merge(video_routes().with_state(video_state).route_layer(
-            axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
-        ))
+        .merge(video_routes().with_state(video_state))
         // REMOVED: image_routes and document_routes - replaced by unified media-manager
         // Access codes — public preview route stays unauthenticated (shared link landing page)
         // Rate-limited as "validation" class (abuse-prone access-code checks)

@@ -132,6 +132,30 @@
     </div>
     {% when None %} {% endmatch %}
 
+    <!-- HLS Transcoding Progress Modal -->
+    <div id="progressModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+        <div class="relative flex items-center justify-center min-h-screen p-4">
+            <div class="bg-base-100 rounded-xl shadow-2xl max-w-md w-full p-6">
+                <h3 class="text-xl font-bold mb-4">🎬 Processing Video</h3>
+                <div id="progressStage" class="text-sm text-base-content/70 mb-2">Starting...</div>
+                <div class="w-full bg-base-300 rounded-full h-3 mb-2">
+                    <div id="progressBarFill" class="bg-primary h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between text-xs text-base-content/60">
+                    <span id="progressPercent">0%</span>
+                    <span id="progressEta"></span>
+                </div>
+                <div id="progressError" class="hidden mt-4 alert alert-error">
+                    <span id="progressErrorMsg"></span>
+                </div>
+                <div id="progressSuccess" class="hidden mt-4 alert alert-success">
+                    <span>✅ Transcoding complete! Redirecting...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Upload Card -->
     <div class="card bg-base-100 shadow-xl mb-8">
         <div class="card-body">
@@ -285,7 +309,7 @@
                 </div>
 
                 <!-- Public checkbox -->
-                <div class="form-control mb-6">
+                <div class="form-control mb-4">
                     <label class="label cursor-pointer justify-start gap-3">
                         <input
                             type="checkbox"
@@ -296,6 +320,29 @@
                         />
                         <span class="label-text"
                             >Make this media publicly accessible</span
+                        >
+                    </label>
+                </div>
+
+                <!-- Transcode checkbox (video only) -->
+                <div class="form-control mb-6" id="transcodeSection" style="display: none;">
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input
+                            type="checkbox"
+                            id="transcode_for_streaming"
+                            name="transcode_for_streaming"
+                            value="true"
+                            class="checkbox checkbox-primary"
+                            checked
+                        />
+                        <div class="label-text">
+                            <span class="font-semibold">Transcode for streaming</span>
+                            <span class="text-sm text-base-content/60 block">Convert to HLS for adaptive quality (slower upload)</span>
+                        </div>
+                    </label>
+                    <label class="label">
+                        <span class="label-text-alt text-base-content/50"
+                            >Uncheck to upload as MP4 (faster, direct playback)</span
                         >
                     </label>
                 </div>
@@ -473,6 +520,14 @@
         indicator.textContent = mediaType;
         indicator.className = "type-indicator type-" + mediaType.toLowerCase();
 
+        // Show/hide transcode option for videos
+        const transcodeSection = document.getElementById("transcodeSection");
+        if (mediaType.toLowerCase() === "video") {
+            transcodeSection.style.display = "block";
+        } else {
+            transcodeSection.style.display = "none";
+        }
+
         const titleInput = document.getElementById("title");
         if (!titleInput.value) {
             titleInput.value = file.name
@@ -512,6 +567,12 @@
         const isPublicCheckbox = document.getElementById("is_public");
         formData.set("is_public", isPublicCheckbox.checked ? "1" : "0");
 
+        // Handle transcode_for_streaming - only for videos
+        const transcodeCheckbox = document.getElementById("transcode_for_streaming");
+        if (transcodeCheckbox) {
+            formData.set("transcode_for_streaming", transcodeCheckbox.checked ? "1" : "0");
+        }
+
         const fi = document.getElementById("fileInput");
         if (fi.files.length === 0) {
             showToast("Please select a file to upload", "error");
@@ -532,13 +593,24 @@
         });
 
         xhr.addEventListener("load", () => {
-            if (xhr.status === 200) {
+            if (xhr.status === 200 || xhr.status === 202) {
                 try {
                     const res = JSON.parse(xhr.responseText);
+
+                    // Check if HLS transcoding is in progress (202 ACCEPTED)
+                    if (xhr.status === 202 || res.status === "processing") {
+                        // Start WebSocket progress tracking
+                        progressBar.classList.remove("active");
+                        startHLSProgressTracking(res.slug);
+                        return;
+                    }
+
+                    // Regular upload success (200 OK)
                     if (res.success) {
                         window.location.href = "/media?success=upload";
                         return;
                     }
+
                     showToast(res.message || "Upload failed", "error");
                 } catch {
                     showToast("Unexpected server response", "error");
@@ -567,6 +639,98 @@
         uploadBtn.textContent = "📤 Upload Media";
         progressBar.classList.remove("active");
         progressFill.style.width = "0%";
+    }
+
+    // ── HLS Progress Tracking via WebSocket ──────────────────────────────────
+
+    function startHLSProgressTracking(slug) {
+        const modal = document.getElementById("progressModal");
+        const stage = document.getElementById("progressStage");
+        const barFill = document.getElementById("progressBarFill");
+        const percent = document.getElementById("progressPercent");
+        const eta = document.getElementById("progressEta");
+        const errorDiv = document.getElementById("progressError");
+        const errorMsg = document.getElementById("progressErrorMsg");
+        const successDiv = document.getElementById("progressSuccess");
+
+        // Show modal
+        modal.classList.remove("hidden");
+
+        // Connect to WebSocket
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsUrl = `${protocol}//${window.location.host}/api/media/${slug}/progress/ws`;
+        const ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            console.log("WebSocket connected for progress tracking");
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                console.log("Progress update:", data);
+
+                // Check for connection message
+                if (data.type === "connected") {
+                    return;
+                }
+
+                // Update progress display
+                if (data.stage) {
+                    stage.textContent = data.stage;
+                }
+
+                if (data.percent !== undefined) {
+                    barFill.style.width = data.percent + "%";
+                    percent.textContent = data.percent + "%";
+                }
+
+                if (data.eta_seconds) {
+                    const minutes = Math.floor(data.eta_seconds / 60);
+                    const seconds = data.eta_seconds % 60;
+                    eta.textContent = `~${minutes}m ${seconds}s remaining`;
+                } else {
+                    eta.textContent = "";
+                }
+
+                // Handle errors
+                if (data.error) {
+                    errorMsg.textContent = data.error;
+                    errorDiv.classList.remove("hidden");
+                    ws.close();
+                    setTimeout(() => {
+                        modal.classList.add("hidden");
+                        resetUploadBtn();
+                    }, 5000);
+                    return;
+                }
+
+                // Handle completion
+                if (data.percent >= 100 || data.stage === "Complete") {
+                    successDiv.classList.remove("hidden");
+                    ws.close();
+                    setTimeout(() => {
+                        window.location.href = `/media/${slug}`;
+                    }, 2000);
+                }
+            } catch (e) {
+                console.error("Error parsing WebSocket message:", e);
+            }
+        };
+
+        ws.onerror = (error) => {
+            console.error("WebSocket error:", error);
+            errorMsg.textContent = "Connection error - check progress manually";
+            errorDiv.classList.remove("hidden");
+            setTimeout(() => {
+                modal.classList.add("hidden");
+                resetUploadBtn();
+            }, 3000);
+        };
+
+        ws.onclose = () => {
+            console.log("WebSocket connection closed");
+        };
     }
 </script>
 {% endblock %}

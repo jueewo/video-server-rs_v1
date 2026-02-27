@@ -712,6 +712,39 @@ async fn generate_thumbnail_stage(
     .await
     .context("Thumbnail generation failed")?;
 
+    // Convert JPEG to WebP for better compression
+    convert_thumbnail_to_webp(&thumbnail_path).await?;
+
+    Ok(())
+}
+
+/// Convert thumbnail JPEG to WebP format
+async fn convert_thumbnail_to_webp(jpeg_path: &Path) -> Result<()> {
+    use image::ImageEncoder;
+
+    let webp_path = jpeg_path.with_extension("webp");
+
+    // Read JPEG file
+    let jpeg_data = tokio::fs::read(jpeg_path).await?;
+    let img = image::load_from_memory(&jpeg_data)
+        .context("Failed to load JPEG thumbnail")?;
+
+    // Encode as WebP (lossless)
+    let mut webp_data = Vec::new();
+    let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut webp_data);
+    img.write_with_encoder(encoder)
+        .context("Failed to encode WebP")?;
+
+    // Write WebP file
+    tokio::fs::write(&webp_path, &webp_data)
+        .await
+        .context("Failed to write WebP thumbnail")?;
+
+    info!("Converted thumbnail to WebP: {:?}", webp_path);
+
+    // Remove old JPEG file
+    let _ = tokio::fs::remove_file(jpeg_path).await;
+
     Ok(())
 }
 

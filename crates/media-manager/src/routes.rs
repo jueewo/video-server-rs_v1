@@ -24,6 +24,12 @@ pub struct MediaManagerState {
     pub storage_dir: String,
     pub user_storage: UserStorageManager,
     pub access_control: Arc<access_control::AccessControlService>,
+    // Optional video processing components (needed for HLS transcoding)
+    pub video_progress_tracker: Option<video_manager::progress::ProgressTracker>,
+    pub video_metrics_store: Option<video_manager::metrics::MetricsStore>,
+    pub video_audit_logger: Option<video_manager::metrics::AuditLogger>,
+    // HLS transcoding progress tracker (for WebSocket updates)
+    pub hls_progress: Arc<crate::progress::ProgressTracker>,
 }
 
 impl MediaManagerState {
@@ -38,6 +44,32 @@ impl MediaManagerState {
             storage_dir,
             user_storage,
             access_control,
+            video_progress_tracker: None,
+            video_metrics_store: None,
+            video_audit_logger: None,
+            hls_progress: Arc::new(crate::progress::ProgressTracker::new()),
+        }
+    }
+
+    /// Create a new state with video processing support
+    pub fn with_video_processing(
+        pool: SqlitePool,
+        storage_dir: String,
+        user_storage: UserStorageManager,
+        access_control: Arc<access_control::AccessControlService>,
+        progress_tracker: video_manager::progress::ProgressTracker,
+        metrics_store: video_manager::metrics::MetricsStore,
+        audit_logger: video_manager::metrics::AuditLogger,
+    ) -> Self {
+        Self {
+            pool,
+            storage_dir,
+            user_storage,
+            access_control,
+            video_progress_tracker: Some(progress_tracker),
+            video_metrics_store: Some(metrics_store),
+            video_audit_logger: Some(audit_logger),
+            hls_progress: Arc::new(crate::progress::ProgressTracker::new()),
         }
     }
 }
@@ -92,6 +124,15 @@ pub fn media_routes() -> Router<MediaManagerState> {
                 .put(crate::list::update_media_item)
                 .delete(crate::list::delete_media),
         )
+        // ── Video progress tracking ─────────────────────────────────
+        .route(
+            "/api/media/{slug}/progress",
+            get(crate::upload::get_upload_progress),
+        )
+        .route(
+            "/api/media/{slug}/progress/ws",
+            get(crate::upload::progress_websocket),
+        )
 }
 
 /// Create media upload routes (strict rate limiting)
@@ -134,5 +175,14 @@ pub fn media_serving_routes() -> Router<MediaManagerState> {
         .route(
             "/images/{slug}/thumb",
             get(crate::serve::serve_image_thumbnail),
+        )
+        // ── Video serving (MP4 direct playback) ──────────────────────
+        .route(
+            "/media/{slug}/video.mp4",
+            get(crate::serve::serve_video_mp4),
+        )
+        .route(
+            "/videos/{slug}/thumb",
+            get(crate::serve::serve_video_thumbnail),
         )
 }

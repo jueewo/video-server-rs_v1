@@ -96,6 +96,7 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-5xl" x-data="videoUpload()">
     <!-- Debug Panel (remove in production) -->
+    <button type="button" @click="alert('Alpine works! Step: ' + step)" class="btn btn-error mb-4">Test Alpine</button>
     <div class="alert alert-info mb-4 text-xs" x-show="false" x-init="setTimeout(() => $el.style.display = 'block', 500)">
         <div>
             <strong>Debug Info:</strong>
@@ -397,11 +398,24 @@
                 <div class="card-body">
                     <h2 class="card-title text-xl md:text-2xl mb-4">Settings</h2>
 
-                    <div class="space-y-3">
-                        <!-- Visibility -->
+                    <!-- Vault Selection -->
+                    <div class="form-control mb-6">
+                        <label class="label">
+                            <span class="label-text font-semibold">Storage Vault</span>
+                        </label>
+                        <select x-model="formData.vaultId" class="select select-bordered w-full">
+                            <option value="">Select a vault</option>
+                            <template x-for="vault in vaults" :key="vault.vault_id">
+                                <option :value="vault.vault_id" x-text="vault.vault_name"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <div class="space-y-3 opacity-50 pointer-events-none">
+                        <!-- Visibility (Disabled) -->
                         <div class="form-control">
                             <label class="label cursor-pointer justify-start gap-4">
-                                <input type="checkbox" x-model="formData.isPublic" class="toggle toggle-primary">
+                                <input type="checkbox" x-model="formData.isPublic" class="toggle toggle-primary" disabled>
                                 <div></div>
                                     <div class="font-semibold">Public Visibility</div>
                                     <p class="text-sm text-base-content/60">Make this video visible to everyone</p>
@@ -409,10 +423,10 @@
                             </label>
                         </div>
 
-                        <!-- Featured -->
+                        <!-- Featured (Disabled) -->
                         <div class="form-control">
                             <label class="label cursor-pointer justify-start gap-4">
-                                <input type="checkbox" x-model="formData.featured" class="toggle toggle-secondary">
+                                <input type="checkbox" x-model="formData.featured" class="toggle toggle-secondary" disabled>
                                 <div>
                                     <div class="font-semibold">Featured</div>
                                     <p class="text-sm text-base-content/60">Highlight this video on homepage</p>
@@ -420,10 +434,10 @@
                             </label>
                         </div>
 
-                        <!-- Comments -->
+                        <!-- Comments (Disabled) -->
                         <div class="form-control">
                             <label class="label cursor-pointer justify-start gap-4">
-                                <input type="checkbox" x-model="formData.allowComments" class="toggle toggle-accent">
+                                <input type="checkbox" x-model="formData.allowComments" class="toggle toggle-accent" disabled>
                                 <div>
                                     <div class="font-semibold">Allow Comments</div>
                                     <p class="text-sm text-base-content/60">Users can comment on this video</p>
@@ -431,16 +445,23 @@
                             </label>
                         </div>
 
-                        <!-- Download -->
+                        <!-- Download (Disabled) -->
                         <div class="form-control">
                             <label class="label cursor-pointer justify-start gap-4">
-                                <input type="checkbox" x-model="formData.allowDownload" class="toggle toggle-info">
+                                <input type="checkbox" x-model="formData.allowDownload" class="toggle toggle-info" disabled>
                                 <div>
                                     <div class="font-semibold">Allow Download</div>
                                     <p class="text-sm text-base-content/60">Users can download this video</p>
                                 </div>
                             </label>
                         </div>
+                    </div>
+
+                    <div class="alert alert-warning mt-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
+                        <span>Settings are managed at the vault level</span>
                     </div>
                 </div>
             </div>
@@ -567,7 +588,7 @@
                     </svg>
                     Back to Edit
                 </button>
-                <button type="submit" class="btn btn-primary flex-1 gap-2 order-1 md:order-2" :disabled="uploading">
+                <button type="button" @click="alert('Button clicked!'); handleSubmit()" class="btn btn-primary flex-1 gap-2 order-1 md:order-2" :disabled="uploading">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
                         <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1v-5a1 1 0 00-.293-.707l-2-2A1 1 0 0015 7h-1z" />
@@ -706,7 +727,9 @@
 
 {% block extra_scripts %}
 <script>
+console.log('videoUpload function starting...');
 function videoUpload() {
+    console.log('videoUpload function called');
     return {
         step: 1,
         selectedFile: null,
@@ -728,10 +751,12 @@ function videoUpload() {
             featured: false,
             allowComments: true,
             allowDownload: false,
-            groupId: ''
+            groupId: '',
+            vaultId: ''
         },
         validationErrors: {},
         groups: [],
+        vaults: [],
         tagInput: '',
         tagSuggestions: [],
         uploading: false,
@@ -794,6 +819,34 @@ function videoUpload() {
                 console.error('Groups loading error:', error);
                 // Don't fail the page
             });
+
+            // Load vaults
+            this.loadVaults().catch(error => {
+                console.error('Vaults loading error:', error);
+            });
+        },
+
+        async loadVaults() {
+            console.log('Loading vaults...');
+            try {
+                const response = await fetch('/api/user/vaults', {
+                    credentials: 'same-origin'
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    this.vaults = Array.isArray(data) ? data : [];
+                    console.log('Vaults loaded:', this.vaults.length);
+                    // Auto-select first vault if available
+                    if (this.vaults.length > 0 && !this.formData.vaultId) {
+                        this.formData.vaultId = this.vaults[0].vault_id;
+                    }
+                } else {
+                    this.vaults = [];
+                }
+            } catch (error) {
+                console.error('Failed to load vaults:', error);
+                this.vaults = [];
+            }
         },
 
         async loadGroups() {
@@ -851,20 +904,25 @@ function videoUpload() {
         },
 
         validateAndNext(nextStep) {
+            console.log('validateAndNext called, nextStep:', nextStep);
             // Clear previous errors
             this.validationErrors = {};
 
             if (nextStep === 2) {
                 this.validateField('file');
+                console.log('Step 2 validation, errors:', this.validationErrors);
                 if (Object.keys(this.validationErrors).length === 0) {
                     this.step = nextStep;
                 }
             } else if (nextStep === 3) {
                 this.validateField('title');
                 this.validateField('slug');
+                console.log('Step 3 validation, title:', this.formData.title, 'slug:', this.formData.slug, 'errors:', this.validationErrors);
                 if (Object.keys(this.validationErrors).length === 0) {
                     this.step = nextStep;
+                    console.log('Moving to step:', nextStep);
                 } else {
+                    console.log('Validation failed:', this.validationErrors);
                     showToast('Please fix validation errors', 'error');
                 }
             }
@@ -1025,6 +1083,7 @@ function videoUpload() {
         },
 
         async handleSubmit() {
+            console.log('handleSubmit called');
             // Final validation
             this.validateField('file');
             this.validateField('title');
@@ -1049,7 +1108,7 @@ function videoUpload() {
 
             try {
                 const formData = new FormData();
-                formData.append('video', this.selectedFile);
+                formData.append('file', this.selectedFile);
                 formData.append('title', this.formData.title);
                 formData.append('slug', this.formData.slug);
                 formData.append('description', this.formData.description || '');
@@ -1063,6 +1122,9 @@ function videoUpload() {
                 formData.append('allow_download', this.formData.allowDownload);
                 if (this.formData.groupId) {
                     formData.append('group_id', this.formData.groupId);
+                }
+                if (this.formData.vaultId) {
+                    formData.append('vault_id', this.formData.vaultId);
                 }
 
                 const xhr = new XMLHttpRequest();

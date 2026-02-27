@@ -35,9 +35,19 @@
         {% else if media.media_type == "video" %}
         <!-- Video Player -->
         <figure class="bg-black">
+            {% if media.is_mp4() %}
+            <!-- MP4 Direct Playback -->
+            <video id="video-player" controls class="w-full max-h-[600px]"
+                {% if media.thumbnail_url.is_some() %}poster="{{ media.thumbnail_url.as_ref().unwrap() }}{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}"{% endif %}>
+                <source src="/media/{{ media.slug }}/video.mp4{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+            {% else %}
+            <!-- HLS Streaming -->
             <video id="video-player" controls class="w-full max-h-[600px]" poster="/hls/{{ media.slug }}/thumbnail.webp{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}">
                 Your browser does not support the video tag.
             </video>
+            {% endif %}
         </figure>
         {% else if media.media_type == "document" %}
         <!-- Document Preview -->
@@ -234,7 +244,7 @@
     </div>
 </div>
 
-{% if media.media_type == "video" %}
+{% if media.is_hls() %}
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script>
 // Initialize HLS video player

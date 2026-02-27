@@ -42,6 +42,49 @@
             aria-atomic="false"
         ></div>
 
+        <!-- Global Confirm Dialog Modal -->
+        <div x-data="confirmDialog()"
+             x-show="open"
+             x-cloak
+             class="fixed inset-0 z-50 overflow-y-auto"
+             @keydown.escape.window="close()"
+             @show-confirm.window="showWithCallback($event.detail.title, $event.detail.message, $event.detail.callback)"
+             id="global-confirm-dialog">
+            <!-- Backdrop -->
+            <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+                 @click="close()"></div>
+
+            <!-- Dialog -->
+            <div class="flex min-h-screen items-center justify-center p-4">
+                <div class="relative bg-base-100 rounded-lg shadow-xl max-w-md w-full p-6"
+                     @click.stop>
+                    <!-- Icon -->
+                    <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-error bg-opacity-10 mb-4">
+                        <svg class="h-6 w-6 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+
+                    <!-- Title -->
+                    <h3 class="text-lg font-semibold text-center mb-2" x-text="title"></h3>
+
+                    <!-- Message -->
+                    <p class="text-sm text-base-content text-opacity-70 text-center mb-6" x-text="message"></p>
+
+                    <!-- Actions -->
+                    <div class="flex gap-3">
+                        <button @click="close()" class="btn btn-ghost flex-1">
+                            Cancel
+                        </button>
+                        <button @click="if(callback) callback(); close();"
+                                class="btn btn-error flex-1">
+                            Confirm
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {% block extra_scripts %}{% endblock %}
 
         <!-- Alpine.js reusable components (registered before Alpine initialises) -->
@@ -96,6 +139,21 @@
                         this.open = false;
                     },
                 }));
+
+                // Global helper functions using Alpine's event system
+                window.showConfirmDialog = function(title, message, url, method = "POST") {
+                    window.dispatchEvent(new CustomEvent('show-confirm', {
+                        detail: { title, message, url, method, callback: null }
+                    }));
+                };
+
+                window.showWithCallback = function(title, message, callback) {
+                    window.dispatchEvent(new CustomEvent('show-confirm', {
+                        detail: { title, message, callback }
+                    }));
+                };
+
+                console.log('✅ Global dialog functions registered');
             });
         </script>
 

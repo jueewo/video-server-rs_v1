@@ -25,6 +25,7 @@ pub struct MediaDetail {
     pub id: i32,
     pub slug: String,
     pub media_type: String,
+    pub video_type: Option<String>,  // 'mp4' or 'hls' for videos
     pub title: String,
     pub description: Option<String>,
     pub filename: String,
@@ -41,6 +42,16 @@ pub struct MediaDetail {
     pub share_count: i32,
     pub created_at: String,
     pub tags: Vec<String>,
+}
+
+impl MediaDetail {
+    pub fn is_mp4(&self) -> bool {
+        self.video_type.as_deref() == Some("mp4")
+    }
+
+    pub fn is_hls(&self) -> bool {
+        self.media_type == "video" && self.video_type.as_deref() != Some("mp4")
+    }
 }
 
 #[derive(Template)]
@@ -76,7 +87,7 @@ pub async fn media_detail_handler(
     let row = match sqlx::query(
         r#"
         SELECT
-            id, slug, media_type, title, description, filename, mime_type, file_size,
+            id, slug, media_type, video_type, title, description, filename, mime_type, file_size,
             is_public, featured, status, category, thumbnail_url,
             view_count, download_count, like_count, share_count, created_at
         FROM media_items
@@ -100,9 +111,39 @@ pub async fn media_detail_handler(
         }
     };
 
-    let media_id: i32 = row.try_get("id").unwrap_or(0);
-    let media_type: String = row.try_get("media_type").unwrap_or_default();
-    let is_public: i32 = row.try_get("is_public").unwrap_or(0);
+    // SQLite returns INTEGER as i64, convert to i32
+    let media_id: i32 = row
+        .try_get::<i64, _>("id")
+        .map(|id| {
+            info!("Retrieved media_id: {}", id);
+            id as i32
+        })
+        .unwrap_or_else(|e| {
+            error!("Failed to get media_id from row for slug {}: {}", slug, e);
+            // Try as i32 fallback
+            row.try_get::<i32, _>("id").unwrap_or_else(|e2| {
+                error!("Also failed to get as i32: {}", e2);
+                0
+            })
+        });
+
+    let media_type: String = row.try_get("media_type").unwrap_or_else(|e| {
+        error!("Failed to get media_type from row: {}", e);
+        String::new()
+    });
+
+    let is_public: i32 = row
+        .try_get::<i64, _>("is_public")
+        .map(|v| v as i32)
+        .unwrap_or_else(|e| {
+            error!("Failed to get is_public from row: {}", e);
+            0
+        });
+
+    info!(
+        "Media detail - slug: {}, id: {}, type: {}, public: {}",
+        slug, media_id, media_type, is_public
+    );
     let is_public_bool = is_public == 1;
 
     // Check access control
@@ -204,6 +245,7 @@ pub async fn media_detail_handler(
         id: media_id,
         slug: row.try_get("slug").unwrap_or_default(),
         media_type: media_type.clone(),
+        video_type: row.try_get("video_type").ok(),
         title: row.try_get("title").unwrap_or_default(),
         description: row.try_get("description").ok(),
         filename: row.try_get("filename").unwrap_or_default(),

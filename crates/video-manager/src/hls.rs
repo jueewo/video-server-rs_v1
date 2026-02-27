@@ -13,7 +13,7 @@ use std::path::Path;
 use std::process::Stdio;
 use tokio::fs;
 use tokio::process::Command;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 /// HLS configuration
 #[derive(Debug, Clone)]
@@ -162,7 +162,7 @@ pub async fn transcode_quality_variant(
     let segment_pattern = quality_dir.join("segment_%03d.ts");
 
     // Build FFmpeg command for HLS transcoding
-    let status = Command::new(&ffmpeg_config.ffmpeg_path)
+    let output = Command::new(&ffmpeg_config.ffmpeg_path)
         .arg("-i")
         .arg(input_path)
         // Video encoding
@@ -201,15 +201,18 @@ pub async fn transcode_quality_variant(
         .arg(&playlist_path)
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
-        .status()
+        .output()
         .await
         .context("Failed to execute FFmpeg for HLS transcoding")?;
 
-    if !status.success() {
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        error!("FFmpeg stderr for {}: {}", preset.name, stderr);
         anyhow::bail!(
-            "FFmpeg HLS transcoding failed for {} with status: {}",
+            "FFmpeg HLS transcoding failed for {} with status: {}\nError: {}",
             preset.name,
-            status
+            output.status,
+            stderr.lines().take(10).collect::<Vec<_>>().join("\n")
         );
     }
 

@@ -8,9 +8,11 @@
 
 use crate::ffmpeg::FFmpegConfig;
 use crate::hls::HlsConfig;
+use crate::metrics::{AuditLogger, MetricsStore};
 use crate::processing::{process_video, ProcessingContext};
 use crate::progress::ProgressTracker;
 use crate::storage::StorageConfig;
+use crate::VideoManagerState;
 use anyhow::{Context, Result};
 use axum::{
     extract::{Multipart, State},
@@ -533,6 +535,27 @@ async fn create_upload_record(
     .context("Failed to insert video record")?;
 
     Ok(())
+}
+
+/// Wrapper to handle video uploads with VideoManagerState
+pub async fn handle_video_upload_vms(
+    session: Session,
+    State(state): State<Arc<crate::VideoManagerState>>,
+    mut multipart: Multipart,
+) -> Result<Json<UploadResponse>, (StatusCode, Json<UploadErrorResponse>)> {
+    // Create UploadState from VideoManagerState
+    let upload_state = Arc::new(UploadState {
+        pool: state.pool.clone(),
+        storage_config: state.storage_config.clone(),
+        ffmpeg_config: state.ffmpeg_config.clone(),
+        hls_config: state.hls_config.clone(),
+        progress_tracker: state.progress_tracker.clone(),
+        metrics_store: state.metrics_store.clone(),
+        audit_logger: state.audit_logger.clone(),
+    });
+
+    // Call the original handler
+    handle_video_upload(session, State(upload_state), multipart).await
 }
 
 #[cfg(test)]

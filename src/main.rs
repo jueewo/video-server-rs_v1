@@ -802,6 +802,9 @@ async fn main() -> anyhow::Result<()> {
     // Create legacy video directory (still used by video-manager for HLS)
     std::fs::create_dir_all(storage_dir.join("videos"))?;
 
+    // Create temp directory for video uploads
+    std::fs::create_dir_all(storage_dir.join("temp"))?;
+
     // Create HTTP client for MediaMTX communication
     let http_client = Client::builder()
         .timeout(std::time::Duration::from_secs(10))
@@ -865,14 +868,17 @@ async fn main() -> anyhow::Result<()> {
     let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));
     println!("🔐 Access Control Service initialized with audit logging enabled");
 
-    // Initialize unified media manager
-    let media_manager_state = Arc::new(MediaManagerState::new(
+    // Initialize unified media manager with video processing support
+    let media_manager_state = Arc::new(MediaManagerState::with_video_processing(
         pool.clone(),
         storage_dir.to_str().unwrap_or("storage").to_string(),
         (*user_storage).clone(),
         access_control.clone(),
+        video_state.progress_tracker.clone(),
+        video_state.metrics_store.clone(),
+        video_state.audit_logger.clone(),
     ));
-    println!("📁 Unified Media Manager initialized (images with original + WebP support)");
+    println!("📁 Unified Media Manager initialized (images with original + WebP support, HLS video transcoding)");
 
     // Initialize Docs Viewer state
     let docs_root = std::env::var("DOCS_ROOT")

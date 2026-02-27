@@ -1016,7 +1016,7 @@ pub async fn delete_media(
 
         match db_result {
             Ok(_) => {
-                // Try to delete physical file if vault_id exists
+                // Try to delete physical file/directory if vault_id exists
                 if let Some(vault_id) = vault_id {
                     let media_type_enum = match media_type.as_str() {
                         "video" => common::storage::MediaType::Video,
@@ -1025,16 +1025,35 @@ pub async fn delete_media(
                         _ => common::storage::MediaType::Document,
                     };
 
-                    let file_path = state
-                        .user_storage
-                        .vault_media_dir(&vault_id, media_type_enum)
-                        .join(&filename);
+                    // For videos, delete the entire directory (contains HLS files, segments, etc.)
+                    // For images/documents, delete the single file
+                    if media_type == "video" {
+                        let video_dir = state
+                            .user_storage
+                            .vault_media_dir(&vault_id, media_type_enum)
+                            .join(&slug);
 
-                    if let Err(e) = tokio::fs::remove_file(&file_path).await {
-                        warn!("Failed to delete file {:?}: {}", file_path, e);
-                        // Continue anyway — database record is deleted
+                        if video_dir.exists() && video_dir.is_dir() {
+                            if let Err(e) = tokio::fs::remove_dir_all(&video_dir).await {
+                                warn!("Failed to delete video directory {:?}: {}", video_dir, e);
+                            } else {
+                                info!("✅ Deleted video directory: {:?}", video_dir);
+                            }
+                        } else {
+                            warn!("Video directory not found: {:?}", video_dir);
+                        }
                     } else {
-                        info!("Deleted file: {:?}", file_path);
+                        let file_path = state
+                            .user_storage
+                            .vault_media_dir(&vault_id, media_type_enum)
+                            .join(&filename);
+
+                        if let Err(e) = tokio::fs::remove_file(&file_path).await {
+                            warn!("Failed to delete file {:?}: {}", file_path, e);
+                            // Continue anyway — database record is deleted
+                        } else {
+                            info!("✅ Deleted file: {:?}", file_path);
+                        }
                     }
 
                     // Also try to delete thumbnail if it exists

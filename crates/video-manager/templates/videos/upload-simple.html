@@ -1,0 +1,325 @@
+{% extends "base-tailwind.html" %}
+{% block title %}Upload Video - Video Server{% endblock %}
+
+{% block extra_head %}
+<style>
+    .drop-zone {
+        border: 2px dashed oklch(var(--bc) / 0.3);
+        border-radius: 0.75rem;
+        padding: 3rem 1.5rem;
+        text-align: center;
+        background: oklch(var(--b2));
+        transition: border-color 0.2s, background 0.2s;
+        cursor: pointer;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+        border-color: oklch(var(--p));
+        background: oklch(var(--p) / 0.06);
+    }
+    .drop-zone input[type="file"] {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+    .file-preview {
+        display: none;
+        margin-top: 1rem;
+        padding: 1rem;
+        background: oklch(var(--b2));
+        border-radius: 0.5rem;
+    }
+    .file-preview.active { display: block; }
+    .progress-bar {
+        width: 100%;
+        height: 6px;
+        background: oklch(var(--b3));
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 1rem;
+        display: none;
+    }
+    .progress-bar.active { display: block; }
+    .progress-fill {
+        height: 100%;
+        background: oklch(var(--p));
+        transition: width 0.3s;
+        width: 0%;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-3xl" x-data="simpleVideoUpload()">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-base-content">📤 Upload Video</h1>
+        <p class="text-base-content/60">Upload a video file for transcoding</p>
+    </div>
+
+    <!-- Error/Success Messages -->
+    <div x-show="error" class="alert alert-error mb-4">
+        <span x-text="error"></span>
+    </div>
+    <div x-show="success" class="alert alert-success mb-4">
+        <span>Video uploaded successfully! Processing in background.</span>
+    </div>
+
+    <!-- Upload Form -->
+    <form @submit.prevent="uploadVideo()" class="space-y-6">
+        
+        <!-- File Drop Zone -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title mb-4">Video File</h2>
+                
+                <div class="drop-zone" :class="{ 'drag-over': isDragging }" 
+                     @dragover.prevent="isDragging = true"
+                     @dragleave.prevent="isDragging = false"
+                     @drop.prevent="handleDrop">
+                    <input type="file" id="videoFile" accept="video/*" @change="handleFileSelect">
+                    <div x-show="!selectedFile">
+                        <div class="text-4xl mb-2">🎬</div>
+                        <p class="font-semibold">Drop video here or click to browse</p>
+                        <p class="text-sm text-base-content/60 mt-1">MP4, WebM, MOV, AVI, MKV • Max 2GB</p>
+                    </div>
+                </div>
+
+                <!-- File Preview -->
+                <div class="file-preview" :class="{ 'active': selectedFile }" x-show="selectedFile">
+                    <div class="flex items-center gap-4">
+                        <video x-ref="videoPreview" controls class="max-h-48 rounded"></video>
+                        <div class="flex-1">
+                            <p class="font-semibold" x-text="selectedFile?.name"></p>
+                            <p class="text-sm text-base-content/60" x-text="formatFileSize(selectedFile?.size)"></p>
+                            <button type="button" @click="clearFile()" class="btn btn-xs btn-error mt-2">Remove</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Video Details -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title mb-4">Video Details</h2>
+
+                <div class="grid gap-4">
+                    <!-- Title -->
+                    <div class="form-control">
+                        <label class="label"><span class="label-text font-semibold">Title</span></label>
+                        <input type="text" x-model="title" class="input input-bordered w-full" placeholder="Video title" required>
+                    </div>
+
+                    <!-- Slug -->
+                    <div class="form-control">
+                        <label class="label"><span class="label-text font-semibold">URL Slug</span></label>
+                        <input type="text" x-model="slug" class="input input-bordered w-full" placeholder="video-url-slug">
+                        <label class="label"><span class="label-text-alt text-base-content/50">Letters, numbers, and hyphens only</span></label>
+                    </div>
+
+                    <!-- Vault -->
+                    <div class="form-control">
+                        <label class="label"><span class="label-text font-semibold">Storage Vault</span></label>
+                        <select x-model="vaultId" class="select select-bordered w-full" required>
+                            <option value="">Select a vault</option>
+                            <template x-for="vault in vaults" :key="vault.vault_id">
+                                <option :value="vault.vault_id" x-text="vault.vault_name"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <!-- Group -->
+                    <div class="form-control">
+                        <label class="label"><span class="label-text font-semibold">Access Group</span></label>
+                        <select x-model="groupId" class="select select-bordered w-full">
+                            <option value="">Public (No Group)</option>
+                            <template x-for="group in groups" :key="group.id">
+                                <option :value="group.id" x-text="group.name"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="form-control">
+                        <label class="label"><span class="label-text font-semibold">Description</span></label>
+                        <textarea x-model="description" class="textarea textarea-bordered w-full" rows="3" placeholder="Optional description"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Progress -->
+        <div x-show="uploading" class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title mb-4">Uploading...</h2>
+                <div class="progress-bar active">
+                    <div class="progress-fill" :style="'width: ' + uploadProgress + '%'"></div>
+                </div>
+                <p class="text-sm text-base-content/60 mt-2" x-text="uploadStatus"></p>
+            </div>
+        </div>
+
+        <!-- Submit -->
+        <div class="flex gap-3">
+            <button type="submit" class="btn btn-primary flex-1" :disabled="uploading || !selectedFile || !title || !vaultId">
+                <span x-show="!uploading">📤 Upload Video</span>
+                <span x-show="uploading">Uploading...</span>
+            </button>
+            <a href="/videos" class="btn btn-ghost">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+function simpleVideoUpload() {
+    return {
+        selectedFile: null,
+        isDragging: false,
+        title: '',
+        slug: '',
+        vaultId: '',
+        groupId: '',
+        description: '',
+        vaults: [],
+        groups: [],
+        uploading: false,
+        uploadProgress: 0,
+        uploadStatus: '',
+        error: '',
+        success: false,
+
+        init() {
+            this.loadVaults();
+            this.loadGroups();
+            // Auto-generate slug from title
+            this.$watch('title', value => {
+                if (value && !this.slug) {
+                    this.slug = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+                }
+            });
+        },
+
+        async loadVaults() {
+            try {
+                const response = await fetch('/api/user/vaults', { credentials: 'same-origin' });
+                if (response.ok) {
+                    this.vaults = await response.json();
+                    console.log('Vaults loaded:', this.vaults);
+                }
+            } catch (e) {
+                console.error('Failed to load vaults:', e);
+            }
+        },
+
+        async loadGroups() {
+            try {
+                const response = await fetch('/api/groups', { credentials: 'same-origin' });
+                if (response.ok) {
+                    this.groups = await response.json();
+                    console.log('Groups loaded:', this.groups);
+                }
+            } catch (e) {
+                console.error('Failed to load groups:', e);
+            }
+        },
+
+        handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) this.setFile(file);
+        },
+
+        handleDrop(event) {
+            this.isDragging = false;
+            const file = event.dataTransfer.files[0];
+            if (file && file.type.startsWith('video/')) {
+                this.setFile(file);
+            }
+        },
+
+        setFile(file) {
+            this.selectedFile = file;
+            if (!this.title) {
+                this.title = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+            }
+            // Preview
+            const url = URL.createObjectURL(file);
+            this.$refs.videoPreview.src = url;
+        },
+
+        clearFile() {
+            this.selectedFile = null;
+            this.$refs.videoPreview.src = '';
+        },
+
+        formatFileSize(bytes) {
+            if (!bytes) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        },
+
+        async uploadVideo() {
+            console.log('Upload clicked', { file: this.selectedFile, title: this.title, vault: this.vaultId });
+            
+            if (!this.selectedFile || !this.title || !this.vaultId) {
+                this.error = 'Please fill in all required fields';
+                return;
+            }
+
+            this.error = '';
+            this.success = false;
+            this.uploading = true;
+            this.uploadProgress = 0;
+            this.uploadStatus = 'Starting upload...';
+
+            const formData = new FormData();
+            formData.append('file', this.selectedFile);
+            formData.append('title', this.title);
+            formData.append('slug', this.slug || this.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+            formData.append('description', this.description);
+            formData.append('vault_id', this.vaultId);
+            if (this.groupId) {
+                formData.append('group_id', this.groupId);
+            }
+
+            const xhr = new XMLHttpRequest();
+            
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    this.uploadProgress = Math.round((e.loaded / e.total) * 100);
+                    this.uploadStatus = `Uploading... ${this.uploadProgress}%`;
+                }
+            });
+
+            xhr.addEventListener('load', () => {
+                this.uploading = false;
+                if (xhr.status === 200) {
+                    this.success = true;
+                    this.uploadStatus = 'Upload complete! Processing in background.';
+                } else {
+                    try {
+                        const err = JSON.parse(xhr.responseText);
+                        this.error = err.error || 'Upload failed';
+                    } catch {
+                        this.error = 'Upload failed';
+                    }
+                }
+            });
+
+            xhr.addEventListener('error', () => {
+                this.uploading = false;
+                this.error = 'Network error';
+            });
+
+            xhr.open('POST', '/api/videos/upload');
+            xhr.send(formData);
+        }
+    }
+}
+</script>
+{% endblock %}

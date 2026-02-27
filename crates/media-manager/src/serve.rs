@@ -458,3 +458,190 @@ pub async fn serve_document_thumbnail(
         .body(body)
         .unwrap())
 }
+
+/// Serve MP4 video file directly
+/// GET /media/{slug}/video.mp4
+pub async fn serve_video_mp4(
+    State(state): State<MediaManagerState>,
+    Path(slug): Path<String>,
+) -> Result<Response, StatusCode> {
+    use common::storage::MediaType;
+
+    debug!("Serving MP4 video: slug={}", slug);
+
+    // Look up the video in media_items to get vault_id
+    let (vault_id, video_type): (Option<String>, Option<String>) = sqlx::query_as(
+        "SELECT vault_id, video_type FROM media_items WHERE slug = ? AND media_type = 'video'"
+    )
+    .bind(&slug)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|e| {
+        error!("Database error: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?
+    .map(|row: (Option<String>, Option<String>)| row)
+    .unwrap_or((None, None));
+
+    // Check if it's an MP4 video
+    if video_type.as_deref() != Some("mp4") {
+        debug!("Video is not MP4 type, slug={}, type={:?}", slug, video_type);
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    // Get the video file path
+    let video_path = if let Some(vid) = &vault_id {
+        state
+            .user_storage
+            .vault_media_path(vid, MediaType::Video, &slug)
+            .join("video.mp4")
+    } else {
+        // Fallback to user storage path
+        // For now, return not found if no vault
+        return Err(StatusCode::NOT_FOUND);
+    };
+
+    debug!("Video path: {:?}", video_path);
+
+    // Check if file exists
+    if !video_path.exists() {
+        debug!("Video file not found: {:?}", video_path);
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    // Open and stream file
+    let file = File::open(&video_path).await.map_err(|e| {
+        error!("Failed to open video: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let stream = ReaderStream::new(file);
+    let body = Body::from_stream(stream);
+
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "video/mp4")
+        .header(header::CACHE_CONTROL, "public, max-age=31536000") // Cache for 1 year
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*") // Allow embedding
+        .body(body)
+        .unwrap())
+}
+
+/// Serve video thumbnail (WebP)
+/// GET /videos/:slug/thumb
+pub async fn serve_video_thumbnail(
+    State(state): State<MediaManagerState>,
+    session: Session,
+    Path(slug): Path<String>,
+    Query(query): Query<AccessQuery>,
+) -> Result<Response, StatusCode> {
+    debug!("Serving video thumbnail: {}", slug);
+
+    // Get authenticated user
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    let user_id: Option<String> = if authenticated {
+        session.get("user_id").await.ok().flatten()
+    } else {
+        None
+    };
+
+    // Lookup video in database
+    let media: Option<(i32, Option<String>, Option<String>, i32)> = sqlx::query_as(
+        "SELECT id, user_id, vault_id, is_public FROM media_items WHERE slug = ? AND media_type = 'video'",
+    )
+    .bind(&slug)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|e| {
+        error!("Database error: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let (media_id, owner_user_id, vault_id, is_public) =
+        media.ok_or(StatusCode::NOT_FOUND)?;
+
+    // Check access control
+    if is_public == 0 {
+        // Private video - check ownership or access code
+        let has_access = if let Some(ref uid) = user_id {
+            // Check if user owns the video
+            owner_user_id.as_ref() == Some(uid)
+        } else {
+            false
+        };
+
+        if !has_access {
+            // Check access code if provided
+            if let Some(code) = query.code {
+                let access_decision = state
+                    .access_control
+                    .check_access(
+                        access_control::AccessContext::new(
+                            access_control::ResourceType::Video,
+                            media_id,
+                        )
+                        .with_key(code),
+                        access_control::Permission::Read,
+                    )
+                    .await
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+                if !access_decision.granted {
+                    return Err(StatusCode::FORBIDDEN);
+                }
+            } else {
+                return Err(StatusCode::UNAUTHORIZED);
+            }
+        }
+    }
+
+    // Determine thumbnail path
+    let thumb_filename = format!("{}_thumb.webp", slug);
+    let thumb_path = if let Some(ref vid) = vault_id {
+        state
+            .user_storage
+            .vault_thumbnails_dir(vid, common::storage::MediaType::Video)
+            .join(&thumb_filename)
+    } else if let Some(ref uid) = owner_user_id {
+        state
+            .user_storage
+            .thumbnails_dir(uid, common::storage::MediaType::Video)
+            .join(&thumb_filename)
+    } else {
+        std::path::PathBuf::from(&state.storage_dir)
+            .join("thumbnails")
+            .join("videos")
+            .join(&thumb_filename)
+    };
+
+    // Check if thumbnail exists
+    if !thumb_path.exists() {
+        debug!(
+            "Video thumbnail not found at {:?}, returning 404",
+            thumb_path
+        );
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    // Open and stream file
+    let file = File::open(&thumb_path).await.map_err(|e| {
+        error!("Failed to open video thumbnail: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let stream = ReaderStream::new(file);
+    let body = Body::from_stream(stream);
+
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "image/webp")
+        .header(header::CACHE_CONTROL, "public, max-age=31536000")
+        .body(body)
+        .unwrap())
+}

@@ -11,6 +11,7 @@ access-control = { path = "../access-control" }
 docs-viewer = { path = "../docs-viewer" }
 bpmn-viewer = { path = "../bpmn-viewer" }
 pdf-viewer = { path = "../pdf-viewer" }
+video-manager = { path = "../video-manager" }
 
 # Web framework
 axum = { workspace = true }
@@ -43,3 +44,6 @@ image = "0.25"
 # Utilities
 mime_guess = "2.0"
 tokio-util = { version = "0.7", features = ["io"] }
+uuid = { version = "1.11", features = ["v4"] }
+dashmap = "6.1"
+futures = "0.3"

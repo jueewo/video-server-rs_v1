@@ -13,6 +13,7 @@ pub mod markdown_view;
 pub mod models;
 pub mod pdf_thumbnail;
 pub mod pdf_view;
+pub mod progress;
 pub mod routes;
 pub mod search;
 pub mod serve;

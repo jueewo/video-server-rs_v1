@@ -62,7 +62,7 @@ rate-limiter = { path = "crates/rate-limiter" }
 course-viewer = { path = "crates/standalone/course-viewer" }
 
 # Web framework
-axum = { version = "0.8", features = ["multipart"] }
+axum = { version = "0.8", features = ["multipart", "ws"] }
 tokio = { version = "1.49", features = ["full"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["fs", "trace", "cors"] }
@@ -117,7 +117,7 @@ api-keys = { path = "crates/api-keys" }
 
 [workspace.dependencies]
 # Shared dependencies for all crates
-axum = { version = "0.8", features = ["multipart"] }
+axum = { version = "0.8", features = ["multipart", "ws"] }
 tokio = { version = "1.49", features = ["full"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["fs", "trace", "cors"] }

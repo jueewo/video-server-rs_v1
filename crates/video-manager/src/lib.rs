@@ -12,6 +12,9 @@ pub mod storage;
 pub mod upload;
 pub mod upload_v2;
 
+// Re-export key processing types for external use
+pub use processing::{ProcessingContext, ProcessingStage, process_video};
+
 use askama::Template;
 use axum::{
     extract::{Multipart, Path, Query, State},
@@ -94,6 +97,13 @@ pub struct VideoNewTemplate {
 #[derive(Template)]
 #[template(path = "videos/upload-enhanced.html")]
 pub struct VideoUploadTemplate {
+    #[allow(dead_code)]
+    authenticated: bool,
+}
+
+#[derive(Template)]
+#[template(path = "videos/upload-simple.html")]
+pub struct SimpleVideoUploadTemplate {
     #[allow(dead_code)]
     authenticated: bool,
 }
@@ -243,8 +253,8 @@ pub fn video_routes() -> Router<Arc<VideoManagerState>> {
     Router::new()
         .route("/videos", get(videos_list_handler))
         .route("/videos/new", get(video_new_page_handler))
-        // Legacy upload endpoints - REMOVED: Use unified /api/media/upload instead
-        // .route("/videos/upload", get(video_upload_page_handler))
+        // Video upload endpoints
+        .route("/videos/upload", get(video_upload_page_handler))
         // Legacy video detail routes - REMOVED: Use unified /media/{slug} instead
         // .route("/videos/{slug}", ...) - now at /media/{slug}
         // .route("/videos/{slug}/edit", ...) - now at /media/{slug}/edit
@@ -257,12 +267,12 @@ pub fn video_routes() -> Router<Arc<VideoManagerState>> {
         // Video CRUD API
         .route("/api/videos", get(list_videos_api_handler))
         .route("/api/videos", post(register_video_handler))
-        // Legacy upload endpoints - REMOVED: Use unified /api/media/upload instead
-        // .route("/api/videos/upload", post(video_upload_handler))
-        // .route(
-        //     "/api/videos/upload/:upload_id/progress",
-        //     get(get_upload_progress_handler),
-        // )
+        // Video upload endpoints
+        .route("/api/videos/upload", post(upload::handle_video_upload_vms))
+        .route(
+            "/api/videos/upload/{upload_id}/progress",
+            get(get_upload_progress_handler),
+        )
         .route("/api/videos/metrics", get(get_metrics_handler))
         .route(
             "/api/videos/metrics/detailed",
@@ -949,7 +959,7 @@ pub async fn video_upload_page_handler(
         return Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()));
     }
 
-    let template = VideoUploadTemplate { authenticated };
+    let template = SimpleVideoUploadTemplate { authenticated };
     match template.render() {
         Ok(html) => Ok(Html(html)),
         Err(e) => {

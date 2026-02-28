@@ -781,8 +781,8 @@ pub async fn list_access_codes_page(
         .unwrap_or_else(|| "unknown".to_string());
 
     // Get access codes created by this user
-    let codes = sqlx::query_as::<_, (i32, String, Option<String>, Option<String>, String)>(
-        "SELECT id, code, description, expires_at, created_at FROM access_codes WHERE created_by = ? ORDER BY created_at DESC"
+    let codes = sqlx::query_as::<_, (i32, String, Option<String>, Option<String>, String, i64)>(
+        "SELECT id, code, description, expires_at, created_at, current_downloads FROM access_codes WHERE created_by = ? ORDER BY created_at DESC"
     )
     .bind(&user_id)
     .fetch_all(&state.pool)
@@ -791,7 +791,7 @@ pub async fn list_access_codes_page(
 
     let mut access_codes = Vec::new();
 
-    for (id, code, description, expires_at, created_at) in codes {
+    for (id, code, description, expires_at, created_at, current_downloads) in codes {
         // Get permissions for this code with filename, thumbnail and title for display
         let permissions = sqlx::query_as::<_, (String, String, String, Option<String>, String)>(
             "SELECT
@@ -860,7 +860,7 @@ pub async fn list_access_codes_page(
             is_group_code: false, // For now, all are individual codes
             group_name: String::new(),
             resource_count: media_items.len(),
-            usage_count: 0, // TODO: Track usage in database
+            usage_count: current_downloads as usize,
             media_items,
         });
     }

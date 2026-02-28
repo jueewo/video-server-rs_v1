@@ -233,8 +233,8 @@ impl MediaItem for VideoMediaItem {
     // ========================================================================
 
     fn render_player(&self) -> String {
-        // Check if HLS playlist exists
-        let has_hls = true; // TODO: Check if HLS files exist
+        // Only render the HLS player if the video has finished processing
+        let has_hls = self.status == "active";
 
         if has_hls {
             format!(

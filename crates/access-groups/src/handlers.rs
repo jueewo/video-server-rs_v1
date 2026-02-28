@@ -355,10 +355,22 @@ pub async fn accept_invitation_handler(
     session: Session,
 ) -> Result<Response> {
     let user_id = get_user_id(&session).await?;
-    let _invitation = get_invitation_by_token(&pool, &token).await?;
+    let invitation = get_invitation_by_token(&pool, &token).await?;
 
-    // Verify the invitation is for this user's email (if we have email in session)
-    // TODO: Add email verification
+    // Verify the invitation was sent to this user's email address
+    let user_email = sqlx::query_scalar::<_, String>("SELECT email FROM users WHERE id = ?")
+        .bind(&user_id)
+        .fetch_optional(&pool)
+        .await
+        .map_err(|_| AccessGroupError::Internal("Database error".to_string()))?;
+
+    if let Some(email) = user_email {
+        if email.to_lowercase() != invitation.email.to_lowercase() {
+            return Err(AccessGroupError::Forbidden(
+                "This invitation was sent to a different email address".to_string(),
+            ));
+        }
+    }
 
     let member = accept_invitation(&pool, &token, &user_id).await?;
 

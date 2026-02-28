@@ -322,8 +322,16 @@ pub async fn accept_invitation_page_handler(
             // Get group details
             let group = crate::db::get_group_by_id(&pool, invitation.group_id).await?;
 
-            // TODO: Get invited_by user name from users table
-            let invited_by_name = invitation.invited_by.clone();
+            let invited_by_name = sqlx::query_scalar::<_, Option<String>>(
+                "SELECT name FROM users WHERE id = ?",
+            )
+            .bind(&invitation.invited_by)
+            .fetch_optional(&pool)
+            .await
+            .ok()
+            .flatten()
+            .flatten()
+            .unwrap_or_else(|| invitation.invited_by.clone());
 
             let template = AcceptInvitationTemplate {
                 authenticated: true,

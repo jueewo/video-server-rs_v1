@@ -17,11 +17,10 @@ use axum::{
 use media_core::{
     errors::MediaError,
     metadata::generate_unique_slug,
-    upload::{UploadConfig, UploadHandler},
     validation::validate_filename,
-    Bytes, MediaType,
+    MediaType,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sqlx::{Pool, Sqlite};
 use std::path::PathBuf;
 use std::sync::Arc;

@@ -4,7 +4,7 @@
 //! Courses are authored in workspaces and published as manifests.
 //! This viewer renders the course structure and lessons with optional access control.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use askama::Template;
 use axum::{
     extract::{Path, Query, State},
@@ -36,6 +36,7 @@ pub struct AccessCodeQuery {
 }
 
 /// Database record for media items
+#[allow(dead_code)]
 #[derive(sqlx::FromRow)]
 struct MediaItem {
     filename: String,

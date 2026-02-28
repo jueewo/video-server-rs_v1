@@ -358,7 +358,7 @@ pub async fn add_tag_to_image(
     pool: &Pool<Sqlite>,
     image_id: i32,
     tag_id: i32,
-    added_by: Option<&str>,
+    _added_by: Option<&str>,
 ) -> Result<(), sqlx::Error> {
     // First get the tag name from the tag_id
     let tag_name: String = sqlx::query_scalar("SELECT name FROM tags WHERE id = ?")

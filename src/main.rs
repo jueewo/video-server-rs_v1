@@ -195,6 +195,7 @@ struct AppState {
 // Templates
 // -------------------------------
 
+#[allow(dead_code)]
 #[derive(Template)]
 #[template(path = "index-tailwind.html")]
 struct IndexTemplate {
@@ -203,6 +204,7 @@ struct IndexTemplate {
     app_icon: String,
 }
 
+#[allow(dead_code)]
 #[derive(Template)]
 #[template(path = "home.html")]
 struct HomeTemplate {
@@ -215,6 +217,7 @@ struct HomeTemplate {
     app_count: i64,
 }
 
+#[allow(dead_code)]
 #[derive(Template)]
 #[template(path = "apps.html")]
 struct AppsTemplate {
@@ -223,6 +226,7 @@ struct AppsTemplate {
     app_icon: String,
 }
 
+#[allow(dead_code)]
 #[derive(Template)]
 #[template(path = "3d-viewer.html")]
 struct D3ViewerTemplate {
@@ -231,6 +235,7 @@ struct D3ViewerTemplate {
     app_icon: String,
 }
 
+#[allow(dead_code)]
 #[derive(Template)]
 #[template(path = "course-viewer.html")]
 struct CourseViewerTemplate {
@@ -239,13 +244,13 @@ struct CourseViewerTemplate {
     app_icon: String,
 }
 
+#[allow(dead_code)]
 #[derive(Template)]
 #[template(path = "demo.html")]
 struct DemoTemplate {
     authenticated: bool,
     code: String,
     error: String,
-    #[allow(dead_code)]
     resources: Vec<MediaResource>,
     resource_count: usize,
     app_title: String,

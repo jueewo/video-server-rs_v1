@@ -5,10 +5,10 @@
 // Uses FFprobe (from FFmpeg suite) to extract video metadata
 
 use crate::models::video::ExtractedVideoMetadata;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::path::Path;
 use std::process::Command;
-use tracing::{debug, error, info, warn};
+use tracing::{info, warn};
 
 // ============================================================================
 // FFprobe JSON Output Structures
@@ -21,6 +21,7 @@ struct FFprobeOutput {
     streams: Option<Vec<FFprobeStream>>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct FFprobeFormat {
     filename: Option<String>,
@@ -31,6 +32,7 @@ struct FFprobeFormat {
     bit_rate: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct FFprobeStream {
     codec_type: Option<String>,

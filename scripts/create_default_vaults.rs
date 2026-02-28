@@ -8,11 +8,10 @@
 
 use anyhow::{Context, Result};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool};
-use sqlx::Row;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use tracing::{error, info, warn};
+use tracing::info;
 
 fn generate_vault_id() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};

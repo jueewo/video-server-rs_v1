@@ -15,7 +15,7 @@ use media_core::storage::StorageManager;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 /// Storage configuration
 #[derive(Clone)]

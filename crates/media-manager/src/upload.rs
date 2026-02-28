@@ -682,11 +682,7 @@ async fn process_image_upload(
     .bind(group_id)
     .bind(&vault_id)
     .bind(&category)
-    .bind(
-        webp_filename
-            .as_ref()
-            .map(|_| format!("/media/{}/image.webp", slug)),
-    )
+    .bind(thumbnail_url)
     .bind("active")
     .execute(&state.pool)
     .await
@@ -916,8 +912,6 @@ async fn process_video_hls_upload(
     file_data: Vec<u8>,
     original_filename: String,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    use uuid::Uuid;
-
     info!(
         "🎬 Processing HLS video upload: slug={}, title={}, file={}, size={} bytes",
         slug,
@@ -1551,7 +1545,7 @@ pub async fn get_upload_progress(
             } else if is_processing {
                 // For ongoing processing, we could query the progress_tracker
                 // if it's available in state
-                let progress = if let Some(ref tracker) = state.video_progress_tracker {
+                let progress = if let Some(ref _tracker) = state.video_progress_tracker {
                     // Try to get progress from tracker
                     // Note: We'd need the upload_id to query the tracker
                     // For now, return generic processing status

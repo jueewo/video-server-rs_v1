@@ -2,7 +2,7 @@
 // Phase 3: Tag database layer and future DB operations
 // Created: January 2025
 
-pub mod tags;
+pub(crate) mod tags;
 
 // Re-export commonly used functions
 pub use tags::{

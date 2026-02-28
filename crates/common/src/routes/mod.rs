@@ -3,7 +3,7 @@
 //! Created: January 2025
 
 pub mod search;
-pub mod tags;
+pub(crate) mod tags;
 
 // Re-export route creation functions
 pub use search::create_search_routes;

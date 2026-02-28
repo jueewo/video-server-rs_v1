@@ -35,7 +35,7 @@ pub enum AuthMethod {
 /// 6. If not authenticated, returns 401 Unauthorized
 pub async fn api_key_or_session_auth(
     State(pool): State<Arc<SqlitePool>>,
-    mut session: Session,
+    session: Session,
     headers: HeaderMap,
     mut request: Request,
     next: Next,

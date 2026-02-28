@@ -4,9 +4,9 @@
 
 use crate::db::tags as db;
 use crate::models::tag::{
-    AddTagRequest, AddTagsRequest, CategoryStats, CreateTagRequest, PopularTags, Tag,
-    TagAutocompleteResponse, TagDeleteResponse, TagFilterRequest, TagResponse, TagSearchRequest,
-    TagSearchResult, TagStats, TagSummary, TagWithCount, TaggedResource, UpdateTagRequest,
+    CreateTagRequest, PopularTags, Tag,
+    TagAutocompleteResponse, TagDeleteResponse, TagResponse, TagSearchRequest,
+    TagStats, TagSummary, UpdateTagRequest,
 };
 use sqlx::{Pool, Sqlite};
 

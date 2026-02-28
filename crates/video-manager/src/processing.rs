@@ -722,8 +722,6 @@ async fn generate_thumbnail_stage(
 
 /// Convert thumbnail JPEG to WebP format
 async fn convert_thumbnail_to_webp(jpeg_path: &Path) -> Result<()> {
-    use image::ImageEncoder;
-
     let webp_path = jpeg_path.with_extension("webp");
 
     // Read JPEG file

@@ -58,6 +58,7 @@ use tracing::{debug, info, warn};
 /// Orchestrates all 4 layers of access control and provides a unified
 /// interface for checking permissions.
 pub struct AccessControlService {
+    #[allow(dead_code)]
     pool: SqlitePool,
     repository: AccessRepository,
     audit_logger: AuditLogger,

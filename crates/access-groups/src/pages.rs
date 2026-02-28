@@ -78,6 +78,7 @@ pub async fn create_group_page_handler(session: Session) -> Result<Response> {
 }
 
 /// Group detail page template
+#[allow(dead_code)]
 #[derive(Template)]
 #[template(path = "groups/detail.html")]
 struct GroupDetailTemplate {
@@ -252,6 +253,7 @@ struct AcceptInvitationTemplate {
     error_type: String,
 }
 
+#[allow(dead_code)]
 struct InvitationDetailsView {
     group_name: String,
     group_slug: String,
@@ -371,6 +373,7 @@ pub async fn accept_invitation_page_handler(
 }
 
 /// Group settings page template
+#[allow(dead_code)]
 #[derive(Template)]
 #[template(path = "groups/settings.html")]
 struct GroupSettingsTemplate {

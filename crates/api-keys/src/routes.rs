@@ -17,6 +17,7 @@ use tracing::{error, warn};
 // Templates
 // -------------------------------
 
+#[allow(dead_code)]
 #[derive(Template)]
 #[template(path = "api-keys/list.html")]
 struct ApiKeysListTemplate {
@@ -25,6 +26,7 @@ struct ApiKeysListTemplate {
     api_keys: Vec<crate::ApiKey>,
 }
 
+#[allow(dead_code)]
 #[derive(Template)]
 #[template(path = "api-keys/create.html")]
 struct CreateApiKeyTemplate {
@@ -33,6 +35,7 @@ struct CreateApiKeyTemplate {
     error: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Template)]
 #[template(path = "api-keys/created.html")]
 struct ApiKeyCreatedTemplate {

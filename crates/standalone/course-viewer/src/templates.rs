@@ -12,6 +12,7 @@ pub struct CourseOverviewTemplate {
 }
 
 /// Lesson view template
+#[allow(dead_code)]
 #[derive(Template)]
 #[template(path = "course/lesson.html")]
 pub struct LessonTemplate {

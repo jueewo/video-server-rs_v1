@@ -44,10 +44,7 @@ use common::{
 };
 
 // Import upload module types
-use crate::ffmpeg::FFmpegConfig;
-use crate::hls::HlsConfig;
 use crate::progress::{ProgressTracker, UploadProgress};
-use crate::storage::StorageConfig;
 use crate::upload::{handle_video_upload, UploadState};
 
 // -------------------------------
@@ -625,7 +622,7 @@ pub async fn hls_proxy_handler(
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let (video_id, owner_user_id, vault_id, is_public_int) = video.ok_or(StatusCode::NOT_FOUND)?;
+    let (video_id, _owner_user_id, vault_id, is_public_int) = video.ok_or(StatusCode::NOT_FOUND)?;
     let _is_public = is_public_int == 1;
 
     // Get user_id from session if authenticated
@@ -1788,6 +1785,7 @@ pub struct ErrorResponse {
     error: String,
 }
 
+#[allow(dead_code)]
 #[derive(sqlx::FromRow)]
 struct VideoRecord {
     id: i32,

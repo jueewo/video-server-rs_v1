@@ -20,6 +20,7 @@ pub struct DocsState {
     pub renderer: Arc<MarkdownRenderer>,
 }
 
+#[allow(dead_code)]
 #[derive(Template)]
 #[template(path = "docs/index.html")]
 struct DocsIndexTemplate {
@@ -29,6 +30,7 @@ struct DocsIndexTemplate {
     current_path: String,
 }
 
+#[allow(dead_code)]
 #[derive(Template)]
 #[template(path = "docs/view.html")]
 struct DocsViewTemplate {
@@ -40,6 +42,7 @@ struct DocsViewTemplate {
     raw_markdown: String,
 }
 
+#[allow(dead_code)]
 #[derive(Template)]
 #[template(path = "docs/upload.html")]
 struct DocsUploadTemplate {

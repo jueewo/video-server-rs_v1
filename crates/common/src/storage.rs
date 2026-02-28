@@ -19,7 +19,7 @@
 use anyhow::{Context, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// Media type enum for storage organization
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

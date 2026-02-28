@@ -137,7 +137,7 @@ async fn fetch_media_for_access_code(
     for row in image_rows {
         let id: i64 = row.get(0);
         let slug: String = row.get(1);
-        let filename: String = row.get(2);
+        let _filename: String = row.get(2);
         let title: String = row.get(3);
         let description: Option<String> = row.get(4);
         let thumbnail_url: Option<String> = row.get(5);
@@ -181,7 +181,7 @@ async fn fetch_media_for_access_code(
     for row in video_rows {
         let id: i64 = row.get(0);
         let slug: String = row.get(1);
-        let filename: Option<String> = row.get(2);
+        let _filename: Option<String> = row.get(2);
         let title: String = row.get(3);
         let description: Option<String> = row.get(4);
         let thumbnail_url: Option<String> = row.get(5);

@@ -18,7 +18,7 @@
 //! - ❌ Access key values (only that one was used)
 //! - ❌ Personal information
 
-use crate::{AccessDecision, AccessError, Permission};
+use crate::{AccessDecision, AccessError};
 use common::ResourceType;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;

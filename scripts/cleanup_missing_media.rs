@@ -42,6 +42,7 @@ impl Config {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 struct MediaItem {
     id: i32,

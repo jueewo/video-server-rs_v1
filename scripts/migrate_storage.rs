@@ -22,6 +22,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use tracing::{error, info, warn};
 
+#[allow(dead_code)]
 #[derive(Debug)]
 struct MediaFile {
     media_type: String,

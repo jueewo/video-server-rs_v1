@@ -2,10 +2,10 @@
 // Phase 3 Week 5: Enhanced Image CRUD
 // Created: February 2025
 
-use image::{DynamicImage, GenericImageView, ImageFormat};
+use image::{DynamicImage, GenericImageView};
 use std::io::Cursor;
 use std::path::Path;
-use tracing::{debug, error, warn};
+use tracing::{debug, warn};
 
 // ============================================================================
 // Image Metadata Structures

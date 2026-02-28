@@ -12,7 +12,7 @@ use sqlx::{Pool, Sqlite};
 use tower_sessions::Session;
 
 use crate::models::tag::{
-    AddTagsRequest, CreateTagRequest, Tag, TagCategory, TagResponse, TagStats, TagSummary,
+    CreateTagRequest, Tag, TagCategory, TagResponse, TagStats, TagSummary,
     TagWithCount, UpdateTagRequest,
 };
 use crate::services::tag_service::TagService;

@@ -8,11 +8,9 @@
 
 use crate::ffmpeg::FFmpegConfig;
 use crate::hls::HlsConfig;
-use crate::metrics::{AuditLogger, MetricsStore};
 use crate::processing::{process_video, ProcessingContext};
 use crate::progress::ProgressTracker;
 use crate::storage::StorageConfig;
-use crate::VideoManagerState;
 use anyhow::{Context, Result};
 use axum::{
     extract::{Multipart, State},
@@ -543,7 +541,7 @@ async fn create_upload_record(
 pub async fn handle_video_upload_vms(
     session: Session,
     State(state): State<Arc<crate::VideoManagerState>>,
-    mut multipart: Multipart,
+    multipart: Multipart,
 ) -> Result<Json<UploadResponse>, (StatusCode, Json<UploadErrorResponse>)> {
     // Create UploadState from VideoManagerState
     let upload_state = Arc::new(UploadState {

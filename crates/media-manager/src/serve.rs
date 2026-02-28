@@ -33,9 +33,7 @@ pub async fn serve_image_webp(
 
 #[derive(Debug, Clone, Copy)]
 enum ImageVariant {
-    Original,
     WebP,
-    Thumbnail,
 }
 
 async fn serve_image_variant(
@@ -144,57 +142,6 @@ async fn serve_image_variant(
                     }
                     None => return Err(StatusCode::NOT_FOUND),
                 }
-            }
-        }
-        ImageVariant::Original => {
-            // Serve original version - try _original first, then fall back to filename
-            let original_filename = if filename.contains("_original") {
-                filename.clone()
-            } else {
-                // Try to find original file
-                let ext = std::path::Path::new(&filename)
-                    .extension()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("jpg");
-                format!("{}_original.{}", slug, ext)
-            };
-
-            let original_path = state.user_storage.find_media_file(
-                &vault_id,
-                common::storage::MediaType::Image,
-                &original_filename,
-            );
-
-            let final_path = if let Some(path) = original_path {
-                path
-            } else {
-                // Original doesn't exist, try regular filename
-                state
-                    .user_storage
-                    .find_media_file(
-                        &vault_id,
-                        common::storage::MediaType::Image,
-                        &filename,
-                    )
-                    .ok_or(StatusCode::NOT_FOUND)?
-            };
-
-            let mime = mime_guess::from_path(&filename)
-                .first_or_octet_stream()
-                .to_string();
-            (final_path, mime)
-        }
-        ImageVariant::Thumbnail => {
-            // Serve thumbnail
-            let thumb_path = state.user_storage.find_thumbnail(
-                &vault_id,
-                common::storage::MediaType::Image,
-                &slug,
-            );
-
-            match thumb_path {
-                Some(path) => (path, "image/webp".to_string()),
-                None => return Err(StatusCode::NOT_FOUND),
             }
         }
     };

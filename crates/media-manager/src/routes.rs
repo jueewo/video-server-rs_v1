@@ -90,6 +90,8 @@ pub fn media_routes() -> Router<MediaManagerState> {
         .route("/api/user/vaults", get(crate::list::get_user_vaults))
         // ── Group selector ──────────────────────────────────────────
         .route("/api/media/groups", get(crate::list::list_user_groups))
+        // ── Tag autocomplete (user-scoped) ──────────────────────────
+        .route("/api/media/tags/search", get(crate::list::search_user_tags))
         // ── Detail pages (HTML) ─────────────────────────────────────
         .route("/media/{slug}", get(crate::detail::media_detail_handler))
         .route(

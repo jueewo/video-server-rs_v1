@@ -247,10 +247,20 @@ pub async fn list_media_html(
             };
 
             let all_tags: Vec<String> = if authenticated {
-                sqlx::query_scalar("SELECT DISTINCT tag FROM media_tags ORDER BY tag")
+                if let Some(uid) = &user_id {
+                    sqlx::query_scalar(
+                        "SELECT DISTINCT mt.tag FROM media_tags mt
+                         JOIN media_items mi ON mt.media_id = mi.id
+                         WHERE mi.user_id = ?
+                         ORDER BY mt.tag",
+                    )
+                    .bind(uid)
                     .fetch_all(&state.pool)
                     .await
                     .unwrap_or_default()
+                } else {
+                    vec![]
+                }
             } else {
                 vec![]
             };
@@ -1178,4 +1188,72 @@ pub async fn delete_media(
         )
             .into_response()
     }
+}
+
+// ============================================================================
+// Tag Autocomplete
+// ============================================================================
+
+/// Query parameters for user-scoped tag search
+#[derive(Debug, Deserialize)]
+pub struct TagSearchQuery {
+    /// Prefix to search for
+    #[serde(default)]
+    pub q: Option<String>,
+}
+
+/// GET /api/media/tags/search?q=<prefix>
+///
+/// Returns tag names from the authenticated user's own media that start with the
+/// given prefix. Returns at most 20 results. Used for autocomplete.
+pub async fn search_user_tags(
+    State(state): State<MediaManagerState>,
+    session: Session,
+    Query(query): Query<TagSearchQuery>,
+) -> impl IntoResponse {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "Authentication required"})),
+        )
+            .into_response();
+    }
+
+    let user_id: Option<String> = session.get("user_id").await.ok().flatten();
+    let user_id = match user_id {
+        Some(id) => id,
+        None => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "User ID not found in session"})),
+            )
+                .into_response();
+        }
+    };
+
+    let prefix = query.q.unwrap_or_default();
+    let pattern = format!("{}%", prefix);
+
+    let tags: Vec<String> = sqlx::query_scalar(
+        "SELECT DISTINCT mt.tag FROM media_tags mt
+         JOIN media_items mi ON mt.media_id = mi.id
+         WHERE mi.user_id = ?
+           AND mt.tag LIKE ?
+         ORDER BY mt.tag
+         LIMIT 20",
+    )
+    .bind(&user_id)
+    .bind(&pattern)
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    Json(tags).into_response()
 }

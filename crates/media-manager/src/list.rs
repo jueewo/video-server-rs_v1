@@ -365,7 +365,57 @@ pub async fn list_media_json(
     };
 
     match search_service.search(filter).await {
-        Ok(response) => Json(response).into_response(),
+        Ok(response) => {
+            // Fetch tags for all items in one batch query
+            let media_ids: Vec<i32> = response.items.iter().map(|item| item.id()).collect();
+            let mut tags_map: std::collections::HashMap<i32, Vec<String>> =
+                std::collections::HashMap::new();
+
+            if !media_ids.is_empty() {
+                let placeholders = media_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+                let query_str = format!(
+                    "SELECT media_id, tag FROM media_tags WHERE media_id IN ({})",
+                    placeholders
+                );
+                let mut tag_query = sqlx::query(&query_str);
+                for id in &media_ids {
+                    tag_query = tag_query.bind(id);
+                }
+                if let Ok(rows) = tag_query.fetch_all(&state.pool).await {
+                    use sqlx::Row;
+                    for row in rows {
+                        let media_id: i32 = row.try_get("media_id").unwrap_or(0);
+                        let tag: String = row.try_get("tag").unwrap_or_default();
+                        tags_map.entry(media_id).or_insert_with(Vec::new).push(tag);
+                    }
+                }
+            }
+
+            // Serialize then flatten the serde adjacently-tagged enum wrapper
+            // {"type":"MediaItem","data":{...}} → {..., "tags":[...]}
+            // This gives JS flat field access: item.slug, item.media_type, item.tags
+            let mut json_val = serde_json::to_value(&response)
+                .unwrap_or_else(|_| serde_json::json!({"items": []}));
+
+            if let Some(items) = json_val.get_mut("items").and_then(|v| v.as_array_mut()) {
+                for item in items.iter_mut() {
+                    let item_id = item
+                        .get("data")
+                        .and_then(|d| d.get("id"))
+                        .and_then(|i| i.as_i64())
+                        .unwrap_or(0) as i32;
+                    let tags = tags_map.get(&item_id).cloned().unwrap_or_default();
+                    if let Some(data) = item.get("data").cloned() {
+                        *item = data;
+                    }
+                    if let Some(map) = item.as_object_mut() {
+                        map.insert("tags".to_string(), serde_json::json!(tags));
+                    }
+                }
+            }
+
+            Json(json_val).into_response()
+        }
         Err(e) => {
             error!("Media search error: {}", e);
             (

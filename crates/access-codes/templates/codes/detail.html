@@ -1,5 +1,5 @@
-{% extends "base-tailwind.html" %} {% block title %}Access Code: {{ code.code }}{%
-endblock %} {% block content %}
+{% extends "base-tailwind.html" %} {% block title %}Access Code: {{ code.code
+}}{% endblock %} {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-5xl" x-data="confirmDialog()">
     {% include "components/confirm-dialog.html" %}
     <!-- Breadcrumb -->
@@ -13,8 +13,7 @@ endblock %} {% block content %}
     </div>
 
     <!-- Page Header -->
-    {% let page_title = code.code %}
-    {% let page_subtitle = "" %}
+    {% let page_title = code.code %} {% let page_subtitle = "" %}
     <div class="page-header">
         {% include "components/page-header.html" %}
         <div class="page-header-actions">
@@ -256,23 +255,48 @@ endblock %} {% block content %}
         <div class="lg:col-span-2">
             <div class="card bg-base-100 shadow-xl">
                 <div class="card-body">
-                    <h2 class="card-title text-2xl mb-4">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-6 w-6"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
+                    <div class="flex items-center justify-between w-full mb-4">
+                        <h2 class="card-title text-2xl">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="h-6 w-6"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                                />
+                            </svg>
+                            Resources (<span id="resourceCount"
+                                >{{ code.resource_count }}</span
+                            >)
+                        </h2>
+                        <button
+                            type="button"
+                            class="btn btn-primary btn-sm gap-1"
+                            onclick="openAddMediaDialog()"
                         >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                            />
-                        </svg>
-                        Resources ({{ code.resource_count }})
-                    </h2>
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M12 4v16m8-8H4"
+                                />
+                            </svg>
+                            Add Media
+                        </button>
+                    </div>
 
                     {% if code.resource_count == 0 %}
                     <!-- Empty State -->
@@ -307,31 +331,163 @@ endblock %} {% block content %}
                                 <div class="flex items-start gap-4">
                                     <!-- Mini Preview Thumbnail -->
                                     <div class="flex-shrink-0">
-                                        <div class="w-24 h-24 rounded-lg overflow-hidden bg-base-300 relative">
+                                        <div
+                                            class="w-24 h-24 rounded-lg overflow-hidden bg-base-300 relative"
+                                        >
                                             {% if item.media_type == "video" %}
+                                            <img
+                                                src="/media/{{ item.media_slug }}/thumbnail?code={{ code.code }}"
+                                                alt="{{ item.title }}"
+                                                class="w-full h-full object-cover"
+                                                onerror="
+                                                    this.style.display = 'none';
+                                                    this.nextElementSibling.style.display =
+                                                        'flex';
+                                                "
+                                            />
+                                            <div
+                                                class="absolute inset-0 items-center justify-center bg-gradient-to-br from-red-500 via-rose-400 to-pink-500"
+                                                style="display: none"
+                                            >
                                                 <img
-                                                    src="/hls/{{ item.media_slug }}/thumbnail.webp?code={{ code.code }}"
-                                                    alt="{{ item.media_slug }}"
-                                                    class="w-full h-full object-cover"
-                                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                                    src="/static/icons/video-icon.svg"
+                                                    class="w-10 h-10 opacity-80"
+                                                    alt="video"
+                                                    onerror="
+                                                        this.style.display =
+                                                            'none'
+                                                    "
                                                 />
-                                                <div class="absolute inset-0 items-center justify-center bg-gradient-to-br from-red-200 via-red-300 to-pink-300" style="display: none;">
-                                                    <span class="text-4xl">🎥</span>
-                                                </div>
-                                            {% else if item.media_type == "image" %}
+                                            </div>
+                                            {% else if item.media_type ==
+                                            "image" %}
+                                            <img
+                                                src="/media/{{ item.media_slug }}/thumbnail?code={{ code.code }}"
+                                                alt="{{ item.title }}"
+                                                class="w-full h-full object-cover"
+                                                onerror="
+                                                    this.style.display = 'none';
+                                                    this.nextElementSibling.style.display =
+                                                        'flex';
+                                                "
+                                            />
+                                            <div
+                                                class="absolute inset-0 items-center justify-center bg-gradient-to-br from-green-500 via-emerald-400 to-teal-500"
+                                                style="display: none"
+                                            >
                                                 <img
-                                                    src="/images/{{ item.media_slug }}/thumb?code={{ code.code }}"
-                                                    alt="{{ item.media_slug }}"
-                                                    class="w-full h-full object-cover"
-                                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                                    src="/static/icons/image-icon.svg"
+                                                    class="w-10 h-10 opacity-80"
+                                                    alt="image"
+                                                    onerror="
+                                                        this.style.display =
+                                                            'none'
+                                                    "
                                                 />
-                                                <div class="absolute inset-0 items-center justify-center bg-gradient-to-br from-green-200 via-emerald-300 to-teal-300" style="display: none;">
-                                                    <span class="text-4xl">🖼️</span>
-                                                </div>
+                                            </div>
+                                            {% else if item.file_type_label() ==
+                                            "PDF" %}
+                                            <img
+                                                src="/media/{{ item.media_slug }}/thumbnail?code={{ code.code }}"
+                                                alt="{{ item.title }}"
+                                                class="w-full h-full object-cover"
+                                                onerror="
+                                                    this.style.display = 'none';
+                                                    this.nextElementSibling.style.display =
+                                                        'flex';
+                                                "
+                                            />
+                                            <div
+                                                class="absolute inset-0 items-center justify-center bg-gradient-to-br from-orange-500 via-amber-400 to-yellow-500"
+                                                style="display: none"
+                                            >
+                                                <img
+                                                    src="/static/icons/pdf-icon.svg"
+                                                    class="w-10 h-10 opacity-80"
+                                                    alt="pdf"
+                                                    onerror="
+                                                        this.style.display =
+                                                            'none'
+                                                    "
+                                                />
+                                            </div>
+                                            {% else if item.file_type_label() ==
+                                            "MD" %}
+                                            <img
+                                                src="/media/{{ item.media_slug }}/thumbnail?code={{ code.code }}"
+                                                alt="{{ item.title }}"
+                                                class="w-full h-full object-cover"
+                                                onerror="
+                                                    this.style.display = 'none';
+                                                    this.nextElementSibling.style.display =
+                                                        'flex';
+                                                "
+                                            />
+                                            <div
+                                                class="absolute inset-0 items-center justify-center bg-gradient-to-br from-purple-500 via-violet-400 to-indigo-500"
+                                                style="display: none"
+                                            >
+                                                <img
+                                                    src="/static/icons/markdown-icon.svg"
+                                                    class="w-10 h-10 opacity-80"
+                                                    alt="markdown"
+                                                    onerror="
+                                                        this.style.display =
+                                                            'none'
+                                                    "
+                                                />
+                                            </div>
+                                            {% else if item.file_type_label() ==
+                                            "BPMN" %}
+                                            <img
+                                                src="/media/{{ item.media_slug }}/thumbnail?code={{ code.code }}"
+                                                alt="{{ item.title }}"
+                                                class="w-full h-full object-cover"
+                                                onerror="
+                                                    this.style.display = 'none';
+                                                    this.nextElementSibling.style.display =
+                                                        'flex';
+                                                "
+                                            />
+                                            <div
+                                                class="absolute inset-0 items-center justify-center bg-gradient-to-br from-cyan-500 via-sky-400 to-blue-500"
+                                                style="display: none"
+                                            >
+                                                <img
+                                                    src="/static/icons/bpmn-icon.svg"
+                                                    class="w-10 h-10 opacity-80"
+                                                    alt="bpmn"
+                                                    onerror="
+                                                        this.style.display =
+                                                            'none'
+                                                    "
+                                                />
+                                            </div>
                                             {% else %}
-                                                <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-200 via-cyan-300 to-sky-300">
-                                                    <span class="text-4xl">📄</span>
-                                                </div>
+                                            <img
+                                                src="/media/{{ item.media_slug }}/thumbnail?code={{ code.code }}"
+                                                alt="{{ item.title }}"
+                                                class="w-full h-full object-cover"
+                                                onerror="
+                                                    this.style.display = 'none';
+                                                    this.nextElementSibling.style.display =
+                                                        'flex';
+                                                "
+                                            />
+                                            <div
+                                                class="absolute inset-0 items-center justify-center bg-gradient-to-br from-slate-500 via-gray-400 to-zinc-500"
+                                                style="display: none"
+                                            >
+                                                <img
+                                                    src="/static/icons/document-icon.svg"
+                                                    class="w-10 h-10 opacity-80"
+                                                    alt="document"
+                                                    onerror="
+                                                        this.style.display =
+                                                            'none'
+                                                    "
+                                                />
+                                            </div>
                                             {% endif %}
                                         </div>
                                     </div>
@@ -339,8 +495,29 @@ endblock %} {% block content %}
                                     <!-- Details -->
                                     <div class="flex-1 min-w-0">
                                         <h3 class="font-bold text-lg mb-2">
-                                            {{ item.media_slug }}
+                                            {{ item.title }}
                                         </h3>
+
+                                        <!-- BADGE -->
+                                        <span
+                                            class="badge {{ item.badge_color() }} badge-sm gap-1 whitespace-nowrap"
+                                        >
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                class="h-3 w-3"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke="currentColor"
+                                            >
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                                                />
+                                            </svg>
+                                            {{ item.file_type_label() }}
+                                        </span>
 
                                         <!-- URL -->
                                         <div class="mt-2">
@@ -380,24 +557,6 @@ endblock %} {% block content %}
 
                                     <!-- Actions -->
                                     <div class="flex flex-col gap-2">
-                                        <!-- File Type Badge -->
-                                        <span class="badge {{ item.badge_color() }} badge-sm gap-1 self-end">
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                class="h-3 w-3"
-                                                fill="none"
-                                                viewBox="0 0 24 24"
-                                                stroke="currentColor"
-                                            >
-                                                <path
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    stroke-width="2"
-                                                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                                                />
-                                            </svg>
-                                            {{ item.file_type_label() }}
-                                        </span>
                                         <a
                                             href="/media/{{ item.media_slug }}?code={{ code.code }}"
                                             class="btn btn-sm btn-primary gap-1"
@@ -426,7 +585,7 @@ endblock %} {% block content %}
                                         </a>
                                         {% if item.media_type == "image" %}
                                         <a
-                                            href="/images/{{ item.media_slug }}/original?code={{ code.code }}"
+                                            href="/media/{{ item.media_slug }}/image.webp?code={{ code.code }}"
                                             target="_blank"
                                             class="btn btn-sm btn-outline gap-1"
                                         >
@@ -469,6 +628,28 @@ endblock %} {% block content %}
                                             Open
                                         </a>
                                         {% endif %}
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-error btn-outline gap-1"
+                                            onclick="removeMedia('{{ item.media_slug }}')"
+                                            title="Remove from access code"
+                                        >
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                class="h-4 w-4"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke="currentColor"
+                                            >
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M6 18L18 6M6 6l12 12"
+                                                />
+                                            </svg>
+                                            Remove
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -482,7 +663,223 @@ endblock %} {% block content %}
     </div>
 </div>
 
+<!-- Add Media Dialog -->
+<dialog id="addMediaDialog" class="modal">
+    <div class="modal-box max-w-4xl">
+        <h3 class="font-bold text-lg mb-4">Add Media to Access Code</h3>
+
+        <!-- Search and Filter -->
+        <div class="flex flex-col sm:flex-row gap-3 mb-4">
+            <input
+                type="text"
+                id="modalSearch"
+                placeholder="Search by title or slug..."
+                class="input input-bordered flex-1"
+                oninput="renderModalGrid()"
+            />
+            <select
+                id="modalTypeFilter"
+                class="select select-bordered sm:w-44"
+                onchange="renderModalGrid()"
+            >
+                <option value="all">All Types</option>
+                <option value="video">Videos</option>
+                <option value="image">Images</option>
+                <option value="document">Documents</option>
+            </select>
+        </div>
+
+        <!-- Loading -->
+        <div id="modalLoading" class="flex justify-center py-12">
+            <span class="loading loading-spinner loading-lg"></span>
+        </div>
+
+        <!-- Media Card Grid -->
+        <div
+            id="modalGrid"
+            class="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[26rem] overflow-y-auto hidden pr-1"
+        ></div>
+
+        <!-- Empty State -->
+        <div
+            id="modalEmpty"
+            class="text-center py-12 text-base-content/60 hidden"
+        >
+            <div class="text-4xl mb-3">🔍</div>
+            <div id="modalEmptyMsg">No media found.</div>
+        </div>
+
+        <div class="modal-action">
+            <form method="dialog">
+                <button class="btn">Close</button>
+            </form>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
 <script>
+    const ACCESS_CODE = '{{ code.code }}';
+    let existingSlugs = new Set([{% for item in code.media_items %}'{{ item.media_slug }}',{% endfor %}]);
+    let allModalMedia = [];
+    let modalLoaded = false;
+
+    // Event delegation — avoids any inline onclick escaping issues
+    document.getElementById('modalGrid').addEventListener('click', function(e) {
+        const card = e.target.closest('[data-slug]');
+        if (!card) return;
+        const slug = card.dataset.slug;
+        const item = allModalMedia.find(i => i.slug === slug);
+        if (item) {
+            addMedia(item.media_type, item.slug, item.filename || '', item.thumbnail_url || null, item.title || item.slug);
+        }
+    });
+
+    async function openAddMediaDialog() {
+        // Reset search so the grid always opens fresh
+        document.getElementById('modalSearch').value = '';
+        document.getElementById('modalTypeFilter').value = 'all';
+        document.getElementById('addMediaDialog').showModal();
+        if (!modalLoaded) {
+            await loadModalMedia();
+        } else {
+            renderModalGrid();
+        }
+    }
+
+    async function loadModalMedia() {
+        document.getElementById('modalLoading').classList.remove('hidden');
+        document.getElementById('modalGrid').classList.add('hidden');
+        document.getElementById('modalEmpty').classList.add('hidden');
+
+        try {
+            const response = await fetch('/api/media?page_size=500');
+            const data = response.ok ? await response.json() : { items: [] };
+            // API now returns flat items: {slug, title, media_type, filename, thumbnail_url, tags:[]}
+            allModalMedia = (data.items || []).map(item => ({
+                slug: item.slug || '',
+                title: item.title || item.slug || '',
+                media_type: item.media_type || '',
+                filename: item.filename || '',
+                thumbnail_url: item.thumbnail_url || null,
+                tags: Array.isArray(item.tags) ? item.tags : [],
+            }));
+            modalLoaded = true;
+        } catch (e) {
+            console.error('Failed to load media:', e);
+            allModalMedia = [];
+            modalLoaded = true; // prevent infinite retry
+        }
+
+        document.getElementById('modalLoading').classList.add('hidden');
+        renderModalGrid();
+    }
+
+    function renderModalGrid() {
+        const search = document.getElementById('modalSearch').value.toLowerCase().trim();
+        const typeFilter = document.getElementById('modalTypeFilter').value;
+
+        const filtered = allModalMedia.filter(item => {
+            if (existingSlugs.has(item.slug)) return false;
+            if (typeFilter !== 'all' && item.media_type !== typeFilter) return false;
+            if (search) {
+                const haystack = (item.title + ' ' + item.slug + ' ' + item.filename + ' ' + item.tags.join(' ')).toLowerCase();
+                if (!haystack.includes(search)) return false;
+            }
+            return true;
+        });
+
+        const grid = document.getElementById('modalGrid');
+        const empty = document.getElementById('modalEmpty');
+
+        if (filtered.length === 0) {
+            grid.classList.add('hidden');
+            empty.classList.remove('hidden');
+            document.getElementById('modalEmptyMsg').textContent =
+                search ? 'No results for "' + search + '"' : 'No additional media available to add.';
+            return;
+        }
+
+        empty.classList.add('hidden');
+        grid.classList.remove('hidden');
+
+        // Thumbnail: icon fallback sits behind an absolutely-positioned img.
+        // If img loads it covers the icon; if it fails onerror hides it.
+        // No inline JS with complex escaping needed.
+        grid.innerHTML = filtered.map(item => {
+            const icon = item.media_type === 'video' ? '🎥' : item.media_type === 'image' ? '🖼️' : '📄';
+            const badgeClass = item.media_type === 'video' ? 'badge-error' : item.media_type === 'image' ? 'badge-success' : 'badge-warning';
+            const thumbImg = item.thumbnail_url
+                ? `<img src="${item.thumbnail_url}" alt="" class="absolute inset-0 w-full h-full object-cover" onerror="this.style.display='none'">`
+                : '';
+
+            return `<button type="button" data-slug="${item.slug}"
+                class="card card-compact bg-base-200 hover:bg-base-300 border-2 border-base-300 hover:border-primary transition-all text-left overflow-hidden w-full">
+                <div class="relative w-full bg-base-300 overflow-hidden" style="aspect-ratio:16/9">
+                    <div class="absolute inset-0 flex items-center justify-center text-4xl">${icon}</div>
+                    ${thumbImg}
+                    <div class="absolute top-1 right-1">
+                        <span class="badge badge-sm ${badgeClass}">${item.media_type}</span>
+                    </div>
+                </div>
+                <div class="p-2">
+                    <div class="font-semibold text-sm truncate">${item.title.replace(/</g, '&lt;')}</div>
+                    <div class="text-xs text-base-content/50 truncate">${item.slug}</div>
+                    ${item.tags.length ? `<div class="flex flex-wrap gap-1 mt-1">${item.tags.map(t => `<span class="badge badge-outline badge-xs">${t.replace(/</g,'&lt;')}</span>`).join('')}</div>` : ''}
+                </div>
+            </button>`;
+        }).join('');
+    }
+
+    async function addMedia(mediaType, mediaSlug, filename, thumbnailUrl, title) {
+        try {
+            const response = await fetch(`/api/access-codes/${ACCESS_CODE}/media`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    media_type: mediaType,
+                    media_slug: mediaSlug,
+                    filename: filename,
+                    thumbnail_url: thumbnailUrl,
+                    title: title,
+                }),
+            });
+
+            if (response.ok) {
+                document.getElementById('addMediaDialog').close();
+                showToast('Media added successfully!');
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                showToast('Failed to add media.');
+            }
+        } catch (e) {
+            console.error('Error adding media', e);
+            showToast('Network error. Please try again.');
+        }
+    }
+
+    async function removeMedia(mediaSlug) {
+        if (!confirm('Remove this media from the access code?')) return;
+
+        try {
+            const response = await fetch(`/api/access-codes/${ACCESS_CODE}/media/${mediaSlug}`, {
+                method: 'DELETE',
+            });
+
+            if (response.ok) {
+                showToast('Media removed.');
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                showToast('Failed to remove media.');
+            }
+        } catch (e) {
+            console.error('Error removing media', e);
+            showToast('Network error. Please try again.');
+        }
+    }
+
     // Add event listeners for copy buttons
     document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.copy-url-btn').forEach(function(button) {

@@ -479,6 +479,7 @@ endblock %} {% block content %}
                         <option value="all">All Types</option>
                         <option value="video">Videos Only</option>
                         <option value="image">Images Only</option>
+                        <option value="document">Documents Only</option>
                     </select>
                 </div>
 
@@ -846,46 +847,27 @@ endblock %} {% block content %}
     // Load user's resources
     async function loadResources() {
         try {
-            document
-                .getElementById("resourcesLoading")
-                .classList.remove("hidden");
+            document.getElementById("resourcesLoading").classList.remove("hidden");
             document.getElementById("resourcesList").classList.add("hidden");
 
-            // Fetch videos
-            const videosResponse = await fetch("/api/videos");
-            const videos = videosResponse.ok ? await videosResponse.json() : [];
+            const response = await fetch("/api/media?page_size=500");
+            const data = response.ok ? await response.json() : { items: [] };
 
-            // Fetch images
-            const imagesResponse = await fetch("/api/images");
-            const images = imagesResponse.ok ? await imagesResponse.json() : [];
+            // API returns flat items: {slug, title, media_type, filename, thumbnail_url, tags:[]}
+            allResources = (data.items || []).map((item) => ({
+                type: item.media_type || '',
+                slug: item.slug || '',
+                title: item.title || item.slug || '',
+                filename: item.filename || "",
+                thumbnail_url: item.thumbnail_url || null,
+                tags: Array.isArray(item.tags) ? item.tags : [],
+            }));
 
-            allResources = [
-                ...videos.map((v) => ({
-                    type: "video",
-                    slug: v.slug,
-                    title: v.title || v.slug,
-                })),
-                ...images.map((i) => ({
-                    type: "image",
-                    slug: i.slug,
-                    title: i.title || i.slug,
-                })),
-            ];
-
+            document.getElementById("resourcesLoading").classList.add("hidden");
             if (allResources.length === 0) {
-                document
-                    .getElementById("resourcesLoading")
-                    .classList.add("hidden");
-                document
-                    .getElementById("noResources")
-                    .classList.remove("hidden");
+                document.getElementById("noResources").classList.remove("hidden");
             } else {
-                document
-                    .getElementById("resourcesLoading")
-                    .classList.add("hidden");
-                document
-                    .getElementById("resourcesList")
-                    .classList.remove("hidden");
+                document.getElementById("resourcesList").classList.remove("hidden");
                 renderResources();
             }
         } catch (error) {
@@ -894,48 +876,58 @@ endblock %} {% block content %}
         }
     }
 
+    // Event delegation for resource checkboxes — avoids all inline escaping issues
+    document.getElementById("resourcesGrid").addEventListener("change", function(e) {
+        const cb = e.target.closest("input[type=checkbox][data-slug]");
+        if (!cb) return;
+        const slug = cb.dataset.slug;
+        const type = cb.dataset.type;
+        const resource = allResources.find(r => r.type === type && r.slug === slug);
+        if (resource) toggleResource(resource);
+    });
+
     function renderResources() {
         const container = document.getElementById("resourcesGrid");
-        const searchTerm = document
-            .getElementById("resourceSearch")
-            .value.toLowerCase();
+        const searchTerm = document.getElementById("resourceSearch").value.toLowerCase().trim();
         const typeFilter = document.getElementById("resourceTypeFilter").value;
 
         const filtered = allResources.filter((r) => {
-            const matchesSearch =
-                r.title.toLowerCase().includes(searchTerm) ||
-                r.slug.toLowerCase().includes(searchTerm);
-            const matchesType = typeFilter === "all" || r.type === typeFilter;
-            return matchesSearch && matchesType;
+            if (typeFilter !== "all" && r.type !== typeFilter) return false;
+            if (searchTerm) {
+                const haystack = (r.title + " " + r.slug + " " + r.filename + " " + r.tags.join(" ")).toLowerCase();
+                if (!haystack.includes(searchTerm)) return false;
+            }
+            return true;
         });
 
-        container.innerHTML = filtered
-            .map((resource) => {
-                const isSelected = selectedResources.some(
-                    (r) => r.type === resource.type && r.slug === resource.slug,
-                );
-                const icon = resource.type === "video" ? "🎥" : "🖼️";
+        container.innerHTML = filtered.map((resource) => {
+            const isSelected = selectedResources.some(
+                (r) => r.type === resource.type && r.slug === resource.slug,
+            );
+            const icon = resource.type === "video" ? "🎥" : resource.type === "image" ? "🖼️" : "📄";
+            const thumbImg = resource.thumbnail_url
+                ? `<img src="${resource.thumbnail_url}" class="absolute inset-0 w-12 h-12 object-cover rounded" onerror="this.style.display='none'">`
+                : "";
+            const tagBadges = resource.tags.length
+                ? `<div class="flex flex-wrap gap-1 mt-0.5">${resource.tags.map(t => `<span class="badge badge-outline badge-xs">${t.replace(/</g,'&lt;')}</span>`).join("")}</div>`
+                : "";
 
-                return `
+            return `
                 <label class="flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer hover:bg-base-200 transition-colors ${isSelected ? "border-primary bg-primary/10" : "border-base-300"}">
-                    <input
-                        type="checkbox"
-                        class="checkbox checkbox-primary"
-                        ${isSelected ? "checked" : ""}
-                        onchange="toggleResource('${resource.type}', '${resource.slug}', '${resource.title.replace(/'/g, "\\'")}')"
-                    />
+                    <input type="checkbox" class="checkbox checkbox-primary" ${isSelected ? "checked" : ""}
+                        data-slug="${resource.slug}" data-type="${resource.type}" />
+                    <div class="relative w-12 h-12 rounded bg-base-300 flex items-center justify-center text-xl flex-shrink-0 overflow-hidden">
+                        ${icon}${thumbImg}
+                    </div>
                     <div class="flex-1 min-w-0">
-                        <div class="font-semibold flex items-center gap-2">
-                            <span>${icon}</span>
-                            <span class="truncate">${resource.title}</span>
-                        </div>
+                        <div class="font-semibold truncate">${resource.title.replace(/</g,'&lt;')}</div>
                         <div class="text-xs text-base-content/60 truncate">${resource.slug}</div>
+                        ${tagBadges}
                     </div>
                     <span class="badge badge-sm">${resource.type}</span>
                 </label>
             `;
-            })
-            .join("");
+        }).join("");
 
         if (filtered.length === 0) {
             container.innerHTML =
@@ -943,14 +935,20 @@ endblock %} {% block content %}
         }
     }
 
-    function toggleResource(type, slug, title) {
+    function toggleResource(resource) {
         const index = selectedResources.findIndex(
-            (r) => r.type === type && r.slug === slug,
+            (r) => r.type === resource.type && r.slug === resource.slug,
         );
         if (index > -1) {
             selectedResources.splice(index, 1);
         } else {
-            selectedResources.push({ type, slug, title });
+            selectedResources.push({
+                type: resource.type,
+                slug: resource.slug,
+                title: resource.title,
+                filename: resource.filename || "",
+                thumbnail_url: resource.thumbnail_url || null,
+            });
         }
         updateSelectedCount();
     }
@@ -996,7 +994,7 @@ endblock %} {% block content %}
         const resourcesList = document.getElementById("reviewResourcesList");
         resourcesList.innerHTML = selectedResources
             .map((r) => {
-                const icon = r.type === "video" ? "🎥" : "🖼️";
+                const icon = r.type === "video" ? "🎥" : r.type === "image" ? "🖼️" : "📄";
                 return `
                 <div class="flex items-center gap-2 text-sm">
                     <span>${icon}</span>
@@ -1078,6 +1076,9 @@ endblock %} {% block content %}
                 media_items: selectedResources.map((r) => ({
                     media_type: r.type,
                     media_slug: r.slug,
+                    filename: r.filename || "",
+                    thumbnail_url: r.thumbnail_url || null,
+                    title: r.title || "",
                 })),
             };
 

@@ -18,6 +18,7 @@ use crate::hls::{transcode_to_hls, HlsConfig};
 use crate::metrics::{AuditEventType, AuditLogger, MetricsStore, Timer, UploadRecord};
 use crate::progress::{ProgressStatus, ProgressTracker};
 use crate::storage::{move_file, StorageConfig};
+use common::storage::MediaType as StorageMediaType;
 use anyhow::{Context, Result};
 use sqlx::{Pool, Sqlite};
 use std::collections::HashMap;
@@ -695,11 +696,15 @@ async fn generate_thumbnail_stage(
     // Calculate thumbnail timestamp (10% of duration)
     let timestamp = get_thumbnail_timestamp(metadata.duration);
 
-    // Determine output path
-    let video_dir = context
+    // Write thumbnail to centralized thumbnails directory (matches serve_thumbnail lookup)
+    let thumb_dir = context
         .storage_config
-        .get_vault_video_dir(&context.vault_id, &context.slug);
-    let thumbnail_path = video_dir.join("thumbnail.jpg");
+        .user_storage
+        .vault_thumbnails_dir(&context.vault_id, StorageMediaType::Video);
+    tokio::fs::create_dir_all(&thumb_dir)
+        .await
+        .context("Failed to create thumbnails directory")?;
+    let thumbnail_path = thumb_dir.join(format!("{}_thumb.jpg", context.slug));
 
     // Generate thumbnail (320x180)
     generate_thumbnail(
@@ -714,7 +719,7 @@ async fn generate_thumbnail_stage(
     .await
     .context("Thumbnail generation failed")?;
 
-    // Convert JPEG to WebP for better compression
+    // Convert JPEG to WebP for better compression (produces {slug}_thumb.webp)
     convert_thumbnail_to_webp(&thumbnail_path).await?;
 
     Ok(())
@@ -924,9 +929,8 @@ async fn update_database_stage(
     let resolution = format!("{}x{}", metadata.width, metadata.height);
 
     // Determine thumbnail and poster URLs
-    // Phase 4.5: Use HLS endpoint URLs which handle vault path resolution
-    let thumbnail_url = format!("/hls/{}/thumbnail.webp", context.slug);
-    let poster_url = format!("/hls/{}/poster.jpg", context.slug);
+    let thumbnail_url = format!("/media/{}/thumbnail", context.slug);
+    let poster_url = format!("/media/{}/thumbnail", context.slug); // poster not yet served separately
 
     // HLS master playlist URL
     let hls_url = format!("/hls/{}/master.m3u8", context.slug);

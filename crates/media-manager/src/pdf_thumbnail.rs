@@ -156,7 +156,7 @@ pub async fn generate_pdf_thumbnail(context: PdfThumbnailContext) -> Result<()> 
     );
 
     // Update database with thumbnail URL
-    let thumbnail_url = format!("/documents/{}/thumbnail", context.slug);
+    let thumbnail_url = format!("/media/{}/thumbnail", context.slug);
     sqlx::query("UPDATE media_items SET thumbnail_url = ? WHERE id = ?")
         .bind(&thumbnail_url)
         .bind(context.media_id)

@@ -214,8 +214,8 @@ pub async fn serve_thumbnail(
         None
     };
 
-    let media: Option<(i32, Option<String>, Option<String>, i32, String)> = sqlx::query_as(
-        "SELECT id, user_id, vault_id, is_public, media_type FROM media_items WHERE slug = ?",
+    let media: Option<(i32, Option<String>, Option<String>, i32, String, String)> = sqlx::query_as(
+        "SELECT id, user_id, vault_id, is_public, media_type, COALESCE(filename, '') FROM media_items WHERE slug = ?",
     )
     .bind(&slug)
     .fetch_optional(&state.pool)
@@ -225,7 +225,7 @@ pub async fn serve_thumbnail(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    let (media_id, owner_user_id, vault_id, is_public, media_type_str) =
+    let (media_id, owner_user_id, vault_id, is_public, media_type_str, filename) =
         media.ok_or(StatusCode::NOT_FOUND)?;
 
     let vault_id = vault_id.ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -270,15 +270,31 @@ pub async fn serve_thumbnail(
         .user_storage
         .find_thumbnail(&vault_id, media_type_enum, &slug);
 
-    // For images without a thumbnail fall back to the WebP file
-    let file_path = if let Some(p) = thumb_path {
-        p
+    // Resolve file path and content type
+    let (file_path, content_type) = if let Some(p) = thumb_path {
+        (p, "image/webp".to_string())
     } else if media_type_str == "image" {
-        let webp_filename = format!("{}.webp", slug);
-        state
+        // Try {slug}.webp (regular images converted to WebP on upload)
+        let webp_path = state
             .user_storage
-            .find_media_file(&vault_id, common::storage::MediaType::Image, &webp_filename)
-            .ok_or(StatusCode::NOT_FOUND)?
+            .find_media_file(&vault_id, common::storage::MediaType::Image, &format!("{}.webp", slug));
+        if let Some(p) = webp_path {
+            (p, "image/webp".to_string())
+        } else {
+            // Fall back to original file (e.g. SVG stored as {filename})
+            let orig_path = state
+                .user_storage
+                .find_media_file(&vault_id, common::storage::MediaType::Image, &filename);
+            match orig_path {
+                Some(p) => {
+                    let mime = mime_guess::from_path(&filename)
+                        .first_or_octet_stream()
+                        .to_string();
+                    (p, mime)
+                }
+                None => return Err(StatusCode::NOT_FOUND),
+            }
+        }
     } else {
         return Err(StatusCode::NOT_FOUND);
     };
@@ -291,13 +307,21 @@ pub async fn serve_thumbnail(
     let stream = ReaderStream::new(file);
     let body = Body::from_stream(stream);
 
-    Ok(Response::builder()
+    let mut builder = Response::builder()
         .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "image/webp")
+        .header(header::CONTENT_TYPE, &content_type)
         .header(header::CACHE_CONTROL, "public, max-age=31536000")
-        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-        .body(body)
-        .unwrap())
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+
+    // SVG files can contain embedded JavaScript — add CSP when serving as thumbnail
+    if content_type == "image/svg+xml" {
+        builder = builder.header(
+            "Content-Security-Policy",
+            "default-src 'none'; style-src 'unsafe-inline'",
+        );
+    }
+
+    Ok(builder.body(body).unwrap())
 }
 
 /// Serve MP4 video file directly

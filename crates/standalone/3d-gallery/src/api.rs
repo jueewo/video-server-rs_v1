@@ -148,14 +148,13 @@ async fn fetch_media_for_access_code(
         let final_thumbnail = if let Some(thumb_url) = thumbnail_url {
             format!("{}?code={}", thumb_url, access_code_str)
         } else {
-            format!("/images/{}_thumb?code={}", slug, access_code_str)
+            format!("/media/{}/thumbnail?code={}", slug, access_code_str)
         };
 
         items.push(MediaItem3D {
             id: id as i32,
             media_type: MediaType::Image,
-            // Phase 4.5: Use slug-based URLs with access code for anonymous access
-            url: format!("/images/{}?code={}", slug, access_code_str),
+            url: format!("/media/{}/image.webp?code={}", slug, access_code_str),
             thumbnail_url: final_thumbnail,
             title,
             description,
@@ -188,14 +187,13 @@ async fn fetch_media_for_access_code(
 
         let pos = get_position_for_index(position_index);
 
-        // Phase 4.5: Use HLS endpoint with access code for anonymous access
         let video_url = format!("/hls/{}/master.m3u8?code={}", slug, access_code_str);
 
-        // Use thumbnail.webp as fallback if thumbnail_url is not available
+        // Always append access code so anonymous access-code users can load the thumbnail
         let final_thumbnail = if let Some(thumb) = thumbnail_url {
-            thumb
+            format!("{}?code={}", thumb, access_code_str)
         } else {
-            format!("/hls/{}/thumbnail.webp?code={}", slug, access_code_str)
+            format!("/media/{}/thumbnail?code={}", slug, access_code_str)
         };
 
         items.push(MediaItem3D {

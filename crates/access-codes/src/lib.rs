@@ -46,6 +46,10 @@ pub struct MediaItem {
     pub media_type: String, // "video", "image", or "document"
     pub media_slug: String,
     pub filename: String, // For file type detection (PDF, MD, BPMN, etc.)
+    #[serde(default)]
+    pub thumbnail_url: Option<String>,
+    #[serde(default)]
+    pub title: String,
 }
 
 impl MediaItem {
@@ -230,12 +234,14 @@ pub async fn view_access_code_page(
     let (id, code_name, description, expires_at, created_at) =
         code_record.ok_or(StatusCode::NOT_FOUND)?;
 
-    // Get permissions for this code with filename for file type detection
-    let permissions = sqlx::query_as::<_, (String, String, String)>(
+    // Get permissions for this code with filename, thumbnail and title for display
+    let permissions = sqlx::query_as::<_, (String, String, String, Option<String>, String)>(
         "SELECT
             acp.media_type,
             acp.media_slug,
-            COALESCE(m.filename, acp.media_slug) as filename
+            COALESCE(m.filename, acp.media_slug) as filename,
+            m.thumbnail_url,
+            COALESCE(m.title, acp.media_slug) as title
         FROM access_code_permissions acp
         LEFT JOIN media_items m ON m.slug = acp.media_slug
         WHERE acp.access_code_id = ?",
@@ -247,10 +253,12 @@ pub async fn view_access_code_page(
 
     let media_items: Vec<MediaItem> = permissions
         .into_iter()
-        .map(|(media_type, media_slug, filename)| MediaItem {
+        .map(|(media_type, media_slug, filename, thumbnail_url, title)| MediaItem {
             media_type,
             media_slug,
             filename: filename.to_lowercase(), // Lowercase for consistent file type detection
+            thumbnail_url,
+            title,
         })
         .collect();
 
@@ -482,7 +490,7 @@ pub async fn create_access_code(
 
     // Insert permissions (only for owned media)
     for item in &request.media_items {
-        if item.media_type != "video" && item.media_type != "image" {
+        if !["video", "image", "document"].contains(&item.media_type.as_str()) {
             warn!(
                 event = "invalid_request",
                 media_type = %item.media_type,
@@ -493,23 +501,14 @@ pub async fn create_access_code(
 
         // Validate ownership using AccessControlService
         // First get the resource ID
-        let resource_id: Option<i32> = match item.media_type.as_str() {
-            "video" => sqlx::query_scalar(
-                "SELECT id FROM media_items WHERE media_type = 'video' AND slug = ?",
-            )
-            .bind(&item.media_slug)
-            .fetch_optional(&state.pool)
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
-            "image" => sqlx::query_scalar(
-                "SELECT id FROM media_items WHERE media_type = 'image' AND slug = ?",
-            )
-            .bind(&item.media_slug)
-            .fetch_optional(&state.pool)
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
-            _ => None,
-        };
+        let resource_id: Option<i32> = sqlx::query_scalar(
+            "SELECT id FROM media_items WHERE media_type = ? AND slug = ?",
+        )
+        .bind(&item.media_type)
+        .bind(&item.media_slug)
+        .fetch_optional(&state.pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
         let resource_id = resource_id.ok_or(StatusCode::NOT_FOUND)?;
 
@@ -517,6 +516,7 @@ pub async fn create_access_code(
         let resource_type = match item.media_type.as_str() {
             "video" => ResourceType::Video,
             "image" => ResourceType::Image,
+            "document" => ResourceType::File,
             _ => return Err(StatusCode::BAD_REQUEST),
         };
 
@@ -645,12 +645,14 @@ pub async fn list_access_codes(
     let mut access_codes = Vec::new();
 
     for (id, code, description, expires_at, created_at) in codes {
-        // Get permissions for this code with filename for file type detection
-        let permissions = sqlx::query_as::<_, (String, String, String)>(
+        // Get permissions for this code with filename, thumbnail and title for display
+        let permissions = sqlx::query_as::<_, (String, String, String, Option<String>, String)>(
             "SELECT
             acp.media_type,
             acp.media_slug,
-            COALESCE(m.filename, acp.media_slug) as filename
+            COALESCE(m.filename, acp.media_slug) as filename,
+            m.thumbnail_url,
+            COALESCE(m.title, acp.media_slug) as title
         FROM access_code_permissions acp
         LEFT JOIN media_items m ON m.slug = acp.media_slug
         WHERE acp.access_code_id = ?",
@@ -662,10 +664,12 @@ pub async fn list_access_codes(
 
         let media_items = permissions
             .into_iter()
-            .map(|(media_type, media_slug, filename)| MediaItem {
+            .map(|(media_type, media_slug, filename, thumbnail_url, title)| MediaItem {
                 media_type,
                 media_slug,
                 filename: filename.to_lowercase(), // Lowercase for consistent file type detection
+                thumbnail_url,
+                title,
             })
             .collect();
 
@@ -788,12 +792,14 @@ pub async fn list_access_codes_page(
     let mut access_codes = Vec::new();
 
     for (id, code, description, expires_at, created_at) in codes {
-        // Get permissions for this code with filename for file type detection
-        let permissions = sqlx::query_as::<_, (String, String, String)>(
+        // Get permissions for this code with filename, thumbnail and title for display
+        let permissions = sqlx::query_as::<_, (String, String, String, Option<String>, String)>(
             "SELECT
             acp.media_type,
             acp.media_slug,
-            COALESCE(m.filename, acp.media_slug) as filename
+            COALESCE(m.filename, acp.media_slug) as filename,
+            m.thumbnail_url,
+            COALESCE(m.title, acp.media_slug) as title
         FROM access_code_permissions acp
         LEFT JOIN media_items m ON m.slug = acp.media_slug
         WHERE acp.access_code_id = ?",
@@ -805,10 +811,12 @@ pub async fn list_access_codes_page(
 
         let media_items: Vec<MediaItem> = permissions
             .into_iter()
-            .map(|(media_type, media_slug, filename)| MediaItem {
+            .map(|(media_type, media_slug, filename, thumbnail_url, title)| MediaItem {
                 media_type,
                 media_slug,
                 filename: filename.to_lowercase(), // Lowercase for consistent file type detection
+                thumbnail_url,
+                title,
             })
             .collect();
 
@@ -950,6 +958,166 @@ fn format_full_date(date_str: &str) -> String {
     }
 }
 
+#[tracing::instrument(skip(session, state, item))]
+pub async fn add_media_to_code(
+    Path(code): Path<String>,
+    session: Session,
+    State(state): State<Arc<AccessCodeState>>,
+    Json(item): Json<MediaItem>,
+) -> Result<StatusCode, StatusCode> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    let user_id: String = session
+        .get("user_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "unknown".to_string());
+
+    if !["video", "image", "document"].contains(&item.media_type.as_str()) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    // Get access code id (must belong to user)
+    let code_id: Option<i32> = sqlx::query_scalar(
+        "SELECT id FROM access_codes WHERE code = ? AND created_by = ?",
+    )
+    .bind(&code)
+    .bind(&user_id)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let code_id = code_id.ok_or(StatusCode::NOT_FOUND)?;
+
+    // Verify media exists and user owns it
+    let resource_id: Option<i32> = sqlx::query_scalar(
+        "SELECT id FROM media_items WHERE media_type = ? AND slug = ?",
+    )
+    .bind(&item.media_type)
+    .bind(&item.media_slug)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let resource_id = resource_id.ok_or(StatusCode::NOT_FOUND)?;
+
+    let resource_type = match item.media_type.as_str() {
+        "video" => ResourceType::Video,
+        "image" => ResourceType::Image,
+        "document" => ResourceType::File,
+        _ => return Err(StatusCode::BAD_REQUEST),
+    };
+
+    let context = AccessContext::new(resource_type, resource_id).with_user(user_id.clone());
+
+    let decision = state
+        .access_control
+        .check_access(context, Permission::Admin)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    if !decision.granted {
+        warn!(
+            event = "access_denied",
+            user_id = %user_id,
+            media_slug = %item.media_slug,
+            "User attempted to add media they don't own to access code"
+        );
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    sqlx::query(
+        "INSERT OR IGNORE INTO access_code_permissions (access_code_id, media_type, media_slug) VALUES (?, ?, ?)",
+    )
+    .bind(code_id)
+    .bind(&item.media_type)
+    .bind(&item.media_slug)
+    .execute(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    info!(
+        event = "media_added_to_code",
+        code = %code,
+        user_id = %user_id,
+        media_slug = %item.media_slug,
+        "Media added to access code"
+    );
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[tracing::instrument(skip(session, state))]
+pub async fn remove_media_from_code(
+    Path((code, slug)): Path<(String, String)>,
+    session: Session,
+    State(state): State<Arc<AccessCodeState>>,
+) -> Result<StatusCode, StatusCode> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    let user_id: String = session
+        .get("user_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "unknown".to_string());
+
+    // Get access code id (must belong to user)
+    let code_id: Option<i32> = sqlx::query_scalar(
+        "SELECT id FROM access_codes WHERE code = ? AND created_by = ?",
+    )
+    .bind(&code)
+    .bind(&user_id)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let code_id = code_id.ok_or(StatusCode::NOT_FOUND)?;
+
+    let rows_affected = sqlx::query(
+        "DELETE FROM access_code_permissions WHERE access_code_id = ? AND media_slug = ?",
+    )
+    .bind(code_id)
+    .bind(&slug)
+    .execute(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .rows_affected();
+
+    if rows_affected == 0 {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    info!(
+        event = "media_removed_from_code",
+        code = %code,
+        user_id = %user_id,
+        media_slug = %slug,
+        "Media removed from access code"
+    );
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
 /// Protected access-code routes (require authentication)
 pub fn access_code_routes(state: Arc<AccessCodeState>) -> Router {
     Router::new()
@@ -957,6 +1125,11 @@ pub fn access_code_routes(state: Arc<AccessCodeState>) -> Router {
         .route("/api/access-codes", post(create_access_code))
         .route("/api/access-codes", get(list_access_codes))
         .route("/api/access-codes/{code}", delete(delete_access_code))
+        .route("/api/access-codes/{code}/media", post(add_media_to_code))
+        .route(
+            "/api/access-codes/{code}/media/{slug}",
+            delete(remove_media_from_code),
+        )
         // UI routes
         .route("/access/codes", get(list_access_codes_page))
         .route("/access/codes/new", get(new_access_code_page))

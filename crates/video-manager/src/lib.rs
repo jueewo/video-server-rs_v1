@@ -679,26 +679,23 @@ pub async fn hls_proxy_handler(
     );
 
     // Phase 4.5: Serve VOD file from vault-based storage
-    // Fallback chain: vault -> user -> legacy
-    let video_dir = if let Some(ref vid) = vault_id {
-        // Use vault-based path
-        state.storage_config.user_storage.vault_media_path(
-            vid,
-            common::storage::MediaType::Video,
-            slug,
-        )
-    } else if let Some(ref uid) = owner_user_id {
-        // Fallback to user-based path
-        state
-            .storage_config
-            .user_storage
-            .media_path(uid, common::storage::MediaType::Video, slug)
-    } else {
-        // Legacy path
-        state.storage_dir.join("videos").join(slug)
-    };
+    // Use multi-location fallback to find HLS files in new nested structure
+    // All media should have vault_id now
+    let vault_id = vault_id.ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let full_path = video_dir.join(file_path);
+    let hls_file = format!("{}/{}", slug, file_path);
+    let full_path = state
+        .storage_config
+        .user_storage
+        .find_media_file(
+            &vault_id,
+            common::storage::MediaType::Video,
+            &hls_file,
+        )
+        .ok_or_else(|| {
+            info!("HLS file not found: {}/{}", slug, file_path);
+            StatusCode::NOT_FOUND
+        })?;
 
     // Check if file exists and read it
     let file = tokio::fs::File::open(&full_path)

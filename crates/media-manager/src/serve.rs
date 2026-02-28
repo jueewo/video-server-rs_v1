@@ -20,67 +20,8 @@ pub struct AccessQuery {
     pub code: Option<String>,
 }
 
-/// Serve image with suffix check for backward compatibility
-/// GET /images/:slug
-/// Handles both /images/logo and /images/logo_thumb patterns
-pub async fn serve_image_with_suffix_check(
-    State(state): State<MediaManagerState>,
-    session: Session,
-    Path(slug): Path<String>,
-    Query(query): Query<AccessQuery>,
-) -> Result<Response, StatusCode> {
-    // Check if slug ends with _thumb (legacy pattern from media-hub)
-    if let Some(base_slug) = slug.strip_suffix("_thumb") {
-        // Serve thumbnail variant
-        serve_image_variant(
-            state,
-            session,
-            base_slug.to_string(),
-            ImageVariant::Thumbnail,
-            query,
-        )
-        .await
-    } else {
-        // Serve WebP variant (default)
-        serve_image_variant(state, session, slug, ImageVariant::WebP, query).await
-    }
-}
-
-/// Serve image - defaults to WebP version if available
-/// GET /images/:slug
-pub async fn serve_image(
-    State(state): State<MediaManagerState>,
-    session: Session,
-    Path(slug): Path<String>,
-    Query(query): Query<AccessQuery>,
-) -> Result<Response, StatusCode> {
-    serve_image_variant(state, session, slug, ImageVariant::WebP, query).await
-}
-
-/// Serve original image
-/// GET /images/:slug/original
-pub async fn serve_image_original(
-    State(state): State<MediaManagerState>,
-    session: Session,
-    Path(slug): Path<String>,
-    Query(query): Query<AccessQuery>,
-) -> Result<Response, StatusCode> {
-    serve_image_variant(state, session, slug, ImageVariant::Original, query).await
-}
-
-/// Serve image thumbnail
-/// GET /images/:slug/thumb
-pub async fn serve_image_thumbnail(
-    State(state): State<MediaManagerState>,
-    session: Session,
-    Path(slug): Path<String>,
-    Query(query): Query<AccessQuery>,
-) -> Result<Response, StatusCode> {
-    serve_image_variant(state, session, slug, ImageVariant::Thumbnail, query).await
-}
-
 /// Serve WebP explicitly
-/// GET /images/:slug.webp
+/// GET /media/:slug.webp
 pub async fn serve_image_webp(
     State(state): State<MediaManagerState>,
     session: Session,
@@ -135,6 +76,9 @@ async fn serve_image_variant(
     let (media_id, filename, owner_user_id, vault_id, is_public, _mime_type) =
         media.ok_or(StatusCode::NOT_FOUND)?;
 
+    // All media should have vault_id now
+    let vault_id = vault_id.ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+
     // Check access control
     if is_public == 0 {
         // Private image - check ownership or access code
@@ -173,52 +117,37 @@ async fn serve_image_variant(
     // Determine file path based on variant
     let (file_path, content_type) = match variant {
         ImageVariant::WebP => {
-            // Serve WebP version
+            // Serve WebP version - try WebP first, then fall back to original
             let webp_filename = format!("{}.webp", slug);
-            let path = if let Some(ref vid) = vault_id {
-                state
-                    .user_storage
-                    .vault_media_dir(vid, common::storage::MediaType::Image)
-                    .join(&webp_filename)
-            } else if let Some(ref uid) = owner_user_id {
-                state
-                    .user_storage
-                    .user_media_dir(uid, common::storage::MediaType::Image)
-                    .join(&webp_filename)
-            } else {
-                std::path::PathBuf::from(&state.storage_dir)
-                    .join("images")
-                    .join(&webp_filename)
-            };
+            let webp_path = state.user_storage.find_media_file(
+                &vault_id,
+                common::storage::MediaType::Image,
+                &webp_filename,
+            );
 
-            // If WebP doesn't exist, try original
-            if !path.exists() {
-                let original_path = if let Some(ref vid) = vault_id {
-                    state
-                        .user_storage
-                        .vault_media_dir(vid, common::storage::MediaType::Image)
-                        .join(&filename)
-                } else if let Some(ref uid) = owner_user_id {
-                    state
-                        .user_storage
-                        .user_media_dir(uid, common::storage::MediaType::Image)
-                        .join(&filename)
-                } else {
-                    std::path::PathBuf::from(&state.storage_dir)
-                        .join("images")
-                        .join(&filename)
-                };
-
-                let mime = mime_guess::from_path(&filename)
-                    .first_or_octet_stream()
-                    .to_string();
-                (original_path, mime)
-            } else {
+            if let Some(path) = webp_path {
                 (path, "image/webp".to_string())
+            } else {
+                // WebP doesn't exist, try original
+                let original_path = state.user_storage.find_media_file(
+                    &vault_id,
+                    common::storage::MediaType::Image,
+                    &filename,
+                );
+
+                match original_path {
+                    Some(path) => {
+                        let mime = mime_guess::from_path(&filename)
+                            .first_or_octet_stream()
+                            .to_string();
+                        (path, mime)
+                    }
+                    None => return Err(StatusCode::NOT_FOUND),
+                }
             }
         }
         ImageVariant::Original => {
-            // Serve original version
+            // Serve original version - try _original first, then fall back to filename
             let original_filename = if filename.contains("_original") {
                 filename.clone()
             } else {
@@ -230,41 +159,24 @@ async fn serve_image_variant(
                 format!("{}_original.{}", slug, ext)
             };
 
-            let path = if let Some(ref vid) = vault_id {
-                state
-                    .user_storage
-                    .vault_media_dir(vid, common::storage::MediaType::Image)
-                    .join(&original_filename)
-            } else if let Some(ref uid) = owner_user_id {
-                state
-                    .user_storage
-                    .user_media_dir(uid, common::storage::MediaType::Image)
-                    .join(&original_filename)
-            } else {
-                std::path::PathBuf::from(&state.storage_dir)
-                    .join("images")
-                    .join(&original_filename)
-            };
+            let original_path = state.user_storage.find_media_file(
+                &vault_id,
+                common::storage::MediaType::Image,
+                &original_filename,
+            );
 
-            // If original doesn't exist, fallback to regular filename
-            let final_path = if path.exists() {
+            let final_path = if let Some(path) = original_path {
                 path
             } else {
-                if let Some(ref vid) = vault_id {
-                    state
-                        .user_storage
-                        .vault_media_dir(vid, common::storage::MediaType::Image)
-                        .join(&filename)
-                } else if let Some(ref uid) = owner_user_id {
-                    state
-                        .user_storage
-                        .user_media_dir(uid, common::storage::MediaType::Image)
-                        .join(&filename)
-                } else {
-                    std::path::PathBuf::from(&state.storage_dir)
-                        .join("images")
-                        .join(&filename)
-                }
+                // Original doesn't exist, try regular filename
+                state
+                    .user_storage
+                    .find_media_file(
+                        &vault_id,
+                        common::storage::MediaType::Image,
+                        &filename,
+                    )
+                    .ok_or(StatusCode::NOT_FOUND)?
             };
 
             let mime = mime_guess::from_path(&filename)
@@ -274,24 +186,16 @@ async fn serve_image_variant(
         }
         ImageVariant::Thumbnail => {
             // Serve thumbnail
-            let thumb_filename = format!("{}_thumb.webp", slug);
-            let path = if let Some(ref vid) = vault_id {
-                state
-                    .user_storage
-                    .vault_thumbnails_dir(vid, common::storage::MediaType::Image)
-                    .join(&thumb_filename)
-            } else if let Some(ref uid) = owner_user_id {
-                state
-                    .user_storage
-                    .thumbnails_dir(uid, common::storage::MediaType::Image)
-                    .join(&thumb_filename)
-            } else {
-                std::path::PathBuf::from(&state.storage_dir)
-                    .join("thumbnails")
-                    .join("images")
-                    .join(&thumb_filename)
-            };
-            (path, "image/webp".to_string())
+            let thumb_path = state.user_storage.find_thumbnail(
+                &vault_id,
+                common::storage::MediaType::Image,
+                &slug,
+            );
+
+            match thumb_path {
+                Some(path) => (path, "image/webp".to_string()),
+                None => return Err(StatusCode::NOT_FOUND),
+            }
         }
     };
 
@@ -339,17 +243,17 @@ async fn serve_image_variant(
     Ok(builder.body(body).unwrap())
 }
 
-/// Serve document thumbnail
-/// GET /documents/:slug/thumbnail
-pub async fn serve_document_thumbnail(
+/// Serve media thumbnail (WebP)
+/// GET /media/{slug}/thumbnail
+/// Works for all media types: image, video, document
+pub async fn serve_thumbnail(
     State(state): State<MediaManagerState>,
     session: Session,
     Path(slug): Path<String>,
     Query(query): Query<AccessQuery>,
 ) -> Result<Response, StatusCode> {
-    debug!("Serving document thumbnail: {}", slug);
+    debug!("Serving thumbnail: {}", slug);
 
-    // Get authenticated user
     let authenticated: bool = session
         .get("authenticated")
         .await
@@ -363,9 +267,8 @@ pub async fn serve_document_thumbnail(
         None
     };
 
-    // Lookup document in database
-    let media: Option<(i32, Option<String>, Option<String>, i32)> = sqlx::query_as(
-        "SELECT id, user_id, vault_id, is_public FROM media_items WHERE slug = ? AND media_type = 'document'",
+    let media: Option<(i32, Option<String>, Option<String>, i32, String)> = sqlx::query_as(
+        "SELECT id, user_id, vault_id, is_public, media_type FROM media_items WHERE slug = ?",
     )
     .bind(&slug)
     .fetch_optional(&state.pool)
@@ -375,36 +278,33 @@ pub async fn serve_document_thumbnail(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    let (media_id, owner_user_id, vault_id, is_public) =
+    let (media_id, owner_user_id, vault_id, is_public, media_type_str) =
         media.ok_or(StatusCode::NOT_FOUND)?;
 
-    // Check access control
+    let vault_id = vault_id.ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+
     if is_public == 0 {
-        // Private document - check ownership or access code
-        let has_access = if let Some(ref uid) = user_id {
-            // Check if user owns the document
-            owner_user_id.as_ref() == Some(uid)
-        } else {
-            false
-        };
+        let has_access = user_id
+            .as_ref()
+            .map(|uid| owner_user_id.as_ref() == Some(uid))
+            .unwrap_or(false);
 
         if !has_access {
-            // Check access code if provided
             if let Some(code) = query.code {
-                let access_decision = state
+                let resource_type = match media_type_str.as_str() {
+                    "video" => access_control::ResourceType::Video,
+                    "image" => access_control::ResourceType::Image,
+                    _ => access_control::ResourceType::File,
+                };
+                let decision = state
                     .access_control
                     .check_access(
-                        access_control::AccessContext::new(
-                            common::ResourceType::File,
-                            media_id,
-                        )
-                        .with_key(code),
+                        access_control::AccessContext::new(resource_type, media_id).with_key(code),
                         access_control::Permission::Read,
                     )
                     .await
                     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-                if !access_decision.granted {
+                if !decision.granted {
                     return Err(StatusCode::FORBIDDEN);
                 }
             } else {
@@ -413,36 +313,30 @@ pub async fn serve_document_thumbnail(
         }
     }
 
-    // Determine thumbnail path
-    let thumb_filename = format!("{}_thumb.webp", slug);
-    let thumb_path = if let Some(ref vid) = vault_id {
-        state
-            .user_storage
-            .vault_thumbnails_dir(vid, common::storage::MediaType::Document)
-            .join(&thumb_filename)
-    } else if let Some(ref uid) = owner_user_id {
-        state
-            .user_storage
-            .thumbnails_dir(uid, common::storage::MediaType::Document)
-            .join(&thumb_filename)
-    } else {
-        std::path::PathBuf::from(&state.storage_dir)
-            .join("thumbnails")
-            .join("documents")
-            .join(&thumb_filename)
+    let media_type_enum = match media_type_str.as_str() {
+        "video" => common::storage::MediaType::Video,
+        "image" => common::storage::MediaType::Image,
+        _ => common::storage::MediaType::Document,
     };
 
-    // Check if thumbnail exists
-    if !thumb_path.exists() {
-        debug!(
-            "Thumbnail not found at {:?}, returning 404",
-            thumb_path
-        );
-        return Err(StatusCode::NOT_FOUND);
-    }
+    let thumb_path = state
+        .user_storage
+        .find_thumbnail(&vault_id, media_type_enum, &slug);
 
-    // Open and stream file
-    let file = File::open(&thumb_path).await.map_err(|e| {
+    // For images without a thumbnail fall back to the WebP file
+    let file_path = if let Some(p) = thumb_path {
+        p
+    } else if media_type_str == "image" {
+        let webp_filename = format!("{}.webp", slug);
+        state
+            .user_storage
+            .find_media_file(&vault_id, common::storage::MediaType::Image, &webp_filename)
+            .ok_or(StatusCode::NOT_FOUND)?
+    } else {
+        return Err(StatusCode::NOT_FOUND);
+    };
+
+    let file = File::open(&file_path).await.map_err(|e| {
         error!("Failed to open thumbnail: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
@@ -453,8 +347,8 @@ pub async fn serve_document_thumbnail(
     Ok(Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "image/webp")
-        .header(header::CACHE_CONTROL, "public, max-age=31536000") // Cache for 1 year
-        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*") // Allow embedding
+        .header(header::CACHE_CONTROL, "public, max-age=31536000")
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .body(body)
         .unwrap())
 }
@@ -489,25 +383,28 @@ pub async fn serve_video_mp4(
         return Err(StatusCode::NOT_FOUND);
     }
 
-    // Get the video file path
-    let video_path = if let Some(vid) = &vault_id {
-        state
-            .user_storage
-            .vault_media_path(vid, MediaType::Video, &slug)
-            .join("video.mp4")
-    } else {
-        // Fallback to user storage path
-        // For now, return not found if no vault
-        return Err(StatusCode::NOT_FOUND);
+    // All media should have vault_id now
+    let vault_id = vault_id.ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Find video file using vault-based storage
+    // Videos are stored in subdirectories: {slug}/video.mp4
+    let video_filename = format!("{}/video.mp4", slug);
+    let video_path = state.user_storage.find_media_file(
+        &vault_id,
+        MediaType::Video,
+        &video_filename,
+    );
+
+    let video_path = match video_path {
+        Some(path) => {
+            debug!("Found video at: {:?}", path);
+            path
+        }
+        None => {
+            debug!("Video file not found: slug={}", slug);
+            return Err(StatusCode::NOT_FOUND);
+        }
     };
-
-    debug!("Video path: {:?}", video_path);
-
-    // Check if file exists
-    if !video_path.exists() {
-        debug!("Video file not found: {:?}", video_path);
-        return Err(StatusCode::NOT_FOUND);
-    }
 
     // Open and stream file
     let file = File::open(&video_path).await.map_err(|e| {
@@ -523,125 +420,6 @@ pub async fn serve_video_mp4(
         .header(header::CONTENT_TYPE, "video/mp4")
         .header(header::CACHE_CONTROL, "public, max-age=31536000") // Cache for 1 year
         .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*") // Allow embedding
-        .body(body)
-        .unwrap())
-}
-
-/// Serve video thumbnail (WebP)
-/// GET /videos/:slug/thumb
-pub async fn serve_video_thumbnail(
-    State(state): State<MediaManagerState>,
-    session: Session,
-    Path(slug): Path<String>,
-    Query(query): Query<AccessQuery>,
-) -> Result<Response, StatusCode> {
-    debug!("Serving video thumbnail: {}", slug);
-
-    // Get authenticated user
-    let authenticated: bool = session
-        .get("authenticated")
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or(false);
-
-    let user_id: Option<String> = if authenticated {
-        session.get("user_id").await.ok().flatten()
-    } else {
-        None
-    };
-
-    // Lookup video in database
-    let media: Option<(i32, Option<String>, Option<String>, i32)> = sqlx::query_as(
-        "SELECT id, user_id, vault_id, is_public FROM media_items WHERE slug = ? AND media_type = 'video'",
-    )
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|e| {
-        error!("Database error: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    let (media_id, owner_user_id, vault_id, is_public) =
-        media.ok_or(StatusCode::NOT_FOUND)?;
-
-    // Check access control
-    if is_public == 0 {
-        // Private video - check ownership or access code
-        let has_access = if let Some(ref uid) = user_id {
-            // Check if user owns the video
-            owner_user_id.as_ref() == Some(uid)
-        } else {
-            false
-        };
-
-        if !has_access {
-            // Check access code if provided
-            if let Some(code) = query.code {
-                let access_decision = state
-                    .access_control
-                    .check_access(
-                        access_control::AccessContext::new(
-                            access_control::ResourceType::Video,
-                            media_id,
-                        )
-                        .with_key(code),
-                        access_control::Permission::Read,
-                    )
-                    .await
-                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-                if !access_decision.granted {
-                    return Err(StatusCode::FORBIDDEN);
-                }
-            } else {
-                return Err(StatusCode::UNAUTHORIZED);
-            }
-        }
-    }
-
-    // Determine thumbnail path
-    let thumb_filename = format!("{}_thumb.webp", slug);
-    let thumb_path = if let Some(ref vid) = vault_id {
-        state
-            .user_storage
-            .vault_thumbnails_dir(vid, common::storage::MediaType::Video)
-            .join(&thumb_filename)
-    } else if let Some(ref uid) = owner_user_id {
-        state
-            .user_storage
-            .thumbnails_dir(uid, common::storage::MediaType::Video)
-            .join(&thumb_filename)
-    } else {
-        std::path::PathBuf::from(&state.storage_dir)
-            .join("thumbnails")
-            .join("videos")
-            .join(&thumb_filename)
-    };
-
-    // Check if thumbnail exists
-    if !thumb_path.exists() {
-        debug!(
-            "Video thumbnail not found at {:?}, returning 404",
-            thumb_path
-        );
-        return Err(StatusCode::NOT_FOUND);
-    }
-
-    // Open and stream file
-    let file = File::open(&thumb_path).await.map_err(|e| {
-        error!("Failed to open video thumbnail: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    let stream = ReaderStream::new(file);
-    let body = Body::from_stream(stream);
-
-    Ok(Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "image/webp")
-        .header(header::CACHE_CONTROL, "public, max-age=31536000")
         .body(body)
         .unwrap())
 }

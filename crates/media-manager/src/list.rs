@@ -1028,46 +1028,69 @@ pub async fn delete_media(
                     // For videos, delete the entire directory (contains HLS files, segments, etc.)
                     // For images/documents, delete the single file
                     if media_type == "video" {
-                        let video_dir = state
-                            .user_storage
-                            .vault_media_dir(&vault_id, media_type_enum)
-                            .join(&slug);
+                        // Videos are in subdirectories: {slug}/
+                        let video_path = state.user_storage.find_media_file(&vault_id, media_type_enum,
+                            &slug,
+                        );
 
-                        if video_dir.exists() && video_dir.is_dir() {
-                            if let Err(e) = tokio::fs::remove_dir_all(&video_dir).await {
-                                warn!("Failed to delete video directory {:?}: {}", video_dir, e);
+                        if let Some(video_dir) = video_path {
+                            if video_dir.is_dir() {
+                                if let Err(e) = tokio::fs::remove_dir_all(&video_dir).await {
+                                    warn!("Failed to delete video directory {:?}: {}", video_dir, e);
+                                } else {
+                                    info!("✅ Deleted video directory: {:?}", video_dir);
+                                }
                             } else {
-                                info!("✅ Deleted video directory: {:?}", video_dir);
+                                warn!("Video path exists but is not a directory: {:?}", video_dir);
                             }
                         } else {
-                            warn!("Video directory not found: {:?}", video_dir);
+                            warn!("Video directory not found for slug: {}", slug);
                         }
                     } else {
-                        let file_path = state
-                            .user_storage
-                            .vault_media_dir(&vault_id, media_type_enum)
-                            .join(&filename);
+                        // Images and documents are flat files
+                        let file_path = state.user_storage.find_media_file(&vault_id, media_type_enum,
+                            &filename,
+                        );
 
-                        if let Err(e) = tokio::fs::remove_file(&file_path).await {
-                            warn!("Failed to delete file {:?}: {}", file_path, e);
-                            // Continue anyway — database record is deleted
+                        if let Some(path) = file_path {
+                            if let Err(e) = tokio::fs::remove_file(&path).await {
+                                warn!("Failed to delete file {:?}: {}", path, e);
+                            } else {
+                                info!("✅ Deleted file: {:?}", path);
+                            }
                         } else {
-                            info!("✅ Deleted file: {:?}", file_path);
+                            warn!("Media file not found: {}", filename);
+                        }
+
+                        // For images, also try to delete original file if it exists
+                        if media_type == "image" {
+                            // Try common original filename patterns
+                            for ext in &["jpg", "jpeg", "png", "webp", "gif", "bmp"] {
+                                let original_filename = format!("{}_original.{}", slug, ext);
+                                if let Some(original_path) = state.user_storage.find_media_file(&vault_id, media_type_enum,
+                                    &original_filename,
+                                ) {
+                                    if let Err(e) = tokio::fs::remove_file(&original_path).await {
+                                        warn!("Failed to delete original file {:?}: {}", original_path, e);
+                                    } else {
+                                        info!("Deleted original image: {:?}", original_path);
+                                    }
+                                    break; // Found and deleted, stop searching
+                                }
+                            }
                         }
                     }
 
-                    // Also try to delete thumbnail if it exists
-                    let thumb_filename = format!("{}_thumb.webp", slug);
-                    let thumb_path = state
-                        .user_storage
-                        .vault_thumbnails_dir(&vault_id, media_type_enum)
-                        .join(&thumb_filename);
+                    // Delete thumbnail using multi-location fallback
+                    let thumb_path = state.user_storage.find_thumbnail(&vault_id, media_type_enum,
+                        &slug,
+                    );
 
-                    if thumb_path.exists() {
-                        if let Err(e) = tokio::fs::remove_file(&thumb_path).await {
-                            warn!("Failed to delete thumbnail {:?}: {}", thumb_path, e);
+                    if let Some(thumb) = thumb_path {
+                        if let Err(e) = tokio::fs::remove_file(&thumb).await {
+                            warn!("Failed to delete thumbnail {:?}: {}", thumb, e);
                         } else {
-                            info!("Deleted thumbnail: {:?}", thumb_path);
+                            info!("Deleted thumbnail: {:?}", thumb);
                         }
                     }
                 }

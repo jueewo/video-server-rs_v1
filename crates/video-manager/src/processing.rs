@@ -90,6 +90,8 @@ pub struct ProcessingContext {
     pub upload_id: String,
     /// Video slug
     pub slug: String,
+    /// Vault ID for storage
+    pub vault_id: String,
     /// Temporary file path
     pub temp_file_path: PathBuf,
     /// Is the video public?
@@ -696,7 +698,7 @@ async fn generate_thumbnail_stage(
     // Determine output path
     let video_dir = context
         .storage_config
-        .get_video_dir(&context.slug, context.is_public);
+        .get_vault_video_dir(&context.vault_id, &context.slug);
     let thumbnail_path = video_dir.join("thumbnail.jpg");
 
     // Generate thumbnail (320x180)
@@ -775,7 +777,7 @@ async fn generate_poster_stage(
     // Determine output path
     let video_dir = context
         .storage_config
-        .get_video_dir(&context.slug, context.is_public);
+        .get_vault_video_dir(&context.vault_id, &context.slug);
     let poster_path = video_dir.join("poster.jpg");
 
     // Generate poster (max 1920x1080, maintains aspect ratio)
@@ -818,7 +820,7 @@ async fn transcode_hls_stage(
     // Determine output directory
     let video_dir = context
         .storage_config
-        .get_video_dir(&context.slug, context.is_public);
+        .get_vault_video_dir(&context.vault_id, &context.slug);
 
     // Create directory if it doesn't exist
     tokio::fs::create_dir_all(&video_dir)
@@ -873,7 +875,7 @@ async fn move_to_storage_stage(context: &ProcessingContext) -> Result<PathBuf> {
     // Get destination directory
     let video_dir = context
         .storage_config
-        .get_video_dir(&context.slug, context.is_public);
+        .get_vault_video_dir(&context.vault_id, &context.slug);
 
     // Create directory if it doesn't exist
     tokio::fs::create_dir_all(&video_dir)

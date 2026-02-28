@@ -222,9 +222,19 @@ pub async fn handle_video_upload_v2(
     );
 
     // Create initial database record
-    match create_upload_record_v2(&state.pool, &upload_id, &slug, &user_id, &upload_request).await {
-        Ok(_) => {
+    let vault_id = match create_upload_record_v2(
+        &state.pool,
+        &upload_id,
+        &slug,
+        &user_id,
+        &upload_request,
+        &state.storage_config.user_storage,
+    )
+    .await
+    {
+        Ok(vault_id) => {
             info!("Database record created for upload: {}", upload_id);
+            vault_id
         }
         Err(e) => {
             error!("Failed to create database record: {}", e);
@@ -240,12 +250,13 @@ pub async fn handle_video_upload_v2(
                 }),
             ));
         }
-    }
+    };
 
     // Spawn background processing task
     let processing_context = ProcessingContext {
         upload_id: upload_id.clone(),
         slug: slug.clone(),
+        vault_id: vault_id.clone(),
         temp_file_path: temp_file_path.clone(),
         is_public: upload_request.metadata.is_public,
         original_filename: upload_request.original_filename.clone(),
@@ -505,7 +516,8 @@ async fn create_upload_record_v2(
     slug: &str,
     user_id: &str,
     request: &VideoUploadRequest,
-) -> Result<()> {
+    storage: &common::storage::UserStorageManager,
+) -> Result<String> {
     let is_public = if request.metadata.is_public { 1 } else { 0 };
     let allow_comments = if request.metadata.allow_comments {
         1
@@ -523,11 +535,17 @@ async fn create_upload_record_v2(
         0
     };
 
+    // Get or create default vault for user
+    let vault_id =
+        common::services::vault_service::get_or_create_default_vault(pool, storage, user_id)
+            .await
+            .context("Failed to get or create vault")?;
+
     sqlx::query(
         r#"
         INSERT INTO videos (
             slug, title, description, short_description,
-            is_public, user_id, group_id,
+            is_public, user_id, group_id, vault_id,
             category, language,
             allow_comments, allow_download, mature_content,
             status, featured,
@@ -535,7 +553,7 @@ async fn create_upload_record_v2(
             upload_date, last_modified,
             view_count, like_count, download_count, share_count
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'processing', 0, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0, 0, 0, 0)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'processing', 0, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0, 0, 0, 0)
         "#,
     )
     .bind(slug)
@@ -545,6 +563,7 @@ async fn create_upload_record_v2(
     .bind(is_public)
     .bind(user_id)
     .bind(request.metadata.group_id)
+    .bind(&vault_id)
     .bind(&request.metadata.category)
     .bind(&request.metadata.language)
     .bind(allow_comments)
@@ -558,7 +577,7 @@ async fn create_upload_record_v2(
 
     info!("Created database record for video: {}", slug);
 
-    Ok(())
+    Ok(vault_id)
 }
 
 // ============================================================================

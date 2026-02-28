@@ -158,31 +158,15 @@ pub fn media_serving_routes() -> Router<MediaManagerState> {
             "/media/{slug}/serve",
             get(crate::pdf_view::serve_pdf_handler),
         )
-        // ── Document thumbnails ─────────────────────────────────────
-        .route(
-            "/documents/{slug}/thumbnail",
-            get(crate::serve::serve_document_thumbnail),
-        )
         // ── Image serving ───────────────────────────────────────────
         .route(
-            "/images/{slug}",
-            get(crate::serve::serve_image_with_suffix_check),
+            "/media/{slug}/image.webp",
+            get(crate::serve::serve_image_webp),
         )
+        // ── Thumbnail serving (all media types) ──────────────────────
         .route(
-            "/images/{slug}/original",
-            get(crate::serve::serve_image_original),
+            "/media/{slug}/thumbnail",
+            get(crate::serve::serve_thumbnail),
         )
-        .route(
-            "/images/{slug}/thumb",
-            get(crate::serve::serve_image_thumbnail),
-        )
-        // ── Video serving (MP4 direct playback) ──────────────────────
-        .route(
-            "/media/{slug}/video.mp4",
-            get(crate::serve::serve_video_mp4),
-        )
-        .route(
-            "/videos/{slug}/thumb",
-            get(crate::serve::serve_video_thumbnail),
-        )
+    // NOTE: HLS video serving (/hls/{slug}/{*path}) is handled by video-manager crate
 }

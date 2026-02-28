@@ -324,6 +324,29 @@
                     </label>
                 </div>
 
+                <!-- Keep original checkbox (image only) -->
+                <div class="form-control mb-4" id="keepOriginalSection" style="display: none;">
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input
+                            type="checkbox"
+                            id="keep_original"
+                            name="keep_original"
+                            value="true"
+                            class="checkbox checkbox-secondary"
+                            checked
+                        />
+                        <div class="label-text">
+                            <span class="font-semibold">Keep original image file</span>
+                            <span class="text-sm text-base-content/60 block">Save both original and WebP version</span>
+                        </div>
+                    </label>
+                    <label class="label">
+                        <span class="label-text-alt text-base-content/50"
+                            >Uncheck to save only WebP (reduces storage by ~30-50%)</span
+                        >
+                    </label>
+                </div>
+
                 <!-- Transcode checkbox (video only) -->
                 <div class="form-control mb-6" id="transcodeSection" style="display: none;">
                     <label class="label cursor-pointer justify-start gap-3">
@@ -520,6 +543,14 @@
         indicator.textContent = mediaType;
         indicator.className = "type-indicator type-" + mediaType.toLowerCase();
 
+        // Show/hide keep original option for images
+        const keepOriginalSection = document.getElementById("keepOriginalSection");
+        if (mediaType.toLowerCase() === "image") {
+            keepOriginalSection.style.display = "block";
+        } else {
+            keepOriginalSection.style.display = "none";
+        }
+
         // Show/hide transcode option for videos
         const transcodeSection = document.getElementById("transcodeSection");
         if (mediaType.toLowerCase() === "video") {
@@ -567,13 +598,21 @@
         const isPublicCheckbox = document.getElementById("is_public");
         formData.set("is_public", isPublicCheckbox.checked ? "1" : "0");
 
+        // Handle keep_original - only for images
+        const fi = document.getElementById("fileInput");
+        if (fi.files[0]) {
+            const mediaType = detectMediaType(fi.files[0]);
+            if (mediaType.toLowerCase() === "image") {
+                const keepOriginalCheckbox = document.getElementById("keep_original");
+                formData.set("keep_original", keepOriginalCheckbox.checked ? "1" : "0");
+            }
+        }
+
         // Handle transcode_for_streaming - only for videos
         const transcodeCheckbox = document.getElementById("transcode_for_streaming");
         if (transcodeCheckbox) {
             formData.set("transcode_for_streaming", transcodeCheckbox.checked ? "1" : "0");
         }
-
-        const fi = document.getElementById("fileInput");
         if (fi.files.length === 0) {
             showToast("Please select a file to upload", "error");
             return;

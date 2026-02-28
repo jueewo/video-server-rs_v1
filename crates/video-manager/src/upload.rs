@@ -197,7 +197,7 @@ pub async fn handle_video_upload(
     );
 
     // Create initial database record
-    match create_upload_record(
+    let vault_id = match create_upload_record(
         &state.pool,
         &upload_id,
         &slug,
@@ -207,8 +207,9 @@ pub async fn handle_video_upload(
     )
     .await
     {
-        Ok(_) => {
+        Ok(vault_id) => {
             info!("Database record created for upload: {}", upload_id);
+            vault_id
         }
         Err(e) => {
             error!("Failed to create database record: {}", e);
@@ -224,12 +225,13 @@ pub async fn handle_video_upload(
                 }),
             ));
         }
-    }
+    };
 
     // Spawn background processing task
     let processing_context = ProcessingContext {
         upload_id: upload_id.clone(),
         slug: slug.clone(),
+        vault_id: vault_id.clone(),
         temp_file_path: upload_data.temp_file_path.clone(),
         is_public: upload_data.is_public,
         original_filename: upload_data.original_filename.clone(),
@@ -484,7 +486,7 @@ async fn create_upload_record(
     user_id: &str,
     data: &VideoUploadRequest,
     storage: &common::storage::UserStorageManager,
-) -> Result<()> {
+) -> Result<String> {
     let is_public_int = if data.is_public { 1 } else { 0 };
     let featured_int = 0;
     let allow_comments_int = if data.allow_comments { 1 } else { 0 };
@@ -534,7 +536,7 @@ async fn create_upload_record(
     .await
     .context("Failed to insert video record")?;
 
-    Ok(())
+    Ok(vault_id)
 }
 
 /// Wrapper to handle video uploads with VideoManagerState

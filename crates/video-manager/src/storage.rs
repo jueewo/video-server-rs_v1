@@ -113,56 +113,23 @@ impl StorageConfig {
         }
     }
 
-    /// Get the path for a video directory (legacy method)
-    pub fn get_video_dir(&self, slug: &str, is_public: bool) -> PathBuf {
-        let visibility = if is_public { "public" } else { "private" };
-        self.videos_dir.join(visibility).join(slug)
+    /// Get the path for a video directory in vault storage
+    ///
+    /// Returns: `storage/vaults/{vault_id}/media/videos/{slug}/`
+    pub fn get_vault_video_dir(&self, vault_id: &str, slug: &str) -> PathBuf {
+        self.user_storage.vault_nested_media_path(vault_id, MediaType::Video, slug)
     }
 
-    /// Phase 4.5: Get the path for a video directory (user-based)
+    /// Find video directory in vault storage
     ///
-    /// Returns: `storage/users/{user_id}/videos/{slug}/`
-    pub fn get_user_video_dir(&self, user_id: &str, slug: &str) -> PathBuf {
-        self.user_storage.media_path(user_id, MediaType::Video, slug)
-    }
-
-    /// Phase 4.5: Find video directory (checks both new and legacy paths)
-    ///
-    /// This provides backward compatibility by checking:
-    /// 1. New location: `storage/users/{user_id}/videos/{slug}/`
-    /// 2. Legacy location: `storage/videos/public/{slug}/` or `storage/videos/private/{slug}/`
-    pub fn find_video_dir(&self, user_id: &str, slug: &str, is_public: Option<bool>) -> Option<PathBuf> {
-        // Check new user-based location first
-        let new_path = self.get_user_video_dir(user_id, slug);
-        if new_path.exists() {
-            return Some(new_path);
-        }
-
-        // Check legacy locations if we know visibility
-        if let Some(public) = is_public {
-            let legacy_path = self.get_video_dir(slug, public);
-            if legacy_path.exists() {
-                return Some(legacy_path);
-            }
+    /// Returns Some(path) if exists, None otherwise
+    pub fn find_vault_video_dir(&self, vault_id: &str, slug: &str) -> Option<PathBuf> {
+        let path = self.get_vault_video_dir(vault_id, slug);
+        if path.exists() {
+            Some(path)
         } else {
-            // Check both public and private if visibility unknown
-            let public_path = self.get_video_dir(slug, true);
-            if public_path.exists() {
-                return Some(public_path);
-            }
-
-            let private_path = self.get_video_dir(slug, false);
-            if private_path.exists() {
-                return Some(private_path);
-            }
+            None
         }
-
-        None
-    }
-
-    /// Phase 4.5: Ensure user storage directories exist
-    pub fn ensure_user_storage(&self, user_id: &str) -> Result<()> {
-        self.user_storage.ensure_user_storage(user_id)
     }
 
     /// Get the path for a temporary file

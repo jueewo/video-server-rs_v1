@@ -45,8 +45,6 @@ impl MediaType {
 pub struct UserStorageManager {
     /// Base storage directory (e.g., "storage")
     base_dir: PathBuf,
-    /// Feature flag: Use vault-based storage (default: true)
-    use_vault_based_storage: bool,
 }
 
 /// Generate a random vault ID
@@ -88,7 +86,6 @@ impl UserStorageManager {
     pub fn new(base_dir: impl Into<PathBuf>) -> Self {
         Self {
             base_dir: base_dir.into(),
-            use_vault_based_storage: true,
         }
     }
 
@@ -121,27 +118,16 @@ impl UserStorageManager {
     /// Get the media directory for a specific vault and media type
     ///
     /// Vault format: `storage/vaults/{vault_id}/{media_type}/`
-    /// Legacy format: `storage/{media_type}/`
     pub fn vault_media_dir(&self, vault_id: &str, media_type: MediaType) -> PathBuf {
-        if self.use_vault_based_storage {
-            self.vault_storage_root(vault_id)
-                .join(media_type.dir_name())
-        } else {
-            // Legacy format (backward compatibility)
-            self.base_dir.join(media_type.dir_name())
-        }
+        self.vault_storage_root(vault_id)
+            .join(media_type.dir_name())
     }
 
     /// Get the full path for a specific media item in a vault
     ///
     /// Vault format: `storage/vaults/{vault_id}/{media_type}/{slug}/`
     /// Legacy format: `storage/{media_type}/{slug}/`
-    pub fn vault_media_path(
-        &self,
-        vault_id: &str,
-        media_type: MediaType,
-        slug: &str,
-    ) -> PathBuf {
+    pub fn vault_media_path(&self, vault_id: &str, media_type: MediaType, slug: &str) -> PathBuf {
         self.vault_media_dir(vault_id, media_type).join(slug)
     }
 
@@ -162,17 +148,10 @@ impl UserStorageManager {
     /// Get the thumbnail directory for a specific vault and media type
     ///
     /// Vault format: `storage/vaults/{vault_id}/thumbnails/{media_type}/`
-    /// Legacy format: `storage/thumbnails/{media_type}/`
     pub fn vault_thumbnails_dir(&self, vault_id: &str, media_type: MediaType) -> PathBuf {
-        if self.use_vault_based_storage {
-            self.vault_storage_root(vault_id)
-                .join("thumbnails")
-                .join(media_type.dir_name())
-        } else {
-            self.base_dir
-                .join("thumbnails")
-                .join(media_type.dir_name())
-        }
+        self.vault_storage_root(vault_id)
+            .join("thumbnails")
+            .join(media_type.dir_name())
     }
 
     /// Get the thumbnail directory for a specific user and media type (legacy)
@@ -250,67 +229,33 @@ impl UserStorageManager {
         Ok(())
     }
 
-    /// Find file location (checks vault, user, and legacy paths)
+    /// Find file location in vault storage
     ///
-    /// This provides backward compatibility by checking:
-    /// 1. Vault location: `storage/vaults/{vault_id}/{media_type}/{slug}/`
-    /// 2. User location: `storage/users/{user_id}/{media_type}/{slug}/`
-    /// 3. Legacy location: `storage/{media_type}/{slug}/`
+    /// Returns: `storage/vaults/{vault_id}/{media_type}/{slug}/`
     ///
-    /// Returns the first path that exists, or None if none exist.
+    /// Returns the path if it exists, or None if not found.
     pub fn find_file_location_with_vault(
         &self,
-        vault_id: Option<&str>,
-        user_id: &str,
+        vault_id: &str,
         media_type: MediaType,
         slug: &str,
     ) -> Option<PathBuf> {
-        // Check vault location first (if vault_id provided)
-        if let Some(vid) = vault_id {
-            let vault_path = self.vault_media_path(vid, media_type, slug);
-            if vault_path.exists() {
-                debug!("Found file in vault location: {:?}", vault_path);
-                return Some(vault_path);
-            }
-        }
-
-        // Check user-based location
-        let user_path = self.media_path(user_id, media_type, slug);
-        if user_path.exists() {
-            debug!("Found file in user location: {:?}", user_path);
-            return Some(user_path);
-        }
-
-        // Check legacy location
-        let legacy_path = self.base_dir.join(media_type.dir_name()).join(slug);
-        if legacy_path.exists() {
-            warn!(
-                "Found file in legacy location (should migrate): {:?}",
-                legacy_path
-            );
-            return Some(legacy_path);
+        let vault_path = self.vault_media_path(vault_id, media_type, slug);
+        if vault_path.exists() {
+            debug!("Found file in vault location: {:?}", vault_path);
+            return Some(vault_path);
         }
 
         debug!(
-            "File not found: vault={:?}, user={}, type={:?}, slug={}",
-            vault_id, user_id, media_type, slug
+            "File not found in vault: vault={}, type={:?}, slug={}",
+            vault_id, media_type, slug
         );
         None
     }
 
-    /// Find file location (checks user and legacy paths only - legacy method)
-    pub fn find_file_location(
-        &self,
-        user_id: &str,
-        media_type: MediaType,
-        slug: &str,
-    ) -> Option<PathBuf> {
-        self.find_file_location_with_vault(None, user_id, media_type, slug)
-    }
-
-    /// Check if a file exists
-    pub fn file_exists(&self, user_id: &str, media_type: MediaType, slug: &str) -> bool {
-        self.find_file_location(user_id, media_type, slug)
+    /// Check if a file exists in vault storage
+    pub fn file_exists(&self, vault_id: &str, media_type: MediaType, slug: &str) -> bool {
+        self.find_file_location_with_vault(vault_id, media_type, slug)
             .is_some()
     }
 
@@ -347,6 +292,146 @@ impl UserStorageManager {
     pub fn ensure_temp_dir(&self) -> Result<()> {
         let temp = self.temp_dir();
         ensure_dir_exists(&temp)?;
+        Ok(())
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Nested Media Structure (Phase 5: Media + Thumbnails Mirroring)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Get the nested media directory for a specific vault and media type
+    ///
+    /// New format: `storage/vaults/{vault_id}/media/{media_type}/`
+    ///
+    /// This creates a symmetric structure with thumbnails:
+    /// - `storage/vaults/{vault_id}/media/{media_type}/`
+    /// - `storage/vaults/{vault_id}/thumbnails/{media_type}/`
+    pub fn vault_nested_media_dir(&self, vault_id: &str, media_type: MediaType) -> PathBuf {
+        self.vault_storage_root(vault_id)
+            .join("media")
+            .join(media_type.dir_name())
+    }
+
+    /// Get the full path for a specific media item in the nested structure
+    ///
+    /// New format: `storage/vaults/{vault_id}/media/{media_type}/{slug}/`
+    pub fn vault_nested_media_path(
+        &self,
+        vault_id: &str,
+        media_type: MediaType,
+        slug: &str,
+    ) -> PathBuf {
+        self.vault_nested_media_dir(vault_id, media_type).join(slug)
+    }
+
+    /// Get media file path in the new nested structure
+    ///
+    /// Returns: `vaults/{vault_id}/media/{media_type}/{filename}`
+    ///
+    /// # Arguments
+    /// * `vault_id` - Vault ID (required)
+    /// * `media_type` - Type of media (video, image, document)
+    /// * `filename` - Filename or slug (may include subdirectory for videos)
+    pub fn get_media_file_path(
+        &self,
+        vault_id: &str,
+        media_type: MediaType,
+        filename: &str,
+    ) -> PathBuf {
+        self.vault_nested_media_dir(vault_id, media_type)
+            .join(filename)
+    }
+
+    /// Find media file (checks if exists)
+    ///
+    /// Returns Some(path) if file exists, None otherwise
+    pub fn find_media_file(
+        &self,
+        vault_id: &str,
+        media_type: MediaType,
+        filename: &str,
+    ) -> Option<PathBuf> {
+        let path = self.get_media_file_path(vault_id, media_type, filename);
+        if path.exists() {
+            Some(path)
+        } else {
+            debug!(
+                "Media file not found: vault={}, type={:?}, filename={}",
+                vault_id, media_type, filename
+            );
+            None
+        }
+    }
+
+    /// Get thumbnail path in the centralized location
+    ///
+    /// Returns: `vaults/{vault_id}/thumbnails/{media_type}/{slug}_thumb.webp`
+    ///
+    /// # Arguments
+    /// * `vault_id` - Vault ID (required)
+    /// * `media_type` - Type of media (video, image, document)
+    /// * `slug` - Media item slug
+    pub fn get_thumbnail_path(&self, vault_id: &str, media_type: MediaType, slug: &str) -> PathBuf {
+        let thumb_filename = format!("{}_thumb.webp", slug);
+        self.vault_thumbnails_dir(vault_id, media_type)
+            .join(&thumb_filename)
+    }
+
+    /// Find thumbnail (checks if exists)
+    ///
+    /// Returns Some(path) if thumbnail exists, None otherwise
+    pub fn find_thumbnail(
+        &self,
+        vault_id: &str,
+        media_type: MediaType,
+        slug: &str,
+    ) -> Option<PathBuf> {
+        let path = self.get_thumbnail_path(vault_id, media_type, slug);
+        if path.exists() {
+            Some(path)
+        } else {
+            debug!(
+                "Thumbnail not found: vault={}, type={:?}, slug={}",
+                vault_id, media_type, slug
+            );
+            None
+        }
+    }
+
+    /// Ensure nested vault storage directories exist
+    ///
+    /// Creates the new mirrored structure:
+    /// - `storage/vaults/{vault_id}/media/`
+    /// - `storage/vaults/{vault_id}/media/videos/`
+    /// - `storage/vaults/{vault_id}/media/images/`
+    /// - `storage/vaults/{vault_id}/media/documents/`
+    /// - `storage/vaults/{vault_id}/thumbnails/` (already exists from ensure_vault_storage)
+    pub fn ensure_nested_vault_storage(&self, vault_id: &str) -> Result<()> {
+        let vault_root = self.vault_storage_root(vault_id);
+
+        // Create vault root directory
+        ensure_dir_exists(&vault_root)?;
+
+        // Create media root directory
+        let media_root = vault_root.join("media");
+        ensure_dir_exists(&media_root)?;
+
+        // Create media type directories under media/
+        for media_type in &[MediaType::Video, MediaType::Image, MediaType::Document] {
+            let media_dir = self.vault_nested_media_dir(vault_id, *media_type);
+            ensure_dir_exists(&media_dir)?;
+        }
+
+        // Create thumbnails directory structure (same as before)
+        let thumbnails_root = vault_root.join("thumbnails");
+        ensure_dir_exists(&thumbnails_root)?;
+
+        for media_type in &[MediaType::Video, MediaType::Image, MediaType::Document] {
+            let thumb_dir = self.vault_thumbnails_dir(vault_id, *media_type);
+            ensure_dir_exists(&thumb_dir)?;
+        }
+
+        info!("Ensured nested storage directories for vault: {}", vault_id);
         Ok(())
     }
 }

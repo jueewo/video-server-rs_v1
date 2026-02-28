@@ -159,10 +159,16 @@ pub async fn view_markdown_handler(
         "No vault_id for document".to_string(),
     ))?;
 
+    // Use multi-location fallback to find the file
     let file_path = state
         .user_storage
-        .vault_media_dir(&vault_id, common::storage::MediaType::Document)
-        .join(&filename);
+        .find_media_file(&vault_id, common::storage::MediaType::Document,
+            &filename,
+        )
+        .ok_or_else(|| {
+            error!("Markdown file not found: {} (vault: {})", filename, vault_id);
+            (StatusCode::NOT_FOUND, format!("File not found: {}", filename))
+        })?;
 
     let raw_markdown = tokio::fs::read_to_string(&file_path).await.map_err(|e| {
         error!("Failed to read markdown file: {}", e);
@@ -281,10 +287,16 @@ pub async fn edit_markdown_handler(
         "No vault_id for document".to_string(),
     ))?;
 
+    // Use multi-location fallback to find the file
     let file_path = state
         .user_storage
-        .vault_media_dir(&vault_id, common::storage::MediaType::Document)
-        .join(&filename);
+        .find_media_file(&vault_id, common::storage::MediaType::Document,
+            &filename,
+        )
+        .ok_or_else(|| {
+            error!("Markdown file not found: {} (vault: {})", filename, vault_id);
+            (StatusCode::NOT_FOUND, format!("File not found: {}", filename))
+        })?;
 
     let raw_markdown = tokio::fs::read_to_string(&file_path).await.map_err(|e| {
         error!("Failed to read markdown file: {}", e);
@@ -427,10 +439,22 @@ pub async fn save_markdown_handler(
         }),
     ))?;
 
+    // Use multi-location fallback to find the file
     let file_path = state
         .user_storage
-        .vault_media_dir(&vault_id, common::storage::MediaType::Document)
-        .join(&filename);
+        .find_media_file(&vault_id, common::storage::MediaType::Document,
+            &filename,
+        )
+        .ok_or_else(|| {
+            error!("Markdown file not found: {} (vault: {})", filename, vault_id);
+            (
+                StatusCode::NOT_FOUND,
+                Json(SaveMarkdownResponse {
+                    success: false,
+                    message: format!("File not found: {}", filename),
+                }),
+            )
+        })?;
 
     tokio::fs::write(&file_path, payload.content.as_bytes())
         .await

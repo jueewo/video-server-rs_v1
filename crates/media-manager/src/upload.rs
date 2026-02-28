@@ -82,6 +82,7 @@ pub async fn upload_media(
     let mut description: Option<String> = None;
     let mut is_public: Option<i32> = None;
     let mut transcode_for_streaming: Option<i32> = None;
+    let mut keep_original: Option<i32> = None; // For images: keep original file (default: 1)
     let mut group_id: Option<i32> = None;
     let mut vault_id: Option<String> = None;
     let mut category: Option<String> = None;
@@ -152,6 +153,15 @@ pub async fn upload_media(
                     )
                 })?;
                 transcode_for_streaming = Some(value.parse().unwrap_or(1));
+            }
+            "keep_original" => {
+                let value = field.text().await.map_err(|_| {
+                    (
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({"error": "Invalid keep_original field"})),
+                    )
+                })?;
+                keep_original = Some(value.parse().unwrap_or(1)); // Default: keep original
             }
             "group_id" => {
                 let value = field.text().await.map_err(|_| {
@@ -401,6 +411,7 @@ pub async fn upload_media(
     // Process based on media type
     match media_type_enum {
         MediaType::Image => {
+            let keep_original_bool = keep_original.unwrap_or(1) == 1; // Default: true (keep original)
             process_image_upload(
                 &state,
                 slug,
@@ -414,6 +425,7 @@ pub async fn upload_media(
                 tags,
                 file_data,
                 original_filename,
+                keep_original_bool,
             )
             .await
         }
@@ -490,6 +502,7 @@ async fn process_image_upload(
     tags: Option<Vec<String>>,
     file_data: Vec<u8>,
     original_filename: String,
+    keep_original: bool, // Whether to keep the original file alongside WebP
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     // Determine MIME type
     let mime_type = mime_guess::from_path(&original_filename)
@@ -500,21 +513,35 @@ async fn process_image_upload(
     let is_svg = original_filename.to_lowercase().ends_with(".svg");
 
     let (final_filename, webp_filename, file_size) = if is_svg {
-        // Store SVG as-is
+        // Store SVG as-is (using nested structure)
         let svg_filename = format!("{}.svg", slug);
+        let svg_path = state
+            .user_storage
+            .vault_nested_media_dir(&vault_id, common::storage::MediaType::Image)
+            .join(&svg_filename);
+
+        if let Some(parent) = svg_path.parent() {
+            tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                error!("Failed to create directory: {}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": "Failed to create storage directory"})),
+                )
+            })?;
+        }
+
+        tokio::fs::write(&svg_path, &file_data).await.map_err(|e| {
+            error!("Failed to save SVG: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "Failed to save SVG image"})),
+            )
+        })?;
+
         let file_size = file_data.len() as i64;
         (svg_filename.clone(), None, file_size)
     } else {
-        // Transcode to WebP + keep original
-        let original_stored_filename = format!(
-            "{}_original{}",
-            slug,
-            std::path::Path::new(&original_filename)
-                .extension()
-                .and_then(|s| s.to_str())
-                .map(|s| format!(".{}", s))
-                .unwrap_or_default()
-        );
+        // Transcode to WebP (always) + optionally keep original
         let webp_filename = format!("{}.webp", slug);
 
         // Load and convert to WebP
@@ -536,38 +563,22 @@ async fn process_image_upload(
             )
         })?;
 
-        // Store original
-        let original_path = state
+        // Get nested media directory
+        let base_dir = state
             .user_storage
-            .vault_media_dir(&vault_id, common::storage::MediaType::Image)
-            .join(&original_stored_filename);
+            .vault_nested_media_dir(&vault_id, common::storage::MediaType::Image);
 
-        if let Some(parent) = original_path.parent() {
-            tokio::fs::create_dir_all(parent).await.map_err(|e| {
-                error!("Failed to create directory: {}", e);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({"error": "Failed to create storage directory"})),
-                )
-            })?;
-        }
+        // Ensure directory exists
+        tokio::fs::create_dir_all(&base_dir).await.map_err(|e| {
+            error!("Failed to create directory: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "Failed to create storage directory"})),
+            )
+        })?;
 
-        tokio::fs::write(&original_path, &file_data)
-            .await
-            .map_err(|e| {
-                error!("Failed to save original: {}", e);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({"error": "Failed to save original image"})),
-                )
-            })?;
-
-        // Store WebP
-        let webp_path = state
-            .user_storage
-            .vault_media_dir(&vault_id, common::storage::MediaType::Image)
-            .join(&webp_filename);
-
+        // Store WebP (always)
+        let webp_path = base_dir.join(&webp_filename);
         tokio::fs::write(&webp_path, &webp_data)
             .await
             .map_err(|e| {
@@ -577,6 +588,39 @@ async fn process_image_upload(
                     Json(serde_json::json!({"error": "Failed to save WebP image"})),
                 )
             })?;
+
+        info!(
+            "Saved WebP image: {}, keep_original={}",
+            webp_filename, keep_original
+        );
+
+        // Conditionally store original based on checkbox
+        if keep_original {
+            let original_stored_filename = format!(
+                "{}_original{}",
+                slug,
+                std::path::Path::new(&original_filename)
+                    .extension()
+                    .and_then(|s| s.to_str())
+                    .map(|s| format!(".{}", s))
+                    .unwrap_or_default()
+            );
+
+            let original_path = base_dir.join(&original_stored_filename);
+            tokio::fs::write(&original_path, &file_data)
+                .await
+                .map_err(|e| {
+                    error!("Failed to save original: {}", e);
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({"error": "Failed to save original image"})),
+                    )
+                })?;
+
+            info!("Saved original image: {}", original_stored_filename);
+        } else {
+            info!("Skipped saving original image (user preference)");
+        }
 
         let file_size = file_data.len() as i64;
         (
@@ -609,34 +653,22 @@ async fn process_image_upload(
 
             let _ = tokio::fs::write(&thumb_path, &thumb_data).await;
 
-            Some(format!("/images/{}/thumb", slug))
+            Some(format!("/media/{}/thumbnail", slug))
         } else {
             None
         }
     } else {
-        None
+        // SVG: serve directly via image.webp endpoint (falls back to .svg file)
+        Some(format!("/media/{}/image.webp", slug))
     };
-
-    // Get next available ID (table doesn't have AUTOINCREMENT)
-    let next_id: i64 = sqlx::query_scalar("SELECT COALESCE(MAX(id), 0) + 1 FROM media_items")
-        .fetch_one(&state.pool)
-        .await
-        .map_err(|e| {
-            error!("Failed to get next ID: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": "Database error"})),
-            )
-        })?;
 
     // Insert into database
     let result = sqlx::query(
         r#"INSERT INTO media_items
-        (id, slug, media_type, title, description, filename, original_filename, mime_type, file_size,
+        (slug, media_type, title, description, filename, original_filename, mime_type, file_size,
          is_public, user_id, group_id, vault_id, category, thumbnail_url, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
     )
-    .bind(next_id)
     .bind(&slug)
     .bind("image")
     .bind(&title)
@@ -653,7 +685,7 @@ async fn process_image_upload(
     .bind(
         webp_filename
             .as_ref()
-            .map(|_| format!("/images/{}.webp", slug)),
+            .map(|_| format!("/media/{}/image.webp", slug)),
     )
     .bind("active")
     .execute(&state.pool)
@@ -687,7 +719,7 @@ async fn process_image_upload(
         "media_type": "image",
         "slug": slug,
         "id": media_id,
-        "thumbnail_url": webp_filename.map(|_| format!("/images/{}.webp", slug))
+        "thumbnail_url": webp_filename.map(|_| format!("/media/{}/image.webp", slug))
     })))
 }
 
@@ -763,10 +795,10 @@ async fn process_video_upload(
         .as_secs();
     let filename = format!("{}_{}", timestamp, original_filename);
 
-    // For MP4 videos, store in video directory
+    // For MP4 videos, store in nested media directory
     let video_path = state
         .user_storage
-        .vault_media_dir(&vault_id, common::storage::MediaType::Video)
+        .vault_nested_media_dir(&vault_id, common::storage::MediaType::Video)
         .join(&slug)
         .join("video.mp4");
 
@@ -807,28 +839,13 @@ async fn process_video_upload(
     .await
     .ok();
 
-    // Get next available ID (table doesn't have AUTOINCREMENT)
-    let next_id: i64 = sqlx::query_scalar("SELECT COALESCE(MAX(id), 0) + 1 FROM media_items")
-        .fetch_one(&state.pool)
-        .await
-        .map_err(|e| {
-            error!("Failed to get next ID: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": "Database error"})),
-            )
-        })?;
-
-    info!("Inserting video with ID: {}", next_id);
-
     // Insert into database with video_type = 'mp4'
     let result = sqlx::query(
         r#"INSERT INTO media_items
-        (id, slug, media_type, title, description, filename, original_filename, mime_type, file_size,
+        (slug, media_type, title, description, filename, original_filename, mime_type, file_size,
          is_public, user_id, group_id, vault_id, category, status, video_type, thumbnail_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
     )
-    .bind(next_id)
     .bind(&slug)
     .bind("video")
     .bind(&title)
@@ -911,22 +928,10 @@ async fn process_video_hls_upload(
 
     let file_size = file_data.len() as i64;
 
-    // Get next available ID for media_items
-    let next_id: i64 = sqlx::query_scalar("SELECT COALESCE(MAX(id), 0) + 1 FROM media_items")
-        .fetch_one(&state.pool)
-        .await
-        .map_err(|e| {
-            error!("Failed to get next ID: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": "Database error"})),
-            )
-        })?;
-
-    // Save file to vault storage
+    // Save file to nested vault storage
     let video_dir = state
         .user_storage
-        .vault_media_dir(&vault_id, common::storage::MediaType::Video)
+        .vault_nested_media_dir(&vault_id, common::storage::MediaType::Video)
         .join(&slug);
 
     tokio::fs::create_dir_all(&video_dir).await.map_err(|e| {
@@ -952,13 +957,12 @@ async fn process_video_hls_upload(
     info!("Saved source video to: {:?}", source_video_path);
 
     // Insert initial media_items record with status='processing'
-    sqlx::query(
+    let insert_result = sqlx::query(
         r#"INSERT INTO media_items
-        (id, slug, media_type, title, description, filename, original_filename, mime_type, file_size,
+        (slug, media_type, title, description, filename, original_filename, mime_type, file_size,
          is_public, user_id, group_id, vault_id, status, video_type)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
     )
-    .bind(next_id)
     .bind(&slug)
     .bind("video")
     .bind(&title)
@@ -983,6 +987,8 @@ async fn process_video_hls_upload(
         )
     })?;
 
+    let media_id = insert_result.last_insert_rowid();
+
     // Start progress tracking
     state.hls_progress.start(&slug);
     state.hls_progress.update(&slug, "Uploading".to_string(), 10);
@@ -993,6 +999,8 @@ async fn process_video_hls_upload(
     let slug_clone = slug.clone();
     let source_path_clone = source_video_path.clone();
     let progress_tracker = state.hls_progress.clone();
+    let user_storage_clone = state.user_storage.clone();
+    let vault_id_clone = vault_id.clone();
 
     // Spawn background HLS transcoding task
     tokio::spawn(async move {
@@ -1015,8 +1023,8 @@ async fn process_video_hls_upload(
                 // Stage 4: Generate thumbnail (85%)
                 progress_tracker.update(&slug_clone, "Generating thumbnail".to_string(), 85);
 
-                // Generate thumbnail
-                let thumbnail_url = match generate_hls_thumbnail(&source_path_clone, &slug_clone, &video_dir_clone).await {
+                // Generate thumbnail (save to centralized location, not video dir)
+                let thumbnail_url = match generate_hls_thumbnail(&source_path_clone, &slug_clone, &vault_id_clone, &user_storage_clone).await {
                     Ok(url) => Some(url),
                     Err(e) => {
                         warn!("Failed to generate thumbnail: {}", e);
@@ -1076,7 +1084,7 @@ async fn process_video_hls_upload(
         "media_type": "video",
         "video_type": "hls",
         "slug": slug,
-        "id": next_id,
+        "id": media_id,
         "progress_url": format!("/api/media/{}/progress", slug),
         "note": "HLS transcoding in progress - check progress_url for status"
     })))
@@ -1132,13 +1140,20 @@ async fn transcode_to_hls(
 async fn generate_hls_thumbnail(
     source_path: &PathBuf,
     slug: &str,
-    output_dir: &PathBuf,
+    vault_id: &str,
+    user_storage: &common::storage::UserStorageManager,
 ) -> Result<String, String> {
     use tokio::process::Command;
 
-    let thumbnail_path = output_dir.join("thumbnail.jpg");
+    // Use centralized thumbnails directory (not video directory)
+    let thumb_dir = user_storage.vault_thumbnails_dir(vault_id, common::storage::MediaType::Video);
+    tokio::fs::create_dir_all(&thumb_dir)
+        .await
+        .map_err(|e| format!("Failed to create thumbnails directory: {}", e))?;
 
-    info!("Generating thumbnail: {:?}", thumbnail_path);
+    let temp_thumbnail_path = thumb_dir.join(format!("{}_thumb_temp.jpg", slug));
+
+    info!("Generating HLS thumbnail: {:?}", temp_thumbnail_path);
 
     // Extract frame at 1 second using FFmpeg
     let output = Command::new("ffmpeg")
@@ -1146,9 +1161,9 @@ async fn generate_hls_thumbnail(
             "-i", source_path.to_str().unwrap(),
             "-ss", "00:00:01",
             "-vframes", "1",
-            "-vf", "scale=320:-1",
+            "-vf", "scale=400:400:force_original_aspect_ratio=decrease",
             "-y",
-            thumbnail_path.to_str().unwrap(),
+            temp_thumbnail_path.to_str().unwrap(),
         ])
         .output()
         .await
@@ -1159,23 +1174,26 @@ async fn generate_hls_thumbnail(
         return Err(format!("Thumbnail generation failed: {}", stderr));
     }
 
-    // Convert to WebP
-    let webp_path = output_dir.join("thumbnail.webp");
-    if let Ok(img_data) = tokio::fs::read(&thumbnail_path).await {
+    // Convert to WebP and save to centralized location
+    let final_thumb_path = thumb_dir.join(format!("{}_thumb.webp", slug));
+    if let Ok(img_data) = tokio::fs::read(&temp_thumbnail_path).await {
         if let Ok(img) = image::load_from_memory(&img_data) {
             let mut webp_data = Vec::new();
             let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut webp_data);
             if img.write_with_encoder(encoder).is_ok() {
-                let _ = tokio::fs::write(&webp_path, &webp_data).await;
-                let _ = tokio::fs::remove_file(&thumbnail_path).await;
+                let _ = tokio::fs::write(&final_thumb_path, &webp_data).await;
+                let _ = tokio::fs::remove_file(&temp_thumbnail_path).await;
 
-                info!("✅ Thumbnail generated: {:?}", webp_path);
-                return Ok(format!("/hls/{}/thumbnail.webp", slug));
+                info!("✅ HLS thumbnail saved to centralized location: {:?}", final_thumb_path);
+                return Ok(format!("/media/{}/thumbnail", slug));
             }
         }
     }
 
-    Ok(format!("/hls/{}/thumbnail.jpg", slug))
+    // Cleanup temp file even on error
+    let _ = tokio::fs::remove_file(&temp_thumbnail_path).await;
+
+    Err("Failed to convert thumbnail to WebP".to_string())
 }
 
 /// Generate video thumbnail using FFmpeg
@@ -1249,7 +1267,7 @@ async fn generate_video_thumbnail(
     // Clean up temp JPEG
     let _ = tokio::fs::remove_file(&temp_thumb_path).await;
 
-    let thumbnail_url = format!("/videos/{}/thumb", slug);
+    let thumbnail_url = format!("/media/{}/thumbnail", slug);
     info!("Generated video thumbnail: {}", thumbnail_url);
 
     Ok(thumbnail_url)
@@ -1329,7 +1347,7 @@ async fn process_document_upload(
 
     let document_path = state
         .user_storage
-        .vault_media_dir(&vault_id, common::storage::MediaType::Document)
+        .vault_nested_media_dir(&vault_id, common::storage::MediaType::Document)
         .join(&filename);
 
     // Ensure directory exists
@@ -1386,48 +1404,33 @@ async fn process_document_upload(
         tags,
     };
 
-    // Get next available ID (table doesn't have AUTOINCREMENT)
-    let next_id: i64 = sqlx::query_scalar("SELECT COALESCE(MAX(id), 0) + 1 FROM media_items")
-        .fetch_one(&state.pool)
-        .await
-        .map_err(|e| {
-            error!("Failed to get next ID: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": "Database error"})),
-            )
-        })?;
-
     // Insert into database
     let media_type_str = media_item.media_type.to_string();
-    let result = sqlx::query!(
-        r#"
-        INSERT INTO media_items (
-            id, slug, media_type, title, description, filename, original_filename, mime_type, file_size,
+    let result = sqlx::query(
+        r#"INSERT INTO media_items (
+            slug, media_type, title, description, filename, original_filename, mime_type, file_size,
             is_public, user_id, group_id, vault_id, status, featured, category,
             allow_download, allow_comments, mature_content
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        "#,
-        next_id,
-        media_item.slug,
-        media_type_str,
-        media_item.title,
-        media_item.description,
-        media_item.filename,
-        media_item.original_filename,
-        media_item.mime_type,
-        media_item.file_size,
-        media_item.is_public,
-        media_item.user_id,
-        media_item.group_id,
-        media_item.vault_id,
-        media_item.status,
-        media_item.featured,
-        media_item.category,
-        media_item.allow_download,
-        media_item.allow_comments,
-        media_item.mature_content
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
     )
+    .bind(&media_item.slug)
+    .bind(&media_type_str)
+    .bind(&media_item.title)
+    .bind(&media_item.description)
+    .bind(&media_item.filename)
+    .bind(&media_item.original_filename)
+    .bind(&media_item.mime_type)
+    .bind(media_item.file_size)
+    .bind(media_item.is_public)
+    .bind(&media_item.user_id)
+    .bind(media_item.group_id)
+    .bind(&media_item.vault_id)
+    .bind(&media_item.status)
+    .bind(media_item.featured)
+    .bind(&media_item.category)
+    .bind(media_item.allow_download)
+    .bind(media_item.allow_comments)
+    .bind(media_item.mature_content)
     .execute(&state.pool)
     .await
     .map_err(|e| {

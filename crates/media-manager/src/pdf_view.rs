@@ -183,13 +183,21 @@ pub async fn serve_pdf_handler(
         "No vault_id for document".to_string(),
     ))?;
 
+    // Find the file
     let file_path = state
         .user_storage
-        .vault_media_dir(&vault_id, common::storage::MediaType::Document)
-        .join(&filename);
+        .find_media_file(
+            &vault_id,
+            common::storage::MediaType::Document,
+            &filename,
+        )
+        .ok_or_else(|| {
+            error!("PDF file not found: {} (vault: {})", filename, vault_id);
+            (StatusCode::NOT_FOUND, format!("PDF file not found: {}", filename))
+        })?;
 
     let bytes = tokio::fs::read(&file_path).await.map_err(|e| {
-        error!("Failed to read PDF file: {}", e);
+        error!("Failed to read PDF file {:?}: {}", file_path, e);
         (StatusCode::INTERNAL_SERVER_ERROR, "Failed to read file".to_string())
     })?;
 

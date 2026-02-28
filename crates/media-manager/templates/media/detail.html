@@ -16,21 +16,13 @@
         {% if media.media_type == "image" %}
         <!-- Image Display -->
         <figure class="bg-black">
-            {% if media.thumbnail_url.is_some() %}
             <img
-                src="{{ media.thumbnail_url.as_ref().unwrap() }}{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}"
+                src="/media/{{ media.slug }}/image.webp{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}"
                 alt="{{ media.title }}"
                 class="max-h-[600px] object-contain cursor-pointer"
-                onclick="window.open('/images/{{ media.slug }}/original{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}')"
-                title="Click to view original"
+                onclick="window.open('/media/{{ media.slug }}/image.webp{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}')"
+                title="Click to open full image"
             />
-            {% else %}
-            <img
-                src="/images/{{ media.slug }}{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}"
-                alt="{{ media.title }}"
-                class="max-h-[600px] object-contain"
-            />
-            {% endif %}
         </figure>
         {% else if media.media_type == "video" %}
         <!-- Video Player -->
@@ -44,7 +36,7 @@
             </video>
             {% else %}
             <!-- HLS Streaming -->
-            <video id="video-player" controls class="w-full max-h-[600px]" poster="/hls/{{ media.slug }}/thumbnail.webp{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}">
+            <video id="video-player" controls class="w-full max-h-[600px]" {% if media.thumbnail_url.is_some() %}poster="{{ media.thumbnail_url.as_ref().unwrap() }}{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}"{% endif %}>
                 Your browser does not support the video tag.
             </video>
             {% endif %}
@@ -122,14 +114,12 @@
             <!-- Actions -->
             <div class="card-actions justify-end mt-4">
                 {% if media.media_type == "image" %}
-                <a href="/images/{{ media.slug }}/original{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}" target="_blank" class="btn btn-outline">
-                    🖼️ View Original
+                <a href="/media/{{ media.slug }}/image.webp{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}" target="_blank" class="btn btn-outline">
+                    🖼️ View Image
                 </a>
-                {% if media.thumbnail_url.is_some() %}
-                <a href="{{ media.thumbnail_url.as_ref().unwrap() }}{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}" target="_blank" class="btn btn-outline btn-sm">
+                <a href="/media/{{ media.slug }}/thumbnail{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}" target="_blank" class="btn btn-outline btn-sm">
                     🔍 Thumbnail
                 </a>
-                {% endif %}
                 {% else if media.media_type == "document" %}
                 {% if media.mime_type == "text/markdown" %}
                 <a href="/media/{{ media.slug }}/view" class="btn btn-primary">
@@ -144,9 +134,11 @@
                 {% endif %}
 
                 {% if authenticated %}
-                <a href="/media/{{ media.slug }}/edit" class="btn btn-outline">
-                    ✏️ Edit
-                </a>
+                    {% if media.media_type == "document" && media.mime_type == "text/markdown" %}
+                    <a href="/media/{{ media.slug }}/edit" class="btn btn-outline">
+                        ✏️ Edit
+                    </a>
+                    {% endif %}
                 {% endif %}
             </div>
         </div>
@@ -209,7 +201,7 @@
                     <div class="join">
                         <input
                             type="text"
-                            value="{% if media.media_type == "image" %}/images/{{ media.slug }}{% else if media.media_type == "video" %}/videos/{{ media.slug }}{% else %}/media/{{ media.slug }}{% endif %}"
+                            value="{% if media.media_type == "image" %}/media/{{ media.slug }}/image.webp{% else if media.media_type == "video" %}/media/{{ media.slug }}{% else if media.media_type == "document" %}{% if media.mime_type == "application/pdf" %}/media/{{ media.slug }}/pdf{% else if media.mime_type == "text/markdown" %}/media/{{ media.slug }}/view{% else %}/media/{{ media.slug }}/serve{% endif %}{% else %}/media/{{ media.slug }}{% endif %}"
                             class="input input-bordered join-item flex-1"
                             readonly
                             id="shareLink"
@@ -220,15 +212,33 @@
                     </div>
                 </div>
 
-                {% if media.media_type == "image" && media.thumbnail_url.is_some() %}
+                {% if media.media_type == "image" %}
                 <div class="form-control mt-3">
                     <label class="label">
-                        <span class="label-text">Optimized Image Link</span>
+                        <span class="label-text">Image (WebP)</span>
                     </label>
                     <div class="join">
                         <input
                             type="text"
-                            value="{{ media.thumbnail_url.as_ref().unwrap() }}"
+                            value="/media/{{ media.slug }}/image.webp"
+                            class="input input-bordered join-item flex-1"
+                            readonly
+                            id="originalLink"
+                        />
+                        <button class="btn join-item" onclick="copyOriginalLink()">
+                            📋 Copy
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-control mt-3">
+                    <label class="label">
+                        <span class="label-text">Thumbnail</span>
+                    </label>
+                    <div class="join">
+                        <input
+                            type="text"
+                            value="/media/{{ media.slug }}/thumbnail"
                             class="input input-bordered join-item flex-1"
                             readonly
                             id="thumbnailLink"
@@ -238,6 +248,62 @@
                         </button>
                     </div>
                 </div>
+                {% else if media.media_type == "video" %}
+                <div class="form-control mt-3">
+                    <label class="label">
+                        <span class="label-text">Video Thumbnail</span>
+                    </label>
+                    <div class="join">
+                        <input
+                            type="text"
+                            value="/media/{{ media.slug }}/thumbnail"
+                            class="input input-bordered join-item flex-1"
+                            readonly
+                            id="thumbnailLink"
+                        />
+                        <button class="btn join-item" onclick="copyThumbnailLink()">
+                            📋 Copy
+                        </button>
+                    </div>
+                </div>
+
+                {% if media.is_hls() %}
+                <div class="form-control mt-3">
+                    <label class="label">
+                        <span class="label-text">HLS Playlist</span>
+                    </label>
+                    <div class="join">
+                        <input
+                            type="text"
+                            value="/hls/{{ media.slug }}/master.m3u8"
+                            class="input input-bordered join-item flex-1"
+                            readonly
+                            id="hlsLink"
+                        />
+                        <button class="btn join-item" onclick="copyHlsLink()">
+                            📋 Copy
+                        </button>
+                    </div>
+                </div>
+                {% else %}
+                <div class="form-control mt-3">
+                    <label class="label">
+                        <span class="label-text">MP4 Video</span>
+                    </label>
+                    <div class="join">
+                        <input
+                            type="text"
+                            value="/media/{{ media.slug }}/video.mp4"
+                            class="input input-bordered join-item flex-1"
+                            readonly
+                            id="mp4Link"
+                        />
+                        <button class="btn join-item" onclick="copyMp4Link()">
+                            📋 Copy
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
                 {% endif %}
             </div>
         </div>
@@ -303,7 +369,15 @@ function copyShareLink() {
     link.select();
     link.setSelectionRange(0, 99999);
     navigator.clipboard.writeText(window.location.origin + link.value);
-    alert('Link copied to clipboard!');
+    alert('Direct link copied to clipboard!');
+}
+
+function copyOriginalLink() {
+    const link = document.getElementById('originalLink');
+    link.select();
+    link.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(window.location.origin + link.value);
+    alert('Original image link copied to clipboard!');
 }
 
 function copyThumbnailLink() {
@@ -311,7 +385,23 @@ function copyThumbnailLink() {
     link.select();
     link.setSelectionRange(0, 99999);
     navigator.clipboard.writeText(window.location.origin + link.value);
-    alert('Optimized image link copied to clipboard!');
+    alert('Thumbnail link copied to clipboard!');
+}
+
+function copyHlsLink() {
+    const link = document.getElementById('hlsLink');
+    link.select();
+    link.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(window.location.origin + link.value);
+    alert('HLS playlist link copied to clipboard!');
+}
+
+function copyMp4Link() {
+    const link = document.getElementById('mp4Link');
+    link.select();
+    link.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(window.location.origin + link.value);
+    alert('MP4 video link copied to clipboard!');
 }
 </script>
 {% endblock %}

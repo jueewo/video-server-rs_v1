@@ -665,27 +665,30 @@
 
 <script>
 window.mediaPickerConfig = {
-    mode: 'single',
+    mode: 'multi',
     title: 'Add Media to Access Code',
     existingSlugs: [{% for item in code.media_items %}'{{ item.media_slug }}',{% endfor %}],
     onAdd: async function(slugs) {
-        const item = window._mpAllMedia.find(i => i.slug === slugs[0]);
-        if (!item) return;
+        const items = slugs.map(s => window._mpAllMedia.find(i => i.slug === s)).filter(Boolean);
+        if (!items.length) return;
         try {
-            const response = await fetch(`/api/access-codes/{{ code.code }}/media`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    media_type: item.media_type,
-                    media_slug: item.slug,
-                    filename: item.filename || '',
-                    thumbnail_url: item.thumbnail_url || null,
-                    title: item.title || item.slug,
-                }),
-            });
-            if (response.ok) {
+            const results = await Promise.all(items.map(item =>
+                fetch(`/api/access-codes/{{ code.code }}/media`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        media_type: item.media_type,
+                        media_slug: item.slug,
+                        filename: item.filename || '',
+                        thumbnail_url: item.thumbnail_url || null,
+                        title: item.title || item.slug,
+                    }),
+                })
+            ));
+            const added = results.filter(r => r.ok).length;
+            if (added > 0) {
                 document.getElementById('addMediaDialog').close();
-                showToast('Media added successfully!', 'success');
+                showToast(added + ' item(s) added to access code', 'success');
                 setTimeout(() => window.location.reload(), 800);
             } else {
                 showToast('Failed to add media.', 'error');

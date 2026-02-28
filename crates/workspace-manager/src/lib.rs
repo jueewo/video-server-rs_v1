@@ -552,14 +552,7 @@ pub async fn create_folder(
         StatusCode::BAD_REQUEST
     })?;
 
-    // Update workspace.yaml with new folder
-    if let Ok(mut config) = WorkspaceConfig::load(&workspace_root) {
-        config.upsert_folder(request.path.clone(), FolderType::Plain);
-        if let Err(e) = config.save(&workspace_root) {
-            warn!("Failed to update workspace.yaml: {}", e);
-            // Don't fail the request - folder is already created
-        }
-    }
+    // Default folders are not registered in workspace.yaml
 
     Ok(StatusCode::OK)
 }
@@ -759,7 +752,7 @@ pub async fn get_folder_config(
         })
     } else {
         serde_json::json!({
-            "type": "plain",
+            "type": "default",
             "description": null,
             "metadata": {},
         })

@@ -32,8 +32,8 @@ pub struct FolderConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum FolderType {
-    /// Plain folder (default)
-    Plain,
+    /// Default folder — not registered in workspace.yaml
+    Default,
     /// Static website project
     StaticSite,
     /// BPMN process simulator
@@ -50,7 +50,7 @@ pub enum FolderType {
 
 impl Default for FolderType {
     fn default() -> Self {
-        FolderType::Plain
+        FolderType::Default
     }
 }
 
@@ -96,8 +96,13 @@ impl WorkspaceConfig {
         Ok(())
     }
 
-    /// Add or update a folder in the config
+    /// Add or update a folder in the config.
+    /// Default-type folders are not registered — calling this with Default removes any existing entry.
     pub fn upsert_folder(&mut self, path: String, folder_type: FolderType) {
+        if folder_type == FolderType::Default {
+            self.folders.remove(&path);
+            return;
+        }
         self.folders
             .entry(path)
             .and_modify(|config| {
@@ -167,13 +172,7 @@ impl WorkspaceConfig {
 
                 if let Some(path) = rel_path {
                     found_folders.insert(path.clone());
-
-                    // Add to config if not present (as Plain type)
-                    self.folders.entry(path).or_insert_with(|| FolderConfig {
-                        folder_type: FolderType::Plain,
-                        description: None,
-                        metadata: HashMap::new(),
-                    });
+                    // Default-type folders are not registered — only track existing registered ones
                 }
             }
         }
@@ -216,10 +215,10 @@ mod tests {
         let mut config = WorkspaceConfig::new("Test".to_string(), String::new());
 
         // First insert as Plain
-        config.upsert_folder("my-folder".to_string(), FolderType::Plain);
+        config.upsert_folder("my-folder".to_string(), FolderType::Default);
         assert_eq!(
             config.folders.get("my-folder").unwrap().folder_type,
-            FolderType::Plain
+            FolderType::Default
         );
 
         // Update to StaticSite
@@ -236,7 +235,7 @@ mod tests {
     #[test]
     fn test_remove_folder() {
         let mut config = WorkspaceConfig::new("Test".to_string(), String::new());
-        config.upsert_folder("temp".to_string(), FolderType::Plain);
+        config.upsert_folder("temp".to_string(), FolderType::Default);
 
         assert!(config.remove_folder("temp"));
         assert!(!config.folders.contains_key("temp"));

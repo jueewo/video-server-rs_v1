@@ -212,7 +212,7 @@
                     <td class="font-medium w-1/3">Folder Type</td>
                     <td>
                         <select id="folder-type" class="select select-bordered select-sm w-full" onchange="updateMetadataFields()">
-                            <option value="plain">📁 Plain — Regular file storage</option>
+                            <option value="default">📁 Default — Regular file storage</option>
                             <option value="static-site">🌐 Static Site — Website projects</option>
                             <option value="bpmn-simulator">▶️ BPMN Simulator — Process diagrams</option>
                             <option value="agent-collection">🤖 Agent Collection — AI agents</option>
@@ -323,7 +323,7 @@
         document.getElementById('folder-settings-path').value = '';
         document.getElementById('folder-name').value = '';
         document.getElementById('folder-description').value = '';
-        document.getElementById('folder-type').value = 'plain';
+        document.getElementById('folder-type').value = 'default';
 
         // Hide delete button in create mode
         document.getElementById('delete-folder-btn').style.display = 'none';
@@ -424,7 +424,7 @@
             const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/folder-config?path=${encodeURIComponent(folderPath)}`);
             if (r.ok) {
                 const config = await r.json();
-                document.getElementById('folder-type').value = config.type || 'plain';
+                document.getElementById('folder-type').value = config.type || 'default';
                 document.getElementById('folder-description').value = config.description || '';
 
                 // Update metadata fields for this type
@@ -451,6 +451,11 @@
     function updateMetadataFields() {
         const type = document.getElementById('folder-type').value;
         const container = document.getElementById('metadata-fields');
+        const descField = document.getElementById('folder-description');
+        const isDefault = type === 'default';
+        descField.disabled = isDefault;
+        descField.placeholder = isDefault ? 'Not saved for default folders' : 'What is this folder for?';
+        if (isDefault) descField.value = '';
 
         // Clear existing fields
         container.innerHTML = '';
@@ -617,11 +622,11 @@ modules:
                 `;
                 break;
 
-            case 'plain':
+            case 'default':
             default:
                 container.innerHTML = `
                     <div class="alert alert-info">
-                        <p class="text-sm">Plain folders don't have special metadata. They're just regular file storage.</p>
+                        <p class="text-sm">Default folders don't have special metadata. They're just regular file storage.</p>
                     </div>
                 `;
                 break;

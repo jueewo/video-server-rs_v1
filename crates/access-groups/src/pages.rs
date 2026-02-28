@@ -97,10 +97,40 @@ struct GroupDetailTemplate {
 
 #[derive(Debug, Clone)]
 struct ResourceItem {
+    slug: String,
     title: String,
     thumbnail: String,
     url: String,
-    resource_type: String,
+    /// Display label: "Video", "Image", "PDF", "Markdown", "BPMN", etc.
+    type_label: String,
+}
+
+fn derive_type_label(resource_type: &str, filename: &str) -> String {
+    if resource_type != "document" {
+        let label = resource_type[..1].to_uppercase() + &resource_type[1..];
+        return label;
+    }
+    if filename.ends_with(".pdf") {
+        "PDF"
+    } else if filename.ends_with(".md")
+        || filename.ends_with(".mdx")
+        || filename.ends_with(".markdown")
+    {
+        "Markdown"
+    } else if filename.ends_with(".bpmn") {
+        "BPMN"
+    } else if filename.ends_with(".csv") {
+        "CSV"
+    } else if filename.ends_with(".json") {
+        "JSON"
+    } else if filename.ends_with(".xml") {
+        "XML"
+    } else if filename.ends_with(".yaml") || filename.ends_with(".yml") {
+        "YAML"
+    } else {
+        "Document"
+    }
+    .to_string()
 }
 
 /// Group detail page handler
@@ -146,26 +176,10 @@ pub async fn group_detail_page_handler(
         Vec::new()
     };
 
-    // Get resources assigned to this group
-    let videos: Vec<(String, String, String)> = sqlx::query_as(
-        "SELECT slug, title, media_type FROM media_items WHERE media_type = 'video' AND group_id = ? ORDER BY created_at DESC"
-    )
-    .bind(group.id)
-    .fetch_all(&pool)
-    .await
-    .unwrap_or_default();
-
-    let images: Vec<(String, String, String)> = sqlx::query_as(
-        "SELECT slug, title, media_type FROM media_items WHERE media_type = 'image' AND group_id = ? ORDER BY created_at DESC"
-    )
-    .bind(group.id)
-    .fetch_all(&pool)
-    .await
-    .unwrap_or_default();
-
-    // filename needed to determine the correct viewer URL
-    let documents: Vec<(String, String, String, String)> = sqlx::query_as(
-        "SELECT slug, title, media_type, filename FROM media_items WHERE media_type = 'document' AND group_id = ? ORDER BY created_at DESC"
+    // Get all resources assigned to this group in one query
+    let rows: Vec<(String, String, String, String, Option<String>)> = sqlx::query_as(
+        "SELECT slug, title, media_type, filename, thumbnail_url \
+         FROM media_items WHERE group_id = ? ORDER BY media_type, created_at DESC",
     )
     .bind(group.id)
     .fetch_all(&pool)
@@ -174,42 +188,33 @@ pub async fn group_detail_page_handler(
 
     let mut resources: Vec<ResourceItem> = Vec::new();
 
-    for (slug, title, resource_type) in videos {
-        resources.push(ResourceItem {
-            title,
-            thumbnail: format!("/hls/{}/thumbnail.webp", slug),
-            url: format!("/media/{}", slug),
-            resource_type,
-        });
-    }
-
-    for (slug, title, resource_type) in images {
-        resources.push(ResourceItem {
-            title,
-            thumbnail: format!("/images/{}_thumb", slug),
-            url: format!("/images/{}", slug),
-            resource_type,
-        });
-    }
-
-    for (slug, title, resource_type, filename) in documents {
-        let url = if filename.ends_with(".pdf") {
-            format!("/media/{}/pdf", slug)
-        } else if filename.ends_with(".bpmn") {
-            format!("/media/{}/bpmn", slug)
-        } else if filename.ends_with(".md")
-            || filename.ends_with(".mdx")
-            || filename.ends_with(".markdown")
-        {
-            format!("/media/{}/view", slug)
+    for (slug, title, resource_type, filename, thumbnail_url) in rows {
+        // Use stored thumbnail_url; fall back to the /thumbnail endpoint for videos/images.
+        // Documents may have NULL thumbnail_url when no thumbnail was generated.
+        let thumbnail = thumbnail_url.unwrap_or_default();
+        let url = if resource_type == "document" {
+            if filename.ends_with(".pdf") {
+                format!("/media/{}/serve", slug)
+            } else if filename.ends_with(".bpmn") {
+                format!("/media/{}/bpmn", slug)
+            } else if filename.ends_with(".md")
+                || filename.ends_with(".mdx")
+                || filename.ends_with(".markdown")
+            {
+                format!("/media/{}/view", slug)
+            } else {
+                format!("/media/{}", slug)
+            }
         } else {
             format!("/media/{}", slug)
         };
+        let type_label = derive_type_label(&resource_type, &filename);
         resources.push(ResourceItem {
+            slug: slug.clone(),
             title,
-            thumbnail: String::new(), // documents have no image thumbnail
+            thumbnail,
             url,
-            resource_type,
+            type_label,
         });
     }
 

@@ -1,0 +1,303 @@
+<!-- Shared Media Picker Dialog Component
+     ======================================
+     Callers MUST define window.mediaPickerConfig before including this component:
+
+       window.mediaPickerConfig = {
+           mode: 'single',   // 'single': click-to-add immediately | 'multi': checkbox + confirm
+           title: 'Add Media to ...',
+           existingSlugs: ['slug1', 'slug2'],  // shown greyed, not selectable
+           onAdd: async function(slugs) { ... }  // called with array of slugs to add
+       };
+
+     Then include this component and provide an open button that calls openAddMediaDialog().
+-->
+<dialog id="addMediaDialog" class="modal">
+    <div class="modal-box max-w-4xl">
+        <h3 id="mediaPickerTitle" class="font-bold text-lg mb-4">Add Media</h3>
+
+        <!-- Search and Filter -->
+        <div class="flex flex-col sm:flex-row gap-3 mb-4">
+            <input
+                type="text"
+                id="modalSearch"
+                placeholder="Search by title or slug..."
+                class="input input-bordered flex-1"
+                oninput="_mpRenderGrid()"
+            />
+            <select
+                id="modalTypeFilter"
+                class="select select-bordered sm:w-44"
+                onchange="_mpRenderGrid()"
+            >
+                <option value="all">All Types</option>
+                <option value="video">Videos</option>
+                <option value="image">Images</option>
+                <option value="document">Documents</option>
+            </select>
+        </div>
+
+        <!-- Loading -->
+        <div id="modalLoading" class="flex justify-center py-12">
+            <span class="loading loading-spinner loading-lg"></span>
+        </div>
+
+        <!-- Media Card Grid -->
+        <div
+            id="modalGrid"
+            class="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[26rem] overflow-y-auto hidden pr-1"
+        ></div>
+
+        <!-- Empty State -->
+        <div
+            id="modalEmpty"
+            class="text-center py-12 text-base-content/60 hidden"
+        >
+            <div class="text-4xl mb-3">🔍</div>
+            <div id="modalEmptyMsg">No media found.</div>
+        </div>
+
+        <!-- Multi-select footer (shown only in 'multi' mode) -->
+        <div id="mediaPickerMultiFooter" class="hidden items-center gap-3 pt-3 mt-3 border-t border-base-300 flex-wrap">
+            <button type="button" onclick="mediaPickerSelectAllVisible()" class="btn btn-xs btn-ghost">Select All</button>
+            <button type="button" onclick="mediaPickerClearSelection()" class="btn btn-xs btn-ghost">Clear</button>
+            <span id="mediaPickerSelectedCount" class="text-sm text-base-content/60">0 selected</span>
+            <div class="flex-1"></div>
+            <button id="mediaPickerConfirmBtn" type="button" onclick="mediaPickerConfirm()" class="btn btn-primary btn-sm" disabled>
+                Add Selected
+            </button>
+        </div>
+
+        <div class="modal-action">
+            <form method="dialog">
+                <button class="btn">Close</button>
+            </form>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<script>
+(function() {
+    // ── Shared Media Picker state (exposed on window for onAdd callbacks) ──────
+    window._mpAllMedia = window._mpAllMedia || [];
+    let _mpLoaded = false;
+    let _mpSelected = new Set();
+
+    // Event delegation for single-click mode
+    document.getElementById('modalGrid').addEventListener('click', function(e) {
+        const cfg = window.mediaPickerConfig;
+        if (!cfg || cfg.mode !== 'single') return;
+        const card = e.target.closest('[data-slug]');
+        if (!card) return;
+        const item = window._mpAllMedia.find(i => i.slug === card.dataset.slug);
+        if (item) _mpSingleAdd(item);
+    });
+
+    // Event delegation for checkbox changes in multi mode
+    document.getElementById('modalGrid').addEventListener('change', function(e) {
+        const cb = e.target.closest('input[type="checkbox"][data-slug]');
+        if (!cb) return;
+        _mpToggleSelect(cb.dataset.slug, cb.checked);
+    });
+
+    // ── Public API ─────────────────────────────────────────────────────────────
+    window.openAddMediaDialog = async function() {
+        const cfg = window.mediaPickerConfig || {};
+        document.getElementById('mediaPickerTitle').textContent = cfg.title || 'Add Media';
+        const multiFooter = document.getElementById('mediaPickerMultiFooter');
+        if (cfg.mode === 'multi') {
+            multiFooter.classList.remove('hidden');
+            multiFooter.classList.add('flex');
+        } else {
+            multiFooter.classList.add('hidden');
+            multiFooter.classList.remove('flex');
+        }
+        _mpSelected.clear();
+        _mpUpdateConfirmButton();
+        document.getElementById('modalSearch').value = '';
+        document.getElementById('modalTypeFilter').value = 'all';
+        document.getElementById('addMediaDialog').showModal();
+        if (!_mpLoaded) {
+            await _mpLoadMedia();
+        } else {
+            _mpRenderGrid();
+        }
+    };
+
+    window.mediaPickerSelectAllVisible = function() {
+        const cfg = window.mediaPickerConfig || {};
+        const existingSlugs = new Set(cfg.existingSlugs || []);
+        document.querySelectorAll('#modalGrid input[type="checkbox"][data-slug]').forEach(cb => {
+            if (!existingSlugs.has(cb.dataset.slug)) {
+                cb.checked = true;
+                _mpSelected.add(cb.dataset.slug);
+            }
+        });
+        _mpUpdateConfirmButton();
+    };
+
+    window.mediaPickerClearSelection = function() {
+        _mpSelected.clear();
+        document.querySelectorAll('#modalGrid input[type="checkbox"]').forEach(cb => { cb.checked = false; });
+        _mpUpdateConfirmButton();
+    };
+
+    window.mediaPickerConfirm = async function() {
+        const cfg = window.mediaPickerConfig;
+        if (!cfg || !cfg.onAdd || _mpSelected.size === 0) return;
+        const btn = document.getElementById('mediaPickerConfirmBtn');
+        btn.disabled = true;
+        btn.classList.add('loading');
+        try {
+            await cfg.onAdd([..._mpSelected]);
+        } finally {
+            btn.disabled = false;
+            btn.classList.remove('loading');
+        }
+    };
+
+    // ── Internal helpers ───────────────────────────────────────────────────────
+    async function _mpLoadMedia() {
+        document.getElementById('modalLoading').classList.remove('hidden');
+        document.getElementById('modalGrid').classList.add('hidden');
+        document.getElementById('modalEmpty').classList.add('hidden');
+
+        try {
+            const response = await fetch('/api/media?page_size=500');
+            const data = response.ok ? await response.json() : { items: [] };
+            window._mpAllMedia = (data.items || []).map(item => ({
+                slug: item.slug || '',
+                title: item.title || item.slug || '',
+                media_type: item.media_type || '',
+                filename: item.filename || '',
+                thumbnail_url: item.thumbnail_url || null,
+                tags: Array.isArray(item.tags) ? item.tags : [],
+            }));
+            _mpLoaded = true;
+        } catch (e) {
+            console.error('Failed to load media:', e);
+            window._mpAllMedia = [];
+            _mpLoaded = true;
+        }
+
+        document.getElementById('modalLoading').classList.add('hidden');
+        _mpRenderGrid();
+    }
+
+    window._mpRenderGrid = function() {
+        const cfg = window.mediaPickerConfig || {};
+        const existingSlugs = new Set(cfg.existingSlugs || []);
+        const search = document.getElementById('modalSearch').value.toLowerCase().trim();
+        const typeFilter = document.getElementById('modalTypeFilter').value;
+        const isMulti = cfg.mode === 'multi';
+
+        const filtered = window._mpAllMedia.filter(item => {
+            if (typeFilter !== 'all' && item.media_type !== typeFilter) return false;
+            if (search) {
+                const haystack = (item.title + ' ' + item.slug + ' ' + item.filename + ' ' + item.tags.join(' ')).toLowerCase();
+                if (!haystack.includes(search)) return false;
+            }
+            return true;
+        });
+
+        const grid = document.getElementById('modalGrid');
+        const empty = document.getElementById('modalEmpty');
+
+        if (filtered.length === 0) {
+            grid.classList.add('hidden');
+            empty.classList.remove('hidden');
+            document.getElementById('modalEmptyMsg').textContent =
+                search ? 'No results for "' + search + '"' : 'No media available.';
+            return;
+        }
+
+        empty.classList.add('hidden');
+        grid.classList.remove('hidden');
+
+        grid.innerHTML = filtered.map(item => {
+            const isExisting = existingSlugs.has(item.slug);
+            const icon = item.media_type === 'video' ? '🎥' : item.media_type === 'image' ? '🖼️' : '📄';
+            const badgeClass = item.media_type === 'video' ? 'badge-error' : item.media_type === 'image' ? 'badge-success' : 'badge-warning';
+            const thumbImg = item.thumbnail_url
+                ? `<img src="${item.thumbnail_url}" alt="" class="absolute inset-0 w-full h-full object-cover" onerror="this.style.display='none'">`
+                : '';
+            const safeTitle = item.title.replace(/</g, '&lt;');
+            const safeSlug = item.slug.replace(/</g, '&lt;');
+            const tagHtml = item.tags.length
+                ? `<div class="flex flex-wrap gap-1 mt-1">${item.tags.map(t => `<span class="badge badge-outline badge-xs">${t.replace(/</g, '&lt;')}</span>`).join('')}</div>`
+                : '';
+
+            if (isMulti) {
+                const isChecked = _mpSelected.has(item.slug) ? 'checked' : '';
+                const disabledAttr = isExisting ? 'disabled' : '';
+                const opacityClass = isExisting ? 'opacity-50' : '';
+                const existingBadge = isExisting ? '<span class="badge badge-xs badge-neutral">Already added</span>' : '';
+                return `<label class="card card-compact bg-base-200 border-2 border-base-300 hover:border-primary transition-all overflow-hidden cursor-pointer ${opacityClass} has-[:checked]:border-primary has-[:checked]:bg-base-300">
+                    <input type="checkbox" data-slug="${item.slug}" class="sr-only" ${isChecked} ${disabledAttr}>
+                    <div class="relative w-full bg-base-300 overflow-hidden" style="aspect-ratio:16/9">
+                        <div class="absolute inset-0 flex items-center justify-center text-4xl">${icon}</div>
+                        ${thumbImg}
+                        <div class="absolute top-1 right-1 flex gap-1">
+                            <span class="badge badge-sm ${badgeClass}">${item.media_type}</span>
+                        </div>
+                        ${_mpSelected.has(item.slug) ? '<div class="absolute inset-0 bg-primary/20 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-primary drop-shadow" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></div>' : ''}
+                    </div>
+                    <div class="p-2">
+                        <div class="font-semibold text-sm truncate">${safeTitle}</div>
+                        <div class="text-xs text-base-content/50 truncate">${safeSlug}</div>
+                        ${existingBadge}
+                        ${tagHtml}
+                    </div>
+                </label>`;
+            } else {
+                // Single mode: clickable button card
+                return `<button type="button" data-slug="${item.slug}"
+                    class="card card-compact bg-base-200 hover:bg-base-300 border-2 border-base-300 hover:border-primary transition-all text-left overflow-hidden w-full">
+                    <div class="relative w-full bg-base-300 overflow-hidden" style="aspect-ratio:16/9">
+                        <div class="absolute inset-0 flex items-center justify-center text-4xl">${icon}</div>
+                        ${thumbImg}
+                        <div class="absolute top-1 right-1">
+                            <span class="badge badge-sm ${badgeClass}">${item.media_type}</span>
+                        </div>
+                    </div>
+                    <div class="p-2">
+                        <div class="font-semibold text-sm truncate">${safeTitle}</div>
+                        <div class="text-xs text-base-content/50 truncate">${safeSlug}</div>
+                        ${tagHtml}
+                    </div>
+                </button>`;
+            }
+        }).join('');
+    };
+
+    function _mpToggleSelect(slug, checked) {
+        if (checked) {
+            _mpSelected.add(slug);
+        } else {
+            _mpSelected.delete(slug);
+        }
+        _mpUpdateConfirmButton();
+        // Re-render to update checkmark overlay
+        _mpRenderGrid();
+    }
+
+    function _mpUpdateConfirmButton() {
+        const n = _mpSelected.size;
+        const countEl = document.getElementById('mediaPickerSelectedCount');
+        const btn = document.getElementById('mediaPickerConfirmBtn');
+        if (countEl) countEl.textContent = n + ' selected';
+        if (btn) {
+            btn.disabled = n === 0;
+            btn.textContent = n > 0 ? 'Add ' + n + ' Selected' : 'Add Selected';
+        }
+    }
+
+    async function _mpSingleAdd(item) {
+        const cfg = window.mediaPickerConfig;
+        if (!cfg || !cfg.onAdd) return;
+        await cfg.onAdd([item.slug]);
+    }
+})();
+</script>

@@ -61,12 +61,24 @@
     <div role="tablist" class="tabs tabs-lifted tabs-lg mb-6">
         <input type="radio" name="group_tabs" role="tab" class="tab" aria-label="Resources" checked />
         <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-6">
-            <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
-                </svg>
-                Shared Resources
-            </h2>
+            <!-- Header with count and Add button -->
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                    </svg>
+                    Shared Resources
+                    <span class="badge badge-lg">{{ resources.len() }}</span>
+                </h2>
+                {% if can_write %}
+                <button onclick="openAddMediaDialog()" class="btn btn-primary btn-sm gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                    </svg>
+                    Add Media
+                </button>
+                {% endif %}
+            </div>
 
             <!-- Resources List -->
             {% if resources.is_empty() %}
@@ -74,52 +86,76 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto text-base-content/20 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
-                <p class="text-base-content/60">No resources shared in this group yet</p>
+                <p class="text-base-content/60">No resources in this group yet</p>
                 {% if can_write %}
-                <p class="text-sm text-base-content/40 mt-2">Assign media items to this group from the Media page</p>
+                <p class="text-sm text-base-content/40 mt-2">Click "Add Media" to assign items to this group</p>
                 {% endif %}
             </div>
             {% else %}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {% for resource in resources %}
-                <div class="card card-compact bg-base-200 shadow-md hover:shadow-lg transition-shadow">
-                    <figure class="aspect-video bg-base-300">
-                        {% if resource.resource_type == "document" %}
-                        <div class="flex flex-col items-center justify-center w-full h-full text-base-content/40">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                        </div>
-                        {% else %}
-                        <img src="{{ resource.thumbnail }}" alt="{{ resource.title }}" class="object-cover w-full h-full" onerror="this.onerror=null; this.src='';" />
+                <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group">
+                    <figure class="relative aspect-video bg-base-300 overflow-hidden">
+                        {% if !resource.thumbnail.is_empty() %}
+                        <img
+                            src="{{ resource.thumbnail }}"
+                            alt="{{ resource.title }}"
+                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            loading="lazy"
+                            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                        />
                         {% endif %}
+                        <!-- Fallback: gradient + type icon (shown when no thumbnail or img fails) -->
+                        <div class="absolute inset-0 items-center justify-center
+                            {% if resource.type_label == "Video" %}bg-gradient-to-br from-red-200 via-red-300 to-pink-300
+                            {% else if resource.type_label == "Image" %}bg-gradient-to-br from-green-200 via-emerald-300 to-teal-300
+                            {% else if resource.type_label == "Markdown" %}bg-gradient-to-br from-purple-200 via-purple-300 to-indigo-300
+                            {% else if resource.type_label == "PDF" %}bg-gradient-to-br from-red-200 via-orange-300 to-amber-300
+                            {% else if resource.type_label == "BPMN" %}bg-gradient-to-br from-blue-200 via-cyan-300 to-sky-300
+                            {% else if resource.type_label == "CSV" %}bg-gradient-to-br from-emerald-200 via-green-300 to-lime-300
+                            {% else if resource.type_label == "JSON" %}bg-gradient-to-br from-amber-200 via-yellow-300 to-orange-300
+                            {% else %}bg-gradient-to-br from-slate-200 via-gray-300 to-zinc-300{% endif %}"
+                            style="{% if !resource.thumbnail.is_empty() %}display:none{% else %}display:flex{% endif %}">
+                            <img
+                                src="{% if resource.type_label == "Video" %}/static/icons/video-icon.svg
+                                {% else if resource.type_label == "Image" %}/static/icons/image-icon.svg
+                                {% else if resource.type_label == "Markdown" %}/static/icons/markdown-icon.svg
+                                {% else if resource.type_label == "PDF" %}/static/icons/pdf-icon.svg
+                                {% else if resource.type_label == "BPMN" %}/static/icons/bpmn-icon.svg
+                                {% else if resource.type_label == "CSV" %}/static/icons/csv-icon.svg
+                                {% else if resource.type_label == "JSON" %}/static/icons/json-icon.svg
+                                {% else %}/static/icons/document-icon.svg{% endif %}"
+                                alt="{{ resource.type_label }}"
+                                class="w-16 h-16 drop-shadow-lg"
+                            />
+                        </div>
+                        <!-- Type badge -->
+                        <div class="absolute top-2 right-2">
+                            <span class="badge badge-sm
+                                {% if resource.type_label == "Video" %}badge-error
+                                {% else if resource.type_label == "Image" %}badge-success
+                                {% else if resource.type_label == "PDF" %}badge-warning
+                                {% else if resource.type_label == "Markdown" %}badge-secondary
+                                {% else if resource.type_label == "BPMN" %}badge-info
+                                {% else %}badge-accent{% endif %}">
+                                {{ resource.type_label }}
+                            </span>
+                        </div>
                     </figure>
                     <div class="card-body">
                         <h3 class="card-title text-sm">{{ resource.title }}</h3>
                         <div class="card-actions justify-between items-center">
-                            {% if resource.resource_type == "video" %}
-                            <span class="badge badge-primary badge-sm gap-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-                                </svg>
-                                Video
-                            </span>
-                            {% else if resource.resource_type == "document" %}
-                            <span class="badge badge-accent badge-sm gap-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd" />
-                                </svg>
-                                Document
-                            </span>
-                            {% else %}
-                            <span class="badge badge-secondary badge-sm gap-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
-                                </svg>
-                                Image
-                            </span>
-                            {% endif %}
-                            <a href="{{ resource.url }}" class="btn btn-xs btn-primary">View</a>
+                            <span><!-- badge now in figure --></span>
+                            <div class="flex gap-1">
+                                <a href="{{ resource.url }}" class="btn btn-xs btn-primary">View</a>
+                                {% if can_write %}
+                                <button type="button" class="btn btn-xs btn-ghost btn-error" onclick="removeFromGroup('{{ resource.slug }}')" title="Remove from group">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -331,4 +367,53 @@ function removeMember(userId) {
     alert('Remove member functionality for user ' + userId + ' — coming soon');
 }
 </script>
+
+{% if can_write %}
+<script>
+const GROUP_SLUG = '{{ group.slug }}';
+window.mediaPickerConfig = {
+    mode: 'multi',
+    title: 'Add Media to Group',
+    existingSlugs: [{% for r in resources %}'{{ r.slug }}',{% endfor %}],
+    onAdd: async function(slugs) {
+        try {
+            const resp = await fetch(`/api/groups/${GROUP_SLUG}/media/bulk`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ slugs: slugs })
+            });
+            if (resp.ok) {
+                const data = await resp.json();
+                document.getElementById('addMediaDialog').close();
+                showToast(data.assigned + ' item(s) added to group', 'success');
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                showToast('Failed to assign media to group', 'error');
+            }
+        } catch (e) {
+            console.error('Error assigning media:', e);
+            showToast('Network error. Please try again.', 'error');
+        }
+    }
+};
+
+async function removeFromGroup(slug) {
+    try {
+        const resp = await fetch(`/api/groups/${GROUP_SLUG}/media/${slug}`, {
+            method: 'DELETE'
+        });
+        if (resp.ok) {
+            showToast('Removed from group', 'success');
+            setTimeout(() => window.location.reload(), 800);
+        } else {
+            showToast('Failed to remove media', 'error');
+        }
+    } catch (e) {
+        console.error('Error removing media:', e);
+        showToast('Network error. Please try again.', 'error');
+    }
+}
+</script>
+{% include "components/media-picker-dialog.html" %}
+{% endif %}
 {% endblock %}

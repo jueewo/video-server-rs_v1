@@ -7,11 +7,12 @@ use axum::{
 use sqlx::SqlitePool;
 
 use crate::handlers::{
-    accept_invitation_handler, add_member_handler, cancel_invitation_handler,
-    check_resource_access_handler, create_group_handler, create_invitation_handler,
-    delete_group_handler, get_group_handler, get_invitation_details_handler, list_groups_handler,
-    list_invitations_handler, list_members_handler, remove_member_handler, update_group_handler,
-    update_member_role_handler,
+    accept_invitation_handler, add_member_handler, assign_media_to_group_handler,
+    bulk_assign_media_to_group_handler, cancel_invitation_handler, check_resource_access_handler,
+    create_group_handler, create_invitation_handler, delete_group_handler, get_group_handler,
+    get_invitation_details_handler, list_groups_handler, list_invitations_handler,
+    list_members_handler, remove_media_from_group_handler, remove_member_handler,
+    update_group_handler, update_member_role_handler,
 };
 use crate::pages::{
     accept_invitation_page_handler, create_group_page_handler, group_detail_page_handler,
@@ -59,6 +60,19 @@ pub fn create_routes(pool: SqlitePool) -> Router {
         .route(
             "/invitations/{token}/accept",
             post(accept_invitation_handler),
+        )
+        // Media Assignment
+        .route(
+            "/api/groups/{slug}/media",
+            post(assign_media_to_group_handler),
+        )
+        .route(
+            "/api/groups/{slug}/media/bulk",
+            post(bulk_assign_media_to_group_handler),
+        )
+        .route(
+            "/api/groups/{slug}/media/{media_slug}",
+            delete(remove_media_from_group_handler),
         )
         // Resource Access Check
         .route(

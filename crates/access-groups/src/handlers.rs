@@ -414,6 +414,151 @@ pub async fn get_invitation_details_handler(
     Ok(Json(response).into_response())
 }
 
+// ── Media assignment handlers ──────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct AssignMediaRequest {
+    pub media_slug: String,
+}
+
+#[derive(Deserialize)]
+pub struct BulkAssignMediaRequest {
+    pub slugs: Vec<String>,
+}
+
+#[derive(Serialize)]
+pub struct BulkAssignResponse {
+    assigned: usize,
+}
+
+/// Assign a single media item to this group (updates media_items.group_id)
+pub async fn assign_media_to_group_handler(
+    State(pool): State<SqlitePool>,
+    Path(slug): Path<String>,
+    session: Session,
+    Json(request): Json<AssignMediaRequest>,
+) -> Result<StatusCode> {
+    let user_id = get_user_id(&session).await?;
+    let group = get_group_by_slug(&pool, &slug).await?;
+
+    let can_write = check_permission(&pool, group.id, &user_id, "write").await?;
+    if !can_write {
+        return Err(AccessGroupError::Forbidden(
+            "Write permission required to assign media".to_string(),
+        ));
+    }
+
+    // Verify ownership
+    let media_id: Option<i64> = sqlx::query_scalar(
+        "SELECT id FROM media_items WHERE slug = ? AND user_id = ?",
+    )
+    .bind(&request.media_slug)
+    .bind(&user_id)
+    .fetch_optional(&pool)
+    .await
+    .map_err(|e| AccessGroupError::Internal(format!("Database error: {}", e)))?;
+
+    if media_id.is_none() {
+        return Err(AccessGroupError::Forbidden(
+            "Media item not found or not owned by you".to_string(),
+        ));
+    }
+
+    sqlx::query(
+        "UPDATE media_items SET group_id = ?, updated_at = datetime('now') WHERE slug = ?",
+    )
+    .bind(group.id)
+    .bind(&request.media_slug)
+    .execute(&pool)
+    .await
+    .map_err(|e| AccessGroupError::Internal(format!("Database error: {}", e)))?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Remove a media item from this group (sets group_id = NULL)
+pub async fn remove_media_from_group_handler(
+    State(pool): State<SqlitePool>,
+    Path((slug, media_slug)): Path<(String, String)>,
+    session: Session,
+) -> Result<StatusCode> {
+    let user_id = get_user_id(&session).await?;
+    let group = get_group_by_slug(&pool, &slug).await?;
+
+    let can_write = check_permission(&pool, group.id, &user_id, "write").await?;
+    if !can_write {
+        return Err(AccessGroupError::Forbidden(
+            "Write permission required to remove media".to_string(),
+        ));
+    }
+
+    // Verify ownership and that media belongs to this group
+    let media_id: Option<i64> = sqlx::query_scalar(
+        "SELECT id FROM media_items WHERE slug = ? AND user_id = ? AND group_id = ?",
+    )
+    .bind(&media_slug)
+    .bind(&user_id)
+    .bind(group.id)
+    .fetch_optional(&pool)
+    .await
+    .map_err(|e| AccessGroupError::Internal(format!("Database error: {}", e)))?;
+
+    if media_id.is_none() {
+        return Err(AccessGroupError::NotFound(
+            "Media item not found in this group".to_string(),
+        ));
+    }
+
+    sqlx::query(
+        "UPDATE media_items SET group_id = NULL, updated_at = datetime('now') WHERE slug = ? AND group_id = ?",
+    )
+    .bind(&media_slug)
+    .bind(group.id)
+    .execute(&pool)
+    .await
+    .map_err(|e| AccessGroupError::Internal(format!("Database error: {}", e)))?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Bulk assign multiple media items to this group
+pub async fn bulk_assign_media_to_group_handler(
+    State(pool): State<SqlitePool>,
+    Path(slug): Path<String>,
+    session: Session,
+    Json(request): Json<BulkAssignMediaRequest>,
+) -> Result<Json<BulkAssignResponse>> {
+    let user_id = get_user_id(&session).await?;
+    let group = get_group_by_slug(&pool, &slug).await?;
+
+    let can_write = check_permission(&pool, group.id, &user_id, "write").await?;
+    if !can_write {
+        return Err(AccessGroupError::Forbidden(
+            "Write permission required to assign media".to_string(),
+        ));
+    }
+
+    let mut assigned = 0usize;
+    for media_slug in &request.slugs {
+        // user_id guard ensures we only update owned items; non-owned are silently skipped
+        let result = sqlx::query(
+            "UPDATE media_items SET group_id = ?, updated_at = datetime('now') WHERE slug = ? AND user_id = ?",
+        )
+        .bind(group.id)
+        .bind(media_slug)
+        .bind(&user_id)
+        .execute(&pool)
+        .await
+        .map_err(|e| AccessGroupError::Internal(format!("Database error: {}", e)))?;
+
+        if result.rows_affected() > 0 {
+            assigned += 1;
+        }
+    }
+
+    Ok(Json(BulkAssignResponse { assigned }))
+}
+
 /// Check if user has access to a resource via groups
 #[derive(Deserialize)]
 pub struct CheckAccessRequest {

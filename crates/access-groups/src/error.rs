@@ -58,6 +58,9 @@ pub enum AccessGroupError {
 
     #[error("Validation error: {0}")]
     Validation(String),
+
+    #[error("Not found: {0}")]
+    NotFound(String),
 }
 
 impl IntoResponse for AccessGroupError {
@@ -104,6 +107,7 @@ impl IntoResponse for AccessGroupError {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
             }
             AccessGroupError::Validation(ref msg) => (StatusCode::BAD_REQUEST, msg.as_str()),
+            AccessGroupError::NotFound(ref msg) => (StatusCode::NOT_FOUND, msg.as_str()),
         };
 
         let details = match &self {

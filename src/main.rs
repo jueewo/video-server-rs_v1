@@ -72,7 +72,7 @@ use access_codes::{access_code_public_routes, access_code_routes, AccessCodeStat
 use access_control::AccessControlService;
 use access_groups;
 use api_keys::{middleware::api_key_or_session_auth, routes::api_key_routes};
-use common::{create_search_routes, create_tag_routes, request_id::request_id_middleware};
+use common::request_id::request_id_middleware;
 use course_viewer::{course_viewer_routes, CourseViewerState};
 use docs_viewer::{docs_routes, markdown::MarkdownRenderer, DocsState};
 use gallery3d;
@@ -500,58 +500,6 @@ async fn favicon_handler() -> Result<
 }
 
 // -------------------------------
-// Tag Management Page Handler
-// -------------------------------
-
-#[derive(Template)]
-#[template(path = "tags/manage.html")]
-struct TagManagementPage {
-    authenticated: bool,
-}
-
-async fn tag_management_handler(session: Session) -> Result<Html<String>, StatusCode> {
-    let authenticated: bool = session
-        .get("authenticated")
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or(false);
-
-    let template = TagManagementPage { authenticated };
-    match template.render() {
-        Ok(html) => Ok(Html(html)),
-        Err(e) => {
-            eprintln!("Template error: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
-
-#[derive(Template)]
-#[template(path = "tags/cloud.html")]
-struct TagCloudPage {
-    authenticated: bool,
-}
-
-async fn tag_cloud_handler(session: Session) -> Result<Html<String>, StatusCode> {
-    let authenticated: bool = session
-        .get("authenticated")
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or(false);
-
-    let template = TagCloudPage { authenticated };
-    match template.render() {
-        Ok(html) => Ok(Html(html)),
-        Err(e) => {
-            eprintln!("Template error: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
-
-// -------------------------------
 // Dev / Component Showcase (ENABLE_DEV_ROUTES)
 // -------------------------------
 
@@ -972,8 +920,6 @@ async fn main() -> anyhow::Result<()> {
         .route("/demo", get(demo_handler))
         .route("/health", get(health_check))
         .route("/favicon.ico", get(favicon_handler))
-        .route("/tags", get(tag_management_handler))
-        .route("/tags/cloud", get(tag_cloud_handler))
         // Webhook endpoints (optional)
         .route("/api/webhooks/stream-ready", post(webhook_stream_ready))
         .route("/api/webhooks/stream-ended", post(webhook_stream_ended))
@@ -1074,15 +1020,6 @@ async fn main() -> anyhow::Result<()> {
                 ),
             ),
         )
-        .merge(
-            create_tag_routes(pool.clone()).route_layer(axum::middleware::from_fn_with_state(
-                Arc::new(pool.clone()),
-                api_key_or_session_auth,
-            )),
-        )
-        .merge(create_search_routes(pool.clone()).route_layer(
-            axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
-        ))
         // Course viewer (standalone course presentation)
         .merge(course_viewer_routes(course_viewer_state))
         // Documentation viewer (markdown preview)

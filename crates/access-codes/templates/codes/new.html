@@ -746,6 +746,51 @@ endblock %} {% block content %}
 </div>
 
 <script>
+    // ── Type label helpers (mirrors Rust derive_type_label + shared picker) ────
+    function typeLabel(r) {
+        if (r.type === 'video') return 'Video';
+        if (r.type === 'image') return 'Image';
+        const fn = (r.filename || '').toLowerCase();
+        if (fn.endsWith('.pdf'))                                           return 'PDF';
+        if (fn.endsWith('.md') || fn.endsWith('.mdx') || fn.endsWith('.markdown')) return 'Markdown';
+        if (fn.endsWith('.bpmn'))                                          return 'BPMN';
+        if (fn.endsWith('.csv'))                                           return 'CSV';
+        if (fn.endsWith('.json'))                                          return 'JSON';
+        if (fn.endsWith('.xml'))                                           return 'XML';
+        if (fn.endsWith('.yaml') || fn.endsWith('.yml'))                   return 'YAML';
+        return 'Document';
+    }
+    function typeBadgeClass(label) {
+        return { Video: 'badge-error', Image: 'badge-success', PDF: 'badge-warning',
+                 Markdown: 'badge-secondary', BPMN: 'badge-info', CSV: 'badge-success',
+                 JSON: 'badge-warning', XML: 'badge-secondary', YAML: 'badge-accent',
+                 Document: 'badge-info' }[label] || 'badge-neutral';
+    }
+    function typeGradient(label) {
+        return { Video:    'from-red-200 via-red-300 to-pink-300',
+                 Image:    'from-green-200 via-emerald-300 to-teal-300',
+                 PDF:      'from-red-200 via-orange-300 to-amber-300',
+                 Markdown: 'from-purple-200 via-purple-300 to-indigo-300',
+                 BPMN:     'from-blue-200 via-cyan-300 to-sky-300',
+                 CSV:      'from-emerald-200 via-green-300 to-lime-300',
+                 JSON:     'from-amber-200 via-yellow-300 to-orange-300',
+                 XML:      'from-purple-200 via-purple-300 to-indigo-300',
+                 YAML:     'from-cyan-200 via-blue-300 to-indigo-300' }[label]
+               || 'from-gray-200 via-gray-300 to-gray-300';
+    }
+    function typeIconSrc(label) {
+        return { Video:    '/static/icons/video-icon.svg',
+                 Image:    '/static/icons/image-icon.svg',
+                 PDF:      '/static/icons/pdf-icon.svg',
+                 Markdown: '/static/icons/markdown-icon.svg',
+                 BPMN:     '/static/icons/bpmn-icon.svg',
+                 CSV:      '/static/icons/csv-icon.svg',
+                 JSON:     '/static/icons/json-icon.svg',
+                 XML:      '/static/icons/xml-icon.svg',
+                 YAML:     '/static/icons/yaml-icon.svg' }[label]
+               || '/static/icons/document-icon.svg';
+    }
+
     // State
     let currentStep = 1;
     let selectedResources = [];
@@ -904,10 +949,17 @@ endblock %} {% block content %}
             const isSelected = selectedResources.some(
                 (r) => r.type === resource.type && r.slug === resource.slug,
             );
-            const icon = resource.type === "video" ? "🎥" : resource.type === "image" ? "🖼️" : "📄";
+            const label = typeLabel(resource);
+            const badgeClass = typeBadgeClass(label);
+            const gradient = typeGradient(label);
+            const iconSrc = typeIconSrc(label);
             const thumbImg = resource.thumbnail_url
-                ? `<img src="${resource.thumbnail_url}" class="absolute inset-0 w-12 h-12 object-cover rounded" onerror="this.style.display='none'">`
-                : "";
+                ? `<img src="${resource.thumbnail_url}" class="absolute inset-0 w-full h-full object-cover" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`
+                : '';
+            const fallbackDisplay = resource.thumbnail_url ? 'display:none' : 'display:flex';
+            const fallback = `<div class="absolute inset-0 items-center justify-center bg-gradient-to-br ${gradient}" style="${fallbackDisplay}">
+                <img src="${iconSrc}" alt="${label}" class="w-7 h-7 drop-shadow">
+            </div>`;
             const tagBadges = resource.tags.length
                 ? `<div class="flex flex-wrap gap-1 mt-0.5">${resource.tags.map(t => `<span class="badge badge-outline badge-xs">${t.replace(/</g,'&lt;')}</span>`).join("")}</div>`
                 : "";
@@ -916,15 +968,15 @@ endblock %} {% block content %}
                 <label class="flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer hover:bg-base-200 transition-colors ${isSelected ? "border-primary bg-primary/10" : "border-base-300"}">
                     <input type="checkbox" class="checkbox checkbox-primary" ${isSelected ? "checked" : ""}
                         data-slug="${resource.slug}" data-type="${resource.type}" />
-                    <div class="relative w-12 h-12 rounded bg-base-300 flex items-center justify-center text-xl flex-shrink-0 overflow-hidden">
-                        ${icon}${thumbImg}
+                    <div class="relative w-12 h-12 rounded flex-shrink-0 overflow-hidden">
+                        ${thumbImg}${fallback}
                     </div>
                     <div class="flex-1 min-w-0">
                         <div class="font-semibold truncate">${resource.title.replace(/</g,'&lt;')}</div>
                         <div class="text-xs text-base-content/60 truncate">${resource.slug}</div>
                         ${tagBadges}
                     </div>
-                    <span class="badge badge-sm">${resource.type}</span>
+                    <span class="badge badge-sm ${badgeClass}">${label}</span>
                 </label>
             `;
         }).join("");
@@ -994,11 +1046,12 @@ endblock %} {% block content %}
         const resourcesList = document.getElementById("reviewResourcesList");
         resourcesList.innerHTML = selectedResources
             .map((r) => {
-                const icon = r.type === "video" ? "🎥" : r.type === "image" ? "🖼️" : "📄";
+                const label = typeLabel(r);
+                const badgeClass = typeBadgeClass(label);
                 return `
                 <div class="flex items-center gap-2 text-sm">
-                    <span>${icon}</span>
-                    <span class="font-semibold">${r.title}</span>
+                    <span class="badge badge-sm ${badgeClass}">${label}</span>
+                    <span class="font-semibold">${r.title.replace(/</g,'&lt;')}</span>
                     <span class="text-base-content/60">(${r.slug})</span>
                 </div>
             `;

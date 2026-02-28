@@ -186,6 +186,54 @@
         _mpRenderGrid();
     }
 
+    // ── Type label helpers (mirror Rust derive_type_label) ────────────────────
+    function _mpTypeLabel(item) {
+        if (item.media_type === 'video') return 'Video';
+        if (item.media_type === 'image') return 'Image';
+        const fn = (item.filename || '').toLowerCase();
+        if (fn.endsWith('.pdf'))                                      return 'PDF';
+        if (fn.endsWith('.md') || fn.endsWith('.mdx') || fn.endsWith('.markdown')) return 'Markdown';
+        if (fn.endsWith('.bpmn'))                                     return 'BPMN';
+        if (fn.endsWith('.csv'))                                      return 'CSV';
+        if (fn.endsWith('.json'))                                     return 'JSON';
+        if (fn.endsWith('.xml'))                                      return 'XML';
+        if (fn.endsWith('.yaml') || fn.endsWith('.yml'))              return 'YAML';
+        return 'Document';
+    }
+
+    function _mpBadgeClass(label) {
+        return { Video: 'badge-error', Image: 'badge-success', PDF: 'badge-warning',
+                 Markdown: 'badge-secondary', BPMN: 'badge-info', CSV: 'badge-success',
+                 JSON: 'badge-warning', XML: 'badge-secondary', YAML: 'badge-accent',
+                 Document: 'badge-info' }[label] || 'badge-neutral';
+    }
+
+    function _mpGradient(label) {
+        return { Video:    'from-red-200 via-red-300 to-pink-300',
+                 Image:    'from-green-200 via-emerald-300 to-teal-300',
+                 PDF:      'from-red-200 via-orange-300 to-amber-300',
+                 Markdown: 'from-purple-200 via-purple-300 to-indigo-300',
+                 BPMN:     'from-blue-200 via-cyan-300 to-sky-300',
+                 CSV:      'from-emerald-200 via-green-300 to-lime-300',
+                 JSON:     'from-amber-200 via-yellow-300 to-orange-300',
+                 XML:      'from-purple-200 via-purple-300 to-indigo-300',
+                 YAML:     'from-cyan-200 via-blue-300 to-indigo-300' }[label]
+               || 'from-gray-200 via-gray-300 to-gray-300';
+    }
+
+    function _mpIconSrc(label) {
+        return { Video:    '/static/icons/video-icon.svg',
+                 Image:    '/static/icons/image-icon.svg',
+                 PDF:      '/static/icons/pdf-icon.svg',
+                 Markdown: '/static/icons/markdown-icon.svg',
+                 BPMN:     '/static/icons/bpmn-icon.svg',
+                 CSV:      '/static/icons/csv-icon.svg',
+                 JSON:     '/static/icons/json-icon.svg',
+                 XML:      '/static/icons/xml-icon.svg',
+                 YAML:     '/static/icons/yaml-icon.svg' }[label]
+               || '/static/icons/document-icon.svg';
+    }
+
     window._mpRenderGrid = function() {
         const cfg = window.mediaPickerConfig || {};
         const existingSlugs = new Set(cfg.existingSlugs || []);
@@ -218,50 +266,53 @@
 
         grid.innerHTML = filtered.map(item => {
             const isExisting = existingSlugs.has(item.slug);
-            const icon = item.media_type === 'video' ? '🎥' : item.media_type === 'image' ? '🖼️' : '📄';
-            const badgeClass = item.media_type === 'video' ? 'badge-error' : item.media_type === 'image' ? 'badge-success' : 'badge-warning';
+            const label = _mpTypeLabel(item);
+            const badgeClass = _mpBadgeClass(label);
+            const gradient = _mpGradient(label);
+            const iconSrc = _mpIconSrc(label);
             const thumbImg = item.thumbnail_url
-                ? `<img src="${item.thumbnail_url}" alt="" class="absolute inset-0 w-full h-full object-cover" onerror="this.style.display='none'">`
+                ? `<img src="${item.thumbnail_url}" alt="" class="absolute inset-0 w-full h-full object-cover" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`
                 : '';
+            // Fallback shown when no thumbnail or img fails
+            const fallbackDisplay = item.thumbnail_url ? 'display:none' : 'display:flex';
+            const fallback = `<div class="absolute inset-0 items-center justify-center bg-gradient-to-br ${gradient}" style="${fallbackDisplay}">
+                <img src="${iconSrc}" alt="${label}" class="w-12 h-12 drop-shadow-lg">
+            </div>`;
             const safeTitle = item.title.replace(/</g, '&lt;');
             const safeSlug = item.slug.replace(/</g, '&lt;');
             const tagHtml = item.tags.length
                 ? `<div class="flex flex-wrap gap-1 mt-1">${item.tags.map(t => `<span class="badge badge-outline badge-xs">${t.replace(/</g, '&lt;')}</span>`).join('')}</div>`
                 : '';
+            const figure = `<div class="relative w-full overflow-hidden" style="aspect-ratio:16/9">
+                ${thumbImg}${fallback}
+                <div class="absolute top-1 right-1"><span class="badge badge-sm ${badgeClass}">${label}</span></div>
+            </div>`;
 
             if (isMulti) {
                 const isChecked = _mpSelected.has(item.slug) ? 'checked' : '';
                 const disabledAttr = isExisting ? 'disabled' : '';
                 const opacityClass = isExisting ? 'opacity-50' : '';
                 const existingBadge = isExisting ? '<span class="badge badge-xs badge-neutral">Already added</span>' : '';
+                const checkOverlay = _mpSelected.has(item.slug)
+                    ? '<div class="absolute inset-0 bg-primary/20 flex items-center justify-center pointer-events-none"><svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-primary drop-shadow" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></div>'
+                    : '';
                 return `<label class="card card-compact bg-base-200 border-2 border-base-300 hover:border-primary transition-all overflow-hidden cursor-pointer ${opacityClass} has-[:checked]:border-primary has-[:checked]:bg-base-300">
                     <input type="checkbox" data-slug="${item.slug}" class="sr-only" ${isChecked} ${disabledAttr}>
-                    <div class="relative w-full bg-base-300 overflow-hidden" style="aspect-ratio:16/9">
-                        <div class="absolute inset-0 flex items-center justify-center text-4xl">${icon}</div>
-                        ${thumbImg}
-                        <div class="absolute top-1 right-1 flex gap-1">
-                            <span class="badge badge-sm ${badgeClass}">${item.media_type}</span>
-                        </div>
-                        ${_mpSelected.has(item.slug) ? '<div class="absolute inset-0 bg-primary/20 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-primary drop-shadow" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></div>' : ''}
+                    <div class="relative w-full overflow-hidden" style="aspect-ratio:16/9">
+                        ${thumbImg}${fallback}
+                        <div class="absolute top-1 right-1"><span class="badge badge-sm ${badgeClass}">${label}</span></div>
+                        ${checkOverlay}
                     </div>
                     <div class="p-2">
                         <div class="font-semibold text-sm truncate">${safeTitle}</div>
                         <div class="text-xs text-base-content/50 truncate">${safeSlug}</div>
-                        ${existingBadge}
-                        ${tagHtml}
+                        ${existingBadge}${tagHtml}
                     </div>
                 </label>`;
             } else {
-                // Single mode: clickable button card
                 return `<button type="button" data-slug="${item.slug}"
                     class="card card-compact bg-base-200 hover:bg-base-300 border-2 border-base-300 hover:border-primary transition-all text-left overflow-hidden w-full">
-                    <div class="relative w-full bg-base-300 overflow-hidden" style="aspect-ratio:16/9">
-                        <div class="absolute inset-0 flex items-center justify-center text-4xl">${icon}</div>
-                        ${thumbImg}
-                        <div class="absolute top-1 right-1">
-                            <span class="badge badge-sm ${badgeClass}">${item.media_type}</span>
-                        </div>
-                    </div>
+                    ${figure}
                     <div class="p-2">
                         <div class="font-semibold text-sm truncate">${safeTitle}</div>
                         <div class="text-xs text-base-content/50 truncate">${safeSlug}</div>

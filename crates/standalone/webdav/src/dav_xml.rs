@@ -12,12 +12,20 @@ pub fn propfind_response(href: &str, path: &PathBuf, is_dir: bool) -> String {
         .map(|m| m.len().to_string())
         .unwrap_or_else(|_| "0".to_string());
 
+    let rfc1123_fmt = time::format_description::parse(
+        "[weekday repr:short], [day] [month repr:short] [year] [hour]:[minute]:[second] GMT",
+    )
+    .unwrap();
+
     let last_modified = std::fs::metadata(path)
         .ok()
         .and_then(|m| m.modified().ok())
         .map(|t| {
             let datetime: time::OffsetDateTime = t.into();
-            datetime.to_string()
+            datetime
+                .to_offset(time::UtcOffset::UTC)
+                .format(&rfc1123_fmt)
+                .unwrap_or_default()
         })
         .unwrap_or_default();
 
@@ -26,7 +34,9 @@ pub fn propfind_response(href: &str, path: &PathBuf, is_dir: bool) -> String {
         .and_then(|m| m.created().ok())
         .map(|t| {
             let datetime: time::OffsetDateTime = t.into();
-            datetime.to_string()
+            datetime
+                .format(&time::format_description::well_known::Rfc3339)
+                .unwrap_or_default()
         })
         .unwrap_or_default();
 
@@ -58,7 +68,7 @@ pub fn propfind_response(href: &str, path: &PathBuf, is_dir: bool) -> String {
 <D:getlastmodified>{}</D:getlastmodified>
 <D:creationdate>{}</D:creationdate>
 <D:getetag>{}</D:getetag>
-</D:propstat>
+</D:prop>
 <D:status>HTTP/1.1 200 OK</D:status>
 </D:propstat>
 </D:response>"#,

@@ -6031,6 +6031,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "webdav"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "bytes",
+ "futures-util",
+ "http 1.4.0",
+ "http-body-util",
+ "mime_guess",
+ "serde",
+ "sqlx",
+ "time",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "webpki-roots"
 version = "0.25.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6527,6 +6546,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "sqlx",
+ "tempfile",
  "time",
  "tokio",
  "tower-sessions",

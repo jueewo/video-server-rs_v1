@@ -24,3 +24,6 @@ docs-viewer = { path = "../docs-viewer" }
 pdf-viewer = { path = "../pdf-viewer" }
 bpmn-viewer = { path = "../bpmn-viewer" }
 course-processor = { path = "../workspace-processors/course-processor" }
+
+[dev-dependencies]
+tempfile = "3"

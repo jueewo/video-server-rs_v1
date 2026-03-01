@@ -1,0 +1,28 @@
+id: static-site
+name: Static Website
+icon: globe
+description: A static website project (HTML/CSS/JS)
+color: "#2196F3"
+git_template: null
+metadata_schema:
+  - key: title
+    label: Site Title
+    type: string
+    default: ""
+    required: true
+  - key: base_url
+    label: Base URL
+    type: string
+    default: ""
+    required: false
+  - key: framework
+    label: Framework
+    type: enum
+    values: [none, hugo, jekyll, eleventy, astro, other]
+    default: none
+    required: false
+  - key: description
+    label: Site Description
+    type: multiline
+    default: ""
+    required: false

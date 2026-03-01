@@ -213,12 +213,7 @@
                     <td>
                         <select id="folder-type" class="select select-bordered select-sm w-full" onchange="updateMetadataFields()">
                             <option value="default">📁 Default — Regular file storage</option>
-                            <option value="static-site">🌐 Static Site — Website projects</option>
-                            <option value="bpmn-simulator">▶️ BPMN Simulator — Process diagrams</option>
-                            <option value="agent-collection">🤖 Agent Collection — AI agents</option>
-                            <option value="documentation">📚 Documentation — Docs projects</option>
-                            <option value="data-pipeline">📊 Data Pipeline — ETL workflows</option>
-                            <option value="course">🎓 Course — Educational content</option>
+                            <!-- populated from /api/folder-types on load -->
                         </select>
                     </td>
                 </tr>
@@ -245,6 +240,44 @@
 <script>
     const WORKSPACE_ID = "{{ workspace_id }}";
     const CURRENT_PATH = "{{ current_path }}";
+
+    // ── Folder Type Registry ─────────────────────────────────────────────────
+
+    let folderTypesCache = [];
+
+    const ICON_EMOJI = {
+        'graduation-cap': '🎓', 'globe': '🌐', 'git-branch': '🔀',
+        'bot': '🤖', 'book-open': '📚', 'workflow': '📊',
+        'folder': '📁', 'file': '📄', 'star': '⭐', 'code': '💻',
+        'database': '🗄️', 'server': '🖥️', 'cloud': '☁️', 'settings': '⚙️',
+    };
+    function typeIcon(name) { return ICON_EMOJI[name] || '📁'; }
+
+    async function loadFolderTypes() {
+        try {
+            const r = await fetch('/api/folder-types');
+            if (r.ok) {
+                folderTypesCache = await r.json();
+                populateFolderTypeSelect();
+            }
+        } catch (e) {
+            console.error('Failed to load folder types:', e);
+        }
+    }
+
+    function populateFolderTypeSelect(preserveValue) {
+        const select = document.getElementById('folder-type');
+        const prev = preserveValue ?? select.value;
+        select.innerHTML = '<option value="default">📁 Default — Regular file storage</option>';
+        for (const def of folderTypesCache) {
+            const opt = document.createElement('option');
+            opt.value = def.id;
+            const desc = def.description ? ` — ${def.description}` : '';
+            opt.textContent = `${typeIcon(def.icon)} ${def.name}${desc}`;
+            select.appendChild(opt);
+        }
+        if (prev) select.value = prev;
+    }
 
     function pathJoin(...parts) {
         return parts.filter(p => p).join('/');
@@ -316,14 +349,16 @@
         document.getElementById('new-file-modal').showModal();
     }
 
-    function newFolder() {
+    async function newFolder() {
+        if (folderTypesCache.length === 0) await loadFolderTypes();
+
         // Open folder settings modal in create mode
         document.getElementById('folder-settings-mode').value = 'create';
         document.getElementById('folder-settings-title').textContent = '📁 Create New Folder';
         document.getElementById('folder-settings-path').value = '';
         document.getElementById('folder-name').value = '';
         document.getElementById('folder-description').value = '';
-        document.getElementById('folder-type').value = 'default';
+        populateFolderTypeSelect('default');
 
         // Hide delete button in create mode
         document.getElementById('delete-folder-btn').style.display = 'none';
@@ -419,25 +454,25 @@
         document.getElementById('folder-settings-path').value = folderPath;
         document.getElementById('folder-name').value = folderName;
 
+        // Ensure folder types are loaded before populating the select
+        if (folderTypesCache.length === 0) await loadFolderTypes();
+
         // Load existing folder config from workspace.yaml
         try {
             const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/folder-config?path=${encodeURIComponent(folderPath)}`);
             if (r.ok) {
                 const config = await r.json();
-                document.getElementById('folder-type').value = config.type || 'default';
+                populateFolderTypeSelect(config.type || 'default');
                 document.getElementById('folder-description').value = config.description || '';
 
-                // Update metadata fields for this type
+                // Render metadata fields for this type, then populate saved values
                 updateMetadataFields();
 
-                // Populate metadata fields if they exist
                 if (config.metadata) {
                     Object.entries(config.metadata).forEach(([key, value]) => {
                         const fieldId = `meta-${key.replace(/_/g, '-')}`;
                         const field = document.getElementById(fieldId);
-                        if (field) {
-                            field.value = value;
-                        }
+                        if (field) field.value = value;
                     });
                 }
             }
@@ -457,180 +492,50 @@
         descField.placeholder = isDefault ? 'Not saved for default folders' : 'What is this folder for?';
         if (isDefault) descField.value = '';
 
-        // Clear existing fields
         container.innerHTML = '';
 
-        // Add type-specific fields
-        switch (type) {
-            case 'static-site':
-                container.innerHTML = `
-                    <table class="table table-sm">
-                        <tbody>
-                            <tr>
-                                <td class="font-medium w-1/3">Framework</td>
-                                <td>
-                                    <select id="meta-framework" class="select select-bordered select-sm w-full">
-                                        <option value="plain-html">Plain HTML</option>
-                                        <option value="hugo">Hugo</option>
-                                        <option value="jekyll">Jekyll</option>
-                                        <option value="astro-appkask">Astro Appkask</option>
-                                        <option value="docs-appkask">Docs Appkask</option>
-                                    </select>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="font-medium">Entry Point</td>
-                                <td><input type="text" id="meta-entry-point" value="index.html" class="input input-bordered input-sm w-full" /></td>
-                            </tr>
-                            <tr>
-                                <td class="font-medium">Theme <span class="text-base-content/50">(optional)</span></td>
-                                <td><input type="text" id="meta-theme" placeholder="e.g. minimal" class="input input-bordered input-sm w-full" /></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                `;
-                break;
-
-            case 'bpmn-simulator':
-                container.innerHTML = `
-                    <table class="table table-sm">
-                        <tbody>
-                            <tr>
-                                <td class="font-medium w-1/3">Main Process File</td>
-                                <td><input type="text" id="meta-main-process" placeholder="e.g. order-flow.bpmn" class="input input-bordered input-sm w-full" /></td>
-                            </tr>
-                            <tr>
-                                <td class="font-medium">Default Timeout <span class="text-base-content/50">(seconds)</span></td>
-                                <td><input type="number" id="meta-timeout" value="3600" class="input input-bordered input-sm w-full" /></td>
-                            </tr>
-                            <tr>
-                                <td class="font-medium">Max Retries</td>
-                                <td><input type="number" id="meta-retries" value="3" class="input input-bordered input-sm w-full" /></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                `;
-                break;
-
-            case 'agent-collection':
-                container.innerHTML = `
-                    <table class="table table-sm">
-                        <tbody>
-                            <tr>
-                                <td class="font-medium w-1/3">Default Model</td>
-                                <td>
-                                    <select id="meta-model" class="select select-bordered select-sm w-full">
-                                        <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
-                                        <option value="claude-opus-4.6">Claude Opus 4.6</option>
-                                        <option value="claude-haiku-4.5">Claude Haiku 4.5</option>
-                                    </select>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="font-medium">Shared Context <span class="text-base-content/50">(optional)</span></td>
-                                <td><input type="text" id="meta-shared-context" placeholder="e.g. context/docs.md" class="input input-bordered input-sm w-full" /></td>
-                            </tr>
-                            <tr>
-                                <td class="font-medium">Memory Directory <span class="text-base-content/50">(optional)</span></td>
-                                <td><input type="text" id="meta-memory-dir" placeholder="e.g. .memory/" class="input input-bordered input-sm w-full" /></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                `;
-                break;
-
-            case 'documentation':
-                container.innerHTML = `
-                    <table class="table table-sm">
-                        <tbody>
-                            <tr>
-                                <td class="font-medium w-1/3">Documentation Format</td>
-                                <td>
-                                    <select id="meta-format" class="select select-bordered select-sm w-full">
-                                        <option value="mdbook">mdBook</option>
-                                        <option value="sphinx">Sphinx</option>
-                                        <option value="docusaurus">Docusaurus</option>
-                                    </select>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="font-medium">Index File</td>
-                                <td><input type="text" id="meta-index" value="SUMMARY.md" class="input input-bordered input-sm w-full" /></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                `;
-                break;
-
-            case 'data-pipeline':
-                container.innerHTML = `
-                    <table class="table table-sm">
-                        <tbody>
-                            <tr>
-                                <td class="font-medium w-1/3">Workflow File</td>
-                                <td><input type="text" id="meta-workflow" placeholder="e.g. pipeline.yaml" class="input input-bordered input-sm w-full" /></td>
-                            </tr>
-                            <tr>
-                                <td class="font-medium">Schedule <span class="text-base-content/50">(cron, optional)</span></td>
-                                <td><input type="text" id="meta-schedule" placeholder="e.g. 0 */6 * * *" class="input input-bordered input-sm w-full" /></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                `;
-                break;
-
-            case 'course':
-                container.innerHTML = `
-                    <div class="alert alert-info mb-4">
-                        <div>
-                            <h4 class="font-bold">🎓 Course Folder</h4>
-                            <p class="text-sm mt-1">Create a <code>course.yaml</code> file in this folder to define your course structure.</p>
-                            <p class="text-sm mt-2">Once configured, you can publish the course to a vault via the API.</p>
-                        </div>
-                    </div>
-                    <table class="table table-sm">
-                        <tbody>
-                            <tr>
-                                <td class="font-medium w-1/3">Course Config</td>
-                                <td><span class="badge badge-neutral">course.yaml</span></td>
-                            </tr>
-                            <tr>
-                                <td class="font-medium">Publish Endpoint</td>
-                                <td><code class="text-xs">/api/workspaces/{id}/course/publish</code></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <details class="collapse collapse-arrow bg-base-200 mt-3">
-                        <summary class="collapse-title text-sm font-medium">
-                            📖 Course Structure Example
-                        </summary>
-                        <div class="collapse-content">
-                            <pre class="text-xs bg-base-100 p-3 rounded overflow-x-auto"><code>title: "My Course"
-instructor: "Your Name"
-level: "beginner"
-entry_point: "index.md"
-
-modules:
-  - title: "Module 1"
-    order: 1
-    lessons:
-      - title: "Lesson 1"
-        file: "lesson1.md"
-        duration_minutes: 30</code></pre>
-                        </div>
-                    </details>
-                `;
-                break;
-
-            case 'default':
-            default:
-                container.innerHTML = `
-                    <div class="alert alert-info">
-                        <p class="text-sm">Default folders don't have special metadata. They're just regular file storage.</p>
-                    </div>
-                `;
-                break;
+        if (isDefault) {
+            container.innerHTML = `<div class="alert alert-info"><p class="text-sm">Default folders don't have special metadata. They're just regular file storage.</p></div>`;
+            return;
         }
+
+        const def = folderTypesCache.find(d => d.id === type);
+        if (!def || !def.metadata_schema || def.metadata_schema.length === 0) return;
+
+        const rows = def.metadata_schema.map(field => {
+            const id = `meta-${field.key.replace(/_/g, '-')}`;
+            const optLabel = field.required ? field.label
+                : `${field.label} <span class="text-base-content/50">(optional)</span>`;
+            const defVal = field.default != null ? String(field.default) : '';
+
+            let input;
+            switch (field.field_type) {
+                case 'enum': {
+                    const opts = (field.values || []).map(v =>
+                        `<option value="${v}"${v === defVal ? ' selected' : ''}>${v}</option>`
+                    ).join('');
+                    input = `<select id="${id}" class="select select-bordered select-sm w-full">${opts}</select>`;
+                    break;
+                }
+                case 'number':
+                    input = `<input type="number" id="${id}" value="${defVal}" class="input input-bordered input-sm w-full" placeholder="${field.label}" />`;
+                    break;
+                case 'boolean': {
+                    const opts = `<option value="true"${defVal === 'true' ? ' selected' : ''}>Yes</option>`
+                               + `<option value="false"${defVal !== 'true' ? ' selected' : ''}>No</option>`;
+                    input = `<select id="${id}" class="select select-bordered select-sm w-full">${opts}</select>`;
+                    break;
+                }
+                case 'multiline':
+                    input = `<textarea id="${id}" rows="3" class="textarea textarea-bordered textarea-sm w-full" placeholder="${field.label}">${defVal}</textarea>`;
+                    break;
+                default: // string
+                    input = `<input type="text" id="${id}" value="${defVal}" class="input input-bordered input-sm w-full" placeholder="${field.label}" />`;
+            }
+            return `<tr><td class="font-medium w-1/3 align-top pt-3">${optLabel}</td><td>${input}</td></tr>`;
+        }).join('');
+
+        container.innerHTML = `<table class="table table-sm"><tbody>${rows}</tbody></table>`;
     }
 
     async function saveFolderSettings() {
@@ -649,8 +554,8 @@ modules:
         const metadata = {};
         const container = document.getElementById('metadata-fields');
 
-        // Extract all input/select values from metadata fields
-        container.querySelectorAll('input, select').forEach(el => {
+        // Extract all input/select/textarea values from metadata fields
+        container.querySelectorAll('input, select, textarea').forEach(el => {
             if (el.id.startsWith('meta-')) {
                 const key = el.id.replace('meta-', '').replace(/-/g, '_');
                 if (el.value) { // Only include non-empty values
@@ -792,6 +697,9 @@ modules:
 
         document.getElementById('publish-modal').showModal();
     }
+
+    // Preload folder types so the select is ready before the user opens the modal
+    loadFolderTypes();
 
     async function submitPublish() {
         const filePath = document.getElementById('pub-file-path').value;

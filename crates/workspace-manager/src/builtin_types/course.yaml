@@ -1,0 +1,28 @@
+id: course
+name: Structured Online Course
+icon: graduation-cap
+description: A course with modules and lessons
+color: "#4CAF50"
+git_template: null
+metadata_schema:
+  - key: title
+    label: Course Title
+    type: string
+    default: ""
+    required: true
+  - key: level
+    label: Difficulty Level
+    type: enum
+    values: [beginner, intermediate, advanced]
+    default: beginner
+    required: false
+  - key: instructor
+    label: Instructor Name
+    type: string
+    default: ""
+    required: false
+  - key: description
+    label: Course Description
+    type: multiline
+    default: ""
+    required: false

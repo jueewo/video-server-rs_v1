@@ -1,0 +1,28 @@
+id: documentation
+name: Documentation Hub
+icon: book-open
+description: A structured documentation site or knowledge base
+color: "#607D8B"
+git_template: null
+metadata_schema:
+  - key: title
+    label: Documentation Title
+    type: string
+    default: ""
+    required: true
+  - key: version
+    label: Version
+    type: string
+    default: ""
+    required: false
+  - key: audience
+    label: Target Audience
+    type: enum
+    values: [developers, end-users, administrators, mixed]
+    default: developers
+    required: false
+  - key: description
+    label: Description
+    type: multiline
+    default: ""
+    required: false

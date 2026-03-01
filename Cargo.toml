@@ -21,6 +21,7 @@ members = [
     "crates/workspace-processors/course-processor",
     "crates/standalone/course-viewer",
     "crates/standalone/media-cli",
+    "crates/standalone/webdav",
 ]
 resolver = "2"
 

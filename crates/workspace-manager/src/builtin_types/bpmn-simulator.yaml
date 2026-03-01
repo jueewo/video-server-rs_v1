@@ -1,0 +1,27 @@
+id: bpmn-simulator
+name: BPMN Process Simulator
+icon: git-branch
+description: Business process model with simulation support
+color: "#FF9800"
+git_template: null
+metadata_schema:
+  - key: title
+    label: Process Title
+    type: string
+    default: ""
+    required: true
+  - key: version
+    label: Version
+    type: string
+    default: "1.0"
+    required: false
+  - key: owner
+    label: Process Owner
+    type: string
+    default: ""
+    required: false
+  - key: description
+    label: Process Description
+    type: multiline
+    default: ""
+    required: false

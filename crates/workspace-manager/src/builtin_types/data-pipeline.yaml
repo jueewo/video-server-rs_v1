@@ -1,0 +1,32 @@
+id: data-pipeline
+name: Data Pipeline
+icon: workflow
+description: A data processing or ETL pipeline project
+color: "#F44336"
+git_template: null
+metadata_schema:
+  - key: title
+    label: Pipeline Title
+    type: string
+    default: ""
+    required: true
+  - key: schedule
+    label: Schedule (cron)
+    type: string
+    default: ""
+    required: false
+  - key: source
+    label: Data Source
+    type: string
+    default: ""
+    required: false
+  - key: destination
+    label: Data Destination
+    type: string
+    default: ""
+    required: false
+  - key: description
+    label: Pipeline Description
+    type: multiline
+    default: ""
+    required: false

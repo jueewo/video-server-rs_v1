@@ -1,0 +1,385 @@
+{% extends "base-tailwind.html" %}
+{% block title %}Folder Types{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-5xl">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-3xl font-bold">📂 Folder Types</h1>
+            <p class="text-base-content/60 mt-1">Define special-purpose folder types and their metadata schemas</p>
+        </div>
+        <button onclick="openCreateModal()" class="btn btn-primary gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
+            </svg>
+            New Type
+        </button>
+    </div>
+
+    <!-- Type list -->
+    <div id="types-list">
+        <div class="flex flex-col gap-3">
+            <div class="skeleton h-24 w-full rounded-xl"></div>
+            <div class="skeleton h-24 w-full rounded-xl"></div>
+            <div class="skeleton h-24 w-full rounded-xl"></div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Create / Edit Modal -->
+<dialog id="type-modal" class="modal">
+    <div class="modal-box max-w-3xl w-full">
+        <h3 id="modal-title" class="font-bold text-xl mb-5">New Folder Type</h3>
+
+        <!-- Basic fields -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div class="form-control">
+                <label class="label pb-1"><span class="label-text font-medium">ID <span class="text-error">*</span></span></label>
+                <input id="ft-id" type="text" placeholder="e.g. my-type" class="input input-bordered input-sm" />
+                <label class="label pt-1"><span class="label-text-alt text-base-content/50">Lowercase, hyphens allowed. Cannot be changed after creation.</span></label>
+            </div>
+            <div class="form-control">
+                <label class="label pb-1"><span class="label-text font-medium">Name <span class="text-error">*</span></span></label>
+                <input id="ft-name" type="text" placeholder="e.g. My Custom Type" class="input input-bordered input-sm" />
+            </div>
+            <div class="form-control">
+                <label class="label pb-1"><span class="label-text font-medium">Icon</span></label>
+                <input id="ft-icon" type="text" placeholder="e.g. star, globe, bot" class="input input-bordered input-sm" />
+                <label class="label pt-1"><span class="label-text-alt text-base-content/50">Lucide icon name — preview: <span id="icon-preview">📁</span></span></label>
+            </div>
+            <div class="form-control">
+                <label class="label pb-1"><span class="label-text font-medium">Accent colour</span></label>
+                <div class="flex gap-2 items-center">
+                    <input id="ft-color" type="color" value="#607D8B" class="w-10 h-9 rounded border border-base-300 cursor-pointer p-0.5" />
+                    <input id="ft-color-text" type="text" value="#607D8B" class="input input-bordered input-sm flex-1" placeholder="#4CAF50" />
+                </div>
+            </div>
+            <div class="form-control sm:col-span-2">
+                <label class="label pb-1"><span class="label-text font-medium">Description</span></label>
+                <input id="ft-description" type="text" placeholder="Short description shown in the folder type dropdown" class="input input-bordered input-sm" />
+            </div>
+            <div class="form-control sm:col-span-2">
+                <label class="label pb-1"><span class="label-text font-medium">Git template URL <span class="text-base-content/50">(optional)</span></span></label>
+                <input id="ft-git-template" type="text" placeholder="https://github.com/example/template-repo" class="input input-bordered input-sm" />
+                <label class="label pt-1"><span class="label-text-alt text-base-content/50">When set, users can clone this repo into a new folder of this type.</span></label>
+            </div>
+        </div>
+
+        <div class="divider text-sm">Metadata Schema</div>
+
+        <!-- Schema field list -->
+        <div id="schema-fields" class="flex flex-col gap-2 mb-3">
+            <!-- rows inserted by JS -->
+        </div>
+        <button onclick="addSchemaField()" class="btn btn-sm btn-outline btn-neutral w-full">+ Add field</button>
+
+        <div class="modal-action mt-6">
+            <button onclick="document.getElementById('type-modal').close()" class="btn btn-ghost">Cancel</button>
+            <button onclick="saveType()" id="modal-save-btn" class="btn btn-primary">Save</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// ── Icon map ────────────────────────────────────────────────────────────────
+const ICON_EMOJI = {
+    'graduation-cap':'🎓','globe':'🌐','git-branch':'🔀','bot':'🤖',
+    'book-open':'📚','workflow':'📊','folder':'📁','file':'📄',
+    'star':'⭐','code':'💻','database':'🗄️','server':'🖥️',
+    'cloud':'☁️','settings':'⚙️','layers':'🗂️','zap':'⚡',
+    'terminal':'🖥️','cpu':'🔲','chart-bar':'📊','shield':'🛡️',
+};
+function typeIcon(name) { return ICON_EMOJI[name] || '📁'; }
+
+// ── State ───────────────────────────────────────────────────────────────────
+let allTypes = [];
+let editingId = null; // null = create
+
+// ── Load & render list ───────────────────────────────────────────────────────
+async function loadTypes() {
+    try {
+        const r = await fetch('/api/folder-types');
+        if (r.ok) { allTypes = await r.json(); renderList(); }
+        else showToast('Failed to load folder types', 'error');
+    } catch (e) { showToast('Network error: ' + e.message, 'error'); }
+}
+
+function renderList() {
+    const el = document.getElementById('types-list');
+    if (allTypes.length === 0) {
+        el.innerHTML = `
+            <div class="card bg-base-200 shadow">
+                <div class="card-body items-center text-center py-12">
+                    <div class="text-5xl mb-3">📂</div>
+                    <h3 class="text-xl font-semibold mb-2">No folder types yet</h3>
+                    <p class="text-base-content/60 mb-4">Create your first type to get started.</p>
+                    <button onclick="openCreateModal()" class="btn btn-primary">New Type</button>
+                </div>
+            </div>`;
+        return;
+    }
+
+    el.innerHTML = `<div class="flex flex-col gap-3">${allTypes.map(def => {
+        const fields = def.metadata_schema || [];
+        const badges = fields.map(f =>
+            `<span class="badge badge-neutral badge-sm">${escHtml(f.label)}</span>`
+        ).join('');
+        const gitBadge = def.git_template
+            ? `<span class="badge badge-info badge-sm" title="${escHtml(def.git_template)}">git template</span>` : '';
+        const dot = def.color
+            ? `<span class="inline-block w-3 h-3 rounded-full border border-base-300 flex-shrink-0" style="background:${escHtml(def.color)}"></span>` : '';
+
+        return `
+        <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md transition-shadow">
+            <div class="card-body flex-row items-start gap-4 p-4">
+                <div class="text-4xl select-none">${typeIcon(def.icon)}</div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="font-bold text-lg">${escHtml(def.name)}</span>
+                        <code class="badge badge-ghost text-xs">${escHtml(def.id)}</code>
+                        ${dot}
+                    </div>
+                    <p class="text-base-content/60 text-sm mt-0.5">${escHtml(def.description || '')}</p>
+                    <div class="flex gap-1.5 mt-2 flex-wrap">${badges}${gitBadge}</div>
+                </div>
+                <div class="flex gap-2 flex-shrink-0">
+                    <button onclick="openEditModal('${escHtml(def.id)}')" class="btn btn-sm btn-ghost">Edit</button>
+                    <button onclick="deleteType('${escHtml(def.id)}', '${escHtml(def.name)}')" class="btn btn-sm btn-error btn-outline">Delete</button>
+                </div>
+            </div>
+        </div>`;
+    }).join('')}</div>`;
+}
+
+// ── Modal helpers ────────────────────────────────────────────────────────────
+function resetModal() {
+    document.getElementById('ft-id').value = '';
+    document.getElementById('ft-name').value = '';
+    document.getElementById('ft-icon').value = '';
+    document.getElementById('ft-color').value = '#607D8B';
+    document.getElementById('ft-color-text').value = '#607D8B';
+    document.getElementById('ft-description').value = '';
+    document.getElementById('ft-git-template').value = '';
+    document.getElementById('icon-preview').textContent = '📁';
+    document.getElementById('schema-fields').innerHTML = '';
+}
+
+function openCreateModal() {
+    editingId = null;
+    resetModal();
+    document.getElementById('ft-id').disabled = false;
+    document.getElementById('modal-title').textContent = 'New Folder Type';
+    document.getElementById('modal-save-btn').textContent = 'Create';
+    document.getElementById('type-modal').showModal();
+}
+
+function openEditModal(id) {
+    const def = allTypes.find(d => d.id === id);
+    if (!def) return;
+
+    editingId = id;
+    document.getElementById('ft-id').value = def.id;
+    document.getElementById('ft-id').disabled = true; // id cannot change via this API
+    document.getElementById('ft-name').value = def.name;
+    document.getElementById('ft-icon').value = def.icon || '';
+    updateIconPreview(def.icon || '');
+    const color = def.color || '#607D8B';
+    document.getElementById('ft-color').value = color;
+    document.getElementById('ft-color-text').value = color;
+    document.getElementById('ft-description').value = def.description || '';
+    document.getElementById('ft-git-template').value = def.git_template || '';
+
+    // Render existing schema fields
+    document.getElementById('schema-fields').innerHTML = '';
+    for (const field of (def.metadata_schema || [])) {
+        appendSchemaRow(field);
+    }
+
+    document.getElementById('modal-title').textContent = `Edit — ${def.name}`;
+    document.getElementById('modal-save-btn').textContent = 'Save';
+    document.getElementById('type-modal').showModal();
+}
+
+// ── Schema field rows ────────────────────────────────────────────────────────
+let fieldRowIdx = 0;
+
+function addSchemaField() { appendSchemaRow(null); }
+
+function appendSchemaRow(field) {
+    const idx = fieldRowIdx++;
+    const f = field || { key:'', label:'', field_type:'string', values:[], default:'', required:false };
+    const valuesStr = Array.isArray(f.values) ? f.values.join(', ') : (f.values || '');
+    const defVal = f.default != null ? String(f.default) : '';
+
+    const row = document.createElement('div');
+    row.className = 'bg-base-200 rounded-lg p-3';
+    row.id = `schema-row-${idx}`;
+    row.innerHTML = `
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+            <div>
+                <label class="label py-0.5"><span class="label-text text-xs">Key</span></label>
+                <input type="text" class="input input-bordered input-xs w-full schema-key"
+                       value="${escHtml(f.key)}" placeholder="my_field" />
+            </div>
+            <div>
+                <label class="label py-0.5"><span class="label-text text-xs">Label</span></label>
+                <input type="text" class="input input-bordered input-xs w-full schema-label"
+                       value="${escHtml(f.label)}" placeholder="My Field" />
+            </div>
+            <div>
+                <label class="label py-0.5"><span class="label-text text-xs">Type</span></label>
+                <select class="select select-bordered select-xs w-full schema-type"
+                        onchange="onTypeChange(this, ${idx})">
+                    ${['string','number','boolean','enum','multiline'].map(t =>
+                        `<option value="${t}"${t === f.field_type ? ' selected':''}>${t}</option>`
+                    ).join('')}
+                </select>
+            </div>
+            <div>
+                <label class="label py-0.5"><span class="label-text text-xs">Default</span></label>
+                <input type="text" class="input input-bordered input-xs w-full schema-default"
+                       value="${escHtml(defVal)}" placeholder="(empty)" />
+            </div>
+        </div>
+        <div id="enum-values-row-${idx}" class="${f.field_type === 'enum' ? '' : 'hidden'} mb-2">
+            <label class="label py-0.5"><span class="label-text text-xs">Values (comma-separated)</span></label>
+            <input type="text" class="input input-bordered input-xs w-full schema-values"
+                   value="${escHtml(valuesStr)}" placeholder="option1, option2, option3" />
+        </div>
+        <div class="flex items-center justify-between">
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" class="checkbox checkbox-xs schema-required"
+                       ${f.required ? 'checked' : ''} />
+                <span class="text-xs">Required</span>
+            </label>
+            <button onclick="removeSchemaRow(${idx})" class="btn btn-xs btn-ghost text-error">✕ Remove</button>
+        </div>`;
+    document.getElementById('schema-fields').appendChild(row);
+}
+
+function onTypeChange(selectEl, idx) {
+    const row = document.getElementById(`enum-values-row-${idx}`);
+    if (row) row.classList.toggle('hidden', selectEl.value !== 'enum');
+}
+
+function removeSchemaRow(idx) {
+    document.getElementById(`schema-row-${idx}`)?.remove();
+}
+
+// ── Icon preview ─────────────────────────────────────────────────────────────
+function updateIconPreview(name) {
+    document.getElementById('icon-preview').textContent = typeIcon(name.trim());
+}
+
+// ── Colour sync ───────────────────────────────────────────────────────────────
+document.getElementById('ft-icon').addEventListener('input', e => updateIconPreview(e.target.value));
+document.getElementById('ft-color').addEventListener('input', e => {
+    document.getElementById('ft-color-text').value = e.target.value;
+});
+document.getElementById('ft-color-text').addEventListener('input', e => {
+    const v = e.target.value;
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) document.getElementById('ft-color').value = v;
+});
+
+// ── Collect schema from DOM ──────────────────────────────────────────────────
+function collectSchema() {
+    const rows = document.getElementById('schema-fields').querySelectorAll('[id^="schema-row-"]');
+    const fields = [];
+    for (const row of rows) {
+        const key   = row.querySelector('.schema-key').value.trim();
+        const label = row.querySelector('.schema-label').value.trim();
+        const type  = row.querySelector('.schema-type').value;
+        const defV  = row.querySelector('.schema-default').value.trim();
+        const reqd  = row.querySelector('.schema-required').checked;
+        const valuesRaw = row.querySelector('.schema-values')?.value || '';
+        const values = type === 'enum'
+            ? valuesRaw.split(',').map(s => s.trim()).filter(Boolean)
+            : [];
+        if (!key || !label) continue; // skip incomplete rows
+        fields.push({ key, label, field_type: type, values, default: defV, required: reqd });
+    }
+    return fields;
+}
+
+// ── Save (create or update) ──────────────────────────────────────────────────
+async function saveType() {
+    const id   = document.getElementById('ft-id').value.trim();
+    const name = document.getElementById('ft-name').value.trim();
+    if (!id || !name) { showToast('ID and Name are required', 'error'); return; }
+
+    const payload = {
+        id,
+        name,
+        icon:        document.getElementById('ft-icon').value.trim() || 'folder',
+        color:       document.getElementById('ft-color-text').value.trim() || null,
+        description: document.getElementById('ft-description').value.trim(),
+        git_template: document.getElementById('ft-git-template').value.trim() || null,
+        metadata_schema: collectSchema(),
+    };
+
+    const btn = document.getElementById('modal-save-btn');
+    btn.disabled = true;
+    try {
+        let r;
+        if (editingId) {
+            r = await fetch(`/api/folder-types/${encodeURIComponent(editingId)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+        } else {
+            r = await fetch('/api/folder-types', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+        }
+
+        if (r.ok) {
+            document.getElementById('type-modal').close();
+            showToast(editingId ? 'Type updated' : 'Type created', 'success');
+            await loadTypes();
+        } else if (r.status === 409) {
+            showToast(`A type with id "${id}" already exists`, 'error');
+        } else {
+            showToast('Save failed: ' + r.status, 'error');
+        }
+    } catch (e) {
+        showToast('Network error: ' + e.message, 'error');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// ── Delete ───────────────────────────────────────────────────────────────────
+async function deleteType(id, name) {
+    if (!confirm(`Delete type "${name}"?\n\nExisting folders with this type will keep their metadata, but the type won't appear in menus anymore.`)) return;
+    try {
+        const r = await fetch(`/api/folder-types/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        if (r.status === 204) {
+            showToast('Type deleted', 'success');
+            await loadTypes();
+        } else {
+            showToast('Delete failed: ' + r.status, 'error');
+        }
+    } catch (e) {
+        showToast('Network error: ' + e.message, 'error');
+    }
+}
+
+// ── Utilities ────────────────────────────────────────────────────────────────
+function escHtml(s) {
+    return String(s ?? '')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+loadTypes();
+</script>
+{% endblock %}

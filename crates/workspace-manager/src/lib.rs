@@ -15,7 +15,7 @@ use docs_viewer::{editor::EditorTemplate, MarkdownRenderer};
 use pdf_viewer::PdfViewerTemplate;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 use time::OffsetDateTime;
 use tower_sessions::Session;
@@ -23,9 +23,11 @@ use tracing::{info, warn};
 
 mod file_browser;
 mod file_editor;
+mod folder_type_registry;
 mod workspace_config;
 
 pub use file_browser::{FileEntry, FolderEntry};
+pub use folder_type_registry::{FieldType, FolderTypeDefinition, FolderTypeRegistry, MetadataField};
 pub use workspace_config::{FolderConfig, FolderType, WorkspaceConfig};
 
 // ============================================================================
@@ -37,14 +39,34 @@ pub struct WorkspaceManagerState {
     pub pool: SqlitePool,
     pub storage: Arc<UserStorageManager>,
     pub markdown_renderer: Arc<MarkdownRenderer>,
+    pub folder_type_registry: Arc<RwLock<FolderTypeRegistry>>,
 }
 
 impl WorkspaceManagerState {
     pub fn new(pool: SqlitePool, storage: Arc<UserStorageManager>) -> Self {
+        let registry_dir = storage.base_dir().join("folder-type-registry");
+
+        if let Err(e) = FolderTypeRegistry::ensure_defaults(&registry_dir) {
+            warn!("Failed to write built-in folder type definitions: {}", e);
+        }
+
+        let registry = FolderTypeRegistry::load(&registry_dir).unwrap_or_else(|e| {
+            warn!("Failed to load folder type registry: {}", e);
+            // Fall back to an empty registry loaded from the same dir
+            FolderTypeRegistry::load(&registry_dir).unwrap_or_else(|_| {
+                // If we still can't load, create an in-memory-only empty registry by
+                // loading from a temp dir (registry won't persist but server won't crash)
+                let tmp = std::env::temp_dir().join("folder-type-registry-fallback");
+                let _ = std::fs::create_dir_all(&tmp);
+                FolderTypeRegistry::load(&tmp).expect("Failed to create fallback registry")
+            })
+        });
+
         Self {
             pool,
             storage,
             markdown_renderer: Arc::new(MarkdownRenderer::new()),
+            folder_type_registry: Arc::new(RwLock::new(registry)),
         }
     }
 }
@@ -166,6 +188,12 @@ pub struct BpmnSaveResponse {
     pub message: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct InitTemplateRequest {
+    pub path: String,
+    pub type_id: String,
+}
+
 // ============================================================================
 // Template Display Types
 // ============================================================================
@@ -194,6 +222,12 @@ pub struct WorkspaceListTemplate {
 #[derive(Template)]
 #[template(path = "workspaces/new.html")]
 pub struct NewWorkspaceTemplate {
+    pub authenticated: bool,
+}
+
+#[derive(Template)]
+#[template(path = "folder-types/index.html")]
+pub struct FolderTypesTemplate {
     pub authenticated: bool,
 }
 
@@ -822,12 +856,21 @@ pub async fn update_folder_metadata(
     }
 
     // Update folder type
-    config.upsert_folder(final_path.clone(), request.folder_type);
+    config.upsert_folder(final_path.clone(), request.folder_type.clone());
 
     // Update description
     config.set_folder_description(&final_path, request.description);
 
-    // Update metadata
+    // Apply metadata defaults from the registry for any missing keys
+    if let Some(folder) = config.folders.get_mut(&final_path) {
+        let registry = state.folder_type_registry.read().map_err(|_| {
+            warn!("Folder type registry lock poisoned");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+        registry.apply_defaults(request.folder_type.as_str(), &mut folder.metadata);
+    }
+
+    // Merge in user-supplied metadata (overrides defaults)
     for (key, value) in request.metadata {
         // Convert serde_json::Value to serde_yaml::Value
         let yaml_value = serde_yaml::to_value(&value).map_err(|e| {
@@ -1582,9 +1625,9 @@ pub async fn publish_course(
         .get_folder(&request.folder_path)
         .ok_or(StatusCode::NOT_FOUND)?;
 
-    if folder_config.folder_type != FolderType::Course {
+    if folder_config.folder_type.as_str() != "course" {
         warn!(
-            "Folder {} is not a course (type: {:?})",
+            "Folder {} is not a course (type: {})",
             request.folder_path, folder_config.folder_type
         );
         return Err(StatusCode::BAD_REQUEST);
@@ -1775,6 +1818,206 @@ pub async fn publish_course(
 }
 
 // ============================================================================
+// Folder Types Management Page
+// ============================================================================
+
+/// GET /folder-types — folder type registry management UI
+pub async fn folder_types_page(
+    user: Option<Extension<AuthenticatedUser>>,
+    session: Session,
+    State(_state): State<Arc<WorkspaceManagerState>>,
+) -> Result<Html<String>, StatusCode> {
+    check_scope(&user, "read")?;
+    require_auth(&session).await?;
+
+    let template = FolderTypesTemplate { authenticated: true };
+    let html = template.render().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Html(html))
+}
+
+// ============================================================================
+// Folder Type Registry Handlers
+// ============================================================================
+
+/// GET /api/folder-types — list all registered folder types
+pub async fn list_folder_types_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "read")?;
+    require_auth(&session).await?;
+
+    let registry = state.folder_type_registry.read().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let types: Vec<&FolderTypeDefinition> = registry.list_types();
+    let json = serde_json::to_value(&types).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Json(json))
+}
+
+/// GET /api/folder-types/{id} — get a single folder type definition
+pub async fn get_folder_type_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(type_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "read")?;
+    require_auth(&session).await?;
+
+    let registry = state.folder_type_registry.read().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let def = registry.get_type(&type_id).ok_or(StatusCode::NOT_FOUND)?;
+    let json = serde_json::to_value(def).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Json(json))
+}
+
+/// POST /api/folder-types — create a new folder type
+pub async fn create_folder_type_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(def): Json<FolderTypeDefinition>,
+) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    check_scope(&user, "write")?;
+    require_auth(&session).await?;
+
+    if def.id.trim().is_empty() || def.name.trim().is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let mut registry = state.folder_type_registry.write().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    registry.create_type(def.clone()).map_err(|e| {
+        warn!("Failed to create folder type: {}", e);
+        StatusCode::CONFLICT
+    })?;
+
+    let json = serde_json::to_value(&def).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok((StatusCode::CREATED, Json(json)))
+}
+
+/// PUT /api/folder-types/{id} — update an existing folder type
+pub async fn update_folder_type_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(type_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(def): Json<FolderTypeDefinition>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "write")?;
+    require_auth(&session).await?;
+
+    let mut registry = state.folder_type_registry.write().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    registry.update_type(&type_id, def.clone()).map_err(|e| {
+        warn!("Failed to update folder type '{}': {}", type_id, e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let json = serde_json::to_value(&def).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Json(json))
+}
+
+/// DELETE /api/folder-types/{id} — remove a folder type
+pub async fn delete_folder_type_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(type_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+) -> Result<StatusCode, StatusCode> {
+    check_scope(&user, "write")?;
+    require_auth(&session).await?;
+
+    let mut registry = state.folder_type_registry.write().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    registry.delete_type(&type_id).map_err(|e| {
+        warn!("Failed to delete folder type '{}': {}", type_id, e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// POST /api/workspaces/{workspace_id}/folder/init-template
+///
+/// Clones the git template associated with a folder type into the target folder.
+pub async fn init_folder_from_template_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(request): Json<InitTemplateRequest>,
+) -> Result<StatusCode, StatusCode> {
+    check_scope(&user, "write")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    // Validate path (no traversal)
+    let clean_path = request.path.trim_start_matches('/');
+    for seg in clean_path.split('/') {
+        if seg == ".." || seg == "." || seg.is_empty() {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+    }
+
+    // Look up git_template from registry
+    let git_url = {
+        let registry = state.folder_type_registry.read().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let def = registry.get_type(&request.type_id).ok_or(StatusCode::NOT_FOUND)?;
+        match &def.git_template {
+            Some(url) if !url.is_empty() => url.clone(),
+            _ => {
+                warn!("Folder type '{}' has no git_template configured", request.type_id);
+                return Err(StatusCode::BAD_REQUEST);
+            }
+        }
+    };
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let target_dir = workspace_root.join(clean_path);
+
+    // Refuse if directory already has content
+    if target_dir.exists() {
+        let is_empty = std::fs::read_dir(&target_dir)
+            .map(|mut d| d.next().is_none())
+            .unwrap_or(false);
+        if !is_empty {
+            warn!("init-template: target directory {:?} is not empty", target_dir);
+            return Err(StatusCode::CONFLICT);
+        }
+    }
+
+    // Ensure parent exists
+    if let Some(parent) = target_dir.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| {
+            warn!("Failed to create parent dir: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    }
+
+    // Run git clone synchronously (blocks the handler — acceptable for a one-off admin op)
+    let output = tokio::process::Command::new("git")
+        .arg("clone")
+        .arg("--depth=1")
+        .arg(&git_url)
+        .arg(&target_dir)
+        .output()
+        .await
+        .map_err(|e| {
+            warn!("Failed to spawn git: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        warn!("git clone failed: {}", stderr);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    info!(
+        "Cloned template {} into {:?} for workspace {}",
+        git_url, target_dir, workspace_id
+    );
+    Ok(StatusCode::OK)
+}
+
+// ============================================================================
 // Router
 // ============================================================================
 
@@ -1835,8 +2078,24 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
             "/api/workspaces/{workspace_id}/folder-metadata",
             axum::routing::patch(update_folder_metadata),
         )
+        .route(
+            "/api/workspaces/{workspace_id}/folder/init-template",
+            post(init_folder_from_template_handler),
+        )
+        // Folder type registry API
+        .route(
+            "/api/folder-types",
+            get(list_folder_types_handler).post(create_folder_type_handler),
+        )
+        .route(
+            "/api/folder-types/{id}",
+            get(get_folder_type_handler)
+                .put(update_folder_type_handler)
+                .delete(delete_folder_type_handler),
+        )
         .layer(axum::extract::DefaultBodyLimit::max(100 * 1024 * 1024)) // 100 MB per upload
         // UI pages
+        .route("/folder-types", get(folder_types_page))
         .route("/workspaces", get(list_workspaces_page))
         .route("/workspaces/new", get(new_workspace_page))
         .route("/workspaces/{workspace_id}", get(workspace_dashboard))

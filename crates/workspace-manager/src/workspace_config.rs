@@ -28,29 +28,38 @@ pub struct FolderConfig {
     pub metadata: HashMap<String, serde_yaml::Value>,
 }
 
-/// Types of special-purpose folders
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case")]
-pub enum FolderType {
-    /// Default folder — not registered in workspace.yaml
-    Default,
-    /// Static website project
-    StaticSite,
-    /// BPMN process simulator
-    BpmnSimulator,
-    /// AI agent collection
-    AgentCollection,
-    /// Documentation hub
-    Documentation,
-    /// Data pipeline
-    DataPipeline,
-    /// Structured online course
-    Course,
+/// A transparent newtype around a folder type identifier string.
+///
+/// Serialises as a plain string so existing `workspace.yaml` files remain valid.
+/// The special id `"default"` means "no type assigned" — default folders are not
+/// persisted in workspace.yaml.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(transparent)]
+pub struct FolderType(pub String);
+
+impl FolderType {
+    pub fn new(id: impl Into<String>) -> Self {
+        FolderType(id.into())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn is_default(&self) -> bool {
+        self.0 == "default"
+    }
 }
 
 impl Default for FolderType {
     fn default() -> Self {
-        FolderType::Default
+        FolderType("default".to_string())
+    }
+}
+
+impl std::fmt::Display for FolderType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
     }
 }
 
@@ -97,9 +106,9 @@ impl WorkspaceConfig {
     }
 
     /// Add or update a folder in the config.
-    /// Default-type folders are not registered — calling this with Default removes any existing entry.
+    /// Default-type folders are not registered — calling this with `default` removes any existing entry.
     pub fn upsert_folder(&mut self, path: String, folder_type: FolderType) {
-        if folder_type == FolderType::Default {
+        if folder_type.is_default() {
             self.folders.remove(&path);
             return;
         }
@@ -187,7 +196,6 @@ impl WorkspaceConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
 
     #[test]
     fn test_workspace_config_new() {
@@ -200,13 +208,13 @@ mod tests {
     #[test]
     fn test_upsert_folder() {
         let mut config = WorkspaceConfig::new("Test".to_string(), String::new());
-        config.upsert_folder("agents".to_string(), FolderType::AgentCollection);
+        config.upsert_folder("agents".to_string(), FolderType::new("agent-collection"));
 
         assert_eq!(config.folders.len(), 1);
         assert!(config.folders.contains_key("agents"));
         assert_eq!(
-            config.folders.get("agents").unwrap().folder_type,
-            FolderType::AgentCollection
+            config.folders.get("agents").unwrap().folder_type.as_str(),
+            "agent-collection"
         );
     }
 
@@ -214,18 +222,22 @@ mod tests {
     fn test_upsert_folder_updates_type() {
         let mut config = WorkspaceConfig::new("Test".to_string(), String::new());
 
-        // First insert as Plain
-        config.upsert_folder("my-folder".to_string(), FolderType::Default);
+        // Default type → folder is removed/not registered
+        config.upsert_folder("my-folder".to_string(), FolderType::default());
+        assert!(!config.folders.contains_key("my-folder"));
+
+        // Insert as static-site
+        config.upsert_folder("my-folder".to_string(), FolderType::new("static-site"));
         assert_eq!(
-            config.folders.get("my-folder").unwrap().folder_type,
-            FolderType::Default
+            config.folders.get("my-folder").unwrap().folder_type.as_str(),
+            "static-site"
         );
 
-        // Update to StaticSite
-        config.upsert_folder("my-folder".to_string(), FolderType::StaticSite);
+        // Update to course
+        config.upsert_folder("my-folder".to_string(), FolderType::new("course"));
         assert_eq!(
-            config.folders.get("my-folder").unwrap().folder_type,
-            FolderType::StaticSite
+            config.folders.get("my-folder").unwrap().folder_type.as_str(),
+            "course"
         );
 
         // Should still be only one folder
@@ -235,7 +247,7 @@ mod tests {
     #[test]
     fn test_remove_folder() {
         let mut config = WorkspaceConfig::new("Test".to_string(), String::new());
-        config.upsert_folder("temp".to_string(), FolderType::Default);
+        config.upsert_folder("temp".to_string(), FolderType::new("documentation"));
 
         assert!(config.remove_folder("temp"));
         assert!(!config.folders.contains_key("temp"));
@@ -245,7 +257,7 @@ mod tests {
     #[test]
     fn test_folder_metadata() {
         let mut config = WorkspaceConfig::new("Test".to_string(), String::new());
-        config.upsert_folder("agents".to_string(), FolderType::AgentCollection);
+        config.upsert_folder("agents".to_string(), FolderType::new("agent-collection"));
 
         config.set_folder_metadata(
             "agents",
@@ -255,5 +267,24 @@ mod tests {
 
         let folder = config.get_folder("agents").unwrap();
         assert!(folder.metadata.contains_key("model"));
+    }
+
+    #[test]
+    fn test_folder_type_is_default() {
+        assert!(FolderType::default().is_default());
+        assert!(FolderType::new("default").is_default());
+        assert!(!FolderType::new("course").is_default());
+    }
+
+    #[test]
+    fn test_folder_type_serde_transparent() {
+        // Serialises as a plain string
+        let ft = FolderType::new("course");
+        let serialised = serde_yaml::to_string(&ft).unwrap();
+        assert!(serialised.trim() == "course");
+
+        // Deserialises from a plain string
+        let de: FolderType = serde_yaml::from_str("static-site").unwrap();
+        assert_eq!(de.as_str(), "static-site");
     }
 }

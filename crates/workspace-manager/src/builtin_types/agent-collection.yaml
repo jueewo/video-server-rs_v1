@@ -1,0 +1,22 @@
+id: agent-collection
+name: AI Agent Collection
+icon: bot
+description: A collection of AI agents with shared configuration
+color: "#9C27B0"
+git_template: null
+metadata_schema:
+  - key: title
+    label: Collection Title
+    type: string
+    default: ""
+    required: true
+  - key: model
+    label: Default Model
+    type: string
+    default: ""
+    required: false
+  - key: purpose
+    label: Purpose
+    type: multiline
+    default: ""
+    required: false

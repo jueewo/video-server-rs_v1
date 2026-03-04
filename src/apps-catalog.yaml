@@ -1,0 +1,44 @@
+- id: 3d-gallery
+  name: 3D Gallery
+  subtitle: Interactive 3D viewer
+  description: View and interact with 3D models in an immersive gallery experience.
+  url: /3d-viewer
+  color: primary
+  icon: cube
+  status: available
+
+- id: course-viewer
+  name: Course Viewer
+  subtitle: Learning management
+  description: Browse and take interactive courses with lessons, quizzes, and progress tracking.
+  url: /course-viewer
+  color: secondary
+  icon: book
+  status: available
+
+- id: js-tool-viewer
+  name: JS Tool Viewer
+  subtitle: Interactive teaching tools
+  description: Run self-contained HTML/JS visualizations and pre-built Preact/Vue3 apps from workspace folders.
+  url: /js-apps
+  color: warning
+  icon: code
+  status: available
+
+- id: media-cli
+  name: Media CLI
+  subtitle: Command-line interface
+  description: Command-line tool for managing media files and workspaces from terminal.
+  url: ~
+  color: accent
+  icon: terminal
+  status: coming-soon
+
+- id: media-mcp
+  name: Media MCP
+  subtitle: Model Context Protocol
+  description: Integrate media management with AI agents via MCP protocol.
+  url: ~
+  color: info
+  icon: cpu
+  status: coming-soon

@@ -613,27 +613,15 @@ mod tests {
 
         // Create test schema
         sqlx::query(
-            "CREATE TABLE videos (
+            "CREATE TABLE media_items (
                 id INTEGER PRIMARY KEY,
                 title TEXT NOT NULL,
                 user_id TEXT NOT NULL,
                 group_id INTEGER,
                 is_public BOOLEAN NOT NULL DEFAULT 0,
-                visibility TEXT NOT NULL DEFAULT 'private'
-            )",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        sqlx::query(
-            "CREATE TABLE images (
-                id INTEGER PRIMARY KEY,
-                title TEXT NOT NULL,
-                user_id TEXT NOT NULL,
-                group_id INTEGER,
-                is_public BOOLEAN NOT NULL DEFAULT 0,
-                visibility TEXT NOT NULL DEFAULT 'private'
+                media_type TEXT NOT NULL,
+                slug TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active'
             )",
         )
         .execute(&pool)
@@ -680,11 +668,13 @@ mod tests {
         let repo = AccessRepository::new(pool.clone());
 
         // Insert test video
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, ?, ?)")
             .bind(1)
             .bind("Test Video")
             .bind("user123")
             .bind(true)
+            .bind("video")
+            .bind("test-video-1")
             .execute(&pool)
             .await
             .unwrap();
@@ -701,11 +691,13 @@ mod tests {
         let pool = setup_test_db().await;
         let repo = AccessRepository::new(pool.clone());
 
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, ?, ?)")
             .bind(1)
             .bind("Test Video")
             .bind("user123")
             .bind(false)
+            .bind("video")
+            .bind("test-video-1")
             .execute(&pool)
             .await
             .unwrap();
@@ -729,13 +721,15 @@ mod tests {
         let repo = AccessRepository::new(pool.clone());
 
         sqlx::query(
-            "INSERT INTO videos (id, title, user_id, group_id, is_public) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO media_items (id, title, user_id, group_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(1)
         .bind("Test Video")
         .bind("user123")
         .bind(5)
         .bind(false)
+        .bind("video")
+        .bind("test-video-1")
         .execute(&pool)
         .await
         .unwrap();

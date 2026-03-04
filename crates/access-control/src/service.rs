@@ -484,27 +484,15 @@ mod tests {
 
         // Create schema
         sqlx::query(
-            "CREATE TABLE videos (
+            "CREATE TABLE media_items (
                 id INTEGER PRIMARY KEY,
                 title TEXT NOT NULL,
                 user_id TEXT NOT NULL,
                 group_id INTEGER,
                 is_public BOOLEAN NOT NULL DEFAULT 0,
-                visibility TEXT NOT NULL DEFAULT 'private'
-            )",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        sqlx::query(
-            "CREATE TABLE images (
-                id INTEGER PRIMARY KEY,
-                title TEXT NOT NULL,
-                user_id TEXT NOT NULL,
-                group_id INTEGER,
-                is_public BOOLEAN NOT NULL DEFAULT 0,
-                visibility TEXT NOT NULL DEFAULT 'private'
+                media_type TEXT NOT NULL,
+                slug TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active'
             )",
         )
         .execute(&pool)
@@ -526,7 +514,7 @@ mod tests {
         sqlx::query(
             "CREATE TABLE access_codes (
                 id INTEGER PRIMARY KEY,
-                key TEXT NOT NULL UNIQUE,
+                code TEXT NOT NULL UNIQUE,
                 description TEXT NOT NULL,
                 permission_level TEXT NOT NULL DEFAULT 'read',
                 access_group_id INTEGER,
@@ -543,11 +531,11 @@ mod tests {
         .unwrap();
 
         sqlx::query(
-            "CREATE TABLE access_key_permissions (
+            "CREATE TABLE access_code_permissions (
                 id INTEGER PRIMARY KEY,
-                access_key_id INTEGER NOT NULL,
-                resource_type TEXT NOT NULL,
-                resource_id INTEGER NOT NULL
+                access_code_id INTEGER NOT NULL,
+                media_type TEXT NOT NULL,
+                media_slug TEXT NOT NULL
             )",
         )
         .execute(&pool)
@@ -584,7 +572,7 @@ mod tests {
         let service = AccessControlService::new(pool.clone());
 
         // Create public video
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Public Video")
             .bind("user123")
@@ -609,7 +597,7 @@ mod tests {
         let pool = setup_test_db().await;
         let service = AccessControlService::new(pool.clone());
 
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("My Video")
             .bind("user123")
@@ -635,7 +623,7 @@ mod tests {
         let service = AccessControlService::new(pool.clone());
 
         // Create public video owned by user123
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Public Video")
             .bind("user123")
@@ -662,7 +650,7 @@ mod tests {
         let service = AccessControlService::new(pool.clone());
 
         // Create private video
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Private Video")
             .bind("owner123")
@@ -687,7 +675,7 @@ mod tests {
         let pool = setup_test_db().await;
         let service = AccessControlService::new(pool.clone());
 
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("My Video")
             .bind("user123")
@@ -710,7 +698,7 @@ mod tests {
         let pool = setup_test_db().await;
         let service = AccessControlService::new(pool.clone());
 
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Video")
             .bind("user123")
@@ -730,7 +718,7 @@ mod tests {
         let pool = setup_test_db().await;
         let service = AccessControlService::new(pool.clone());
 
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Video")
             .bind("owner123")
@@ -763,7 +751,7 @@ mod tests {
         let pool = setup_test_db().await;
         let service = AccessControlService::new(pool.clone());
 
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Video")
             .bind("user123")
@@ -792,7 +780,7 @@ mod tests {
         let service = AccessControlService::new(pool.clone());
 
         // Public video - should get Download (public resources grant Read + Download)
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Public")
             .bind("user123")
@@ -811,7 +799,7 @@ mod tests {
         assert_eq!(perm, Some(Permission::Admin));
 
         // No access - should get None
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(2)
             .bind("Private")
             .bind("owner123")
@@ -832,7 +820,7 @@ mod tests {
 
         // Create multiple videos
         for i in 1..=3 {
-            sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+            sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
                 .bind(i)
                 .bind(format!("Video {}", i))
                 .bind("user123")
@@ -865,7 +853,7 @@ mod tests {
         let pool = setup_test_db().await;
         let service = AccessControlService::new(pool.clone());
 
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Video")
             .bind("user123")
@@ -889,7 +877,7 @@ mod tests {
         let pool = setup_test_db().await;
         let service = AccessControlService::new(pool.clone());
 
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Public Video")
             .bind("user123")
@@ -898,7 +886,7 @@ mod tests {
             .await
             .unwrap();
 
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(2)
             .bind("Private Video")
             .bind("user123")

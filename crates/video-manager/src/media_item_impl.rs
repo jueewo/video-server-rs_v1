@@ -431,7 +431,6 @@ mod tests {
             audio_codec: Some("aac".to_string()),
             thumbnail_url: Some("/thumbnails/test.jpg".to_string()),
             poster_url: None,
-            preview_url: None,
             filename: Some("test-video.mp4".to_string()),
             mime_type: Some("video/mp4".to_string()),
             format: Some("mp4".to_string()),

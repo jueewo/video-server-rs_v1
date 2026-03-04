@@ -213,13 +213,15 @@ mod tests {
         let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
 
         sqlx::query(
-            "CREATE TABLE videos (
+            "CREATE TABLE media_items (
                 id INTEGER PRIMARY KEY,
                 title TEXT NOT NULL,
                 user_id TEXT NOT NULL,
                 group_id INTEGER,
                 is_public BOOLEAN NOT NULL DEFAULT 0,
-                visibility TEXT NOT NULL DEFAULT 'private'
+                media_type TEXT NOT NULL,
+                slug TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active'
             )",
         )
         .execute(&pool)
@@ -246,11 +248,11 @@ mod tests {
         .unwrap();
 
         sqlx::query(
-            "CREATE TABLE access_key_permissions (
+            "CREATE TABLE access_code_permissions (
                 id INTEGER PRIMARY KEY,
-                access_key_id INTEGER NOT NULL,
-                resource_type TEXT NOT NULL,
-                resource_id INTEGER NOT NULL
+                access_code_id INTEGER NOT NULL,
+                media_type TEXT NOT NULL,
+                media_slug TEXT NOT NULL
             )",
         )
         .execute(&pool)
@@ -267,7 +269,7 @@ mod tests {
         let layer = AccessKeyLayer::new(&repo);
 
         // Create video
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Video")
             .bind("user123")
@@ -292,13 +294,13 @@ mod tests {
 
         // Grant key access to video
         sqlx::query(
-            "INSERT INTO access_key_permissions (id, access_key_id, resource_type, resource_id)
+            "INSERT INTO access_code_permissions (id, access_code_id, media_type, media_slug)
              VALUES (?, ?, ?, ?)",
         )
         .bind(1)
         .bind(1)
         .bind("video")
-        .bind(1)
+        .bind("test-video-1")
         .execute(&pool)
         .await
         .unwrap();
@@ -318,7 +320,7 @@ mod tests {
         let repo = AccessRepository::new(pool.clone());
         let layer = AccessKeyLayer::new(&repo);
 
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Video")
             .bind("user123")
@@ -355,7 +357,7 @@ mod tests {
         let repo = AccessRepository::new(pool.clone());
         let layer = AccessKeyLayer::new(&repo);
 
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Video")
             .bind("user123")
@@ -396,7 +398,7 @@ mod tests {
 
         // Create video in group 5
         sqlx::query(
-            "INSERT INTO videos (id, title, user_id, group_id, is_public) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO media_items (id, title, user_id, group_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, ?, 'video', 'test-video-1')",
         )
         .bind(1)
         .bind("Group Video")
@@ -437,7 +439,7 @@ mod tests {
         let repo = AccessRepository::new(pool.clone());
         let layer = AccessKeyLayer::new(&repo);
 
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Video")
             .bind("user123")
@@ -462,13 +464,13 @@ mod tests {
         .unwrap();
 
         sqlx::query(
-            "INSERT INTO access_key_permissions (id, access_key_id, resource_type, resource_id)
+            "INSERT INTO access_code_permissions (id, access_code_id, media_type, media_slug)
              VALUES (?, ?, ?, ?)",
         )
         .bind(1)
         .bind(1)
         .bind("video")
-        .bind(1)
+        .bind("test-video-1")
         .execute(&pool)
         .await
         .unwrap();
@@ -514,7 +516,7 @@ mod tests {
         let repo = AccessRepository::new(pool.clone());
         let layer = AccessKeyLayer::new(&repo);
 
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Video")
             .bind("user123")

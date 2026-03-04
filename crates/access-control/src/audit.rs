@@ -384,7 +384,7 @@ impl AuditStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{AccessContext, AccessLayer};
+    use crate::{AccessContext, AccessLayer, Permission};
 
     async fn setup_test_db() -> SqlitePool {
         let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();

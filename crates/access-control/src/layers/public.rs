@@ -111,13 +111,15 @@ mod tests {
         let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
 
         sqlx::query(
-            "CREATE TABLE videos (
+            "CREATE TABLE media_items (
                 id INTEGER PRIMARY KEY,
                 title TEXT NOT NULL,
                 user_id TEXT NOT NULL,
                 group_id INTEGER,
                 is_public BOOLEAN NOT NULL DEFAULT 0,
-                visibility TEXT NOT NULL DEFAULT 'private'
+                media_type TEXT NOT NULL,
+                slug TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active'
             )",
         )
         .execute(&pool)
@@ -134,7 +136,7 @@ mod tests {
         let layer = PublicLayer::new(&repo);
 
         // Insert public video
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Public Video")
             .bind("user123")
@@ -159,7 +161,7 @@ mod tests {
         let layer = PublicLayer::new(&repo);
 
         // Insert public video
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Public Video")
             .bind("user123")
@@ -184,7 +186,7 @@ mod tests {
         let layer = PublicLayer::new(&repo);
 
         // Insert private video
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Private Video")
             .bind("user123")
@@ -208,7 +210,7 @@ mod tests {
         let layer = PublicLayer::new(&repo);
 
         // Insert public video
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Public Video")
             .bind("user123")
@@ -244,7 +246,7 @@ mod tests {
         let repo = AccessRepository::new(pool.clone());
         let layer = PublicLayer::new(&repo);
 
-        sqlx::query("INSERT INTO videos (id, title, user_id, is_public) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
             .bind(1)
             .bind("Public Video")
             .bind("user123")

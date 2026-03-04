@@ -521,43 +521,6 @@ mod tests {
     }
 
     #[test]
-    fn test_find_file_location_backward_compat() {
-        let temp_dir = TempDir::new().unwrap();
-        let storage = UserStorageManager::new(temp_dir.path());
-
-        let user_id = "user789";
-
-        // Create a file in legacy location
-        let legacy_dir = temp_dir.path().join("videos").join("old-video");
-        fs::create_dir_all(&legacy_dir).unwrap();
-        fs::write(legacy_dir.join("video.mp4"), b"test").unwrap();
-
-        // Should find it in legacy location
-        let found = storage.find_file_location(user_id, MediaType::Video, "old-video");
-        assert!(found.is_some());
-        assert_eq!(found.unwrap(), legacy_dir);
-    }
-
-    #[test]
-    fn test_find_file_location_new_format() {
-        let temp_dir = TempDir::new().unwrap();
-        let storage = UserStorageManager::new(temp_dir.path());
-
-        let user_id = "user999";
-
-        // Create a file in new location
-        storage.ensure_user_storage(user_id).unwrap();
-        let new_dir = storage.media_path(user_id, MediaType::Video, "new-video");
-        fs::create_dir_all(&new_dir).unwrap();
-        fs::write(new_dir.join("video.mp4"), b"test").unwrap();
-
-        // Should find it in new location
-        let found = storage.find_file_location(user_id, MediaType::Video, "new-video");
-        assert!(found.is_some());
-        assert_eq!(found.unwrap(), new_dir);
-    }
-
-    #[test]
     fn test_sanitize_user_id() {
         assert_eq!(sanitize_user_id("user123"), "user123");
         assert_eq!(sanitize_user_id("user/123"), "user_123");

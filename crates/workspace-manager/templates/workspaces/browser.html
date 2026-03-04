@@ -28,6 +28,11 @@
             <span class="badge badge-ghost font-normal">{{ type_name }}</span>
             {% endif %}
             {% endif %}
+            {% for (label, url) in &current_type_apps %}
+            <a href="{{ url }}" class="btn btn-sm btn-outline gap-1">
+                ▶ {{ label }}
+            </a>
+            {% endfor %}
         </div>
         <div class="flex gap-2 flex-wrap">
             <button onclick="newFile()" class="btn btn-sm btn-primary gap-1">📄 New File</button>

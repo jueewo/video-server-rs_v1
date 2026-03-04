@@ -253,6 +253,8 @@ pub struct WorkspaceBrowserTemplate {
     /// Type info for the directory currently being browsed (None at workspace root or for untyped folders).
     pub current_type_name: Option<String>,
     pub current_type_color: Option<String>,
+    /// App links for the current folder, with url_template already resolved. (label, url)
+    pub current_type_apps: Vec<(String, String)>,
 }
 
 #[derive(Template)]
@@ -1127,11 +1129,12 @@ async fn file_browser_handler(
     // Also resolve the type of the current directory being browsed.
     let mut current_type_name: Option<String> = None;
     let mut current_type_color: Option<String> = None;
+    let mut current_type_apps: Vec<(String, String)> = Vec::new();
 
     if let Ok(ws_config) = WorkspaceConfig::load(&workspace_root) {
         let registry = state.folder_type_registry.read().unwrap();
 
-        // Current directory type
+        // Current directory type + resolved app links
         if !subpath.is_empty() {
             if let Some(fc) = ws_config.get_folder(&subpath) {
                 let type_id = fc.folder_type.as_str();
@@ -1139,6 +1142,12 @@ async fn file_browser_handler(
                     if let Some(def) = registry.get_type(type_id) {
                         current_type_name = Some(def.name.clone());
                         current_type_color = def.color.clone();
+                        current_type_apps = def.apps.iter().map(|app| {
+                            let url = app.url_template
+                                .replace("{workspace_id}", &workspace_id)
+                                .replace("{folder_path}", &subpath);
+                            (app.label.clone(), url)
+                        }).collect();
                     }
                 }
             }
@@ -1195,6 +1204,7 @@ async fn file_browser_handler(
         files: dir_listing.files,
         current_type_name,
         current_type_color,
+        current_type_apps,
     };
 
     let html = template

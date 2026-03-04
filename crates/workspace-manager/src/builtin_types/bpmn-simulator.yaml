@@ -8,7 +8,7 @@ apps:
   - app_id: bpmn-viewer
     label: View / Edit
     icon: git-branch
-    url_template: /media
+    url_template: /workspaces/{workspace_id}/browse/{folder_path}
 metadata_schema:
   - key: title
     label: Process Title

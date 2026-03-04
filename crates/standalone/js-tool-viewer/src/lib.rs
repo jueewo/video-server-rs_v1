@@ -34,7 +34,8 @@ pub struct JsToolViewerState {
 pub fn js_tool_viewer_routes(state: Arc<JsToolViewerState>) -> Router {
     Router::new()
         .route("/js-apps", get(gallery_handler))
-        .route("/js-apps/{workspace_id}/{*path}", get(serve_file_handler))
+        .route("/js-apps/{workspace_id}/{folder}", get(folder_gallery_handler))
+        .route("/js-apps/{workspace_id}/{folder}/{*path}", get(serve_file_handler))
         .with_state(state)
 }
 
@@ -60,6 +61,32 @@ async fn require_auth(session: &Session) -> Result<String, StatusCode> {
         .ok()
         .flatten()
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)
+}
+
+// ============================================================================
+// Ownership check helper
+// ============================================================================
+
+async fn check_workspace_ownership(
+    pool: &SqlitePool,
+    workspace_id: &str,
+    user_id: &str,
+) -> Result<(), StatusCode> {
+    let owner: Option<String> =
+        sqlx::query_scalar("SELECT user_id FROM workspaces WHERE workspace_id = ?")
+            .bind(workspace_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| {
+                tracing::error!("DB error checking workspace ownership: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+
+    match owner {
+        Some(owner_id) if owner_id == user_id => Ok(()),
+        Some(_) => Err(StatusCode::FORBIDDEN),
+        None => Err(StatusCode::NOT_FOUND),
+    }
 }
 
 // ============================================================================
@@ -111,12 +138,56 @@ async fn read_meta_yaml(tool_dir: &std::path::Path) -> (String, String) {
     (default_name, String::new())
 }
 
+/// Scan a folder directory for tool sub-dirs (each must have index.html).
+async fn scan_tools_in_folder(
+    workspace_root: &std::path::Path,
+    workspace_id: &str,
+    folder_path: &str,
+) -> Vec<ToolEntry> {
+    let folder_abs = workspace_root.join(folder_path);
+    let mut rd = match tokio::fs::read_dir(&folder_abs).await {
+        Ok(r) => r,
+        Err(_) => return Vec::new(),
+    };
+
+    let mut tools = Vec::new();
+    while let Ok(Some(entry)) = rd.next_entry().await {
+        let entry_path = entry.path();
+        if !entry_path.is_dir() {
+            continue;
+        }
+        if !entry_path.join("index.html").exists() {
+            continue;
+        }
+
+        let tool_name = entry_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_string();
+
+        if tool_name.is_empty() || tool_name.starts_with('.') {
+            continue;
+        }
+
+        let (title, description) = read_meta_yaml(&entry_path).await;
+        let url = format!("/js-apps/{}/{}/{}/", workspace_id, folder_path, tool_name);
+
+        tools.push(ToolEntry {
+            folder_path: folder_path.to_string(),
+            title,
+            description,
+            url,
+        });
+    }
+    tools
+}
+
 // ============================================================================
-// Gallery handler
+// Gallery handler — shows all js-tool folders across all user workspaces
 // ============================================================================
 
 struct ToolEntry {
-    workspace_name: String,
     folder_path: String,
     title: String,
     description: String,
@@ -127,6 +198,8 @@ struct ToolEntry {
 #[template(path = "js_tool/gallery.html")]
 struct GalleryTemplate {
     tools: Vec<ToolEntry>,
+    /// Optional heading: None = global gallery, Some(name) = folder gallery
+    folder_name: Option<String>,
 }
 
 async fn gallery_handler(
@@ -135,7 +208,7 @@ async fn gallery_handler(
 ) -> Result<Html<String>, StatusCode> {
     let user_id = require_auth(&session).await?;
 
-    // 1. Find all workspaces owned by this user
+    // Find all workspaces owned by this user
     let workspaces: Vec<(String, String)> = sqlx::query_as(
         "SELECT workspace_id, name FROM workspaces WHERE user_id = ? ORDER BY created_at DESC",
     )
@@ -149,63 +222,26 @@ async fn gallery_handler(
 
     let mut tools: Vec<ToolEntry> = Vec::new();
 
-    for (workspace_id, workspace_name) in &workspaces {
+    for (workspace_id, _workspace_name) in &workspaces {
         let workspace_root = state.storage_base.join("workspaces").join(workspace_id);
         let yaml_path = workspace_root.join("workspace.yaml");
 
-        // 2. Parse workspace.yaml; skip if missing or unreadable
         let config: WorkspaceYamlPartial = match tokio::fs::read_to_string(&yaml_path).await {
             Ok(content) => serde_yaml::from_str(&content).unwrap_or_default(),
             Err(_) => continue,
         };
 
-        // 3. Find folders typed "js-tool"
         for (folder_path, folder_config) in &config.folders {
             if folder_config.folder_type != "js-tool" {
                 continue;
             }
-
-            let folder_abs = workspace_root.join(folder_path);
-            let mut rd = match tokio::fs::read_dir(&folder_abs).await {
-                Ok(r) => r,
-                Err(_) => continue,
-            };
-
-            // 4. Each sub-directory containing index.html is a tool
-            while let Ok(Some(entry)) = rd.next_entry().await {
-                let entry_path = entry.path();
-                if !entry_path.is_dir() {
-                    continue;
-                }
-                if !entry_path.join("index.html").exists() {
-                    continue;
-                }
-
-                let tool_name = entry_path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("")
-                    .to_string();
-
-                if tool_name.is_empty() {
-                    continue;
-                }
-
-                let (title, description) = read_meta_yaml(&entry_path).await;
-                let url = format!("/js-apps/{}/{}/{}/", workspace_id, folder_path, tool_name);
-
-                tools.push(ToolEntry {
-                    workspace_name: workspace_name.clone(),
-                    folder_path: folder_path.clone(),
-                    title,
-                    description,
-                    url,
-                });
-            }
+            let mut folder_tools =
+                scan_tools_in_folder(&workspace_root, workspace_id, folder_path).await;
+            tools.append(&mut folder_tools);
         }
     }
 
-    let template = GalleryTemplate { tools };
+    let template = GalleryTemplate { tools, folder_name: None };
     let html = template
         .render()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -213,36 +249,45 @@ async fn gallery_handler(
 }
 
 // ============================================================================
-// File serve handler
+// Folder gallery handler — shows tools in one specific js-tool folder
+// ============================================================================
+
+async fn folder_gallery_handler(
+    session: Session,
+    Path((workspace_id, folder)): Path<(String, String)>,
+    State(state): State<Arc<JsToolViewerState>>,
+) -> Result<Html<String>, StatusCode> {
+    let user_id = require_auth(&session).await?;
+    check_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let workspace_root = state.storage_base.join("workspaces").join(&workspace_id);
+    let tools = scan_tools_in_folder(&workspace_root, &workspace_id, &folder).await;
+
+    let template = GalleryTemplate {
+        tools,
+        folder_name: Some(folder.clone()),
+    };
+    let html = template
+        .render()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Html(html))
+}
+
+// ============================================================================
+// File serve handler — serves individual tool files
 // ============================================================================
 
 async fn serve_file_handler(
     session: Session,
-    Path((workspace_id, path)): Path<(String, String)>,
+    Path((workspace_id, folder, path)): Path<(String, String, String)>,
     State(state): State<Arc<JsToolViewerState>>,
 ) -> Result<Response<Body>, StatusCode> {
     let user_id = require_auth(&session).await?;
+    check_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
-    // 1. Verify workspace ownership
-    let owner: Option<String> =
-        sqlx::query_scalar("SELECT user_id FROM workspaces WHERE workspace_id = ?")
-            .bind(&workspace_id)
-            .fetch_optional(&state.pool)
-            .await
-            .map_err(|e| {
-                tracing::error!("DB error checking workspace ownership: {}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
-
-    match owner {
-        Some(owner_id) if owner_id == user_id => {}
-        Some(_) => return Err(StatusCode::FORBIDDEN),
-        None => return Err(StatusCode::NOT_FOUND),
-    }
-
-    // 2. Build target path
+    // Build target path: workspace_root / folder / path
     let workspace_root = state.storage_base.join("workspaces").join(&workspace_id);
-    let target = workspace_root.join(&path);
+    let target = workspace_root.join(&folder).join(&path);
 
     // Bare directory paths → serve index.html
     let target = if target.extension().is_none() || target.is_dir() {
@@ -251,23 +296,26 @@ async fn serve_file_handler(
         target
     };
 
-    // 3. Path traversal check via canonicalize
+    // Path traversal check via canonicalize
     let canonical_target = match target.canonicalize() {
         Ok(p) => p,
         Err(_) => return Err(StatusCode::NOT_FOUND),
     };
-    let canonical_root = workspace_root.canonicalize().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let canonical_root = workspace_root
+        .canonicalize()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     if !canonical_target.starts_with(&canonical_root) {
         tracing::warn!(
-            "Path traversal attempt: workspace={}, path={}",
+            "Path traversal attempt: workspace={}, folder={}, path={}",
             workspace_id,
+            folder,
             path
         );
         return Err(StatusCode::FORBIDDEN);
     }
 
-    // 4. Read and serve
+    // Read and serve
     let content = tokio::fs::read(&canonical_target)
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;

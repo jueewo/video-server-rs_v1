@@ -90,9 +90,10 @@
 const ICON_EMOJI = {
     'graduation-cap':'🎓','globe':'🌐','git-branch':'🔀','bot':'🤖',
     'book-open':'📚','workflow':'📊','folder':'📁','file':'📄',
-    'star':'⭐','code':'💻','database':'🗄️','server':'🖥️',
+    'star':'⭐','code':'💻','code-2':'</>','database':'🗄️','server':'🖥️',
     'cloud':'☁️','settings':'⚙️','layers':'🗂️','zap':'⚡',
     'terminal':'🖥️','cpu':'🔲','chart-bar':'📊','shield':'🛡️',
+    'play':'▶️',
 };
 function typeIcon(name) { return ICON_EMOJI[name] || '📁'; }
 
@@ -131,6 +132,10 @@ function renderList() {
         ).join('');
         const gitBadge = def.git_template
             ? `<span class="badge badge-info badge-sm" title="${escHtml(def.git_template)}">git template</span>` : '';
+        const apps = def.apps || [];
+        const appBadges = apps.map(a =>
+            `<span class="badge badge-primary badge-sm" title="app: ${escHtml(a.url_template)}">▶ ${escHtml(a.label)}</span>`
+        ).join('');
         const dot = def.color
             ? `<span class="inline-block w-3 h-3 rounded-full border border-base-300 flex-shrink-0" style="background:${escHtml(def.color)}"></span>` : '';
 
@@ -145,7 +150,7 @@ function renderList() {
                         ${dot}
                     </div>
                     <p class="text-base-content/60 text-sm mt-0.5">${escHtml(def.description || '')}</p>
-                    <div class="flex gap-1.5 mt-2 flex-wrap">${badges}${gitBadge}</div>
+                    <div class="flex gap-1.5 mt-2 flex-wrap">${badges}${gitBadge}${appBadges}</div>
                 </div>
                 <div class="flex gap-2 flex-shrink-0">
                     <button onclick="openEditModal('${escHtml(def.id)}')" class="btn btn-sm btn-ghost">Edit</button>
@@ -312,6 +317,11 @@ async function saveType() {
     const name = document.getElementById('ft-name').value.trim();
     if (!id || !name) { showToast('ID and Name are required', 'error'); return; }
 
+    // Preserve existing apps array — the UI doesn't edit apps, so re-attach from cache
+    const existingApps = editingId
+        ? (allTypes.find(t => t.id === editingId)?.apps || [])
+        : [];
+
     const payload = {
         id,
         name,
@@ -320,6 +330,7 @@ async function saveType() {
         description: document.getElementById('ft-description').value.trim(),
         git_template: document.getElementById('ft-git-template').value.trim() || null,
         metadata_schema: collectSchema(),
+        apps: existingApps,
     };
 
     const btn = document.getElementById('modal-save-btn');

@@ -27,7 +27,7 @@ mod folder_type_registry;
 mod workspace_config;
 
 pub use file_browser::{FileEntry, FolderEntry};
-pub use folder_type_registry::{FieldType, FolderTypeDefinition, FolderTypeRegistry, MetadataField};
+pub use folder_type_registry::{AppLink, FieldType, FolderTypeDefinition, FolderTypeRegistry, MetadataField};
 pub use workspace_config::{FolderConfig, FolderType, WorkspaceConfig};
 
 // ============================================================================
@@ -250,6 +250,9 @@ pub struct WorkspaceBrowserTemplate {
     pub breadcrumbs: Vec<(String, String)>, // (label, url)
     pub folders: Vec<FolderEntry>,
     pub files: Vec<FileEntry>,
+    /// Type info for the directory currently being browsed (None at workspace root or for untyped folders).
+    pub current_type_name: Option<String>,
+    pub current_type_color: Option<String>,
 }
 
 #[derive(Template)]
@@ -1117,8 +1120,47 @@ async fn file_browser_handler(
 
     let workspace_root = state.storage.workspace_root(&workspace_id);
 
-    let dir_listing =
+    let mut dir_listing =
         file_browser::list_dir(&workspace_root, &subpath).map_err(|_| StatusCode::NOT_FOUND)?;
+
+    // Annotate folders with their type info from workspace.yaml + registry.
+    // Also resolve the type of the current directory being browsed.
+    let mut current_type_name: Option<String> = None;
+    let mut current_type_color: Option<String> = None;
+
+    if let Ok(ws_config) = WorkspaceConfig::load(&workspace_root) {
+        let registry = state.folder_type_registry.read().unwrap();
+
+        // Current directory type
+        if !subpath.is_empty() {
+            if let Some(fc) = ws_config.get_folder(&subpath) {
+                let type_id = fc.folder_type.as_str();
+                if type_id != "default" {
+                    if let Some(def) = registry.get_type(type_id) {
+                        current_type_name = Some(def.name.clone());
+                        current_type_color = def.color.clone();
+                    }
+                }
+            }
+        }
+
+        // Child folders
+        for folder in &mut dir_listing.folders {
+            if let Some(fc) = ws_config.get_folder(&folder.path) {
+                let type_id = fc.folder_type.as_str();
+                if type_id != "default" {
+                    if let Some(def) = registry.get_type(type_id) {
+                        folder.folder_type = Some(type_id.to_string());
+                        folder.type_color = def.color.clone();
+                        folder.type_icon = Some(def.icon.clone());
+                        folder.type_name = Some(def.name.clone());
+                    } else {
+                        folder.folder_type = Some(type_id.to_string());
+                    }
+                }
+            }
+        }
+    }
 
     // Build breadcrumbs
     let mut breadcrumbs: Vec<(String, String)> = vec![(
@@ -1151,6 +1193,8 @@ async fn file_browser_handler(
         breadcrumbs,
         folders: dir_listing.folders,
         files: dir_listing.files,
+        current_type_name,
+        current_type_color,
     };
 
     let html = template

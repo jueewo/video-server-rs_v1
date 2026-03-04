@@ -19,6 +19,14 @@ pub struct FolderEntry {
     pub name: String,
     pub path: String, // relative to workspace root
     pub file_count: usize,
+    /// Folder type id, e.g. "js-tool". None if untyped (default).
+    pub folder_type: Option<String>,
+    /// Hex color from the type definition, e.g. "#F59E0B".
+    pub type_color: Option<String>,
+    /// Icon name from the type definition, e.g. "code-2".
+    pub type_icon: Option<String>,
+    /// Display name of the type, e.g. "JavaScript Tool Collection".
+    pub type_name: Option<String>,
 }
 
 pub struct DirListing {
@@ -113,6 +121,10 @@ pub fn list_dir(workspace_root: &Path, subpath: &str) -> Result<DirListing> {
                 name,
                 path: entry_rel_path,
                 file_count,
+                folder_type: None,
+                type_color: None,
+                type_icon: None,
+                type_name: None,
             });
         } else if file_type.is_file() {
             let metadata = entry.metadata()?;

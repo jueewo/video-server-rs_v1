@@ -4,6 +4,11 @@ icon: git-branch
 description: Business process model with simulation support
 color: "#FF9800"
 git_template: null
+apps:
+  - app_id: bpmn-viewer
+    label: View / Edit
+    icon: git-branch
+    url_template: /media/{slug}
 metadata_schema:
   - key: title
     label: Process Title

@@ -19,6 +19,7 @@ const BUILTIN_BPMN_SIMULATOR: &str = include_str!("builtin_types/bpmn-simulator.
 const BUILTIN_AGENT_COLLECTION: &str = include_str!("builtin_types/agent-collection.yaml");
 const BUILTIN_DOCUMENTATION: &str = include_str!("builtin_types/documentation.yaml");
 const BUILTIN_DATA_PIPELINE: &str = include_str!("builtin_types/data-pipeline.yaml");
+const BUILTIN_JS_TOOL: &str = include_str!("builtin_types/js-tool.yaml");
 
 const BUILTINS: &[(&str, &str)] = &[
     ("course.yaml", BUILTIN_COURSE),
@@ -27,6 +28,7 @@ const BUILTINS: &[(&str, &str)] = &[
     ("agent-collection.yaml", BUILTIN_AGENT_COLLECTION),
     ("documentation.yaml", BUILTIN_DOCUMENTATION),
     ("data-pipeline.yaml", BUILTIN_DATA_PIPELINE),
+    ("js-tool.yaml", BUILTIN_JS_TOOL),
 ];
 
 // ============================================================================
@@ -73,6 +75,16 @@ fn default_yaml_null() -> serde_yaml::Value {
     serde_yaml::Value::Null
 }
 
+/// A link from a folder type to an app that can open folders of that type.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppLink {
+    pub app_id: String,
+    pub label: String,
+    pub icon: String,
+    /// URL template; placeholders: `{workspace_id}`, `{folder_path}`, `{slug}`.
+    pub url_template: String,
+}
+
 /// A folder type definition loaded from a YAML file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FolderTypeDefinition {
@@ -88,6 +100,9 @@ pub struct FolderTypeDefinition {
     pub git_template: Option<String>,
     #[serde(default)]
     pub metadata_schema: Vec<MetadataField>,
+    /// Apps that can open folders of this type.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub apps: Vec<AppLink>,
 }
 
 // ============================================================================
@@ -277,13 +292,23 @@ mod tests {
     #[test]
     fn test_load_builtin_types() {
         let (_dir, registry) = make_registry();
-        assert_eq!(registry.list_types().len(), 6);
+        assert_eq!(registry.list_types().len(), 7);
         assert!(registry.get_type("course").is_some());
         assert!(registry.get_type("static-site").is_some());
         assert!(registry.get_type("bpmn-simulator").is_some());
         assert!(registry.get_type("agent-collection").is_some());
         assert!(registry.get_type("documentation").is_some());
         assert!(registry.get_type("data-pipeline").is_some());
+        assert!(registry.get_type("js-tool").is_some());
+    }
+
+    #[test]
+    fn test_js_tool_has_app_link() {
+        let (_dir, registry) = make_registry();
+        let js_tool = registry.get_type("js-tool").unwrap();
+        assert_eq!(js_tool.apps.len(), 1);
+        assert_eq!(js_tool.apps[0].app_id, "js-tool-viewer");
+        assert!(js_tool.apps[0].url_template.contains("{workspace_id}"));
     }
 
     #[test]
@@ -297,6 +322,7 @@ mod tests {
             color: None,
             git_template: None,
             metadata_schema: vec![],
+            apps: vec![],
         };
         registry.create_type(def.clone()).unwrap();
 
@@ -319,6 +345,7 @@ mod tests {
             color: None,
             git_template: None,
             metadata_schema: vec![],
+            apps: vec![],
         };
         assert!(registry.create_type(def).is_err());
     }

@@ -1,0 +1,21 @@
+id: js-tool
+name: JavaScript Tool Collection
+icon: code-2
+description: A collection of self-contained HTML/JS teaching tools or pre-built Preact/Vue3 apps. Drop any folder with an index.html here — no build step needed.
+color: "#F59E0B"
+apps:
+  - app_id: js-tool-viewer
+    label: Open Tools
+    icon: play
+    url_template: /js-apps/{workspace_id}/{folder_path}
+metadata_schema:
+  - key: title
+    label: Collection Title
+    type: string
+    default: ""
+    required: true
+  - key: description
+    label: Description
+    type: multiline
+    default: ""
+    required: false

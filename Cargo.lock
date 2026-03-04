@@ -2429,6 +2429,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "js-tool-viewer"
+version = "0.1.0"
+dependencies = [
+ "askama",
+ "axum",
+ "serde",
+ "serde_yaml",
+ "sqlx",
+ "tokio",
+ "tower-sessions",
+ "tracing",
+]
+
+[[package]]
 name = "json5"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5841,6 +5855,7 @@ dependencies = [
  "gallery3d",
  "http-body-util",
  "image 0.24.9",
+ "js-tool-viewer",
  "media-manager",
  "opentelemetry",
  "opentelemetry-appender-tracing",

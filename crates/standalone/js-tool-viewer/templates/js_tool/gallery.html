@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JS Tool Viewer</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: hsl(var(--b2)); }
+    </style>
+</head>
+<body class="min-h-screen">
+
+<!-- Navbar -->
+<div class="navbar bg-base-100 border-b border-base-300 shadow-sm px-4">
+    <div class="navbar-start">
+        <a href="/apps" class="btn btn-ghost btn-sm gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/>
+            </svg>
+            Apps
+        </a>
+    </div>
+    <div class="navbar-center">
+        <span class="text-lg font-semibold">JS Tool Viewer</span>
+    </div>
+    <div class="navbar-end">
+        <a href="/" class="btn btn-ghost btn-sm">Home</a>
+    </div>
+</div>
+
+<div class="container mx-auto px-4 py-8 max-w-5xl">
+
+    <!-- Header -->
+    <div class="mb-8">
+        <p class="text-base-content/60 mt-1">
+            Self-contained HTML/JS tools from your workspaces. Add folders of type
+            <code class="badge badge-neutral badge-sm">js-tool</code> in a workspace,
+            then drop any subfolder with an <code>index.html</code> inside.
+        </p>
+    </div>
+
+    {% if tools.is_empty() %}
+    <!-- Empty state -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+        <div class="card-body items-center text-center py-16">
+            <div class="text-6xl mb-4">🧰</div>
+            <h2 class="text-xl font-semibold mb-2">No tools found</h2>
+            <p class="text-base-content/60 max-w-md">
+                Create a workspace folder with type <strong>js-tool</strong>, then add a
+                subfolder containing an <code>index.html</code>. Optionally add a
+                <code>meta.yaml</code> with <code>title</code> and <code>description</code>.
+            </p>
+            <div class="mockup-code mt-6 text-left text-xs w-full max-w-sm">
+                <pre data-prefix="$"><code>mkdir -p storage/workspaces/&lt;ws&gt;/tools/my-viz</code></pre>
+                <pre data-prefix="$"><code>cp index.html storage/workspaces/&lt;ws&gt;/tools/my-viz/</code></pre>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Tool grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for tool in &tools %}
+        <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-warning/50 transition-all duration-200">
+            <div class="card-body p-5">
+                <div class="flex items-start gap-3 mb-2">
+                    <div class="w-10 h-10 rounded-lg bg-warning/15 flex items-center justify-center flex-shrink-0 text-xl">
+                        🧩
+                    </div>
+                    <div class="min-w-0">
+                        <h2 class="card-title text-sm leading-snug">{{ tool.title }}</h2>
+                        <p class="text-xs text-base-content/40 truncate">
+                            {{ tool.workspace_name }} / {{ tool.folder_path }}
+                        </p>
+                    </div>
+                </div>
+                {% if !tool.description.is_empty() %}
+                <p class="text-sm text-base-content/70 mb-3 line-clamp-2">{{ tool.description }}</p>
+                {% endif %}
+                <div class="card-actions justify-end mt-auto pt-2">
+                    <a href="{{ tool.url }}" target="_blank"
+                       class="btn btn-sm btn-warning gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+                        </svg>
+                        Open
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+</body>
+</html>

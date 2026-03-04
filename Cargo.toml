@@ -20,6 +20,7 @@ members = [
     "crates/workspace-processors/agent-collection",
     "crates/workspace-processors/course-processor",
     "crates/standalone/course-viewer",
+    "crates/standalone/js-tool-viewer",
     "crates/standalone/media-cli",
     "crates/standalone/webdav",
 ]
@@ -61,6 +62,7 @@ vault-manager = { path = "crates/vault-manager" }
 workspace-manager = { path = "crates/workspace-manager" }
 rate-limiter = { path = "crates/rate-limiter" }
 course-viewer = { path = "crates/standalone/course-viewer" }
+js-tool-viewer = { path = "crates/standalone/js-tool-viewer" }
 
 # Web framework
 axum = { version = "0.8", features = ["multipart", "ws"] }

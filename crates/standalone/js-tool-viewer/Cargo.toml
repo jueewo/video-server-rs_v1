@@ -1,0 +1,15 @@
+[package]
+name = "js-tool-viewer"
+version = "0.1.0"
+edition = "2021"
+description = "Serves self-contained HTML/JS tools and pre-built Preact/Vue3 apps from workspace folders"
+
+[dependencies]
+axum = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tower-sessions = { workspace = true }
+sqlx = { workspace = true }
+serde = { workspace = true }
+serde_yaml = "0.9"
+askama = { workspace = true }
+tracing = { workspace = true }

@@ -4,6 +4,11 @@ icon: graduation-cap
 description: A course with modules and lessons
 color: "#4CAF50"
 git_template: null
+apps:
+  - app_id: course-viewer
+    label: Open Course
+    icon: graduation-cap
+    url_template: /course/{slug}
 metadata_schema:
   - key: title
     label: Course Title

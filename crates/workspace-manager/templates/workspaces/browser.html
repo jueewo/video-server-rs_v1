@@ -14,9 +14,21 @@
 
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h1 class="text-2xl font-bold">
-            📁 {% if current_path.is_empty() %}{{ workspace_name }}{% else %}{{ current_path }}{% endif %}
-        </h1>
+        <div class="flex items-center gap-3 flex-wrap">
+            <h1 class="text-2xl font-bold">
+                📁 {% if current_path.is_empty() %}{{ workspace_name }}{% else %}{{ current_path }}{% endif %}
+            </h1>
+            {% if let Some(type_name) = &current_type_name %}
+            {% if let Some(color) = &current_type_color %}
+            <span class="text-sm px-2 py-0.5 rounded font-normal"
+                  style="background:{{ color }}22; color:{{ color }}; border: 1px solid {{ color }}44;">
+                {{ type_name }}
+            </span>
+            {% else %}
+            <span class="badge badge-ghost font-normal">{{ type_name }}</span>
+            {% endif %}
+            {% endif %}
+        </div>
         <div class="flex gap-2 flex-wrap">
             <button onclick="newFile()" class="btn btn-sm btn-primary gap-1">📄 New File</button>
             <button onclick="newFolder()" class="btn btn-sm btn-outline gap-1">📁 New Folder</button>
@@ -48,7 +60,8 @@
         <h2 class="text-lg font-semibold mb-3 text-base-content/70">Folders</h2>
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {% for folder in folders %}
-            <div class="card bg-base-100 border border-base-300 hover:border-primary hover:shadow-md transition-all duration-150 relative">
+            <div class="card bg-base-100 border hover:shadow-md transition-all duration-150 relative
+                        {% if folder.folder_type.is_some() %}border-base-300{% else %}border-base-300{% endif %}">
                 <button onclick="openFolderSettings('{{ folder.path }}', '{{ folder.name }}')"
                         class="absolute top-2 right-2 btn btn-xs btn-ghost btn-circle z-10"
                         title="Folder settings">
@@ -58,7 +71,18 @@
                    class="card-body items-center text-center p-4">
                     <div class="text-3xl mb-1">📁</div>
                     <div class="text-sm font-medium truncate w-full text-center">{{ folder.name }}</div>
+                    {% if let Some(type_name) = &folder.type_name %}
+                    {% if let Some(color) = &folder.type_color %}
+                    <div class="text-xs mt-1 px-1.5 py-0.5 rounded font-normal truncate w-full text-center"
+                         style="background:{{ color }}22; color:{{ color }};">
+                        {{ type_name }}
+                    </div>
+                    {% else %}
+                    <div class="badge badge-sm badge-ghost mt-1 font-normal">{{ type_name }}</div>
+                    {% endif %}
+                    {% else %}
                     <div class="text-xs text-base-content/50">{{ folder.file_count }} file{% if folder.file_count != 1 %}s{% endif %}</div>
+                    {% endif %}
                 </a>
             </div>
             {% endfor %}
@@ -215,6 +239,7 @@
                             <option value="default">📁 Default — Regular file storage</option>
                             <!-- populated from /api/folder-types on load -->
                         </select>
+                        <p id="parent-type-notice" class="text-xs text-base-content/50 mt-1 hidden"></p>
                     </td>
                 </tr>
             </tbody>
@@ -244,6 +269,9 @@
     // ── Folder Type Registry ─────────────────────────────────────────────────
 
     let folderTypesCache = [];
+    // Type of the directory currently being browsed (empty string = root or default).
+    // If non-empty, sub-folders here are children of a typed folder and should not get their own type.
+    let currentDirType = '';
 
     const ICON_EMOJI = {
         'graduation-cap': '🎓', 'globe': '🌐', 'git-branch': '🔀',
@@ -364,6 +392,7 @@
         document.getElementById('delete-folder-btn').style.display = 'none';
         document.getElementById('save-folder-btn').textContent = '✨ Create Folder';
 
+        applyParentTypeLock();
         updateMetadataFields();
         document.getElementById('folder-settings-modal').showModal();
     }
@@ -480,7 +509,27 @@
             console.error('Failed to load folder config:', e);
         }
 
+        applyParentTypeLock();
         document.getElementById('folder-settings-modal').showModal();
+    }
+
+    // Locks the type selector when the current directory is itself a typed folder.
+    // Sub-folders of typed folders should not get their own independent type.
+    function applyParentTypeLock() {
+        const select = document.getElementById('folder-type');
+        const notice = document.getElementById('parent-type-notice');
+
+        if (currentDirType) {
+            select.disabled = true;
+            select.value = 'default';
+            if (notice) {
+                notice.textContent = `This folder is inside a "${currentDirType}" folder — sub-folders inherit that context and cannot have their own type.`;
+                notice.classList.remove('hidden');
+            }
+        } else {
+            select.disabled = false;
+            if (notice) notice.classList.add('hidden');
+        }
     }
 
     function updateMetadataFields() {
@@ -698,8 +747,18 @@
         document.getElementById('publish-modal').showModal();
     }
 
-    // Preload folder types so the select is ready before the user opens the modal
+    // Preload folder types and current directory type on page load
     loadFolderTypes();
+    if (CURRENT_PATH) {
+        fetch(`/api/workspaces/${WORKSPACE_ID}/folder-config?path=${encodeURIComponent(CURRENT_PATH)}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(config => {
+                if (config && config.type && config.type !== 'default') {
+                    currentDirType = config.type;
+                }
+            })
+            .catch(() => {});
+    }
 
     async function submitPublish() {
         const filePath = document.getElementById('pub-file-path').value;

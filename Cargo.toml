@@ -21,6 +21,7 @@ members = [
     "crates/workspace-processors/course-processor",
     "crates/standalone/course-viewer",
     "crates/standalone/js-tool-viewer",
+    "crates/standalone/app-publisher",
     "crates/standalone/media-cli",
     "crates/standalone/webdav",
 ]
@@ -63,6 +64,7 @@ workspace-manager = { path = "crates/workspace-manager" }
 rate-limiter = { path = "crates/rate-limiter" }
 course-viewer = { path = "crates/standalone/course-viewer" }
 js-tool-viewer = { path = "crates/standalone/js-tool-viewer" }
+app-publisher = { path = "crates/standalone/app-publisher" }
 
 # Web framework
 axum = { version = "0.8", features = ["multipart", "ws"] }
@@ -140,6 +142,8 @@ async-trait = "0.1"
 thiserror = "1.0"
 dotenvy = "0.15"
 askama = "0.13"
+urlencoding = "2.1"
+rand = "0.8"
 
 # Image processing
 image = { version = "0.24", features = ["webp"] }

@@ -215,6 +215,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "app-publisher"
+version = "0.1.0"
+dependencies = [
+ "askama",
+ "axum",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tower-sessions",
+ "tracing",
+ "urlencoding",
+]
+
+[[package]]
 name = "arbitrary"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5845,6 +5861,7 @@ dependencies = [
  "access-groups",
  "anyhow",
  "api-keys",
+ "app-publisher",
  "askama",
  "axum",
  "bpmn-viewer",

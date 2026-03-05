@@ -73,6 +73,7 @@ use access_control::AccessControlService;
 use access_groups;
 use api_keys::{middleware::api_key_or_session_auth, routes::api_key_routes};
 use common::request_id::request_id_middleware;
+use app_publisher::{app_publisher_routes, AppPublisherState};
 use course_viewer::{course_viewer_routes, CourseViewerState};
 use js_tool_viewer::{js_tool_viewer_routes, JsToolViewerState};
 use docs_viewer::{docs_routes, markdown::MarkdownRenderer, DocsState};
@@ -933,6 +934,13 @@ async fn main() -> anyhow::Result<()> {
     });
     println!("🧰 JS Tool Viewer initialized");
 
+    // Initialize App Publisher state
+    let app_publisher_state = Arc::new(AppPublisherState {
+        pool: pool.clone(),
+        storage_base: storage_dir.clone(),
+    });
+    println!("🚀 App Publisher initialized");
+
     // Load application configuration
     let app_config = AppConfig::load();
     println!("📋 Application Configuration:");
@@ -1106,6 +1114,8 @@ async fn main() -> anyhow::Result<()> {
         // Course viewer (standalone course presentation)
         .merge(course_viewer_routes(course_viewer_state))
         .merge(js_tool_viewer_routes(js_tool_state))
+        // App publisher (publish workspace folders as public apps)
+        .merge(app_publisher_routes(app_publisher_state))
         // Documentation viewer (markdown preview)
         .nest(
             "/docs",

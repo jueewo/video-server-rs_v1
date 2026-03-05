@@ -12,7 +12,6 @@ use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tower_sessions::Session;
-use walkdir::WalkDir;
 
 #[derive(Clone)]
 pub struct DocsState {
@@ -28,6 +27,8 @@ struct DocsIndexTemplate {
     user_id: String,
     files: Vec<DocFile>,
     current_path: String,
+    /// breadcrumbs: (label, url) — root first
+    breadcrumbs: Vec<(String, String)>,
 }
 
 #[allow(dead_code)]
@@ -56,6 +57,12 @@ struct ViewQuery {
     file: String,
 }
 
+#[derive(Deserialize)]
+struct BrowseQuery {
+    #[serde(default)]
+    path: String,
+}
+
 pub fn docs_routes() -> Router<Arc<DocsState>> {
     Router::new()
         .route("/", get(docs_index))
@@ -67,8 +74,8 @@ pub fn docs_routes() -> Router<Arc<DocsState>> {
 async fn docs_index(
     session: Session,
     State(state): State<Arc<DocsState>>,
+    Query(query): Query<BrowseQuery>,
 ) -> Result<Response, StatusCode> {
-    // Check authentication
     let authenticated: bool = session
         .get("authenticated")
         .await
@@ -80,7 +87,6 @@ async fn docs_index(
         return Ok(Redirect::to("/login").into_response());
     }
 
-    // Get user_id from session
     let user_id: String = session
         .get("user_id")
         .await
@@ -88,13 +94,42 @@ async fn docs_index(
         .flatten()
         .unwrap_or_else(|| "unknown".to_string());
 
-    let files = list_markdown_files(&state.docs_root)?;
+    // Validate path — no parent dir components
+    let subpath = PathBuf::from(&query.path);
+    if subpath.components().any(|c| c == std::path::Component::ParentDir) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let browse_root = if query.path.is_empty() {
+        state.docs_root.clone()
+    } else {
+        state.docs_root.join(&subpath)
+    };
+
+    if !browse_root.exists() || !browse_root.is_dir() {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    let files = list_dir_children(&browse_root, &state.docs_root)?;
+
+    // Build breadcrumbs
+    let mut breadcrumbs: Vec<(String, String)> = vec![("Docs".to_string(), "/docs".to_string())];
+    if !query.path.is_empty() {
+        let mut acc = String::new();
+        for segment in query.path.split('/') {
+            if segment.is_empty() { continue; }
+            if !acc.is_empty() { acc.push('/'); }
+            acc.push_str(segment);
+            breadcrumbs.push((segment.to_string(), format!("/docs?path={}", acc)));
+        }
+    }
 
     let template = DocsIndexTemplate {
         authenticated,
         user_id,
         files,
-        current_path: state.docs_root.display().to_string(),
+        current_path: query.path.clone(),
+        breadcrumbs,
     };
 
     Ok(Html(template.render().unwrap()).into_response())
@@ -268,23 +303,22 @@ async fn upload_doc(
     Err(StatusCode::BAD_REQUEST)
 }
 
-fn list_markdown_files(root: &Path) -> Result<Vec<DocFile>, StatusCode> {
+/// List only direct children of `dir`, returning relative paths from `docs_root`.
+fn list_dir_children(dir: &Path, docs_root: &Path) -> Result<Vec<DocFile>, StatusCode> {
     let mut files = Vec::new();
 
-    for entry in WalkDir::new(root)
-        .max_depth(5)
-        .follow_links(false)
-        .into_iter()
-        .filter_entry(|e| {
-            // Skip hidden files and node_modules
-            let name = e.file_name().to_str().unwrap_or("");
-            !name.starts_with('.') && name != "node_modules" && name != "target"
-        })
-    {
+    let read_dir = std::fs::read_dir(dir).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    for entry in read_dir {
         let entry = entry.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         let path = entry.path();
+        let name = path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_string();
 
-        if path == root {
+        // Skip hidden files / system dirs
+        if name.starts_with('.') || name == "node_modules" || name == "target" {
             continue;
         }
 
@@ -293,15 +327,11 @@ fn list_markdown_files(root: &Path) -> Result<Vec<DocFile>, StatusCode> {
 
         if is_dir || is_md {
             let relative = path
-                .strip_prefix(root)
+                .strip_prefix(docs_root)
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
             files.push(DocFile {
-                name: path
-                    .file_name()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("")
-                    .to_string(),
+                name,
                 path: path.display().to_string(),
                 relative_path: relative.display().to_string(),
                 is_dir,
@@ -309,15 +339,11 @@ fn list_markdown_files(root: &Path) -> Result<Vec<DocFile>, StatusCode> {
         }
     }
 
-    // Sort: directories first, then alphabetically
-    files.sort_by(|a, b| {
-        if a.is_dir == b.is_dir {
-            a.name.cmp(&b.name)
-        } else if a.is_dir {
-            std::cmp::Ordering::Less
-        } else {
-            std::cmp::Ordering::Greater
-        }
+    // Directories first, then alphabetically within each group
+    files.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.name.cmp(&b.name),
     });
 
     Ok(files)

@@ -33,6 +33,11 @@
                 ▶ {{ label }}
             </a>
             {% endfor %}
+            {% if let Some(_) = &current_type_id %}
+            {% if !current_path.is_empty() %}
+            <button onclick="openPublishAsAppModal()" class="btn btn-sm btn-success gap-1">🚀 Publish</button>
+            {% endif %}
+            {% endif %}
         </div>
         <div class="flex gap-2 flex-wrap">
             <button onclick="newFile()" class="btn btn-sm btn-primary gap-1">📄 New File</button>
@@ -204,6 +209,35 @@
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
+<!-- Publish as App Modal -->
+<dialog id="publish-app-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">🚀 Publish as App</h3>
+        <div class="form-control mb-3">
+            <label class="label"><span class="label-text">Title</span></label>
+            <input type="text" id="app-title" class="input input-bordered" placeholder="e.g. My Tool" />
+        </div>
+        <div class="form-control mb-3">
+            <label class="label"><span class="label-text">Description <span class="text-base-content/50">(optional)</span></span></label>
+            <textarea id="app-description" class="textarea textarea-bordered" rows="2" placeholder="What does this app do?"></textarea>
+        </div>
+        <div class="form-control mb-4">
+            <label class="label"><span class="label-text">Access</span></label>
+            <select id="app-access" class="select select-bordered">
+                <option value="public">🌍 Public — anyone with the link</option>
+                <option value="code">🔑 Code — requires access code</option>
+                <option value="private">🔒 Private — owner only</option>
+            </select>
+        </div>
+        <div id="app-result" class="hidden alert mb-3"></div>
+        <div class="modal-action">
+            <button onclick="document.getElementById('publish-app-modal').close()" class="btn btn-ghost">Cancel</button>
+            <button onclick="submitPublishApp()" id="app-submit-btn" class="btn btn-success">Publish</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
 <!-- Folder Settings Modal -->
 <dialog id="folder-settings-modal" class="modal">
     <div class="modal-box max-w-2xl">
@@ -270,6 +304,11 @@
 <script>
     const WORKSPACE_ID = "{{ workspace_id }}";
     const CURRENT_PATH = "{{ current_path }}";
+    {% if let Some(tid) = &current_type_id %}
+    const CURRENT_TYPE_ID = "{{ tid }}";
+    {% else %}
+    const CURRENT_TYPE_ID = "";
+    {% endif %}
 
     // ── Folder Type Registry ─────────────────────────────────────────────────
 
@@ -763,6 +802,76 @@
                 }
             })
             .catch(() => {});
+    }
+
+    function openPublishAsAppModal() {
+        const folderName = CURRENT_PATH ? CURRENT_PATH.split('/').pop() : WORKSPACE_ID;
+        document.getElementById('app-title').value = folderName;
+        document.getElementById('app-description').value = '';
+        document.getElementById('app-access').value = 'public';
+        document.getElementById('app-result').classList.add('hidden');
+        document.getElementById('app-submit-btn').disabled = false;
+        document.getElementById('publish-app-modal').showModal();
+    }
+
+    async function submitPublishApp() {
+        const title = document.getElementById('app-title').value.trim();
+        const description = document.getElementById('app-description').value.trim();
+        const access = document.getElementById('app-access').value;
+        const resultEl = document.getElementById('app-result');
+        const submitBtn = document.getElementById('app-submit-btn');
+
+        if (!title) { alert('Please enter a title.'); return; }
+
+        submitBtn.disabled = true;
+        resultEl.classList.add('hidden');
+
+        try {
+            const r = await fetch('/api/apps/publish', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    workspace_id: WORKSPACE_ID,
+                    folder_path: CURRENT_PATH,
+                    folder_type: CURRENT_TYPE_ID,
+                    title,
+                    description,
+                    access,
+                }),
+            });
+
+            if (r.ok) {
+                const data = await r.json();
+                const shareUrl = data.access_code
+                    ? `${window.location.origin}${data.url}?code=${data.access_code}`
+                    : `${window.location.origin}${data.url}`;
+                resultEl.className = 'alert alert-success mb-3';
+                resultEl.innerHTML = `<div class="w-full">
+                    <p class="font-semibold">App published!</p>
+                    <p class="text-sm mt-1 break-all">
+                        <a href="${data.url}" target="_blank" class="link">${shareUrl}</a>
+                    </p>
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="navigator.clipboard.writeText('${shareUrl}').then(() => showToast('URL copied!', 'success'))"
+                                class="btn btn-xs btn-ghost">📋 Copy link</button>
+                        <a href="/my-apps" class="btn btn-xs btn-ghost">📋 My Apps</a>
+                    </div>
+                </div>`;
+                resultEl.classList.remove('hidden');
+                showToast('Published!', 'success');
+            } else {
+                const text = await r.text();
+                resultEl.className = 'alert alert-error mb-3';
+                resultEl.textContent = `Error ${r.status}: ${text}`;
+                resultEl.classList.remove('hidden');
+                submitBtn.disabled = false;
+            }
+        } catch (e) {
+            resultEl.className = 'alert alert-error mb-3';
+            resultEl.textContent = 'Network error: ' + e.message;
+            resultEl.classList.remove('hidden');
+            submitBtn.disabled = false;
+        }
     }
 
     async function submitPublish() {

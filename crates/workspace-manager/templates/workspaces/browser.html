@@ -624,7 +624,7 @@
                 const mkdirRes = await fetch(`/api/workspaces/${WORKSPACE_ID}/mkdir`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ path: newName }),
+                    body: JSON.stringify({ path: CURRENT_PATH ? `${CURRENT_PATH}/${newName}` : newName }),
                 });
 
                 if (!mkdirRes.ok) {

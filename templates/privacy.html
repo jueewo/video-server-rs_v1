@@ -1,0 +1,111 @@
+{% extends "base-tailwind.html" %}
+{% block title %}Datenschutz / Privacy — jueewo ventures{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-10 max-w-3xl">
+    <h1 class="text-3xl font-bold mb-2">Datenschutzerklärung</h1>
+    <p class="text-base-content/60 mb-8">Privacy Policy — jueewo ventures GmbH</p>
+
+    <!-- TL;DR -->
+    <div class="alert alert-info mb-8 text-sm">
+        <div>
+            <p class="font-semibold mb-1">Kurzfassung / TL;DR</p>
+            <ul class="list-disc ml-4 space-y-1">
+                <li>Wir verwenden standardmäßig <strong>keine Cookies</strong>.</li>
+                <li>Cookies werden nur mit Ihrer ausdrücklichen Zustimmung gesetzt (z. B. für Login-Funktionen).</li>
+                <li>Personenbezogene Daten (z. B. E-Mail, Name) werden nur mit Ihrer Einwilligung erhoben und verarbeitet.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Automatic data -->
+    <div class="card bg-base-100 shadow border border-base-300 mb-6">
+        <div class="card-body">
+            <h2 class="card-title text-lg mb-3">Automatisch gespeicherte Daten</h2>
+            <p class="text-sm text-base-content/80 mb-3">
+                Beim Besuch dieser Website werden vom Webserver automatisch folgende Daten protokolliert:
+            </p>
+            <ul class="list-disc ml-5 text-sm text-base-content/80 space-y-1">
+                <li>Aufgerufene URL</li>
+                <li>Browser und Browserversion</li>
+                <li>Betriebssystem</li>
+                <li>Referrer-URL (zuvor besuchte Seite)</li>
+                <li>Hostname und IP-Adresse</li>
+                <li>Datum und Uhrzeit</li>
+            </ul>
+            <p class="text-sm text-base-content/80 mt-3">
+                Diese Daten werden in Webserver-Logfiles gespeichert und nach <strong>zwei Wochen automatisch gelöscht</strong>.
+                Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse am ordnungsgemäßen Betrieb der Website).
+            </p>
+        </div>
+    </div>
+
+    <!-- Personal data -->
+    <div class="card bg-base-100 shadow border border-base-300 mb-6">
+        <div class="card-body">
+            <h2 class="card-title text-lg mb-3">Personenbezogene Daten</h2>
+            <p class="text-sm text-base-content/80 mb-3">
+                Personenbezogene Daten werden nur für den angegebenen Zweck gespeichert und nicht an Dritte weitergegeben.
+                Ihre Einwilligung können Sie jederzeit durch eine formlose E-Mail an
+                <a href="mailto:contact@jueewo.com" class="link link-primary">contact@jueewo.com</a> widerrufen.
+            </p>
+            <p class="text-sm text-base-content/80">
+                Rechtsgrundlage: Art. 6 Abs. 1 lit. a DSGVO (Einwilligung der betroffenen Person).
+            </p>
+        </div>
+    </div>
+
+    <!-- Security -->
+    <div class="card bg-base-100 shadow border border-base-300 mb-6">
+        <div class="card-body">
+            <h2 class="card-title text-lg mb-3">Datensicherheit (TLS/HTTPS)</h2>
+            <p class="text-sm text-base-content/80">
+                Diese Website nutzt HTTPS mit TLS-Verschlüsselung, um die Übertragung Ihrer Daten zu schützen.
+                Sie erkennen die verschlüsselte Verbindung am Schloss-Symbol in der Adressleiste Ihres Browsers.
+            </p>
+        </div>
+    </div>
+
+    <!-- User rights -->
+    <div class="card bg-base-100 shadow border border-base-300 mb-6">
+        <div class="card-body">
+            <h2 class="card-title text-lg mb-3">Ihre Rechte (DSGVO / DSG)</h2>
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead><tr><th>Artikel</th><th>Recht</th></tr></thead>
+                    <tbody>
+                        <tr><td>Art. 16 DSGVO</td><td>Recht auf Berichtigung unrichtiger Daten</td></tr>
+                        <tr><td>Art. 17 DSGVO</td><td>Recht auf Löschung („Recht auf Vergessenwerden")</td></tr>
+                        <tr><td>Art. 18 DSGVO</td><td>Recht auf Einschränkung der Verarbeitung</td></tr>
+                        <tr><td>Art. 20 DSGVO</td><td>Recht auf Datenübertragbarkeit</td></tr>
+                        <tr><td>Art. 21 DSGVO</td><td>Widerspruchsrecht</td></tr>
+                        <tr><td>Art. 22 DSGVO</td><td>Recht, nicht einer automatisierten Entscheidung unterworfen zu werden</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-sm text-base-content/80 mt-4">
+                Sie haben das Recht, bei der österreichischen
+                <a href="https://www.dsb.gv.at/" target="_blank" rel="noopener" class="link link-primary">Datenschutzbehörde</a>
+                Beschwerde einzulegen, wenn Sie der Ansicht sind, dass die Verarbeitung Ihrer Daten gegen die DSGVO verstößt.
+            </p>
+        </div>
+    </div>
+
+    <!-- Contact -->
+    <div class="card bg-base-100 shadow border border-base-300 mb-6">
+        <div class="card-body">
+            <h2 class="card-title text-lg mb-3">Kontakt Datenschutz</h2>
+            <table class="table table-sm">
+                <tbody>
+                    <tr><td class="font-medium w-40">Verantwortlicher</td><td>DI Dr. Jürgen Wöckl<br>jueewo ventures GmbH</td></tr>
+                    <tr><td class="font-medium">Adresse</td><td>Stiegengasse 6/9, A–1060 Wien</td></tr>
+                    <tr><td class="font-medium">E-Mail</td><td><a href="mailto:contact@jueewo.com" class="link link-primary">contact@jueewo.com</a></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="text-sm text-base-content/50 mt-6 flex gap-4">
+        <a href="/impressum" class="link">Impressum</a>
+    </div>
+</div>
+{% endblock %}

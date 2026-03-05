@@ -556,6 +556,38 @@ async fn health_check() -> &'static str {
 }
 
 // -------------------------------
+// Legal pages
+// -------------------------------
+
+#[derive(Template)]
+#[template(path = "impressum.html")]
+struct ImpressumTemplate {
+    authenticated: bool,
+}
+
+#[derive(Template)]
+#[template(path = "privacy.html")]
+struct PrivacyTemplate {
+    authenticated: bool,
+}
+
+async fn impressum_handler(
+    session: Session,
+) -> Result<Html<String>, StatusCode> {
+    let authenticated: bool = session.get("authenticated").await.ok().flatten().unwrap_or(false);
+    let t = ImpressumTemplate { authenticated };
+    Ok(Html(t.render().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?))
+}
+
+async fn privacy_handler(
+    session: Session,
+) -> Result<Html<String>, StatusCode> {
+    let authenticated: bool = session.get("authenticated").await.ok().flatten().unwrap_or(false);
+    let t = PrivacyTemplate { authenticated };
+    Ok(Html(t.render().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?))
+}
+
+// -------------------------------
 // Favicon Handler
 // -------------------------------
 
@@ -1011,6 +1043,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/demo", get(demo_handler))
         .route("/health", get(health_check))
         .route("/favicon.ico", get(favicon_handler))
+        .route("/impressum", get(impressum_handler))
+        .route("/privacy", get(privacy_handler))
         // Webhook endpoints (optional)
         .route("/api/webhooks/stream-ready", post(webhook_stream_ready))
         .route("/api/webhooks/stream-ended", post(webhook_stream_ended))

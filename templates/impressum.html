@@ -1,0 +1,63 @@
+{% extends "base-tailwind.html" %}
+{% block title %}Impressum — jueewo ventures{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-10 max-w-3xl">
+    <h1 class="text-3xl font-bold mb-8">Impressum</h1>
+
+    <div class="card bg-base-100 shadow border border-base-300 mb-6">
+        <div class="card-body">
+            <h2 class="card-title text-lg mb-4">Medieninhaber &amp; Herausgeber</h2>
+            <table class="table table-sm">
+                <tbody>
+                    <tr><td class="font-medium w-40">Unternehmen</td><td>jueewo ventures GmbH</td></tr>
+                    <tr><td class="font-medium">Rechtsform</td><td>Gesellschaft mit beschränkter Haftung (GmbH)</td></tr>
+                    <tr><td class="font-medium">Adresse</td><td>Stiegengasse 6/9<br>A–1060 Wien, Österreich</td></tr>
+                    <tr><td class="font-medium">Gerichtsstand</td><td>Wien / Österreich</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card bg-base-100 shadow border border-base-300 mb-6">
+        <div class="card-body">
+            <h2 class="card-title text-lg mb-4">Kontakt</h2>
+            <table class="table table-sm">
+                <tbody>
+                    <tr><td class="font-medium w-40">E-Mail</td><td><a href="mailto:contact@jueewo.com" class="link link-primary">contact@jueewo.com</a></td></tr>
+                    <tr><td class="font-medium">Telefon</td><td><a href="tel:+4367762566601" class="link link-primary">+43 677 62566601</a></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card bg-base-100 shadow border border-base-300 mb-6">
+        <div class="card-body">
+            <h2 class="card-title text-lg mb-4">Verantwortlicher (§ 25 Abs. 5 MedienG)</h2>
+            <table class="table table-sm">
+                <tbody>
+                    <tr><td class="font-medium w-40">Person</td><td>DI Dr. Jürgen Wöckl</td></tr>
+                    <tr><td class="font-medium">Tätigkeiten</td><td>Unternehmensberatung, IT-Dienstleistungen, Kreativagentur</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card bg-base-100 shadow border border-base-300 mb-6">
+        <div class="card-body">
+            <h2 class="card-title text-lg mb-4">Rechtliche Hinweise</h2>
+            <p class="text-sm text-base-content/80 mb-3">
+                Informationen gemäß E-Commerce-Gesetz und Mediengesetz sind über die
+                <a href="https://www.wko.at/" target="_blank" rel="noopener" class="link link-primary">Wirtschaftskammer Österreich</a> abrufbar.
+            </p>
+            <p class="text-sm text-base-content/80">
+                Trotz sorgfältiger inhaltlicher Kontrolle übernehmen wir keine Haftung für die Inhalte externer Links.
+                Für den Inhalt verlinkter Seiten sind ausschließlich deren Betreiber verantwortlich.
+            </p>
+        </div>
+    </div>
+
+    <div class="text-sm text-base-content/50 mt-6 flex gap-4">
+        <a href="/privacy" class="link">Datenschutz / Privacy</a>
+    </div>
+</div>
+{% endblock %}

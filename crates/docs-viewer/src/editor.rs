@@ -18,6 +18,9 @@ pub struct EditorTemplate {
     pub back_url: String,
     /// Label for the parent breadcrumb section. Defaults to `"Media"`.
     pub back_label: String,
+    /// Optional structured breadcrumb items. When non-empty, replaces the
+    /// single back_label with individual clickable path segments.
+    pub path_crumbs: Vec<(String, String)>,
 }
 
 impl EditorTemplate {
@@ -45,6 +48,7 @@ impl EditorTemplate {
             cancel_url,
             back_url: "/media".to_string(),
             back_label: "Media".to_string(),
+            path_crumbs: vec![],
         }
     }
 
@@ -72,6 +76,7 @@ impl EditorTemplate {
             cancel_url,
             back_url: "/media".to_string(),
             back_label: "Media".to_string(),
+            path_crumbs: vec![],
         }
     }
 }

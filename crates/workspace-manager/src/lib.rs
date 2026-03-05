@@ -419,6 +419,49 @@ fn parent_browse_url(workspace_id: &str, file_path: &str) -> String {
     }
 }
 
+/// Build structured breadcrumb items for a workspace file:
+/// Workspaces → workspace_name → folder → subfolder → …
+fn build_path_crumbs(
+    workspace_id: &str,
+    workspace_name: &str,
+    file_path: &str,
+) -> Vec<(String, String)> {
+    let mut crumbs = vec![
+        (
+            "Workspaces".to_string(),
+            "/workspaces".to_string(),
+        ),
+        (
+            workspace_name.to_string(),
+            format!("/workspaces/{}/browse", workspace_id),
+        ),
+    ];
+
+    let parent = std::path::Path::new(file_path)
+        .parent()
+        .and_then(|p| p.to_str())
+        .unwrap_or("");
+
+    if !parent.is_empty() {
+        let mut cumulative = String::new();
+        for segment in parent.split('/') {
+            if segment.is_empty() {
+                continue;
+            }
+            if !cumulative.is_empty() {
+                cumulative.push('/');
+            }
+            cumulative.push_str(segment);
+            crumbs.push((
+                segment.to_string(),
+                format!("/workspaces/{}/browse/{}", workspace_id, cumulative),
+            ));
+        }
+    }
+
+    crumbs
+}
+
 // ============================================================================
 // API Handlers
 // ============================================================================
@@ -1339,7 +1382,7 @@ pub async fn open_file_page(
             );
             template.save_url = save_url;
             template.back_url = back_url;
-            template.back_label = workspace_name;
+            template.path_crumbs = build_path_crumbs(&workspace_id, &workspace_name, &file_path);
             template
                 .render()
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
@@ -1359,7 +1402,7 @@ pub async fn open_file_page(
             );
             template.serve_url = serve_url;
             template.back_url = back_url;
-            template.back_label = workspace_name;
+            template.path_crumbs = build_path_crumbs(&workspace_id, &workspace_name, &file_path);
             template
                 .render()
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
@@ -1383,7 +1426,7 @@ pub async fn open_file_page(
                 raw_markdown,
                 edit_url,
                 back_url: back_url.clone(),
-                back_label: workspace_name,
+                back_label: workspace_name.clone(),
             };
             template
                 .render()
@@ -1410,7 +1453,7 @@ pub async fn open_file_page(
                 cancel_url,
             );
             template.back_url = back_url;
-            template.back_label = workspace_name;
+            template.path_crumbs = build_path_crumbs(&workspace_id, &workspace_name, &file_path);
             template
                 .render()
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?

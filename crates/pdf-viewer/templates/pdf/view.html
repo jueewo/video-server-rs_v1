@@ -40,8 +40,14 @@
     <!-- Breadcrumb -->
     <div class="text-sm breadcrumbs mb-4">
         <ul>
+            {% if !path_crumbs.is_empty() %}
+            {% for (label, url) in &path_crumbs %}
+            <li><a href="{{ url }}">{{ label }}</a></li>
+            {% endfor %}
+            {% else %}
             <li><a href="/">Home</a></li>
             <li><a href="{{ back_url }}">{{ back_label }}</a></li>
+            {% endif %}
             <li>{{ title }}</li>
             <li>PDF</li>
         </ul>

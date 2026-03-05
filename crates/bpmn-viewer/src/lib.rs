@@ -17,6 +17,9 @@ pub struct BpmnViewerTemplate {
     pub back_url: String,
     /// Label shown next to the back button and in the breadcrumb. Defaults to `"Media"`.
     pub back_label: String,
+    /// Optional structured breadcrumb items. When non-empty, replaces the
+    /// single back_label with individual clickable path segments.
+    pub path_crumbs: Vec<(String, String)>,
 }
 
 impl BpmnViewerTemplate {
@@ -42,6 +45,7 @@ impl BpmnViewerTemplate {
             save_url,
             back_url: "/media".to_string(),
             back_label: "Media".to_string(),
+            path_crumbs: vec![],
         }
     }
 }

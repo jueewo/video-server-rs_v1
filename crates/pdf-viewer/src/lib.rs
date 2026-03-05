@@ -20,6 +20,9 @@ pub struct PdfViewerTemplate {
     pub back_url: String,
     /// Label for the back button and breadcrumb. Defaults to `"Media"`.
     pub back_label: String,
+    /// Optional structured breadcrumb items. When non-empty, replaces the
+    /// single back_label with individual clickable path segments.
+    pub path_crumbs: Vec<(String, String)>,
 }
 
 impl PdfViewerTemplate {
@@ -47,6 +50,7 @@ impl PdfViewerTemplate {
             serve_url,
             back_url: "/media".to_string(),
             back_label: "Media".to_string(),
+            path_crumbs: vec![],
         }
     }
 }

@@ -18,15 +18,13 @@
 
 <div class="container mx-auto px-4 py-8 max-w-7xl">
     <!-- Page Header -->
-    {% let page_title = "🎨 All Media" %}
+    {% let page_title = "All Media" %}
     {% let page_subtitle = "Unified view of videos, images, and documents" %}
     <div class="page-header">
         {% include "components/page-header.html" %}
         <div class="page-header-actions">
             <a href="/media/upload" class="btn btn-primary gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                </svg>
+                <i data-lucide="upload" class="w-5 h-5"></i>
                 Upload Media
             </a>
         </div>
@@ -47,9 +45,7 @@
                         value="{% match search_query %}{% when Some with (q) %}{{ q }}{% when None %}{% endmatch %}"
                     />
                     <button type="submit" class="btn btn-primary join-item">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
-                        </svg>
+                        <i data-lucide="search" class="w-5 h-5"></i>
                         Search
                     </button>
                 </div>
@@ -63,15 +59,15 @@
                     </button>
                     <button type="submit" name="type_filter" value="video"
                             class="btn btn-sm {% match current_filter %}{% when Some with (f) %}{% if f == "video" %}btn-error{% else %}btn-ghost{% endif %}{% when None %}btn-ghost{% endmatch %}">
-                        🎥 Videos ({{ video_count }})
+                        <i data-lucide="video" class="w-4 h-4"></i> Videos ({{ video_count }})
                     </button>
                     <button type="submit" name="type_filter" value="image"
                             class="btn btn-sm {% match current_filter %}{% when Some with (f) %}{% if f == "image" %}btn-success{% else %}btn-ghost{% endif %}{% when None %}btn-ghost{% endmatch %}">
-                        🖼️ Images ({{ image_count }})
+                        <i data-lucide="image" class="w-4 h-4"></i> Images ({{ image_count }})
                     </button>
                     <button type="submit" name="type_filter" value="document"
                             class="btn btn-sm {% match current_filter %}{% when Some with (f) %}{% if f == "document" %}btn-info{% else %}btn-ghost{% endif %}{% when None %}btn-ghost{% endmatch %}">
-                        📄 Documents ({{ document_count }})
+                        <i data-lucide="file-text" class="w-4 h-4"></i> Documents ({{ document_count }})
                     </button>
                 </div>
 
@@ -141,15 +137,13 @@
     <!-- Media Grid -->
     {% if items.is_empty() %}
     <div class="text-center py-16 bg-base-200 rounded-lg">
-        <div class="text-6xl mb-4">📭</div>
+        <i data-lucide="inbox" class="w-16 h-16 text-base-content/30 mb-4"></i>
         <h2 class="text-2xl font-bold mb-2">No media found</h2>
         <p class="text-base-content/60 mb-4">
             Try adjusting your search or filters
         </p>
         <a href="/media/upload" class="btn btn-primary">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-            </svg>
+            <i data-lucide="upload" class="w-5 h-5"></i>
             Upload Media
         </a>
     </div>
@@ -214,14 +208,10 @@
                 <!-- Privacy Badge -->
                 <div class="badge badge-sm absolute top-2 left-2">
                     {% if item.item.is_public() %}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-1.973z" clip-rule="evenodd" />
-                        </svg>
+                        <i data-lucide="globe" class="w-3 h-3 mr-1"></i>
                         Public
                     {% else %}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
-                        </svg>
+                        <i data-lucide="lock" class="w-3 h-3 mr-1"></i>
                         Private
                     {% endif %}
                 </div>
@@ -230,44 +220,32 @@
                 <!-- Three-dot menu -->
                 <div class="dropdown dropdown-end absolute top-4 right-4 z-10">
                     <label tabindex="0" class="btn btn-ghost btn-xs btn-circle">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-5 h-5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                        </svg>
+                        <i data-lucide="more-vertical" class="w-5 h-5"></i>
                     </label>
                     <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-48 border border-base-300">
                         {% if item.item.type_label() == "Markdown" %}
                         <li>
                             <a href="{{ item.item.view_url() }}">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
-                                </svg>
+                                <i data-lucide="eye" class="w-4 h-4"></i>
                                 View
                             </a>
                         </li>
                         <li>
                             <a href="{{ item.item.editor_url() }}">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                                </svg>
+                                <i data-lucide="pencil" class="w-4 h-4"></i>
                                 Edit
                             </a>
                         </li>
                         {% endif %}
                         <li>
                             <a onclick="editMedia('{{ item.item.slug() }}', '{{ item.item.type_label() }}')">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
-                                </svg>
+                                <i data-lucide="eye" class="w-4 h-4"></i>
                                 Properties
                             </a>
                         </li>
                         <li>
                             <a onclick="window.showWithCallback('Delete Media?', 'This action cannot be undone.', () => executeDeleteMedia('{{ item.item.slug() }}'))" class="text-error cursor-pointer">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                </svg>
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
                                 Delete
                             </a>
                         </li>
@@ -291,9 +269,7 @@
                     {% match item.group_name %}
                         {% when Some with (group_name) %}
                             <div class="badge badge-sm badge-outline gap-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
-                                </svg>
+                                <i data-lucide="users" class="w-3 h-3"></i>
                                 {{ group_name }}
                             </div>
                         {% when None %}
@@ -303,9 +279,7 @@
                     {% if !item.tags.is_empty() %}
                         {% for tag in item.tags %}
                             <a href="/media?tag={{ tag }}" class="badge badge-sm badge-primary gap-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-                                </svg>
+                                <i data-lucide="tag" class="w-3 h-3"></i>
                                 {{ tag }}
                             </a>
                         {% endfor %}
@@ -315,25 +289,18 @@
                 <!-- Metadata -->
                 <div class="flex flex-wrap gap-2 text-xs text-base-content/60 mt-2">
                     <div class="flex items-center gap-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd" />
-                        </svg>
+                        <i data-lucide="file" class="w-3 h-3"></i>
                         {{ item.item.file_size_formatted() }}
                     </div>
                     <div class="flex items-center gap-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
-                        </svg>
+                        <i data-lucide="calendar" class="w-3 h-3"></i>
                         {{ item.item.created_at() }}
                     </div>
                 </div>
                 <!-- Actions -->
                 <div class="card-actions justify-end mt-4">
                     <a href="{{ item.item.view_url() }}" class="btn btn-primary btn-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                            <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
-                        </svg>
+                        <i data-lucide="eye" class="w-4 h-4"></i>
                         View
                     </a>
                 </div>

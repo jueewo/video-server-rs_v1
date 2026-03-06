@@ -13,7 +13,7 @@
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
         <div>
-            <h1 class="text-3xl font-bold">🗂️ {{ workspace.name }}</h1>
+            <h1 class="text-3xl font-bold flex items-center gap-2"><i data-lucide="layout-dashboard" class="w-8 h-8"></i> {{ workspace.name }}</h1>
             {% if !workspace.description.is_empty() %}
             <p class="text-base-content/70 mt-1">{{ workspace.description }}</p>
             {% endif %}
@@ -25,13 +25,13 @@
         </div>
         <div class="flex gap-2 flex-wrap">
             <a href="/workspaces/{{ workspace.workspace_id }}/browse" class="btn btn-primary gap-2">
-                📁 Browse Files
+                <i data-lucide="folder-open" class="w-4 h-4"></i> Browse Files
             </a>
             <button onclick="newFile('{{ workspace.workspace_id }}')" class="btn btn-outline gap-2">
-                📄 New File
+                <i data-lucide="file-plus" class="w-4 h-4"></i> New File
             </button>
             <button onclick="newFolder('{{ workspace.workspace_id }}')" class="btn btn-outline gap-2">
-                📁 New Folder
+                <i data-lucide="folder-plus" class="w-4 h-4"></i> New Folder
             </button>
         </div>
     </div>
@@ -41,7 +41,7 @@
         <div class="lg:col-span-1">
             <div class="card bg-base-100 shadow border border-base-300">
                 <div class="card-body">
-                    <h2 class="card-title text-lg mb-3">📁 Folders</h2>
+                    <h2 class="card-title text-lg mb-3"><i data-lucide="folders" class="w-5 h-5"></i> Folders</h2>
                     {% if folders.is_empty() %}
                     <p class="text-base-content/50 text-sm">No folders yet.</p>
                     {% else %}
@@ -54,7 +54,7 @@
                                     {% if let Some(icon_url) = &folder.icon_url %}
                                     <img src="{{ icon_url }}" class="w-full h-full object-cover rounded" alt="{{ folder.name }}" loading="lazy" />
                                     {% else %}
-                                    📁
+                                    <i data-lucide="folder" class="w-4 h-4 text-base-content/50"></i>
                                     {% endif %}
                                 </span>
                                 <span class="flex-1 font-medium">{{ folder.name }}</span>
@@ -72,7 +72,7 @@
         <div class="lg:col-span-2">
             <div class="card bg-base-100 shadow border border-base-300">
                 <div class="card-body">
-                    <h2 class="card-title text-lg mb-3">🕐 Recent Files</h2>
+                    <h2 class="card-title text-lg mb-3"><i data-lucide="clock" class="w-5 h-5"></i> Recent Files</h2>
                     {% if recent_files.is_empty() %}
                     <p class="text-base-content/50 text-sm">No files yet. Start by creating a document or importing files.</p>
                     {% else %}
@@ -118,7 +118,7 @@
 <!-- New File Modal -->
 <dialog id="new-file-modal" class="modal">
     <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4">📄 New File</h3>
+        <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="file-plus" class="w-5 h-5"></i> New File</h3>
         <div class="form-control mb-4">
             <label class="label"><span class="label-text">File path (relative to workspace root)</span></label>
             <input type="text" id="new-file-path" placeholder="e.g. notes/meeting.md" class="input input-bordered" />
@@ -135,7 +135,7 @@
 <!-- New Folder Modal -->
 <dialog id="new-folder-modal" class="modal">
     <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4">📁 New Folder</h3>
+        <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="folder-plus" class="w-5 h-5"></i> New Folder</h3>
         <div class="form-control mb-4">
             <label class="label"><span class="label-text">Folder path (relative to workspace root)</span></label>
             <input type="text" id="new-folder-path" placeholder="e.g. designs" class="input input-bordered" />

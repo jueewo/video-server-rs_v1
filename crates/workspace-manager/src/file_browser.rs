@@ -287,19 +287,19 @@ pub fn format_size(bytes: u64) -> String {
 
 pub fn file_icon(mime: &str) -> &'static str {
     if mime.starts_with("text/markdown") || mime.contains("markdown") {
-        "📝"
+        "file-text"
     } else if mime.contains("yaml") || mime.contains("json") {
-        "⚙️"
+        "settings-2"
     } else if mime.contains("bpmn") || mime.contains("xml") {
-        "🔷"
+        "git-branch"
     } else if mime.starts_with("text/") {
-        "📄"
+        "file-code"
     } else if mime.starts_with("image/") {
-        "🖼️"
+        "image"
     } else if mime.contains("pdf") {
-        "📕"
+        "file-type-2"
     } else {
-        "📎"
+        "paperclip"
     }
 }
 

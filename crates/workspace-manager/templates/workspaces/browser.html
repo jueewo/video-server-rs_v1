@@ -126,7 +126,7 @@
                         {% for file in files %}
                         <tr class="hover">
                             <td class="font-medium">
-                                <span class="mr-1">{{ file.icon }}</span>
+                                <i data-lucide="{{ file.icon }}" class="w-4 h-4 inline-block align-middle mr-1 text-base-content/50"></i>
                                 {{ file.name }}
                             </td>
                             <td class="text-xs text-base-content/60">{{ file.mime_type }}</td>

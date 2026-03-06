@@ -135,8 +135,8 @@
 
                 {% if authenticated %}
                     {% if media.media_type == "document" && media.mime_type == "text/markdown" %}
-                    <a href="/media/{{ media.slug }}/edit" class="btn btn-outline">
-                        ✏️ Edit
+                    <a href="/media/{{ media.slug }}/edit" class="btn btn-outline gap-2">
+                        <i data-lucide="pencil" class="w-4 h-4"></i> Edit
                     </a>
                     {% endif %}
                 {% endif %}

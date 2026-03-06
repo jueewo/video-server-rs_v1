@@ -34,7 +34,7 @@ impl EditorTemplate {
     ) -> Self {
         let save_url = format!("/api/media/{}/save", slug);
         let cancel_url = format!("/media/{}/view", slug);
-        let page_title = format!("✏️ Edit: {}", title);
+        let page_title = format!("Edit: {}", title);
 
         Self {
             authenticated,
@@ -63,7 +63,7 @@ impl EditorTemplate {
         save_url: String,
         cancel_url: String,
     ) -> Self {
-        let page_title = format!("✏️ Edit: {}", title);
+        let page_title = format!("Edit: {}", title);
         Self {
             authenticated,
             page_title,

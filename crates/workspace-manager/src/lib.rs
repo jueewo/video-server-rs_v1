@@ -130,6 +130,14 @@ pub struct DeleteFileQuery {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct RenameFileRequest {
+    /// Current workspace-relative path.
+    pub from: String,
+    /// New workspace-relative path (same directory, different filename).
+    pub to: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct CreateFileRequest {
     pub path: String,
     pub content: Option<String>,
@@ -687,6 +695,43 @@ pub async fn delete_file(
             }
         }
     }
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// POST /api/workspaces/{workspace_id}/files/rename
+///
+/// Renames (moves) a single file within the workspace. The destination must
+/// be in the same directory. Does not update workspace.yaml (files are not
+/// tracked there, only folders are).
+pub async fn rename_file(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(request): Json<RenameFileRequest>,
+) -> Result<StatusCode, StatusCode> {
+    check_scope(&user, "write")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let from = file_editor::safe_resolve_pub(&workspace_root, &request.from)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    let to = file_editor::safe_resolve_pub(&workspace_root, &request.to)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    if !from.exists() {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    if to.exists() {
+        return Err(StatusCode::CONFLICT);
+    }
+
+    std::fs::rename(&from, &to).map_err(|e| {
+        warn!("Failed to rename file {:?} -> {:?}: {}", from, to, e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -1403,9 +1448,8 @@ pub async fn edit_text_file_page(
         .unwrap_or("")
         .to_lowercase();
 
-    // Force Monaco editor for text files
-    let content = file_editor::read_file(&workspace_root, &file_path)
-        .map_err(|_| StatusCode::NOT_FOUND)?;
+    // Force Monaco editor for text files; treat missing files as empty (allows creating new docs)
+    let content = file_editor::read_file(&workspace_root, &file_path).unwrap_or_default();
     let language = monaco_language(&ext);
     let save_url = format!(
         "/api/workspaces/{}/files/save-text?path={}",
@@ -1423,7 +1467,8 @@ pub async fn edit_text_file_page(
         cancel_url,
     );
     template.back_url = back_url;
-    template.back_label = workspace_name;
+    template.back_label = workspace_name.clone();
+    template.path_crumbs = build_path_crumbs(&workspace_id, &workspace_name, &file_path);
 
     let html = template
         .render()
@@ -2324,6 +2369,10 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         .route(
             "/api/workspaces/{workspace_id}/files/new",
             post(create_file),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/files/rename",
+            post(rename_file),
         )
         .route(
             "/api/workspaces/{workspace_id}/files/save-text",

@@ -7,7 +7,7 @@
         <!-- Left: Logo -->
         <div class="flex-1">
             <a href="/" class="btn btn-ghost normal-case text-xl">
-                <span class="text-2xl">🎬</span>
+                <i data-lucide="clapperboard" class="w-6 h-6"></i>
                 <span class="ml-2 hidden sm:inline">Media Server</span>
             </a>
         </div>
@@ -15,10 +15,10 @@
         <!-- Desktop nav (md and up) -->
         <div class="nav-desktop flex-none">
             <ul class="menu menu-horizontal px-1">
-                <li><a href="/">🏠 Home</a></li>
-                <li><a href="/media">🎨 All Media</a></li>
-                <li><a href="/videos">🎥 Videos</a></li>
-                <li><a href="/test">📡 Live</a></li>
+                <li><a href="/" class="gap-2"><i data-lucide="house" class="w-4 h-4"></i> Home</a></li>
+                <li><a href="/media" class="gap-2"><i data-lucide="layout-grid" class="w-4 h-4"></i> All Media</a></li>
+                <li><a href="/videos" class="gap-2"><i data-lucide="video" class="w-4 h-4"></i> Videos</a></li>
+                <li><a href="/test" class="gap-2"><i data-lucide="radio" class="w-4 h-4"></i> Live</a></li>
             </ul>
 
             <!-- Theme toggle (desktop) -->
@@ -73,22 +73,22 @@
         class="nav-mobile-menu bg-base-200 border-t border-base-300 shadow-lg"
     >
         <ul class="menu p-3 w-full text-base">
-            <li><a href="/" @click="mobileOpen = false">🏠 Home</a></li>
-            <li><a href="/media" @click="mobileOpen = false">🎨 All Media</a></li>
-            <li><a href="/videos" @click="mobileOpen = false">🎥 Videos</a></li>
-            <li><a href="/test" @click="mobileOpen = false">📡 Live</a></li>
+            <li><a href="/" @click="mobileOpen = false" class="gap-2"><i data-lucide="house" class="w-4 h-4"></i> Home</a></li>
+            <li><a href="/media" @click="mobileOpen = false" class="gap-2"><i data-lucide="layout-grid" class="w-4 h-4"></i> All Media</a></li>
+            <li><a href="/videos" @click="mobileOpen = false" class="gap-2"><i data-lucide="video" class="w-4 h-4"></i> Videos</a></li>
+            <li><a href="/test" @click="mobileOpen = false" class="gap-2"><i data-lucide="radio" class="w-4 h-4"></i> Live</a></li>
 
             {% if authenticated %}
             <li class="menu-title pt-3">Account</li>
-            <li><a href="/profile" @click="mobileOpen = false">👤 Profile</a></li>
-            <li><a href="/groups" @click="mobileOpen = false">👥 Groups</a></li>
-            <li><a href="/vaults" @click="mobileOpen = false">📦 Vaults</a></li>
-            <li><a href="/workspaces" @click="mobileOpen = false">🗂️ Workspaces</a></li>
-            <li><a href="/my-apps" @click="mobileOpen = false">🚀 My Apps</a></li>
-            <li><a href="/folder-types" @click="mobileOpen = false">📂 Folder Types</a></li>
-            <li class="pt-1"><a href="/logout" class="text-error">🚪 Logout</a></li>
+            <li><a href="/profile" @click="mobileOpen = false" class="gap-2"><i data-lucide="user" class="w-4 h-4"></i> Profile</a></li>
+            <li><a href="/groups" @click="mobileOpen = false" class="gap-2"><i data-lucide="users" class="w-4 h-4"></i> Groups</a></li>
+            <li><a href="/vaults" @click="mobileOpen = false" class="gap-2"><i data-lucide="package" class="w-4 h-4"></i> Vaults</a></li>
+            <li><a href="/workspaces" @click="mobileOpen = false" class="gap-2"><i data-lucide="layout-dashboard" class="w-4 h-4"></i> Workspaces</a></li>
+            <li><a href="/my-apps" @click="mobileOpen = false" class="gap-2"><i data-lucide="rocket" class="w-4 h-4"></i> My Apps</a></li>
+            <li><a href="/folder-types" @click="mobileOpen = false" class="gap-2"><i data-lucide="folder-open" class="w-4 h-4"></i> Folder Types</a></li>
+            <li class="pt-1"><a href="/logout" class="text-error gap-2"><i data-lucide="log-out" class="w-4 h-4"></i> Logout</a></li>
             {% else %}
-            <li class="pt-1"><a href="/login" class="font-semibold">🔐 Login</a></li>
+            <li class="pt-1"><a href="/login" class="font-semibold gap-2"><i data-lucide="lock" class="w-4 h-4"></i> Login</a></li>
             {% endif %}
         </ul>
     </div>

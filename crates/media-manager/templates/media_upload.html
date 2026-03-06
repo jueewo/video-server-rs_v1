@@ -264,6 +264,10 @@
                 </div>
 
                 <!-- Vault -->
+                {% match preselect_vault_id %}
+                {% when Some with (vid) %}
+                <input type="hidden" id="vault_id" name="vault_id" value="{{ vid }}" />
+                {% when None %}
                 <div class="form-control mb-4">
                     <label class="label" for="vault_id">
                         <span class="label-text font-semibold"
@@ -285,6 +289,7 @@
                         >
                     </label>
                 </div>
+                {% endmatch %}
 
                 <!-- Access Group -->
                 <div class="form-control mb-4">
@@ -379,7 +384,17 @@
                     >
                         📤 Upload Media
                     </button>
+                    {% match return_url %}
+                    {% when Some with (url) %}
+                    <a href="{{ url }}" class="btn btn-ghost">Cancel</a>
+                    {% when None %}
+                    {% match preselect_vault_id %}
+                    {% when Some with (vid) %}
+                    <a href="/media?vault_id={{ vid }}" class="btn btn-ghost">Cancel</a>
+                    {% when None %}
                     <a href="/media" class="btn btn-ghost">Cancel</a>
+                    {% endmatch %}
+                    {% endmatch %}
                 </div>
             </form>
         </div>
@@ -424,6 +439,22 @@
 </div>
 {% endblock %} {% block extra_scripts %}
 <script>
+    // Vault context — set when upload is locked to a specific vault
+    {% match preselect_vault_id %}
+    {% when Some with (vid) %}
+    const VAULT_ID = "{{ vid }}";
+    {% when None %}
+    const VAULT_ID = null;
+    {% endmatch %}
+
+    // Return destination after upload
+    {% match return_url %}
+    {% when Some with (url) %}
+    const BACK_URL = "{{ url }}";
+    {% when None %}
+    const BACK_URL = VAULT_ID ? "/media?vault_id=" + VAULT_ID : "/media";
+    {% endmatch %}
+
     const dropZone = document.getElementById("dropZone");
     const fileInput = document.getElementById("fileInput");
     const filePreview = document.getElementById("filePreview");
@@ -482,7 +513,7 @@
         }
     }
 
-    loadVaults();
+    if (!VAULT_ID) loadVaults();
     loadGroups();
 
     // ── Drag & drop ───────────────────────────────────────────────────────────
@@ -646,7 +677,7 @@
 
                     // Regular upload success (200 OK)
                     if (res.success) {
-                        window.location.href = "/media?success=upload";
+                        window.location.href = BACK_URL + (BACK_URL.includes("?") ? "&" : "?") + "success=upload";
                         return;
                     }
 
@@ -749,7 +780,7 @@
                     successDiv.classList.remove("hidden");
                     ws.close();
                     setTimeout(() => {
-                        window.location.href = `/media/${slug}`;
+                        window.location.href = BACK_URL;
                     }, 2000);
                 }
             } catch (e) {

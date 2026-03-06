@@ -121,9 +121,7 @@ View{% endblock %} {% block extra_head %}
         {% include "components/page-header.html" %}
         <div class="page-header-actions">
             {% if authenticated %}
-            <a href="/media/{{ slug }}/edit" class="btn btn-sm btn-primary"
-                >✏️ Edit</a
-            >
+            <a href="/media/{{ slug }}/edit" class="btn btn-sm btn-primary gap-2"><i data-lucide="pencil" class="w-4 h-4"></i> Edit</a>
             {% endif %}
             <button onclick="toggleRaw()" class="btn btn-sm btn-outline">
                 🔍 Toggle Raw

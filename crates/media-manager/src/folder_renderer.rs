@@ -116,7 +116,12 @@ impl FolderTypeRenderer for MediaFolderRenderer {
             .collect();
 
         let back_url = format!("/workspaces/{}/browse", ctx.workspace_id);
-        let upload_url = format!("/media/upload?vault_id={}", vault_id);
+        let folder_url = format!("/workspaces/{}/browse/{}", ctx.workspace_id, ctx.folder_path);
+        let upload_url = format!(
+            "/media/upload?vault_id={}&return_url={}",
+            vault_id,
+            urlencoding::encode(&folder_url)
+        );
 
         let template = MediaFolderTemplate {
             authenticated: true,

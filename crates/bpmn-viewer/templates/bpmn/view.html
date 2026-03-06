@@ -44,15 +44,15 @@
             <!-- View mode buttons -->
             <div id="view-actions">
                 {% if is_owner %}
-                <button onclick="enterEditMode()" class="btn btn-sm btn-primary">✏️ Edit</button>
+                <button onclick="enterEditMode()" class="btn btn-sm btn-primary gap-2"><i data-lucide="pencil" class="w-4 h-4"></i> Edit</button>
                 {% endif %}
-                <button onclick="fitView()" class="btn btn-sm btn-outline">⊞ Fit View</button>
-                <a href="{{ back_url }}" class="btn btn-sm btn-ghost">← Back to {{ back_label }}</a>
+                <button onclick="fitView()" class="btn btn-sm btn-outline gap-2"><i data-lucide="maximize-2" class="w-4 h-4"></i> Fit View</button>
+                <a href="{{ back_url }}" class="btn btn-sm btn-ghost gap-2"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back to {{ back_label }}</a>
             </div>
             <!-- Edit mode buttons (hidden by default) -->
             <div id="edit-actions" class="hidden">
-                <button onclick="saveBpmn()" class="btn btn-sm btn-success">💾 Save</button>
-                <button onclick="cancelEdit()" class="btn btn-sm btn-ghost">✗ Cancel</button>
+                <button onclick="saveBpmn()" class="btn btn-sm btn-success gap-2"><i data-lucide="save" class="w-4 h-4"></i> Save</button>
+                <button onclick="cancelEdit()" class="btn btn-sm btn-ghost gap-2"><i data-lucide="x" class="w-4 h-4"></i> Cancel</button>
             </div>
         </div>
     </div>
@@ -60,7 +60,7 @@
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
             <div class="flex gap-3 text-sm text-base-content/60 mb-4">
-                <span>📅 {{ created_at }}</span>
+                <span class="flex items-center gap-1"><i data-lucide="calendar" class="w-3.5 h-3.5"></i> {{ created_at }}</span>
                 <span id="edit-mode-indicator" class="hidden badge badge-warning">Edit Mode</span>
             </div>
             <div class="divider"></div>

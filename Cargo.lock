@@ -2700,6 +2700,7 @@ dependencies = [
  "tower-http",
  "tower-sessions",
  "tracing",
+ "urlencoding",
  "uuid",
  "video-manager",
  "workspace-core",

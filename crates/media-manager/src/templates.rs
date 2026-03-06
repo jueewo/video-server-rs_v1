@@ -139,6 +139,12 @@ pub struct MediaUploadTemplate {
 
     /// Whether the current user is authenticated (required by base-tailwind user-menu)
     pub authenticated: bool,
+
+    /// When set, locks the upload to this vault (hidden field, no picker shown).
+    pub preselect_vault_id: Option<String>,
+
+    /// Where to redirect after upload. Defaults to /media when None.
+    pub return_url: Option<String>,
 }
 
 impl MediaUploadTemplate {
@@ -149,6 +155,8 @@ impl MediaUploadTemplate {
             success_message: None,
             error_message: None,
             authenticated: true,
+            preselect_vault_id: None,
+            return_url: None,
         }
     }
 

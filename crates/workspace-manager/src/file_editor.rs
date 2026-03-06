@@ -3,6 +3,10 @@ use std::path::{Path, PathBuf};
 
 /// Resolve and validate a file path within a workspace root.
 /// Prevents path traversal attacks.
+pub fn safe_resolve_pub(workspace_root: &Path, rel_path: &str) -> Result<PathBuf> {
+    safe_resolve(workspace_root, rel_path)
+}
+
 fn safe_resolve(workspace_root: &Path, rel_path: &str) -> Result<PathBuf> {
     let clean = rel_path.trim_start_matches('/');
 

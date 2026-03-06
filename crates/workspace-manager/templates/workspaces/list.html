@@ -69,10 +69,10 @@
                         data-name="{{ ws.name }}"
                         data-description="{{ ws.description }}"
                         class="btn btn-sm btn-outline gap-1">
-                        ✏️ Edit
+                        <i data-lucide="pencil" class="w-4 h-4"></i> Edit
                     </button>
                     <button onclick="deleteWorkspace('{{ ws.workspace_id }}')" class="btn btn-sm btn-error btn-outline gap-1">
-                        🗑️ Delete
+                        <i data-lucide="trash-2" class="w-4 h-4"></i> Delete
                     </button>
                 </div>
             </div>
@@ -85,7 +85,7 @@
 <!-- Edit Workspace Modal -->
 <dialog id="edit-modal" class="modal">
     <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4">✏️ Edit Workspace</h3>
+        <h3 class="font-bold text-lg mb-4">Edit Workspace</h3>
 
         <div id="edit-error" class="alert alert-error mb-4 hidden">
             <span id="edit-error-msg"></span>

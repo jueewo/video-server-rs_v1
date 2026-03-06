@@ -63,6 +63,10 @@ pub struct BpmnFileEntry {
     /// Workspace-relative path, e.g. "processes/order-flow.bpmn"
     pub path: String,
     pub modified: String,
+    /// First non-empty line from the sidecar `.md` file, if it exists.
+    pub description: Option<String>,
+    /// Workspace-relative path to the sidecar `.md` file (may or may not exist).
+    pub md_path: String,
 }
 
 #[derive(Template)]
@@ -128,7 +132,26 @@ impl FolderTypeRenderer for BpmnFolderRenderer {
                         dt.format(&fmt).ok()
                     })
                     .unwrap_or_default();
-                BpmnFileEntry { name, path, modified }
+
+                // Sidecar: same stem, .md extension
+                let md_abs = e.path().with_extension("md");
+                let md_path = md_abs
+                    .strip_prefix(&ctx.workspace_root)
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|_| {
+                        std::path::Path::new(&path)
+                            .with_extension("md")
+                            .to_string_lossy()
+                            .to_string()
+                    });
+                let description = std::fs::read_to_string(&md_abs).ok().and_then(|content| {
+                    content
+                        .lines()
+                        .find(|l| !l.trim().is_empty())
+                        .map(|l| l.trim_start_matches('#').trim().to_string())
+                });
+
+                BpmnFileEntry { name, path, modified, description, md_path }
             })
             .collect();
 

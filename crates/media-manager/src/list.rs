@@ -88,6 +88,14 @@ pub struct UploadFormQuery {
     /// Error message
     #[serde(default)]
     pub error: Option<String>,
+
+    /// When present, locks the upload to this vault (hidden field, no picker)
+    #[serde(default)]
+    pub vault_id: Option<String>,
+
+    /// Where to redirect after a successful upload (e.g. the workspace folder URL)
+    #[serde(default)]
+    pub return_url: Option<String>,
 }
 
 /// Update request body
@@ -492,6 +500,8 @@ pub async fn show_upload_form(
             .map(|_| "File uploaded successfully!".to_string()),
         error_message: params.error,
         authenticated: true,
+        preselect_vault_id: params.vault_id,
+        return_url: params.return_url,
     };
 
     match template.render() {

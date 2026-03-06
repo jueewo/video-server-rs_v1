@@ -25,8 +25,8 @@
             </span>
         </div>
         <div class="flex gap-2">
-            <button onclick="newDiagram()" class="btn btn-sm btn-primary gap-1">✏️ New Diagram</button>
-            <a href="{{ back_url }}" class="btn btn-sm btn-ghost">← Workspace</a>
+            <button onclick="newDiagram()" class="btn btn-sm btn-primary gap-2"><i data-lucide="plus" class="w-4 h-4"></i> New Diagram</button>
+            <a href="{{ back_url }}" class="btn btn-sm btn-ghost gap-2"><i data-lucide="arrow-left" class="w-4 h-4"></i> Workspace</a>
         </div>
     </div>
 
@@ -34,10 +34,10 @@
     <!-- Empty state -->
     <div class="card bg-base-200 shadow">
         <div class="card-body items-center text-center py-12">
-            <div class="text-5xl mb-3">📋</div>
+            <i data-lucide="workflow" class="w-12 h-12 mb-3 text-base-content/30"></i>
             <h3 class="text-xl font-semibold mb-2">No diagrams yet</h3>
             <p class="text-base-content/60 mb-4">Create your first BPMN process diagram.</p>
-            <button onclick="newDiagram()" class="btn btn-primary">✏️ New Diagram</button>
+            <button onclick="newDiagram()" class="btn btn-primary gap-2"><i data-lucide="plus" class="w-4 h-4"></i> New Diagram</button>
         </div>
     </div>
     {% else %}
@@ -46,14 +46,29 @@
         {% for file in &files %}
         <div class="card bg-base-100 border border-base-300 hover:shadow-md transition-all duration-150">
             <div class="card-body p-4">
-                <div class="text-3xl mb-2">📋</div>
-                <h3 class="font-medium text-sm truncate" title="{{ file.name }}">{{ file.name }}</h3>
+                <div class="flex items-start justify-between gap-1">
+                    <i data-lucide="workflow" class="w-8 h-8 text-base-content/40"></i>
+                    <button onclick='openFileSettings({{ file.path|tojson|safe }}, {{ file.md_path|tojson|safe }})'
+                            class="btn btn-xs btn-ghost opacity-40 hover:opacity-100 -mt-1 -mr-1"
+                            title="Rename or delete">
+                        <i data-lucide="settings" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <h3 class="font-medium text-sm truncate mt-2" title="{{ file.name }}">{{ file.name }}</h3>
+                {% if let Some(desc) = &file.description %}
+                <p class="text-xs text-base-content/60 mt-1 line-clamp-2" title="{{ desc }}">{{ desc }}</p>
+                {% endif %}
                 {% if !file.modified.is_empty() %}
-                <p class="text-xs text-base-content/50 mt-1">{{ file.modified }}</p>
+                <p class="text-xs text-base-content/40 mt-1">{{ file.modified }}</p>
                 {% endif %}
                 <div class="card-actions mt-3 gap-1">
                     <a href="/workspaces/{{ workspace_id }}/edit?file={{ file.path }}"
                        class="btn btn-xs btn-primary flex-1">Open</a>
+                    <a href="/workspaces/{{ workspace_id }}/edit-text?file={{ file.md_path }}"
+                       class="btn btn-xs btn-ghost"
+                       title="Edit documentation">
+                        <i data-lucide="file-text" class="w-4 h-4"></i>
+                    </a>
                 </div>
             </div>
         </div>
@@ -63,9 +78,49 @@
 
 </div>
 
+<!-- File settings modal -->
+<dialog id="fileSettingsModal" class="modal">
+    <div class="modal-box max-w-sm">
+        <h3 class="font-bold text-lg mb-1">Diagram settings</h3>
+        <p id="fileSettingsName" class="text-sm text-base-content/50 mb-4 truncate"></p>
+
+        <div class="form-control mb-4">
+            <label class="label"><span class="label-text font-medium">Rename</span></label>
+            <div class="join w-full">
+                <input id="fileRenameInput" type="text" class="input input-bordered input-sm join-item flex-1"
+                       placeholder="new-name" />
+                <span class="join-item flex items-center px-3 bg-base-200 border border-base-300 text-base-content/50 text-sm">.bpmn</span>
+            </div>
+            <label class="label"><span class="label-text-alt text-base-content/40">Renames the .md doc file too if it exists</span></label>
+        </div>
+        <button onclick="renameFile()" class="btn btn-sm btn-primary w-full mb-4">Rename</button>
+
+        <div class="divider my-2"></div>
+
+        <div id="fileDeleteSection">
+            <p class="text-sm text-base-content/60 mb-2">Permanently delete this diagram and its documentation.</p>
+            <button onclick="showFileDeleteConfirm()" class="btn btn-sm btn-error btn-outline w-full">Delete diagram</button>
+        </div>
+        <div id="fileDeleteConfirmSection" class="hidden">
+            <p class="text-sm font-semibold text-error mb-3">Delete diagram + docs? This cannot be undone.</p>
+            <div class="flex gap-2">
+                <button onclick="hideFileDeleteConfirm()" class="btn btn-sm btn-ghost flex-1">Cancel</button>
+                <button onclick="deleteFile()" class="btn btn-sm btn-error flex-1">Yes, delete</button>
+            </div>
+        </div>
+
+        <div class="modal-action mt-4">
+            <button onclick="document.getElementById('fileSettingsModal').close()" class="btn btn-sm btn-ghost">Close</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
 <script>
     const WORKSPACE_ID = {{ workspace_id|tojson|safe }};
     const FOLDER_PATH = {{ folder_path|tojson|safe }};
+
+    // ── New diagram ──────────────────────────────────────────────────────────
 
     async function newDiagram() {
         const name = prompt('Diagram name (without .bpmn):');
@@ -96,6 +151,82 @@
         } else {
             alert('Failed to create diagram.');
         }
+    }
+
+    // ── File (diagram) settings ───────────────────────────────────────────────
+
+    let _filePath = '';
+    let _fileMdPath = '';
+
+    function openFileSettings(filePath, mdPath) {
+        _filePath = filePath;
+        _fileMdPath = mdPath;
+
+        const filename = filePath.split('/').pop() || filePath;
+        const stem = filename.replace(/\.bpmn$/i, '');
+
+        document.getElementById('fileSettingsName').textContent = filename;
+        document.getElementById('fileRenameInput').value = stem;
+        hideFileDeleteConfirm();
+        document.getElementById('fileSettingsModal').showModal();
+    }
+
+    function showFileDeleteConfirm() {
+        document.getElementById('fileDeleteSection').classList.add('hidden');
+        document.getElementById('fileDeleteConfirmSection').classList.remove('hidden');
+    }
+
+    function hideFileDeleteConfirm() {
+        document.getElementById('fileDeleteSection').classList.remove('hidden');
+        document.getElementById('fileDeleteConfirmSection').classList.add('hidden');
+    }
+
+    async function renameFile() {
+        const newStem = document.getElementById('fileRenameInput').value.trim()
+            .replace(/[^a-zA-Z0-9_\- ]/g, '').trim().replace(/\s+/g, '-');
+        if (!newStem) return;
+
+        const dir = _filePath.includes('/') ? _filePath.substring(0, _filePath.lastIndexOf('/') + 1) : '';
+        const oldStem = (_filePath.split('/').pop() || '').replace(/\.bpmn$/i, '');
+        if (newStem === oldStem) { document.getElementById('fileSettingsModal').close(); return; }
+
+        const newBpmn = dir + newStem + '.bpmn';
+        const newMd   = dir + newStem + '.md';
+
+        // Rename .bpmn (required)
+        const r1 = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/rename`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from: _filePath, to: newBpmn }),
+        });
+        if (!r1.ok) {
+            alert(r1.status === 409 ? 'A diagram with that name already exists.' : 'Rename failed.');
+            return;
+        }
+
+        // Rename .md sidecar if it exists (best-effort, ignore 404)
+        await fetch(`/api/workspaces/${WORKSPACE_ID}/files/rename`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from: _fileMdPath, to: newMd }),
+        });
+
+        window.location.reload();
+    }
+
+    async function deleteFile() {
+        // Delete .bpmn (required)
+        const r1 = await fetch(`/api/workspaces/${WORKSPACE_ID}/files?path=${encodeURIComponent(_filePath)}`, {
+            method: 'DELETE',
+        });
+        if (!r1.ok) { alert('Delete failed.'); return; }
+
+        // Delete .md sidecar if it exists (best-effort, ignore 404)
+        await fetch(`/api/workspaces/${WORKSPACE_ID}/files?path=${encodeURIComponent(_fileMdPath)}`, {
+            method: 'DELETE',
+        });
+
+        window.location.reload();
     }
 </script>
 {% endblock %}

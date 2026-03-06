@@ -79,7 +79,13 @@
                 </button>
                 <a href="/workspaces/{{ workspace_id }}/browse/{{ folder.path }}"
                    class="card-body items-center text-center p-4">
-                    <div class="text-3xl mb-1">📁</div>
+                    <div class="mb-1 w-12 h-12 flex items-center justify-center overflow-hidden">
+                        {% if let Some(icon_url) = &folder.icon_url %}
+                        <img src="{{ icon_url }}" class="w-full h-full object-cover rounded" alt="{{ folder.name }}" loading="lazy" />
+                        {% else %}
+                        <span class="text-3xl">📁</span>
+                        {% endif %}
+                    </div>
                     <div class="text-sm font-medium truncate w-full text-center">{{ folder.name }}</div>
                     {% if let Some(type_name) = &folder.type_name %}
                     {% if let Some(color) = &folder.type_color %}
@@ -212,22 +218,36 @@
 <!-- Publish as App Modal -->
 <dialog id="publish-app-modal" class="modal">
     <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4">🚀 Publish as App</h3>
-        <div class="form-control mb-3">
-            <label class="label"><span class="label-text">Title</span></label>
-            <input type="text" id="app-title" class="input input-bordered" placeholder="e.g. My Tool" />
+        <h3 class="font-bold text-lg mb-4" id="publish-app-modal-title">🚀 Publish as App</h3>
+        <!-- Existing app banner (shown when updating) -->
+        <div id="app-existing-banner" class="hidden alert alert-info mb-3 text-sm">
+            <div class="w-full">
+                <p>An app is already published from this folder.</p>
+                <a id="app-existing-link" href="#" target="_blank" class="link text-xs mt-0.5 block"></a>
+                <label class="flex items-center gap-2 mt-2 cursor-pointer">
+                    <input type="checkbox" id="app-create-new" class="checkbox checkbox-sm" onchange="togglePublishMode()" />
+                    <span>Create a new app instead</span>
+                </label>
+            </div>
         </div>
-        <div class="form-control mb-3">
-            <label class="label"><span class="label-text">Description <span class="text-base-content/50">(optional)</span></span></label>
-            <textarea id="app-description" class="textarea textarea-bordered" rows="2" placeholder="What does this app do?"></textarea>
-        </div>
-        <div class="form-control mb-4">
-            <label class="label"><span class="label-text">Access</span></label>
-            <select id="app-access" class="select select-bordered">
-                <option value="public">🌍 Public — anyone with the link</option>
-                <option value="code">🔑 Code — requires access code</option>
-                <option value="private">🔒 Private — owner only</option>
-            </select>
+        <!-- Fields only shown when creating new -->
+        <div id="app-new-fields">
+            <div class="form-control mb-3">
+                <label class="label"><span class="label-text">Title</span></label>
+                <input type="text" id="app-title" class="input input-bordered" placeholder="e.g. My Tool" />
+            </div>
+            <div class="form-control mb-3">
+                <label class="label"><span class="label-text">Description <span class="text-base-content/50">(optional)</span></span></label>
+                <textarea id="app-description" class="textarea textarea-bordered" rows="2" placeholder="What does this app do?"></textarea>
+            </div>
+            <div class="form-control mb-4">
+                <label class="label"><span class="label-text">Access</span></label>
+                <select id="app-access" class="select select-bordered">
+                    <option value="public">🌍 Public — anyone with the link</option>
+                    <option value="code">🔑 Code — requires access code</option>
+                    <option value="private">🔒 Private — owner only</option>
+                </select>
+            </div>
         </div>
         <div id="app-result" class="hidden alert mb-3"></div>
         <div class="modal-action">
@@ -539,7 +559,7 @@
                 document.getElementById('folder-description').value = config.description || '';
 
                 // Render metadata fields for this type, then populate saved values
-                updateMetadataFields();
+                await updateMetadataFields();
 
                 if (config.metadata) {
                     Object.entries(config.metadata).forEach(([key, value]) => {
@@ -576,7 +596,7 @@
         }
     }
 
-    function updateMetadataFields() {
+    async function updateMetadataFields() {
         const type = document.getElementById('folder-type').value;
         const container = document.getElementById('metadata-fields');
         const descField = document.getElementById('folder-description');
@@ -589,6 +609,34 @@
 
         if (isDefault) {
             container.innerHTML = `<div class="alert alert-info"><p class="text-sm">Default folders don't have special metadata. They're just regular file storage.</p></div>`;
+            return;
+        }
+
+        // Media-server folders get a vault picker instead of raw metadata fields
+        if (type === 'media-server') {
+            container.innerHTML = `
+                <div class="form-control gap-1">
+                    <label class="label pb-0"><span class="label-text font-medium">Vault</span></label>
+                    <select id="meta-vault-id" class="select select-bordered select-sm w-full">
+                        <option value="">Create new vault automatically</option>
+                    </select>
+                    <label class="label pt-0"><span class="label-text-alt text-xs text-base-content/50">Pick an existing vault or leave on "Create new" to auto-provision one.</span></label>
+                </div>`;
+            try {
+                const r = await fetch('/api/user/vaults');
+                if (r.ok) {
+                    const vaults = await r.json();
+                    const sel = document.getElementById('meta-vault-id');
+                    if (sel && vaults.length > 0) {
+                        vaults.forEach(v => {
+                            const opt = document.createElement('option');
+                            opt.value = v.vault_id;
+                            opt.textContent = v.vault_name || v.vault_id;
+                            sel.appendChild(opt);
+                        });
+                    }
+                }
+            } catch {}
             return;
         }
 
@@ -804,50 +852,97 @@
             .catch(() => {});
     }
 
-    function openPublishAsAppModal() {
+    // Stores the existing app_id if one was found for the current folder
+    let _existingAppId = null;
+
+    async function openPublishAsAppModal() {
         const folderName = CURRENT_PATH ? CURRENT_PATH.split('/').pop() : WORKSPACE_ID;
         document.getElementById('app-title').value = folderName;
         document.getElementById('app-description').value = '';
         document.getElementById('app-access').value = 'public';
         document.getElementById('app-result').classList.add('hidden');
         document.getElementById('app-submit-btn').disabled = false;
+        document.getElementById('app-create-new').checked = false;
+
+        // Check for existing published app
+        _existingAppId = null;
+        const banner = document.getElementById('app-existing-banner');
+        banner.classList.add('hidden');
+        document.getElementById('app-new-fields').classList.remove('hidden');
+        document.getElementById('publish-app-modal-title').textContent = '🚀 Publish as App';
+        document.getElementById('app-submit-btn').textContent = 'Publish';
+
+        try {
+            const res = await fetch(`/api/apps/find?workspace_id=${encodeURIComponent(WORKSPACE_ID)}&folder_path=${encodeURIComponent(CURRENT_PATH)}`);
+            if (res.ok) {
+                const existing = await res.json();
+                _existingAppId = existing.app_id;
+                const shareUrl = `${window.location.origin}${existing.url}`;
+                document.getElementById('app-existing-link').href = existing.url;
+                document.getElementById('app-existing-link').textContent = shareUrl;
+                banner.classList.remove('hidden');
+                // Default to update mode
+                document.getElementById('app-new-fields').classList.add('hidden');
+                document.getElementById('publish-app-modal-title').textContent = '🔄 Update Published App';
+                document.getElementById('app-submit-btn').textContent = 'Update';
+            }
+        } catch (_) {}
+
         document.getElementById('publish-app-modal').showModal();
     }
 
+    function togglePublishMode() {
+        const createNew = document.getElementById('app-create-new').checked;
+        document.getElementById('app-new-fields').classList.toggle('hidden', !createNew);
+        if (createNew) {
+            document.getElementById('publish-app-modal-title').textContent = '🚀 Publish as App';
+            document.getElementById('app-submit-btn').textContent = 'Publish';
+        } else {
+            document.getElementById('publish-app-modal-title').textContent = '🔄 Update Published App';
+            document.getElementById('app-submit-btn').textContent = 'Update';
+        }
+    }
+
     async function submitPublishApp() {
-        const title = document.getElementById('app-title').value.trim();
-        const description = document.getElementById('app-description').value.trim();
-        const access = document.getElementById('app-access').value;
         const resultEl = document.getElementById('app-result');
         const submitBtn = document.getElementById('app-submit-btn');
-
-        if (!title) { alert('Please enter a title.'); return; }
-
         submitBtn.disabled = true;
         resultEl.classList.add('hidden');
 
+        const isUpdate = _existingAppId && !document.getElementById('app-create-new').checked;
+
         try {
-            const r = await fetch('/api/apps/publish', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    workspace_id: WORKSPACE_ID,
-                    folder_path: CURRENT_PATH,
-                    folder_type: CURRENT_TYPE_ID,
-                    title,
-                    description,
-                    access,
-                }),
-            });
+            let r, data;
+            if (isUpdate) {
+                r = await fetch(`/api/apps/${_existingAppId}/republish`, { method: 'POST' });
+            } else {
+                const title = document.getElementById('app-title').value.trim();
+                const description = document.getElementById('app-description').value.trim();
+                const access = document.getElementById('app-access').value;
+                if (!title) { submitBtn.disabled = false; alert('Please enter a title.'); return; }
+                r = await fetch('/api/apps/publish', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        workspace_id: WORKSPACE_ID,
+                        folder_path: CURRENT_PATH,
+                        folder_type: CURRENT_TYPE_ID,
+                        title,
+                        description,
+                        access,
+                    }),
+                });
+            }
 
             if (r.ok) {
-                const data = await r.json();
+                data = await r.json();
                 const shareUrl = data.access_code
                     ? `${window.location.origin}${data.url}?code=${data.access_code}`
                     : `${window.location.origin}${data.url}`;
+                const verb = isUpdate ? 'Updated!' : 'Published!';
                 resultEl.className = 'alert alert-success mb-3';
                 resultEl.innerHTML = `<div class="w-full">
-                    <p class="font-semibold">App published!</p>
+                    <p class="font-semibold">${verb}</p>
                     <p class="text-sm mt-1 break-all">
                         <a href="${data.url}" target="_blank" class="link">${shareUrl}</a>
                     </p>
@@ -858,7 +953,7 @@
                     </div>
                 </div>`;
                 resultEl.classList.remove('hidden');
-                showToast('Published!', 'success');
+                showToast(verb, 'success');
             } else {
                 const text = await r.text();
                 resultEl.className = 'alert alert-error mb-3';

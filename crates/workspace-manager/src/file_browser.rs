@@ -27,6 +27,8 @@ pub struct FolderEntry {
     pub type_icon: Option<String>,
     /// Display name of the type, e.g. "JavaScript Tool Collection".
     pub type_name: Option<String>,
+    /// URL to serve the folder's thumbnail/icon image, if one exists.
+    pub icon_url: Option<String>,
 }
 
 pub struct DirListing {
@@ -125,6 +127,7 @@ pub fn list_dir(workspace_root: &Path, subpath: &str) -> Result<DirListing> {
                 type_color: None,
                 type_icon: None,
                 type_name: None,
+                icon_url: None,
             });
         } else if file_type.is_file() {
             let metadata = entry.metadata()?;
@@ -226,6 +229,51 @@ pub fn recent_files(workspace_root: &Path, limit: usize) -> Vec<FileEntry> {
         .map(|(_, f)| f)
         .collect()
 }
+
+/// Check whether a folder contains a `thumbnail*` or `icon*` image file.
+pub fn folder_has_icon(folder_abs: &Path) -> bool {
+    icon_file_path(folder_abs).is_some()
+}
+
+/// Return the path to the icon/thumbnail file inside a folder, if any.
+/// Matches exact names (thumbnail.png, icon.svg) and prefixed names (thumbnail_preview.png, icon_app.png).
+/// Exact names are preferred over prefixed variants.
+pub fn icon_file_path(folder_abs: &Path) -> Option<std::path::PathBuf> {
+    let exts: &[&str] = &["png", "jpg", "jpeg", "gif", "bmp", "webp", "svg"];
+    let entries = std::fs::read_dir(folder_abs).ok()?;
+    let mut candidates: Vec<std::path::PathBuf> = entries
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().map(|t| t.is_file()).unwrap_or(false))
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().to_lowercase();
+            let ext = std::path::Path::new(&name)
+                .extension()
+                .and_then(|x| x.to_str())
+                .unwrap_or("");
+            if !exts.contains(&ext) {
+                return None;
+            }
+            let stem = std::path::Path::new(&name)
+                .file_stem()
+                .and_then(|x| x.to_str())
+                .unwrap_or("");
+            if stem == "thumbnail" || stem.starts_with("thumbnail_")
+                || stem == "icon" || stem.starts_with("icon_")
+            {
+                Some(e.path())
+            } else {
+                None
+            }
+        })
+        .collect();
+    // Prefer exact names over prefixed variants
+    candidates.sort_by_key(|p| {
+        let stem = p.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+        if stem == "thumbnail" || stem == "icon" { 0u8 } else { 1u8 }
+    });
+    candidates.into_iter().next()
+}
+
 
 pub fn format_size(bytes: u64) -> String {
     if bytes < 1024 {

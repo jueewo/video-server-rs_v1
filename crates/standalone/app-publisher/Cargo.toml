@@ -5,8 +5,9 @@ edition = "2021"
 description = "Publish workspace folders as standalone apps with access control"
 
 [dependencies]
-axum = { workspace = true }
+axum = { workspace = true, features = ["multipart"] }
 tokio = { workspace = true, features = ["full"] }
+image = { workspace = true }
 tower-sessions = { workspace = true }
 sqlx = { workspace = true }
 serde = { workspace = true }

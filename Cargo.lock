@@ -220,6 +220,7 @@ version = "0.1.0"
 dependencies = [
  "askama",
  "axum",
+ "image 0.24.9",
  "rand 0.8.5",
  "serde",
  "serde_json",

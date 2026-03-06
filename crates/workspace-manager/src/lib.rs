@@ -930,6 +930,47 @@ pub async fn update_folder_metadata(
         config.set_folder_metadata(&final_path, key, yaml_value);
     }
 
+    // Auto-create a vault when assigning the media-server folder type
+    if request.folder_type.as_str() == "media-server" {
+        let vault_already_set = config
+            .folders
+            .get(&final_path)
+            .and_then(|f| f.metadata.get("vault_id"))
+            .and_then(|v| v.as_str())
+            .map(|s| !s.is_empty())
+            .unwrap_or(false);
+
+        if !vault_already_set {
+            let vault_id = common::storage::generate_vault_id();
+
+            sqlx::query(
+                "INSERT INTO storage_vaults (vault_id, user_id, vault_name, is_default, created_at) VALUES (?, ?, ?, 0, datetime('now'))",
+            )
+            .bind(&vault_id)
+            .bind(&user_id)
+            .bind(format!("Workspace: {}", final_path))
+            .execute(&state.pool)
+            .await
+            .map_err(|e| {
+                warn!("Failed to create vault for media-server folder '{}': {}", final_path, e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+
+            state.storage.ensure_vault_storage(&vault_id).map_err(|e| {
+                warn!("Failed to create vault storage for '{}': {}", vault_id, e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+
+            config.set_folder_metadata(
+                &final_path,
+                "vault_id".to_string(),
+                serde_yaml::Value::String(vault_id.clone()),
+            );
+
+            info!("Auto-created vault {} for media-server folder '{}'", vault_id, final_path);
+        }
+    }
+
     // Save config
     config.save(&workspace_root).map_err(|e| {
         warn!("Failed to save workspace.yaml: {}", e);
@@ -1093,9 +1134,20 @@ pub async fn workspace_dashboard(
     let file_count = count_files_in_dir(&workspace_root);
 
     // List top-level folders
-    let folders = file_browser::list_dir(&workspace_root, "")
+    let mut folders = file_browser::list_dir(&workspace_root, "")
         .map(|e| e.folders)
         .unwrap_or_default();
+
+    // Annotate icon_url for each folder that contains a thumbnail/icon image.
+    for folder in &mut folders {
+        let folder_abs = workspace_root.join(&folder.path);
+        if file_browser::folder_has_icon(&folder_abs) {
+            folder.icon_url = Some(format!(
+                "/api/workspaces/{}/folder-icon/{}",
+                workspace_id, folder.path
+            ));
+        }
+    }
 
     // Gather recent files (up to 10, sorted by modification time)
     let recent_files = file_browser::recent_files(&workspace_root, 10);
@@ -1138,7 +1190,7 @@ pub async fn file_browser_page(
     Path(path_parts): Path<(String, String)>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
-) -> Result<Html<String>, StatusCode> {
+) -> Result<Response, StatusCode> {
     check_scope(&user, "read")?;
     let (workspace_id, subpath) = path_parts;
     file_browser_handler(workspace_id, subpath, session, state).await
@@ -1150,7 +1202,7 @@ pub async fn file_browser_root_page(
     Path(workspace_id): Path<String>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
-) -> Result<Html<String>, StatusCode> {
+) -> Result<Response, StatusCode> {
     check_scope(&user, "read")?;
     file_browser_handler(workspace_id, String::new(), session, state).await
 }
@@ -1160,12 +1212,35 @@ async fn file_browser_handler(
     subpath: String,
     session: Session,
     state: Arc<WorkspaceManagerState>,
-) -> Result<Html<String>, StatusCode> {
+) -> Result<Response, StatusCode> {
     let user_id = require_auth(&session).await?;
     let (workspace_name, _) =
         verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
     let workspace_root = state.storage.workspace_root(&workspace_id);
+
+    // Load workspace config once — used for redirect check and folder type annotation
+    let ws_config_opt = WorkspaceConfig::load(&workspace_root).ok();
+
+    // Redirect media-server folders to the scoped media manager
+    if !subpath.is_empty() {
+        if let Some(ref ws_config) = ws_config_opt {
+            if let Some(fc) = ws_config.get_folder(&subpath) {
+                if fc.folder_type.as_str() == "media-server" {
+                    if let Some(vault_id) = fc
+                        .metadata
+                        .get("vault_id")
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.is_empty())
+                    {
+                        return Ok(
+                            Redirect::to(&format!("/media?vault_id={}", vault_id)).into_response()
+                        );
+                    }
+                }
+            }
+        }
+    }
 
     let mut dir_listing =
         file_browser::list_dir(&workspace_root, &subpath).map_err(|_| StatusCode::NOT_FOUND)?;
@@ -1177,7 +1252,7 @@ async fn file_browser_handler(
     let mut current_type_apps: Vec<(String, String)> = Vec::new();
     let mut current_type_id: Option<String> = None;
 
-    if let Ok(ws_config) = WorkspaceConfig::load(&workspace_root) {
+    if let Some(ws_config) = ws_config_opt {
         let registry = state.folder_type_registry.read().unwrap();
 
         // Current directory type + resolved app links
@@ -1215,6 +1290,17 @@ async fn file_browser_handler(
                     }
                 }
             }
+        }
+    }
+
+    // Annotate icon_url for each folder that contains a thumbnail/icon image.
+    for folder in &mut dir_listing.folders {
+        let folder_abs = workspace_root.join(&folder.path);
+        if file_browser::folder_has_icon(&folder_abs) {
+            folder.icon_url = Some(format!(
+                "/api/workspaces/{}/folder-icon/{}",
+                workspace_id, folder.path
+            ));
         }
     }
 
@@ -1258,7 +1344,7 @@ async fn file_browser_handler(
     let html = template
         .render()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    Ok(Html(html))
+    Ok(Html(html).into_response())
 }
 
 /// GET /workspaces/{workspace_id}/edit-text?file=...
@@ -2130,6 +2216,68 @@ pub async fn init_folder_from_template_handler(
 }
 
 // ============================================================================
+// Serve folder icon
+// ============================================================================
+
+/// GET /api/workspaces/{workspace_id}/folder-icon/{*path}
+/// Serves the thumbnail/icon image found in a workspace folder.
+pub async fn serve_folder_icon_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path((workspace_id, folder_path)): Path<(String, String)>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+) -> Response {
+    if check_scope(&user, "read").is_err() {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    let user_id = match require_auth(&session).await {
+        Ok(id) => id,
+        Err(e) => return e.into_response(),
+    };
+    if verify_workspace_ownership(&state.pool, &workspace_id, &user_id)
+        .await
+        .is_err()
+    {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    // Sanitize: reject path traversal
+    let clean = folder_path.trim_start_matches('/');
+    for seg in clean.split('/') {
+        if seg == ".." || seg == "." {
+            return StatusCode::BAD_REQUEST.into_response();
+        }
+    }
+    let folder_abs = workspace_root.join(clean);
+
+    match file_browser::icon_file_path(&folder_abs) {
+        None => StatusCode::NOT_FOUND.into_response(),
+        Some(icon_path) => {
+            let ext = icon_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("png");
+            let content_type = match ext {
+                "svg" => "image/svg+xml",
+                "jpg" | "jpeg" => "image/jpeg",
+                "gif" => "image/gif",
+                "webp" => "image/webp",
+                _ => "image/png",
+            };
+            match tokio::fs::read(&icon_path).await {
+                Ok(bytes) => Response::builder()
+                    .header(header::CONTENT_TYPE, content_type)
+                    .header(header::CACHE_CONTROL, "max-age=60")
+                    .body(Body::from(bytes))
+                    .unwrap(),
+                Err(_) => StatusCode::NOT_FOUND.into_response(),
+            }
+        }
+    }
+}
+
+// ============================================================================
 // Router
 // ============================================================================
 
@@ -2193,6 +2341,10 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         .route(
             "/api/workspaces/{workspace_id}/folder/init-template",
             post(init_folder_from_template_handler),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/folder-icon/{*path}",
+            get(serve_folder_icon_handler),
         )
         // Folder type registry API
         .route(

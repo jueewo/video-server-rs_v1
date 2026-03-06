@@ -24,7 +24,16 @@
         {% for app in &apps %}
         <div class="card bg-base-100 shadow border border-base-300" id="app-card-{{ app.app_id }}">
             <div class="card-body p-4">
-                <div class="flex items-start justify-between gap-4 flex-wrap">
+                <div class="flex items-start gap-4 flex-wrap">
+                    <!-- Thumbnail -->
+                    <div class="shrink-0 w-20 h-16 rounded overflow-hidden bg-base-200 flex items-center justify-center">
+                        {% if let Some(thumb) = &app.thumbnail_url %}
+                        <img src="{{ thumb }}" class="w-full h-full object-cover" alt="App thumbnail" loading="lazy" id="thumb-{{ app.app_id }}" />
+                        {% else %}
+                        <span class="text-2xl" id="thumb-placeholder-{{ app.app_id }}">🚀</span>
+                        {% endif %}
+                    </div>
+                    <!-- Info -->
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 flex-wrap mb-1">
                             <h2 class="font-semibold text-lg">{{ app.title }}</h2>
@@ -45,6 +54,7 @@
                             <span>📅 {{ app.created_at }}</span>
                         </div>
                     </div>
+                    <!-- Actions -->
                     <div class="flex gap-2 flex-wrap items-center shrink-0">
                         <a href="{{ app.url }}" target="_blank" class="btn btn-sm btn-primary">Open</a>
                         {% if app.access == "code" %}
@@ -113,6 +123,17 @@
                 <span class="label-text">Regenerate access code</span>
             </label>
         </div>
+        <div class="form-control mb-4">
+            <label class="label"><span class="label-text">Thumbnail</span></label>
+            <div class="flex items-center gap-3">
+                <img id="edit-thumb-preview" src="" class="hidden w-16 h-12 object-cover rounded" alt="Thumbnail preview" />
+                <label class="btn btn-sm btn-outline cursor-pointer">
+                    📷 Upload image
+                    <input type="file" id="edit-thumb-file" accept="image/*" class="hidden" onchange="previewThumb(this)" />
+                </label>
+                <span id="edit-thumb-filename" class="text-xs text-base-content/50"></span>
+            </div>
+        </div>
         <div id="edit-result" class="hidden alert mb-3"></div>
         <div class="modal-action">
             <button onclick="document.getElementById('edit-app-modal').close()" class="btn btn-ghost">Cancel</button>
@@ -137,7 +158,24 @@
         document.getElementById('edit-access').value = btn.dataset.access;
         document.getElementById('edit-regen-code').checked = false;
         document.getElementById('edit-result').classList.add('hidden');
+        // Reset thumbnail UI
+        document.getElementById('edit-thumb-file').value = '';
+        document.getElementById('edit-thumb-filename').textContent = '';
+        document.getElementById('edit-thumb-preview').classList.add('hidden');
         document.getElementById('edit-app-modal').showModal();
+    }
+
+    function previewThumb(input) {
+        const file = input.files[0];
+        if (!file) return;
+        document.getElementById('edit-thumb-filename').textContent = file.name;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = document.getElementById('edit-thumb-preview');
+            img.src = e.target.result;
+            img.classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
     }
 
     async function submitEdit() {
@@ -157,6 +195,34 @@
         });
 
         if (r.ok) {
+            // Upload thumbnail if a file was selected
+            const thumbFile = document.getElementById('edit-thumb-file').files[0];
+            if (thumbFile) {
+                const fd = new FormData();
+                fd.append('file', thumbFile);
+                const tr = await fetch(`/api/apps/${appId}/thumbnail`, { method: 'POST', body: fd });
+                if (tr.ok) {
+                    const data = await tr.json();
+                    const existingImg = document.getElementById('thumb-' + appId);
+                    const placeholder = document.getElementById('thumb-placeholder-' + appId);
+                    if (existingImg) {
+                        existingImg.src = data.thumbnail_url + '?t=' + Date.now();
+                    } else if (placeholder) {
+                        const img = document.createElement('img');
+                        img.id = 'thumb-' + appId;
+                        img.src = data.thumbnail_url + '?t=' + Date.now();
+                        img.className = 'w-full h-full object-cover';
+                        img.alt = 'App thumbnail';
+                        placeholder.replaceWith(img);
+                    }
+                } else {
+                    resultEl.className = 'alert alert-error mb-3';
+                    resultEl.textContent = `Thumbnail upload failed (${tr.status}) — metadata was saved.`;
+                    resultEl.classList.remove('hidden');
+                    submitBtn.disabled = false;
+                    return; // Don't close modal so user can see the error
+                }
+            }
             document.getElementById('edit-app-modal').close();
             showToast('Saved!', 'success');
             setTimeout(() => location.reload(), 800);

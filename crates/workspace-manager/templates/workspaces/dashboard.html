@@ -50,7 +50,13 @@
                         <li>
                             <a href="/workspaces/{{ workspace.workspace_id }}/browse/{{ folder.path }}"
                                class="flex items-center gap-2 hover:text-primary p-2 rounded hover:bg-base-200 transition-colors">
-                                <span class="text-lg">📁</span>
+                                <span class="text-lg shrink-0 w-6 h-6 flex items-center justify-center overflow-hidden">
+                                    {% if let Some(icon_url) = &folder.icon_url %}
+                                    <img src="{{ icon_url }}" class="w-full h-full object-cover rounded" alt="{{ folder.name }}" loading="lazy" />
+                                    {% else %}
+                                    📁
+                                    {% endif %}
+                                </span>
                                 <span class="flex-1 font-medium">{{ folder.name }}</span>
                                 <span class="badge badge-sm badge-neutral">{{ folder.file_count }}</span>
                             </a>

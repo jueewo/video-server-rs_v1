@@ -10,7 +10,11 @@
 <body class="min-h-screen bg-base-200 flex items-center justify-center">
 <div class="card bg-base-100 shadow-xl w-full max-w-sm">
     <div class="card-body items-center text-center">
+        {% if let Some(thumb) = &thumbnail_url %}
+        <img src="{{ thumb }}" class="w-24 h-24 object-cover rounded-xl shadow mb-2" alt="App thumbnail" />
+        {% else %}
         <div class="text-5xl mb-2">🔒</div>
+        {% endif %}
         <h2 class="card-title">Access Required</h2>
         <p class="text-base-content/60 mb-4">This app is protected. Enter the access code to continue.</p>
         <form method="get" action="/pub/{{ app_id }}" class="w-full flex flex-col gap-3">

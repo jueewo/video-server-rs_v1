@@ -167,8 +167,16 @@ pub struct SaveTextBody {
 pub struct PublishRequest {
     pub file_path: String,
     pub vault_id: String,
-    pub title: String,
-    pub access_code: Option<String>,
+    /// Optional — auto-inferred from filename stem if omitted.
+    pub title: Option<String>,
+}
+
+/// One media-server folder in the workspace (for "→ Media" picker).
+#[derive(Debug, Serialize)]
+pub struct MediaFolderInfo {
+    pub folder_path: String,
+    pub folder_name: String,
+    pub vault_id: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -1294,6 +1302,20 @@ async fn file_browser_handler(
     // Load workspace config once — used for renderer lookup and folder type annotation
     let ws_config_opt = WorkspaceConfig::load(&workspace_root).ok();
 
+    // media-server folders redirect to the media library scoped to their vault
+    if !subpath.is_empty() {
+        if let Some(ref ws_config) = ws_config_opt {
+            if let Some(fc) = ws_config.get_folder(&subpath) {
+                if fc.folder_type.as_str() == "media-server" {
+                    if let Some(vault_id) = fc.metadata.get("vault_id").and_then(|v| v.as_str()) {
+                        let redirect_url = format!("/media?vault_id={}", urlencoding::encode(vault_id));
+                        return Ok(Redirect::to(&redirect_url).into_response());
+                    }
+                }
+            }
+        }
+    }
+
     // Delegate to a registered renderer if one handles this folder type
     if !subpath.is_empty() {
         if let Some(ref ws_config) = ws_config_opt {
@@ -1672,10 +1694,56 @@ pub async fn open_file_page(
     Ok(Html(html))
 }
 
+/// GET /api/workspaces/{workspace_id}/media-folders
+///
+/// Returns the list of folders in this workspace that have `folder_type: media-server`
+/// and a `vault_id` in their metadata. Used by the "→ Media" file picker.
+pub async fn list_media_folders(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+) -> Result<Json<Vec<MediaFolderInfo>>, StatusCode> {
+    check_scope(&user, "read")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let ws_config = WorkspaceConfig::load(&workspace_root).unwrap_or_else(|_| WorkspaceConfig {
+        name: String::new(),
+        description: String::new(),
+        folders: std::collections::HashMap::new(),
+    });
+
+    let folders: Vec<MediaFolderInfo> = ws_config
+        .folders
+        .iter()
+        .filter(|(_, fc)| fc.folder_type.as_str() == "media-server")
+        .filter_map(|(path, fc)| {
+            let vault_id = fc.metadata.get("vault_id")?.as_str()?.to_string();
+            if vault_id.is_empty() {
+                return None;
+            }
+            let folder_name = std::path::Path::new(path)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(path)
+                .to_string();
+            Some(MediaFolderInfo {
+                folder_path: path.clone(),
+                folder_name,
+                vault_id,
+            })
+        })
+        .collect();
+
+    Ok(Json(folders))
+}
+
 /// POST /api/workspaces/{workspace_id}/files/publish
 ///
-/// Copies a workspace file into a vault, creates a `media_items` record, and
-/// optionally assigns an access code — giving the file a shareable URL.
+/// Copies a workspace file into a vault and creates a `media_items` record,
+/// giving the file a URL in the media library.
 pub async fn publish_to_vault(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
@@ -1702,7 +1770,7 @@ pub async fn publish_to_vault(
     }
 
     // Validate inputs
-    if request.file_path.trim().is_empty() || request.title.trim().is_empty() {
+    if request.file_path.trim().is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
 
@@ -1729,6 +1797,12 @@ pub async fn publish_to_vault(
         .first_or_octet_stream()
         .to_string();
 
+    // Only pipeline-worthy types belong in the vault
+    if !mime_type.starts_with("image/") && !mime_type.starts_with("video/") && mime_type != "application/pdf" {
+        warn!("publish_to_vault rejected: unsupported MIME type '{}' for '{}'", mime_type, request.file_path);
+        return Err(StatusCode::UNSUPPORTED_MEDIA_TYPE);
+    }
+
     // Original filename
     let original_filename = abs_path
         .file_name()
@@ -1736,8 +1810,22 @@ pub async fn publish_to_vault(
         .unwrap_or("file")
         .to_string();
 
+    // Determine title: use provided title or infer from filename stem
+    let file_stem_for_title = std::path::Path::new(&original_filename)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("file")
+        .to_string();
+    let title = request
+        .title
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .unwrap_or(&file_stem_for_title)
+        .to_string();
+
     // Generate unique slug from title
-    let base_slug = slugify(request.title.trim());
+    let base_slug = slugify(&title);
     let base_slug = if base_slug.is_empty() {
         slugify(&original_filename)
     } else {
@@ -1774,7 +1862,21 @@ pub async fn publish_to_vault(
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    // Build stored filename and copy to vault documents dir
+    // Detect media type from MIME
+    let media_type = if mime_type.starts_with("image/") {
+        MediaType::Image
+    } else if mime_type.starts_with("video/") {
+        MediaType::Video
+    } else {
+        MediaType::Document
+    };
+    let media_type_str = match media_type {
+        MediaType::Image => "image",
+        MediaType::Video => "video",
+        MediaType::Document => "document",
+    };
+
+    // Build stored filename and copy to vault using correct nested path
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -1792,7 +1894,11 @@ pub async fn publish_to_vault(
 
     let dest_dir = state
         .storage
-        .vault_media_dir(&request.vault_id, MediaType::Document);
+        .vault_nested_media_dir(&request.vault_id, media_type);
+    std::fs::create_dir_all(&dest_dir).map_err(|e| {
+        warn!("Failed to create vault media dir {:?}: {}", dest_dir, e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
     let dest = dest_dir.join(&stored_filename);
 
     std::fs::write(&dest, &bytes).map_err(|e| {
@@ -1805,10 +1911,11 @@ pub async fn publish_to_vault(
         "INSERT INTO media_items
          (slug, media_type, title, filename, original_filename, mime_type, file_size,
           is_public, user_id, vault_id, status, allow_download, allow_comments, mature_content)
-         VALUES (?, 'document', ?, ?, ?, ?, ?, 0, ?, ?, 'active', 1, 1, 0)",
+         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 'active', 1, 1, 0)",
     )
     .bind(&slug)
-    .bind(request.title.trim())
+    .bind(media_type_str)
+    .bind(&title)
     .bind(&stored_filename)
     .bind(&original_filename)
     .bind(&mime_type)
@@ -1822,50 +1929,11 @@ pub async fn publish_to_vault(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    // Optionally create + link access code
-    let share_url = if let Some(ref code) = request.access_code {
-        let code = code.trim();
-        if !code.is_empty() {
-            // Insert access code
-            let access_code_id: i64 = sqlx::query_scalar(
-                "INSERT INTO access_codes (code, created_by, permission_level, is_active, created_at)
-                 VALUES (?, ?, 'read', 1, datetime('now'))
-                 RETURNING id",
-            )
-            .bind(code)
-            .bind(&user_id)
-            .fetch_one(&state.pool)
-            .await
-            .map_err(|e| {
-                warn!("Failed to insert access_code: {}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
-
-            // Link access code to media item
-            sqlx::query(
-                "INSERT INTO access_code_permissions (access_code_id, media_type, media_slug)
-                 VALUES (?, 'document', ?)",
-            )
-            .bind(access_code_id)
-            .bind(&slug)
-            .execute(&state.pool)
-            .await
-            .map_err(|e| {
-                warn!("Failed to insert access_code_permissions: {}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
-
-            Some(format!("/media/{}?code={}", slug, urlencoding::encode(code)))
-        } else {
-            None
-        }
-    } else {
-        None
-    };
+    let share_url: Option<String> = None;
 
     info!(
-        "Published workspace file {} to vault {} as slug {}",
-        request.file_path, request.vault_id, slug
+        "Published workspace file {} to vault {} as slug {} (type={})",
+        request.file_path, request.vault_id, slug, media_type_str
     );
 
     Ok(Json(PublishResponse {
@@ -2433,6 +2501,10 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         .route(
             "/api/workspaces/{workspace_id}/files/upload",
             post(upload_file),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/media-folders",
+            get(list_media_folders),
         )
         .route(
             "/api/workspaces/{workspace_id}/files/publish",

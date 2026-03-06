@@ -1,0 +1,14 @@
+id: media-server
+name: Media Server
+icon: film
+description: "Video, image, and document library with transcoding and HLS streaming"
+color: "#6366f1"
+git_template: null
+apps: []
+metadata_schema:
+  - key: vault_id
+    label: Vault ID
+    type: string
+    default: ""
+    required: false
+    description: "Auto-managed — do not edit manually"

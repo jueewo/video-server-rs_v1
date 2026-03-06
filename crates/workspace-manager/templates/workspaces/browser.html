@@ -138,9 +138,9 @@
                                     <a href="/workspaces/{{ workspace_id }}/edit?file={{ file.path }}"
                                        class="btn btn-xs btn-outline">{% if file.is_viewable && !file.is_editable %}View{% else %}Open{% endif %}</a>
                                     {% endif %}
-                                    {% if file.is_editable %}
-                                    <button onclick="openPublishModal('{{ file.path }}', '{{ file.name }}')"
-                                            class="btn btn-xs btn-outline btn-accent gap-1"><i data-lucide="share-2" class="w-3 h-3"></i> Publish</button>
+                                    {% if file.mime_type.starts_with("image/") || file.mime_type.starts_with("video/") || file.mime_type == "application/pdf" %}
+                                    <button onclick="openSendToMediaModal('{{ file.path }}', '{{ file.name }}')"
+                                            class="btn btn-xs btn-outline btn-accent gap-1" title="Send to Media Library"><i data-lucide="library" class="w-3 h-3"></i> → Media</button>
                                     {% endif %}
                                     <button onclick="deleteItem('{{ file.path }}', false)"
                                             class="btn btn-xs btn-error btn-outline"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
@@ -189,29 +189,16 @@
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
-<!-- Publish to Vault Modal -->
-<dialog id="publish-modal" class="modal">
-    <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="share-2" class="w-5 h-5"></i> Publish to Vault</h3>
-        <input type="hidden" id="pub-file-path" />
-        <div class="form-control mb-3">
-            <label class="label"><span class="label-text">Title</span></label>
-            <input type="text" id="pub-title" placeholder="e.g. Q1 Report" class="input input-bordered" />
-        </div>
-        <div class="form-control mb-3">
-            <label class="label"><span class="label-text">Vault</span></label>
-            <select id="pub-vault" class="select select-bordered">
-                <option value="">Loading vaults…</option>
-            </select>
-        </div>
-        <div class="form-control mb-4">
-            <label class="label"><span class="label-text">Access Code <span class="text-base-content/50">(optional)</span></span></label>
-            <input type="text" id="pub-access-code" placeholder="Leave empty for no restriction" class="input input-bordered" />
-        </div>
-        <div id="pub-result" class="hidden alert mb-3"></div>
+<!-- Send to Media Library Modal -->
+<dialog id="send-to-media-modal" class="modal">
+    <div class="modal-box max-w-sm">
+        <h3 class="font-bold text-lg mb-1 flex items-center gap-2"><i data-lucide="library" class="w-5 h-5"></i> Send to Media Library</h3>
+        <p id="stm-filename" class="text-sm text-base-content/60 mb-4"></p>
+        <input type="hidden" id="stm-file-path" />
+        <div id="stm-folder-list" class="flex flex-col gap-2 mb-3"></div>
+        <div id="stm-result" class="hidden alert mb-3"></div>
         <div class="modal-action">
-            <button onclick="document.getElementById('publish-modal').close()" class="btn btn-ghost">Cancel</button>
-            <button onclick="submitPublish()" id="pub-submit-btn" class="btn btn-accent">Publish</button>
+            <button onclick="document.getElementById('send-to-media-modal').close()" class="btn btn-ghost btn-sm">Cancel</button>
         </div>
     </div>
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
@@ -804,39 +791,100 @@
         }
     }
 
-    // ── Publish to Vault ────────────────────────────────────────────────────
+    // ── Send to Media Library ────────────────────────────────────────────────
 
-    async function openPublishModal(filePath, fileName) {
-        document.getElementById('pub-file-path').value = filePath;
-        // Pre-fill title from filename stem (strip extension)
-        const stem = fileName.includes('.') ? fileName.slice(0, fileName.lastIndexOf('.')) : fileName;
-        document.getElementById('pub-title').value = stem;
-        document.getElementById('pub-access-code').value = '';
-        document.getElementById('pub-result').classList.add('hidden');
-        document.getElementById('pub-submit-btn').disabled = false;
+    async function openSendToMediaModal(filePath, fileName) {
+        document.getElementById('stm-file-path').value = filePath;
+        document.getElementById('stm-filename').textContent = fileName;
+        document.getElementById('stm-result').classList.add('hidden');
 
-        // Fetch user's vaults
-        const vaultSel = document.getElementById('pub-vault');
-        vaultSel.innerHTML = '<option value="">Loading…</option>';
+        const listEl = document.getElementById('stm-folder-list');
+        listEl.innerHTML = '<span class="loading loading-spinner loading-sm"></span>';
+
+        document.getElementById('send-to-media-modal').showModal();
+
         try {
-            const r = await fetch('/api/user/vaults');
+            const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/media-folders`);
+            if (!r.ok) throw new Error('Failed to load media folders');
+            const folders = await r.json();
+
+            if (folders.length === 0) {
+                listEl.innerHTML = `<div class="alert alert-warning text-sm">
+                    <i data-lucide="triangle-alert" class="w-4 h-4"></i>
+                    <span>No media-server folders found. Create a folder and set its type to <strong>Media Server</strong> first.</span>
+                </div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            if (folders.length === 1) {
+                // Auto-send without picker
+                listEl.innerHTML = `<p class="text-sm text-base-content/70">Sending to <strong>${escHtml(folders[0].folder_name)}</strong>…</p>`;
+                await doSendToMedia(folders[0].vault_id, folders[0].folder_name);
+                return;
+            }
+
+            // Show folder picker
+            listEl.innerHTML = '<p class="text-sm text-base-content/60 mb-1">Choose a media folder:</p>' +
+                folders.map(f => `
+                    <button onclick="doSendToMedia('${escHtml(f.vault_id)}', '${escHtml(f.folder_name)}')"
+                            class="btn btn-outline btn-sm justify-start gap-2 w-full">
+                        <i data-lucide="film" class="w-4 h-4 flex-shrink-0"></i>
+                        ${escHtml(f.folder_name)}
+                    </button>`).join('');
+            lucide.createIcons();
+        } catch (e) {
+            listEl.innerHTML = `<div class="alert alert-error text-sm">${escHtml(e.message)}</div>`;
+        }
+    }
+
+    async function doSendToMedia(vaultId, folderName) {
+        const filePath = document.getElementById('stm-file-path').value;
+        const resultEl = document.getElementById('stm-result');
+        const listEl = document.getElementById('stm-folder-list');
+
+        listEl.innerHTML = `<p class="text-sm text-base-content/60">Sending to <strong>${escHtml(folderName)}</strong>…</p>`;
+        resultEl.classList.add('hidden');
+
+        try {
+            const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/publish`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_path: filePath, vault_id: vaultId }),
+            });
             if (r.ok) {
-                const vaults = await r.json();
-                if (vaults.length === 0) {
-                    vaultSel.innerHTML = '<option value="">No vaults found — create one first</option>';
-                } else {
-                    vaultSel.innerHTML = vaults.map(v =>
-                        `<option value="${v.vault_id}">${v.vault_name || v.vault_id}</option>`
-                    ).join('');
-                }
+                const data = await r.json();
+                const url = data.media_url;
+                listEl.innerHTML = '';
+                resultEl.className = 'alert alert-success mb-3';
+                resultEl.innerHTML = `<div class="w-full">
+                    <p class="font-semibold">Sent to media library!</p>
+                    <p class="text-sm mt-1">
+                        <a href="${url}" target="_blank" class="link link-primary">${url}</a>
+                        <button onclick="navigator.clipboard.writeText(window.location.origin + '${url}').then(() => showToast('URL copied!', 'success'))"
+                                class="btn btn-xs btn-ghost ml-1" title="Copy URL"><i data-lucide="copy" class="w-3 h-3"></i></button>
+                    </p>
+                </div>`;
+                resultEl.classList.remove('hidden');
+                lucide.createIcons();
+                showToast('Sent to media library!', 'success');
             } else {
-                vaultSel.innerHTML = '<option value="">Failed to load vaults</option>';
+                const text = await r.text();
+                listEl.innerHTML = '';
+                resultEl.className = 'alert alert-error mb-3';
+                resultEl.textContent = 'Error: ' + text;
+                resultEl.classList.remove('hidden');
             }
         } catch (e) {
-            vaultSel.innerHTML = '<option value="">Network error</option>';
+            listEl.innerHTML = '';
+            resultEl.className = 'alert alert-error mb-3';
+            resultEl.textContent = 'Network error: ' + e.message;
+            resultEl.classList.remove('hidden');
         }
+    }
 
-        document.getElementById('publish-modal').showModal();
+    function escHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
     // Preload folder types and current directory type on page load
@@ -969,60 +1017,5 @@
         }
     }
 
-    async function submitPublish() {
-        const filePath = document.getElementById('pub-file-path').value;
-        const vaultId = document.getElementById('pub-vault').value;
-        const title = document.getElementById('pub-title').value.trim();
-        const accessCode = document.getElementById('pub-access-code').value.trim();
-        const resultEl = document.getElementById('pub-result');
-        const submitBtn = document.getElementById('pub-submit-btn');
-
-        if (!vaultId) { alert('Please select a vault.'); return; }
-        if (!title) { alert('Please enter a title.'); return; }
-
-        submitBtn.disabled = true;
-        resultEl.classList.add('hidden');
-
-        try {
-            const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/publish`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    file_path: filePath,
-                    vault_id: vaultId,
-                    title: title,
-                    access_code: accessCode || null,
-                }),
-            });
-
-            if (r.ok) {
-                const data = await r.json();
-                const url = data.share_url || data.media_url;
-                resultEl.className = 'alert alert-success mb-3';
-                resultEl.innerHTML = `
-                    <div>
-                        <p class="font-semibold">Published!</p>
-                        <p class="text-sm mt-1">
-                            <a href="${url}" target="_blank" class="link link-primary">${url}</a>
-                            <button onclick="navigator.clipboard.writeText(window.location.origin + '${url}').then(() => showToast('URL copied!', 'success'))"
-                                    class="btn btn-xs btn-ghost ml-2">📋 Copy</button>
-                        </p>
-                    </div>`;
-                resultEl.classList.remove('hidden');
-                showToast('Published to vault!', 'success');
-            } else {
-                const text = await r.text();
-                resultEl.className = 'alert alert-error mb-3';
-                resultEl.textContent = `Error ${r.status}: ${text}`;
-                resultEl.classList.remove('hidden');
-                submitBtn.disabled = false;
-            }
-        } catch (e) {
-            resultEl.className = 'alert alert-error mb-3';
-            resultEl.textContent = 'Network error: ' + e.message;
-            resultEl.classList.remove('hidden');
-            submitBtn.disabled = false;
-        }
-    }
 </script>
 {% endblock %}

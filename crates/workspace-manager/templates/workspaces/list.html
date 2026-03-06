@@ -83,26 +83,26 @@
 <!-- Edit Workspace Modal -->
 <dialog id="edit-modal" class="modal">
     <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4">Edit Workspace</h3>
+        <h3 class="font-bold text-lg mb-5">Edit Workspace</h3>
 
         <div id="edit-error" class="alert alert-error mb-4 hidden">
             <span id="edit-error-msg"></span>
         </div>
 
-        <div class="form-control mb-4">
-            <label class="label" for="edit-name">
-                <span class="label-text font-semibold">Name <span class="text-error">*</span></span>
+        <div class="grid grid-cols-[8rem_1fr] items-start gap-x-4 gap-y-4 mb-6">
+            <label for="edit-name" class="label py-2 justify-end">
+                <span class="label-text font-semibold text-right">Name <span class="text-error">*</span></span>
             </label>
-            <input type="text" id="edit-name" class="input input-bordered" maxlength="100" />
-        </div>
+            <input type="text" id="edit-name" class="input input-bordered w-full" maxlength="100" />
 
-        <div class="form-control mb-6">
-            <label class="label" for="edit-description">
-                <span class="label-text font-semibold">Description</span>
-                <span class="label-text-alt text-base-content/50">Optional</span>
+            <label for="edit-description" class="label py-2 justify-end">
+                <span class="label-text font-semibold text-right">Description</span>
             </label>
-            <textarea id="edit-description" class="textarea textarea-bordered" rows="3" maxlength="500"
-                      placeholder="Brief description of this workspace..."></textarea>
+            <div>
+                <textarea id="edit-description" class="textarea textarea-bordered w-full" rows="3" maxlength="500"
+                          placeholder="Brief description of this workspace..."></textarea>
+                <p class="text-xs text-base-content/50 mt-1">Optional</p>
+            </div>
         </div>
 
         <div class="modal-action">

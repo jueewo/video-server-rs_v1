@@ -67,7 +67,7 @@ without changing the core codebase.
 - [x] Define `FolderTypeRenderer` trait in `workspace-core` crate
 - [x] Refactor `workspace-manager` to accept `Vec<Arc<dyn FolderTypeRenderer>>`
 - [x] Migrate `bpmn-viewer` as first proof-of-concept (smallest, most self-contained)
-- [ ] Migrate `media-manager` folder view (replaces Phase 0.5 redirect)
+- [x] Migrate `media-manager` folder view (replaces Phase 0.5 redirect)
 - [ ] Document the pattern for adding new folder types
 
 ---
@@ -89,21 +89,39 @@ isolated vault. No storage migration required.
 
 ---
 
-## Phase 1 — Consolidate Storage (Foundation)
+## Phase 1 — Complete the Access Model
 
-**Goal:** One storage model. Workspaces are the authoritative home for all files.
+**Goal:** Close the access model. Internal users reach media through workspace folders
+(done). External clients and satellite apps need a parallel path — folder-scoped access
+codes — without requiring user accounts.
 
-> **Note:** Phase 0.5 is a pragmatic bridge. Phase 1 is the full consolidation where
-> vault storage is merged into workspace storage and the upload flow is simplified.
+**Storage does not move.** Vault paths stay as-is; vault_id is already an internal
+implementation detail hidden behind the media-server folder type. The heavy storage
+consolidation (path unification, `media_items` as index) belongs in Phase 2 when
+transcoding becomes a service. Phase 1 is about access, not storage.
 
-- [ ] Retire vault as a user-facing concept. Vault storage becomes an internal implementation
-      detail or is merged into workspace storage
-- [ ] `media_items` table becomes a lightweight index over workspace files (path, mime, metadata)
-      rather than the authoritative record with its own storage location
-- [ ] Upload flow goes to workspace, not vault. No more "Publish to Vault" step
-- [ ] Serving routes read from workspace storage
-- [ ] Remove the dual-path fallback logic (`find_media_file`, `vault_nested_media_dir` complexity)
-- [ ] Define workspace-level access codes for sharing individual files or folders
+### Access model completed
+
+| Who | Path | Status |
+|---|---|---|
+| Internal user | Workspace → media-server folder → inline grid | ✓ Done |
+| External client / satellite app | Folder-scoped access code → media list + serving | Phase 1 |
+
+### Tasks
+
+- [ ] **Folder-scoped access codes** — a code that unlocks all media in a workspace
+      folder (maps to vault_id internally). Satellite apps (3D gallery, course viewer)
+      present the code to get a media list and serving URLs. No user account needed.
+- [ ] **Per-item codes remain** for sharing a single file with a client (existing feature,
+      kept as-is)
+- [ ] **API endpoint for folder code** — `GET /api/folder/{code}/media` returns
+      accessible items + serving URLs for the satellite app to consume
+- [ ] **Hide `/media` standalone entry points** — `/media` global list and vault picker
+      are internal scaffolding; users should reach media only through workspace folders.
+      Deprecate or gate behind auth without workspace context.
+
+**Result:** Two clean access paths. Internal = workspace browser. External = access code.
+No vault concept visible to any user or satellite app.
 
 **Result:** Users have one mental model. Files live in workspaces. Period.
 

@@ -51,14 +51,24 @@ Document this as the official setup path. Casdoor stays a feature, not a barrier
 
 ## Sharing Model
 
-**How does a public visitor (no account) access a workspace file?**
-When files live only in workspaces, the sharing design needs a concrete answer
-before the remodel starts — it affects the data model.
+**Answered 2026-03-06.**
 
-Likely answer: access codes on folders/files. But the detail matters:
-- Are access codes per-file, per-folder, or per-workspace?
-- Can an access code be scoped to read-only streaming (video) but not download?
-- How does an external satellite app authenticate with an access code?
+Two access code scopes, both needed:
+
+| Scope | Use case | Status |
+|---|---|---|
+| Per-item | Share a single video/image/PDF with a client. URL like `/media/{slug}?code=xxx` | Existing, unchanged |
+| Per-folder | Give a satellite app (3D gallery, course viewer) or client access to all media in a workspace folder | Phase 1 — to build |
+
+A folder-scoped code maps internally to the folder's `vault_id`. The external app
+presents the code → gets a media list + serving URLs → calls `/media/{slug}/...`
+with the code for auth. No user account required. No vault concept exposed.
+
+**Download restriction:** not in Phase 1. Serving routes return files; restricting
+to stream-only is a later hardening task.
+
+**Data migration:** moot for Phase 1. Vault paths stay unchanged. The media-server
+folder type already hides vault_id from users. No migration needed.
 
 ---
 

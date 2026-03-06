@@ -148,6 +148,14 @@ pub fn media_upload_routes() -> Router<MediaManagerState> {
         .route("/api/media/upload", post(crate::upload::upload_media))
 }
 
+/// Create folder access code routes (public, no auth — validated by code)
+pub fn folder_access_routes() -> Router<MediaManagerState> {
+    Router::new().route(
+        "/api/folder/{code}/media",
+        get(crate::folder_access::folder_media_by_code),
+    )
+}
+
 /// Create media serving routes (lenient rate limiting)
 ///
 /// These routes serve media files (images, PDFs, videos) and need high rate limits

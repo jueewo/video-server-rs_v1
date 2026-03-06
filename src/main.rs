@@ -78,7 +78,10 @@ use course_viewer::{course_viewer_routes, CourseViewerState};
 use js_tool_viewer::{js_tool_viewer_routes, JsToolViewerState};
 use docs_viewer::{docs_routes, markdown::MarkdownRenderer, DocsState};
 use gallery3d;
-use media_manager::{media_routes, media_serving_routes, media_upload_routes, MediaManagerState};
+use media_manager::{
+    folder_access_routes, media_routes, media_serving_routes, media_upload_routes,
+    MediaManagerState,
+};
 use rate_limiter::RateLimitConfig;
 use user_auth::{auth_routes, AuthState, OidcConfig};
 use vault_manager::{vault_routes, VaultManagerState};
@@ -1080,6 +1083,8 @@ async fn main() -> anyhow::Result<()> {
         .merge(api_key_routes(Arc::new(pool.clone())).route_layer(
             axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
         ))
+        // Folder access code API — public, no auth (validated by code)
+        .merge(folder_access_routes().with_state((*media_manager_state).clone()))
         // Unified media manager — listing, search, detail, CRUD (no rate limit on reads)
         .merge(media_routes().with_state((*media_manager_state).clone()))
         // Media uploads — strict rate limiting for resource protection

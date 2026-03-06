@@ -39,6 +39,9 @@ pub struct CreateAccessCodeRequest {
     pub description: Option<String>,
     pub expires_at: Option<String>, // ISO 8601 datetime string
     pub media_items: Vec<MediaItem>,
+    /// When set, creates a folder-scoped code granting access to all media in the vault.
+    /// media_items is ignored when vault_id is provided.
+    pub vault_id: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -475,7 +478,7 @@ pub async fn create_access_code(
 
     // Insert access code
     let code_id: i32 = sqlx::query_scalar(
-        "INSERT INTO access_codes (code, description, expires_at, created_by) VALUES (?, ?, ?, ?) RETURNING id",
+        "INSERT INTO access_codes (code, description, expires_at, created_by, vault_id) VALUES (?, ?, ?, ?, ?) RETURNING id",
     )
     .bind(&request.code)
     .bind(&request.description)
@@ -484,9 +487,30 @@ pub async fn create_access_code(
             .unwrap()
     }))
     .bind(&user_id)
+    .bind(&request.vault_id)
     .fetch_one(&state.pool)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Folder-scoped code: no per-item permissions needed
+    if request.vault_id.is_some() {
+        info!(
+            event = "access_code_created",
+            code = %request.code,
+            user_id = %user_id,
+            scope = "folder",
+            vault_id = ?request.vault_id,
+            "Folder-scoped access code created"
+        );
+        return Ok(Json(AccessCodeResponse {
+            id: code_id,
+            code: request.code,
+            description: request.description,
+            expires_at: request.expires_at,
+            created_at: OffsetDateTime::now_utc().to_string(),
+            media_items: vec![],
+        }));
+    }
 
     // Insert permissions (only for owned media)
     for item in &request.media_items {

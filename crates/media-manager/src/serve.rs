@@ -90,21 +90,28 @@ async fn serve_image_variant(
         if !has_access {
             // Check access code if provided
             if let Some(code) = query.code {
-                let access_decision = state
+                // Try per-item code first, then folder-scoped code
+                let item_decision = state
                     .access_control
                     .check_access(
                         access_control::AccessContext::new(
                             access_control::ResourceType::Image,
                             media_id,
                         )
-                        .with_key(code),
+                        .with_key(code.clone()),
                         access_control::Permission::Read,
                     )
                     .await
                     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-                if !access_decision.granted {
-                    return Err(StatusCode::FORBIDDEN);
+                if !item_decision.granted {
+                    let folder_ok = crate::folder_access::folder_code_grants_access(
+                        &state.pool, &code, &vault_id,
+                    )
+                    .await;
+                    if !folder_ok {
+                        return Err(StatusCode::FORBIDDEN);
+                    }
                 }
             } else {
                 return Err(StatusCode::UNAUTHORIZED);
@@ -246,13 +253,20 @@ pub async fn serve_thumbnail(
                 let decision = state
                     .access_control
                     .check_access(
-                        access_control::AccessContext::new(resource_type, media_id).with_key(code),
+                        access_control::AccessContext::new(resource_type, media_id)
+                            .with_key(code.clone()),
                         access_control::Permission::Read,
                     )
                     .await
                     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
                 if !decision.granted {
-                    return Err(StatusCode::FORBIDDEN);
+                    let folder_ok = crate::folder_access::folder_code_grants_access(
+                        &state.pool, &code, &vault_id,
+                    )
+                    .await;
+                    if !folder_ok {
+                        return Err(StatusCode::FORBIDDEN);
+                    }
                 }
             } else {
                 return Err(StatusCode::UNAUTHORIZED);

@@ -8,6 +8,7 @@
 
 pub mod bpmn_view;
 pub mod detail;
+pub mod folder_access;
 pub mod folder_renderer;
 pub mod list;
 pub mod markdown_view;
@@ -22,7 +23,10 @@ pub mod templates;
 pub mod upload;
 
 pub use folder_renderer::MediaFolderRenderer;
-pub use routes::{media_routes, media_serving_routes, media_upload_routes, MediaManagerState};
+pub use routes::{
+    folder_access_routes, media_routes, media_serving_routes, media_upload_routes,
+    MediaManagerState,
+};
 
 /// Version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

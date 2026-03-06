@@ -23,6 +23,7 @@
         </div>
         <div class="flex gap-2">
             <a href="{{ upload_url }}" class="btn btn-sm btn-primary gap-1">⬆️ Upload</a>
+            <button onclick="document.getElementById('shareModal').showModal()" class="btn btn-sm btn-outline gap-1">🔗 Share</button>
             <a href="{{ back_url }}" class="btn btn-sm btn-ghost">← Workspace</a>
         </div>
     </div>
@@ -71,4 +72,76 @@
     {% endif %}
 
 </div>
+
+<!-- Share folder modal -->
+<dialog id="shareModal" class="modal">
+    <div class="modal-box max-w-md">
+        <h3 class="font-bold text-lg mb-4">🔗 Share Folder</h3>
+        <p class="text-sm text-base-content/70 mb-4">
+            Create an access code that lets external apps or clients access all media in this folder — no account required.
+        </p>
+        <div class="form-control mb-3">
+            <label class="label"><span class="label-text font-semibold">Access Code</span></label>
+            <input id="shareCode" type="text" placeholder="e.g. marketing-2026" class="input input-bordered w-full" maxlength="50" />
+        </div>
+        <div class="form-control mb-3">
+            <label class="label"><span class="label-text font-semibold">Description</span><span class="label-text-alt">optional</span></label>
+            <input id="shareDesc" type="text" placeholder="e.g. 3D gallery assets" class="input input-bordered w-full" />
+        </div>
+        <div class="form-control mb-4">
+            <label class="label"><span class="label-text font-semibold">Expires</span><span class="label-text-alt">optional</span></label>
+            <input id="shareExpiry" type="datetime-local" class="input input-bordered w-full" />
+        </div>
+        <div id="shareResult" class="hidden alert alert-success mb-4">
+            <div>
+                <p class="font-semibold">Code created!</p>
+                <p class="text-sm mt-1">API endpoint: <code id="shareEndpoint" class="font-mono text-xs break-all"></code></p>
+                <p class="text-sm mt-1">Use <code class="font-mono text-xs">?code=<span id="shareCodeResult"></span></code> on serving URLs.</p>
+            </div>
+        </div>
+        <div id="shareError" class="hidden alert alert-error mb-4">
+            <span id="shareErrorMsg"></span>
+        </div>
+        <div class="modal-action">
+            <button id="shareSubmit" class="btn btn-primary" onclick="createShareCode()">Create Code</button>
+            <form method="dialog"><button class="btn btn-ghost">Cancel</button></form>
+        </div>
+    </div>
+</dialog>
+
+<script>
+async function createShareCode() {
+    const code = document.getElementById('shareCode').value.trim();
+    const desc = document.getElementById('shareDesc').value.trim();
+    const expiry = document.getElementById('shareExpiry').value;
+    const errDiv = document.getElementById('shareError');
+    const errMsg = document.getElementById('shareErrorMsg');
+    const resultDiv = document.getElementById('shareResult');
+
+    errDiv.classList.add('hidden');
+    resultDiv.classList.add('hidden');
+
+    if (!code) { errMsg.textContent = 'Access code is required.'; errDiv.classList.remove('hidden'); return; }
+
+    const body = {
+        code,
+        description: desc || null,
+        expires_at: expiry ? new Date(expiry).toISOString() : null,
+        media_items: [],
+        vault_id: "{{ vault_id }}",
+    };
+
+    const res = await fetch('/api/access-codes', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (res.ok) {
+        document.getElementById('shareEndpoint').textContent = window.location.origin + '/api/folder/' + code + '/media';
+        document.getElementById('shareCodeResult').textContent = code;
+        resultDiv.classList.remove('hidden');
+        document.getElementById('shareSubmit').disabled = true;
+    } else {
+        const data = await res.json().catch(() => ({}));
+        errMsg.textContent = res.status === 409 ? 'That code already exists.' : (data.error || 'Failed to create code.');
+        errDiv.classList.remove('hidden');
+    }
+}
+</script>
 {% endblock %}

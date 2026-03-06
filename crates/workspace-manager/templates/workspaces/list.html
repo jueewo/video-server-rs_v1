@@ -5,13 +5,11 @@
     <!-- Page Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-            <h1 class="text-3xl font-bold">🗂️ Workspaces</h1>
+            <h1 class="text-3xl font-bold flex items-center gap-2"><i data-lucide="layout-dashboard" class="w-8 h-8"></i> Workspaces</h1>
             <p class="text-base-content/60 mt-1">Project workspaces with documents, diagrams, and notes</p>
         </div>
         <a href="/workspaces/new" class="btn btn-primary gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
-            </svg>
+            <i data-lucide="plus" class="w-5 h-5"></i>
             New Workspace
         </a>
     </div>
@@ -20,7 +18,7 @@
     <!-- Empty State -->
     <div class="card bg-base-200 shadow-xl">
         <div class="card-body items-center text-center py-16">
-            <div class="text-6xl mb-4">🗂️</div>
+            <i data-lucide="layout-dashboard" class="w-16 h-16 mb-4 text-base-content/30"></i>
             <h2 class="card-title text-2xl mb-2">No Workspaces Yet</h2>
             <p class="text-base-content/70 mb-6">
                 Create your first workspace to organize project documents, BPMN diagrams, and notes.
@@ -59,10 +57,10 @@
 
                 <div class="card-actions flex-wrap gap-2">
                     <a href="/workspaces/{{ ws.workspace_id }}" class="btn btn-sm btn-primary gap-1">
-                        📋 Open
+                        <i data-lucide="clipboard-list" class="w-4 h-4"></i> Open
                     </a>
                     <a href="/workspaces/{{ ws.workspace_id }}/browse" class="btn btn-sm btn-outline gap-1">
-                        📁 Browse
+                        <i data-lucide="folder-open" class="w-4 h-4"></i> Browse
                     </a>
                     <button
                         onclick="openEditModal('{{ ws.workspace_id }}', this)"

@@ -25,34 +25,12 @@ endblock %} {% block content %}
             <div class="mb-8">
                 {% if authenticated %}
                 <div class="badge badge-success badge-lg gap-2">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-4 w-4"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                            clip-rule="evenodd"
-                        />
-                    </svg>
+                    <i data-lucide="circle-check" class="w-4 h-4"></i>
                     Logged In
                 </div>
                 {% else %}
                 <div class="badge badge-info badge-lg gap-2">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-4 w-4"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                            clip-rule="evenodd"
-                        />
-                    </svg>
+                    <i data-lucide="info" class="w-4 h-4"></i>
                     Guest Mode
                 </div>
                 {% endif %}
@@ -68,7 +46,7 @@ endblock %} {% block content %}
                     class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
                 >
                     <div class="card-body items-center text-center">
-                        <div class="text-4xl mb-2">🎥</div>
+                        <i data-lucide="video" class="w-10 h-10 mb-2 text-base-content/70"></i>
                         <h2 class="card-title">Videos</h2>
                         <p class="text-base-content/70">
                             Browse and stream your video library
@@ -82,7 +60,7 @@ endblock %} {% block content %}
                     class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border-2 border-secondary"
                 >
                     <div class="card-body items-center text-center">
-                        <div class="text-4xl mb-2">🎨</div>
+                        <i data-lucide="layout-grid" class="w-10 h-10 mb-2 text-secondary"></i>
                         <h2 class="card-title text-secondary">All Media</h2>
                         <p class="text-base-content/70">
                             Unified view of everything
@@ -98,7 +76,7 @@ endblock %} {% block content %}
                     class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border-2 border-primary"
                 >
                     <div class="card-body items-center text-center">
-                        <div class="text-4xl mb-2">👥</div>
+                        <i data-lucide="users" class="w-10 h-10 mb-2 text-primary"></i>
                         <h2 class="card-title text-primary">My Groups</h2>
                         <p class="text-base-content/70">
                             Collaborate with your team
@@ -114,7 +92,7 @@ endblock %} {% block content %}
                     class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
                 >
                     <div class="card-body items-center text-center">
-                        <div class="text-4xl mb-2">📡</div>
+                        <i data-lucide="radio" class="w-10 h-10 mb-2 text-base-content/70"></i>
                         <h2 class="card-title">Live Stream</h2>
                         <p class="text-base-content/70">
                             Watch live broadcasts
@@ -129,7 +107,7 @@ endblock %} {% block content %}
                     class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border-2 border-warning"
                 >
                     <div class="card-body items-center text-center">
-                        <div class="text-4xl mb-2">🔑</div>
+                        <i data-lucide="key-round" class="w-10 h-10 mb-2 text-warning"></i>
                         <h2 class="card-title text-warning">Access Codes</h2>
                         <p class="text-base-content/70">Manage sharing codes</p>
                     </div>
@@ -140,7 +118,7 @@ endblock %} {% block content %}
                     class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
                 >
                     <div class="card-body items-center text-center">
-                        <div class="text-4xl mb-2">🔑</div>
+                        <i data-lucide="key-round" class="w-10 h-10 mb-2 text-base-content/70"></i>
                         <h2 class="card-title">Access Code Demo</h2>
                         <p class="text-base-content/70">Test access codes</p>
                     </div>
@@ -154,7 +132,7 @@ endblock %} {% block content %}
                     class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
                 >
                     <div class="card-body items-center text-center">
-                        <div class="text-4xl mb-2">👤</div>
+                        <i data-lucide="user" class="w-10 h-10 mb-2 text-base-content/70"></i>
                         <h2 class="card-title">Profile</h2>
                         <p class="text-base-content/70">Manage your account</p>
                     </div>
@@ -166,34 +144,12 @@ endblock %} {% block content %}
             <div class="flex justify-center gap-4">
                 {% if authenticated %}
                 <a href="/logout" class="btn btn-outline btn-error gap-2">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-5 w-5"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z"
-                            clip-rule="evenodd"
-                        />
-                    </svg>
+                    <i data-lucide="log-out" class="w-5 h-5"></i>
                     Logout
                 </a>
                 {% else %}
                 <a href="/login" class="btn btn-primary btn-lg gap-2">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-6 w-6"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                            clip-rule="evenodd"
-                        />
-                    </svg>
+                    <i data-lucide="lock" class="w-6 h-6"></i>
                     Login to Access Private Content
                 </a>
                 {% endif %}
@@ -210,13 +166,15 @@ endblock %} {% block content %}
                     </div>
                     <div class="stat bg-base-100 rounded-lg shadow">
                         <div class="stat-title">Backend</div>
-                        <div class="stat-value text-2xl">🦀</div>
-                        <div class="stat-desc">Rust + Axum</div>
+                        <div class="stat-figure text-secondary"><i data-lucide="server" class="w-8 h-8"></i></div>
+                        <div class="stat-value text-2xl">Rust</div>
+                        <div class="stat-desc">Axum framework</div>
                     </div>
                     <div class="stat bg-base-100 rounded-lg shadow">
-                        <div class="stat-title">Features</div>
-                        <div class="stat-value text-2xl">🎨</div>
-                        <div class="stat-desc">Tailwind + DaisyUI</div>
+                        <div class="stat-title">UI</div>
+                        <div class="stat-figure text-secondary"><i data-lucide="palette" class="w-8 h-8"></i></div>
+                        <div class="stat-value text-2xl">DaisyUI</div>
+                        <div class="stat-desc">Tailwind CSS</div>
                     </div>
                 </div>
             </div>

@@ -391,7 +391,7 @@ fn check_scope(user_ext: &Option<Extension<AuthenticatedUser>>, scope: &str) -> 
 /// Map a file extension to a Monaco editor language identifier.
 fn monaco_language(ext: &str) -> &'static str {
     match ext {
-        "md" | "markdown" => "markdown",
+        "md" | "markdown" | "mdx" => "markdown",
         "yaml" | "yml" => "yaml",
         "json" => "json",
         "toml" => "toml",
@@ -1412,11 +1412,21 @@ pub async fn open_file_page(
                 .render()
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         }
-        "md" | "markdown" => {
+        "md" | "markdown" | "mdx" => {
             // Markdown files → Preview mode with Edit button
             let raw_markdown = file_editor::read_file(&workspace_root, &file_path)
                 .map_err(|_| StatusCode::NOT_FOUND)?;
-            let rendered_html = state.markdown_renderer.render(&raw_markdown);
+            let file_dir = std::path::Path::new(&file_path)
+                .parent()
+                .and_then(|p| p.to_str())
+                .unwrap_or("")
+                .to_string();
+            let render_input = if ext == "mdx" {
+                docs_viewer::markdown::preprocess_mdx(&raw_markdown)
+            } else {
+                raw_markdown.clone()
+            };
+            let rendered_html = state.markdown_renderer.render_workspace(&render_input, &workspace_id, &file_dir);
             let edit_url = format!(
                 "/workspaces/{}/edit-text?file={}",
                 workspace_id, encoded_path

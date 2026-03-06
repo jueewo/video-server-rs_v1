@@ -6,6 +6,7 @@
     <title>JS Tool Viewer</title>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <style>
         body { background: hsl(var(--b2)); }
     </style>
@@ -16,9 +17,7 @@
 <div class="navbar bg-base-100 border-b border-base-300 shadow-sm px-4">
     <div class="navbar-start">
         <a href="/apps" class="btn btn-ghost btn-sm gap-1">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/>
-            </svg>
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
             Apps
         </a>
     </div>
@@ -50,7 +49,7 @@
     <!-- Empty state -->
     <div class="card bg-base-100 border border-base-300 shadow-sm">
         <div class="card-body items-center text-center py-16">
-            <div class="text-6xl mb-4">🧰</div>
+            <i data-lucide="wrench" class="w-16 h-16 mb-4 text-base-content/30"></i>
             <h2 class="text-xl font-semibold mb-2">No tools found</h2>
             <p class="text-base-content/60 max-w-md">
                 Add a subfolder containing an <code>index.html</code> inside a
@@ -70,8 +69,8 @@
         <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-warning/50 transition-all duration-200">
             <div class="card-body p-5">
                 <div class="flex items-start gap-3 mb-2">
-                    <div class="w-10 h-10 rounded-lg bg-warning/15 flex items-center justify-center flex-shrink-0 text-xl">
-                        🧩
+                    <div class="w-10 h-10 rounded-lg bg-warning/15 flex items-center justify-center flex-shrink-0 text-warning">
+                        <i data-lucide="puzzle" class="w-5 h-5"></i>
                     </div>
                     <div class="min-w-0">
                         <h2 class="card-title text-sm leading-snug">{{ tool.title }}</h2>
@@ -84,9 +83,7 @@
                 <div class="card-actions justify-end mt-auto pt-2">
                     <a href="{{ tool.url }}" target="_blank"
                        class="btn btn-sm btn-warning gap-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
-                        </svg>
+                        <i data-lucide="play" class="w-4 h-4"></i>
                         Open
                     </a>
                 </div>
@@ -97,5 +94,6 @@
     {% endif %}
 </div>
 
+<script>lucide.createIcons();</script>
 </body>
 </html>

@@ -440,7 +440,7 @@
 
         // Open folder settings modal in create mode
         document.getElementById('folder-settings-mode').value = 'create';
-        document.getElementById('folder-settings-title').textContent = 'Create New Folder';
+        document.getElementById('folder-settings-title').innerHTML = '<i data-lucide="folder-plus" class="w-5 h-5"></i> Create New Folder';
         document.getElementById('folder-settings-path').value = '';
         document.getElementById('folder-name').value = '';
         document.getElementById('folder-description').value = '';
@@ -448,11 +448,12 @@
 
         // Hide delete button in create mode
         document.getElementById('delete-folder-btn').style.display = 'none';
-        document.getElementById('save-folder-btn').textContent = '✨ Create Folder';
+        document.getElementById('save-folder-btn').textContent = 'Create Folder';
 
         applyParentTypeLock();
         updateMetadataFields();
         document.getElementById('folder-settings-modal').showModal();
+        lucide.createIcons();
     }
 
     function generateBpmnId(prefix) {
@@ -534,7 +535,7 @@
 
         // Set edit mode
         document.getElementById('folder-settings-mode').value = 'edit';
-        document.getElementById('folder-settings-title').textContent = 'Folder Settings';
+        document.getElementById('folder-settings-title').innerHTML = '<i data-lucide="settings" class="w-5 h-5"></i> Folder Settings';
         document.getElementById('delete-folder-btn').style.display = 'block';
         document.getElementById('save-folder-btn').textContent = 'Save Settings';
 
@@ -569,6 +570,7 @@
 
         applyParentTypeLock();
         document.getElementById('folder-settings-modal').showModal();
+        lucide.createIcons();
     }
 
     // Locks the type selector when the current directory is itself a typed folder.
@@ -581,7 +583,8 @@
             select.disabled = true;
             select.value = 'default';
             if (notice) {
-                notice.textContent = `This folder is inside a "${currentDirType}" folder — sub-folders inherit that context and cannot have their own type.`;
+                notice.innerHTML = `<i data-lucide="lock" class="w-3 h-3 inline-block align-middle mr-1"></i>This folder is inside a "<strong>${currentDirType}</strong>" folder — sub-folders inherit that context and cannot have their own type.`;
+                lucide.createIcons({ nodes: [notice] });
                 notice.classList.remove('hidden');
             }
         } else {
@@ -602,7 +605,8 @@
         container.innerHTML = '';
 
         if (isDefault) {
-            container.innerHTML = `<div class="alert alert-info"><p class="text-sm">Default folders don't have special metadata. They're just regular file storage.</p></div>`;
+            container.innerHTML = `<div class="alert alert-info text-sm flex gap-2"><i data-lucide="info" class="w-4 h-4 shrink-0 mt-0.5"></i><span>Default folders don't have special metadata. They're just regular file storage.</span></div>`;
+            lucide.createIcons({ nodes: [container] });
             return;
         }
 

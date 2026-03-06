@@ -1,0 +1,50 @@
+{% extends "base-tailwind.html" %}
+{% block title %}{{ title }} — {{ workspace_name }}{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-5xl">
+
+    <!-- Breadcrumbs -->
+    <div class="text-sm breadcrumbs mb-4">
+        <ul>
+            <li><a href="/workspaces">Workspaces</a></li>
+            <li><a href="/workspaces/{{ workspace_id }}">{{ workspace_name }}</a></li>
+            <li><a href="{{ back_url }}">{{ back_label }}</a></li>
+            <li>{{ title }}</li>
+        </ul>
+    </div>
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4 gap-3">
+        <h1 class="text-xl font-bold flex items-center gap-2">
+            <i data-lucide="image" class="w-5 h-5 text-base-content/60"></i>
+            {{ title }}
+        </h1>
+        <div class="flex gap-2">
+            <a href="{{ src_url }}" download class="btn btn-sm btn-outline gap-1">
+                <i data-lucide="download" class="w-4 h-4"></i> Download
+            </a>
+            <a href="{{ back_url }}" class="btn btn-sm btn-ghost gap-1">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
+            </a>
+        </div>
+    </div>
+
+    <!-- Image display -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+        <div class="card-body p-4 flex items-center justify-center min-h-[300px]">
+            <img
+                src="{{ src_url }}"
+                alt="{{ title }}"
+                class="max-w-full max-h-[75vh] object-contain rounded"
+            />
+        </div>
+    </div>
+
+    <!-- Metadata row -->
+    <div class="flex gap-4 mt-3 text-sm text-base-content/50">
+        <span>{{ mime_type }}</span>
+        <span>{{ file_size }}</span>
+    </div>
+
+</div>
+{% endblock %}

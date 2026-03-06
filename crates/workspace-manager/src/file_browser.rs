@@ -12,6 +12,7 @@ pub struct FileEntry {
     pub icon: String,
     pub modified: String,
     pub is_editable: bool,
+    pub is_viewable: bool, // images (png, jpg, svg, gif, webp, …)
 }
 
 #[derive(Clone, Debug)]
@@ -136,6 +137,7 @@ pub fn list_dir(workspace_root: &Path, subpath: &str) -> Result<DirListing> {
                 .first_or_text_plain()
                 .to_string();
             let is_editable = is_text_mime(&mime_type);
+            let is_viewable = mime_type.starts_with("image/");
             let icon = file_icon(&mime_type).to_string();
             let size_str = format_size(size);
             let modified = metadata
@@ -157,6 +159,7 @@ pub fn list_dir(workspace_root: &Path, subpath: &str) -> Result<DirListing> {
                 icon,
                 modified,
                 is_editable,
+                is_viewable,
             });
         }
     }
@@ -201,6 +204,7 @@ pub fn recent_files(workspace_root: &Path, limit: usize) -> Vec<FileEntry> {
                 .first_or_text_plain()
                 .to_string();
             let is_editable = is_text_mime(&mime_type);
+            let is_viewable = mime_type.starts_with("image/");
             let icon = file_icon(&mime_type).to_string();
             let size = metadata.len();
             let size_str = format_size(size);
@@ -216,6 +220,7 @@ pub fn recent_files(workspace_root: &Path, limit: usize) -> Vec<FileEntry> {
                     icon,
                     modified: format_modified(modified_secs),
                     is_editable,
+                    is_viewable,
                 },
             ))
         })

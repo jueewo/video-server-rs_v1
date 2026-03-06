@@ -281,6 +281,20 @@ pub struct WorkspaceBrowserTemplate {
 }
 
 #[derive(Template)]
+#[template(path = "workspaces/image_viewer.html")]
+pub struct ImageViewerTemplate {
+    pub authenticated: bool,
+    pub workspace_id: String,
+    pub workspace_name: String,
+    pub title: String,
+    pub src_url: String,
+    pub back_url: String,
+    pub back_label: String,
+    pub mime_type: String,
+    pub file_size: String,
+}
+
+#[derive(Template)]
 #[template(path = "workspaces/markdown_preview.html")]
 pub struct MarkdownPreviewTemplate {
     pub authenticated: bool,
@@ -1592,6 +1606,36 @@ pub async fn open_file_page(
                 edit_url,
                 back_url: back_url.clone(),
                 back_label: workspace_name.clone(),
+            };
+            template
+                .render()
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        }
+        "png" | "jpg" | "jpeg" | "gif" | "webp" | "avif" | "svg" | "ico" | "bmp" | "tiff"
+        | "tif" => {
+            let src_url = format!(
+                "/api/workspaces/{}/files/serve?path={}",
+                workspace_id, encoded_path
+            );
+            let file_size = {
+                let abs = workspace_root.join(file_path.trim_start_matches('/'));
+                abs.metadata()
+                    .map(|m| file_browser::format_size(m.len()))
+                    .unwrap_or_default()
+            };
+            let mime = mime_guess::from_path(&file_path)
+                .first_or_octet_stream()
+                .to_string();
+            let template = ImageViewerTemplate {
+                authenticated: true,
+                workspace_id: workspace_id.clone(),
+                workspace_name: workspace_name.clone(),
+                title: file_name,
+                src_url,
+                back_url: back_url.clone(),
+                back_label: workspace_name.clone(),
+                mime_type: mime,
+                file_size,
             };
             template
                 .render()

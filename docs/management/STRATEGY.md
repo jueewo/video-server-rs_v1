@@ -101,6 +101,47 @@ not reasons to store them differently.
 
 The workspace is the core. Everything else is a service on top of it.
 
+### The Universal Shell
+
+"One place" does not mean all bytes in one directory. It means one navigation
+model: workspace → folder → content. The folder type determines how content
+is rendered and how uploads are handled. The user never leaves the workspace
+browser — there is no redirect to a separate app.
+
+The workspace browser is a thin frame. Each folder type provides an inline view.
+
+### Crate-Per-Functional-Block
+
+Every major feature lives in its own library crate with a clean public API.
+The workspace shell depends only on a `FolderTypeRenderer` trait — not on any
+specific crate. New functionality = new crate + one line in `main.rs`.
+
+Each functional crate is **dual-use by design**:
+
+| Mode | Mechanism | Use case |
+|---|---|---|
+| Embedded | Implements `FolderTypeRenderer` | Inline view inside the workspace browser |
+| Standalone | Exposes its own `Router` + shell | Deployed as an independent app |
+
+The standalone binary is a thin wrapper — 10–20 lines — around the same
+library crate. Core logic, templates, and state are written once and reused
+in both modes.
+
+This means any functional block can be extracted and delivered as a focused
+standalone tool — a process simulator, a course platform, a media server —
+without duplicating code. The platform is the delivery vehicle, and each
+crate is independently shippable.
+
+### Two Tiers of Extensibility
+
+| Tier | Mechanism | Use case |
+|---|---|---|
+| Built-in | `FolderTypeRenderer` trait, registered in `main.rs` | Deeply integrated, inline views |
+| External | App-link URL in the folder-type registry YAML | Satellite apps, consulting deliverables |
+
+Built-ins are Rust crates. Externals are URLs. Both are declared in the same
+YAML registry. The browser does not care which tier it is talking to.
+
 ---
 
 ## How to Communicate It

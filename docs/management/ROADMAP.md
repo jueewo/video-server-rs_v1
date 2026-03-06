@@ -22,9 +22,79 @@ as consulting work product and delivered via js-tool folder types.
 
 ---
 
+## Architecture Foundation — Universal Shell + Dual-Use Crates
+
+**Goal:** Establish the patterns everything else is built on. No user-visible changes.
+
+### The Universal Shell
+
+The workspace browser is a thin frame. It has no knowledge of specific folder types
+at compile time. Each folder type registers a `FolderTypeRenderer` — a trait defined
+in `workspace-core` — and provides an inline HTML view. The shell renders the frame
+(breadcrumbs, nav, workspace name); the renderer owns the content area.
+
+```
+workspace-core/          ← FolderTypeRenderer trait, FolderViewContext
+workspace-manager/       ← shell only: routing, config, delegates to renderers
+main.rs                  ← wires renderers: media, bpmn, course, docs, ...
+```
+
+New folder type = new crate + one line in `main.rs`. `workspace-manager` never changes.
+
+### Dual-Use Crates
+
+Every functional crate is a library that can run in two modes:
+
+| Mode | How | Use case |
+|---|---|---|
+| Embedded | Implements `FolderTypeRenderer` | Inline view in workspace browser |
+| Standalone | Exposes its own `Router` + minimal shell | Independent deployable app |
+
+The standalone binary in `crates/standalone/` is 10–20 lines — loads config,
+calls `crate::standalone::run()`. Core logic, templates, and state are written
+once and reused in both modes. No duplication.
+
+**Examples of dual-use:**
+- `crates/bpmn/` → workspace: diagram list inline | standalone: process simulator
+- `crates/media/` → workspace: media grid inline  | standalone: media server
+- `crates/course/` → workspace: lesson outline    | standalone: course platform
+
+Any block can be extracted and delivered as a focused standalone tool for a client
+without changing the core codebase.
+
+### Tasks
+
+- [ ] Define `FolderTypeRenderer` trait in `workspace-core` crate
+- [ ] Refactor `workspace-manager` to accept `Vec<Arc<dyn FolderTypeRenderer>>`
+- [ ] Migrate `bpmn-viewer` as first proof-of-concept (smallest, most self-contained)
+- [ ] Migrate `media-manager` folder view (replaces Phase 0.5 redirect)
+- [ ] Document the pattern for adding new folder types
+
+---
+
+## Phase 0.5 — Media-Server Folder Type (Bridge Step)
+
+**Goal:** Unify workspace UX with the media pipeline without a storage migration.
+
+**Implemented 2026-03-06** — see `docs/management/media-server-folder-type.md`
+
+- [x] Register `media-server` folder type in the folder-type registry
+- [x] Auto-create a vault when a folder is assigned `folder-type: media-server`
+- [x] Store `vault_id` in `workspace.yaml` folder metadata
+- [x] Redirect to `/media?vault_id=...` when a media-server folder is opened
+
+**Result:** Users can create a "Media Server" folder in any workspace. Opening it takes
+them directly to the scoped media manager. Each media-server folder is backed by an
+isolated vault. No storage migration required.
+
+---
+
 ## Phase 1 — Consolidate Storage (Foundation)
 
 **Goal:** One storage model. Workspaces are the authoritative home for all files.
+
+> **Note:** Phase 0.5 is a pragmatic bridge. Phase 1 is the full consolidation where
+> vault storage is merged into workspace storage and the upload flow is simplified.
 
 - [ ] Retire vault as a user-facing concept. Vault storage becomes an internal implementation
       detail or is merged into workspace storage
@@ -81,8 +151,9 @@ platform as a content backend) connect via open interfaces.
 - [ ] Document the integration pattern for satellite apps
 - [ ] Vue3/Preact data platforms (e.g. pharma industry prototypes) deployable as
       js-tool folder types — consulting work product delivered via the platform
-- [ ] Evaluate whether `crates/standalone/3d-gallery` and `crates/standalone/course-viewer`
-      benefit from extraction, or are better hardened in-place as core features
+- [ ] Evaluate `crates/standalone/3d-gallery` and `crates/standalone/course-viewer`:
+      migrate to dual-use library crates (embedded + standalone) per the Architecture
+      Foundation pattern, or keep as standalone-only if they never embed in the workspace
 
 **Result:** Platform is the delivery vehicle for consulting and business work product.
 

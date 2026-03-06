@@ -1,4 +1,5 @@
 use api_keys::middleware::{require_scope, AuthenticatedUser};
+use workspace_core::{FolderTypeRenderer, FolderViewContext};
 use askama::Template;
 use axum::{
     body::Body,
@@ -40,6 +41,8 @@ pub struct WorkspaceManagerState {
     pub storage: Arc<UserStorageManager>,
     pub markdown_renderer: Arc<MarkdownRenderer>,
     pub folder_type_registry: Arc<RwLock<FolderTypeRegistry>>,
+    /// Registered folder-type renderers, keyed by type_id (e.g. "bpmn-simulator").
+    pub renderers: Arc<std::collections::HashMap<String, Arc<dyn FolderTypeRenderer>>>,
 }
 
 impl WorkspaceManagerState {
@@ -67,7 +70,17 @@ impl WorkspaceManagerState {
             storage,
             markdown_renderer: Arc::new(MarkdownRenderer::new()),
             folder_type_registry: Arc::new(RwLock::new(registry)),
+            renderers: Arc::new(std::collections::HashMap::new()),
         }
+    }
+
+    /// Register a folder-type renderer.
+    ///
+    /// Call this before wrapping the state in `Arc`. Each renderer's `type_id()`
+    /// must match the `id` in the corresponding `*.yaml` registry file.
+    pub fn register_renderer(&mut self, renderer: Arc<dyn FolderTypeRenderer>) {
+        Arc::make_mut(&mut self.renderers)
+            .insert(renderer.type_id().to_string(), renderer);
     }
 }
 
@@ -1219,24 +1232,30 @@ async fn file_browser_handler(
 
     let workspace_root = state.storage.workspace_root(&workspace_id);
 
-    // Load workspace config once — used for redirect check and folder type annotation
+    // Load workspace config once — used for renderer lookup and folder type annotation
     let ws_config_opt = WorkspaceConfig::load(&workspace_root).ok();
 
-    // Redirect media-server folders to the scoped media manager
+    // Delegate to a registered renderer if one handles this folder type
     if !subpath.is_empty() {
         if let Some(ref ws_config) = ws_config_opt {
             if let Some(fc) = ws_config.get_folder(&subpath) {
-                if fc.folder_type.as_str() == "media-server" {
-                    if let Some(vault_id) = fc
-                        .metadata
-                        .get("vault_id")
-                        .and_then(|v| v.as_str())
-                        .filter(|s| !s.is_empty())
-                    {
-                        return Ok(
-                            Redirect::to(&format!("/media?vault_id={}", vault_id)).into_response()
-                        );
-                    }
+                let type_id = fc.folder_type.as_str();
+                if let Some(renderer) = state.renderers.get(type_id) {
+                    let folder_name = std::path::Path::new(&subpath)
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or(&subpath)
+                        .to_string();
+                    let ctx = FolderViewContext {
+                        workspace_id: workspace_id.clone(),
+                        workspace_name,
+                        folder_path: subpath,
+                        folder_name,
+                        user_id,
+                        workspace_root,
+                        metadata: fc.metadata.clone(),
+                    };
+                    return renderer.render_folder_view(ctx).await;
                 }
             }
         }

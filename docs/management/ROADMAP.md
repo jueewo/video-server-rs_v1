@@ -64,9 +64,9 @@ without changing the core codebase.
 
 ### Tasks
 
-- [ ] Define `FolderTypeRenderer` trait in `workspace-core` crate
-- [ ] Refactor `workspace-manager` to accept `Vec<Arc<dyn FolderTypeRenderer>>`
-- [ ] Migrate `bpmn-viewer` as first proof-of-concept (smallest, most self-contained)
+- [x] Define `FolderTypeRenderer` trait in `workspace-core` crate
+- [x] Refactor `workspace-manager` to accept `Vec<Arc<dyn FolderTypeRenderer>>`
+- [x] Migrate `bpmn-viewer` as first proof-of-concept (smallest, most self-contained)
 - [ ] Migrate `media-manager` folder view (replaces Phase 0.5 redirect)
 - [ ] Document the pattern for adding new folder types
 

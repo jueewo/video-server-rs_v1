@@ -555,7 +555,12 @@ name = "bpmn-viewer"
 version = "0.1.0"
 dependencies = [
  "askama",
+ "async-trait",
+ "axum",
  "serde",
+ "time",
+ "walkdir",
+ "workspace-core",
 ]
 
 [[package]]
@@ -2675,6 +2680,7 @@ dependencies = [
  "access-control",
  "anyhow",
  "askama",
+ "async-trait",
  "axum",
  "bpmn-viewer",
  "chrono",
@@ -2696,6 +2702,7 @@ dependencies = [
  "tracing",
  "uuid",
  "video-manager",
+ "workspace-core",
 ]
 
 [[package]]
@@ -6563,6 +6570,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "workspace-core"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "serde_yaml",
+]
+
+[[package]]
 name = "workspace-manager"
 version = "0.1.0"
 dependencies = [
@@ -6587,6 +6603,7 @@ dependencies = [
  "tracing",
  "urlencoding",
  "walkdir",
+ "workspace-core",
 ]
 
 [[package]]

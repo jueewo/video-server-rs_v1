@@ -84,6 +84,8 @@ use user_auth::{auth_routes, AuthState, OidcConfig};
 use vault_manager::{vault_routes, VaultManagerState};
 use video_manager::{rtmp_publish_token, video_routes, VideoManagerState};
 use workspace_manager::{workspace_routes, WorkspaceManagerState};
+use bpmn_viewer::BpmnFolderRenderer;
+use media_manager::MediaFolderRenderer;
 
 // -------------------------------
 // Production Secret Validation (TD-001)
@@ -851,10 +853,16 @@ async fn main() -> anyhow::Result<()> {
         .connect(&database_url)
         .await?;
 
-    // Run migrations (skip if already applied or modified)
-    if let Err(e) = sqlx::migrate!("./migrations").run(&pool).await {
-        println!("⚠️  Migration warning: {}", e);
-        println!("   Continuing with existing database schema...");
+    // Run pending migrations from migrations/ (already-applied ones live in migrations/applied/)
+    match sqlx::migrate!("./migrations").run(&pool).await {
+        Ok(()) => {}
+        Err(e) if e.to_string().contains("was previously applied but is missing") => {
+            // Archived migrations are expected to be missing — not an error
+        }
+        Err(e) => {
+            println!("⚠️  Migration error: {}", e);
+            println!("   Continuing with existing database schema...");
+        }
     }
 
     let storage_dir = std::env::current_dir()?.join("storage");
@@ -920,10 +928,10 @@ async fn main() -> anyhow::Result<()> {
     let vault_state = Arc::new(VaultManagerState::new(pool.clone(), user_storage.clone()));
 
     // Initialize Workspace Manager State
-    let workspace_state = Arc::new(WorkspaceManagerState::new(
-        pool.clone(),
-        user_storage.clone(),
-    ));
+    let mut workspace_state = WorkspaceManagerState::new(pool.clone(), user_storage.clone());
+    workspace_state.register_renderer(Arc::new(BpmnFolderRenderer));
+    workspace_state.register_renderer(Arc::new(MediaFolderRenderer { pool: pool.clone() }));
+    let workspace_state = Arc::new(workspace_state);
 
     // Initialize Access Control Service with audit logging enabled
     let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));

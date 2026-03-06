@@ -1,0 +1,101 @@
+{% extends "base-tailwind.html" %}
+{% block title %}{{ folder_name }} — {{ workspace_name }}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bpmn-js@17/dist/assets/bpmn-font/css/bpmn.css">
+{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+
+    <!-- Breadcrumbs -->
+    <div class="text-sm breadcrumbs mb-4">
+        <ul>
+            <li><a href="/workspaces">Workspaces</a></li>
+            <li><a href="{{ back_url }}">{{ workspace_name }}</a></li>
+            <li>{{ folder_name }}</li>
+        </ul>
+    </div>
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div class="flex items-center gap-3">
+            <h1 class="text-2xl font-bold">{{ folder_name }}</h1>
+            <span class="text-sm px-2 py-0.5 rounded font-normal"
+                  style="background:#FF980022; color:#FF9800; border:1px solid #FF980044;">
+                BPMN Simulator
+            </span>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="newDiagram()" class="btn btn-sm btn-primary gap-1">✏️ New Diagram</button>
+            <a href="{{ back_url }}" class="btn btn-sm btn-ghost">← Workspace</a>
+        </div>
+    </div>
+
+    {% if files.is_empty() %}
+    <!-- Empty state -->
+    <div class="card bg-base-200 shadow">
+        <div class="card-body items-center text-center py-12">
+            <div class="text-5xl mb-3">📋</div>
+            <h3 class="text-xl font-semibold mb-2">No diagrams yet</h3>
+            <p class="text-base-content/60 mb-4">Create your first BPMN process diagram.</p>
+            <button onclick="newDiagram()" class="btn btn-primary">✏️ New Diagram</button>
+        </div>
+    </div>
+    {% else %}
+    <!-- Diagram grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {% for file in &files %}
+        <div class="card bg-base-100 border border-base-300 hover:shadow-md transition-all duration-150">
+            <div class="card-body p-4">
+                <div class="text-3xl mb-2">📋</div>
+                <h3 class="font-medium text-sm truncate" title="{{ file.name }}">{{ file.name }}</h3>
+                {% if !file.modified.is_empty() %}
+                <p class="text-xs text-base-content/50 mt-1">{{ file.modified }}</p>
+                {% endif %}
+                <div class="card-actions mt-3 gap-1">
+                    <a href="/workspaces/{{ workspace_id }}/edit?file={{ file.path }}"
+                       class="btn btn-xs btn-primary flex-1">Open</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+    const WORKSPACE_ID = {{ workspace_id|tojson|safe }};
+    const FOLDER_PATH = {{ folder_path|tojson|safe }};
+
+    async function newDiagram() {
+        const name = prompt('Diagram name (without .bpmn):');
+        if (!name || !name.trim()) return;
+
+        const filename = name.trim().replace(/[^a-zA-Z0-9_\- ]/g, '').trim().replace(/\s+/g, '-') + '.bpmn';
+        const filePath = FOLDER_PATH ? `${FOLDER_PATH}/${filename}` : filename;
+
+        const processId = 'Process_' + Math.random().toString(36).slice(2, 9);
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="${processId}" isExecutable="false"></bpmn:process>
+  <bpmndi:BPMNDiagram><bpmndi:BPMNPlane bpmnElement="${processId}"></bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+</bpmn:definitions>`;
+
+        const res = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/new`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: filePath, content: xml }),
+        });
+
+        if (res.ok) {
+            window.location.href = `/workspaces/${WORKSPACE_ID}/edit?file=${encodeURIComponent(filePath)}`;
+        } else {
+            alert('Failed to create diagram.');
+        }
+    }
+</script>
+{% endblock %}

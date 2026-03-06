@@ -1,0 +1,74 @@
+{% extends "base-tailwind.html" %}
+{% block title %}{{ folder_name }} — {{ workspace_name }}{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+
+    <!-- Breadcrumbs -->
+    <div class="text-sm breadcrumbs mb-4">
+        <ul>
+            <li><a href="/workspaces">Workspaces</a></li>
+            <li><a href="{{ back_url }}">{{ workspace_name }}</a></li>
+            <li>{{ folder_name }}</li>
+        </ul>
+    </div>
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div class="flex items-center gap-3">
+            <h1 class="text-2xl font-bold">{{ folder_name }}</h1>
+            <span class="text-sm px-2 py-0.5 rounded font-normal"
+                  style="background:#6366f122; color:#6366f1; border:1px solid #6366f144;">
+                Media Server
+            </span>
+        </div>
+        <div class="flex gap-2">
+            <a href="{{ upload_url }}" class="btn btn-sm btn-primary gap-1">⬆️ Upload</a>
+            <a href="{{ back_url }}" class="btn btn-sm btn-ghost">← Workspace</a>
+        </div>
+    </div>
+
+    {% if items.is_empty() %}
+    <!-- Empty state -->
+    <div class="card bg-base-200 shadow">
+        <div class="card-body items-center text-center py-12">
+            <div class="text-5xl mb-3">🎬</div>
+            <h3 class="text-xl font-semibold mb-2">No media yet</h3>
+            <p class="text-base-content/60 mb-4">Upload images, videos, or documents to this library.</p>
+            <a href="{{ upload_url }}" class="btn btn-primary">⬆️ Upload Media</a>
+        </div>
+    </div>
+    {% else %}
+    <!-- Media grid -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {% for item in &items %}
+        <a href="{{ item.detail_url }}"
+           class="card bg-base-100 border border-base-300 hover:shadow-md hover:border-primary/30 transition-all duration-150 overflow-hidden group">
+            <!-- Thumbnail -->
+            <div class="aspect-video bg-base-200 overflow-hidden">
+                {% if let Some(thumb) = &item.thumbnail_url %}
+                <img src="{{ thumb }}" alt="{{ item.title }}"
+                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                     loading="lazy" />
+                {% else %}
+                <div class="w-full h-full flex items-center justify-center text-4xl">
+                    {{ item.type_emoji }}
+                </div>
+                {% endif %}
+            </div>
+            <!-- Info -->
+            <div class="p-3">
+                <p class="text-sm font-medium truncate" title="{{ item.title }}">{{ item.title }}</p>
+                <div class="flex items-center justify-between mt-1">
+                    <span class="text-xs text-base-content/50">{{ item.file_size_str }}</span>
+                    <span class="text-xs px-1.5 py-0.5 rounded bg-base-200 text-base-content/60">
+                        {{ item.media_type }}
+                    </span>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

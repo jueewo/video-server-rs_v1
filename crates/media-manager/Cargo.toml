@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 # Internal crates
 common = { path = "../common" }
+workspace-core = { path = "../workspace-core" }
+async-trait = { workspace = true }
 media-core = { path = "../media-core" }
 access-control = { path = "../access-control" }
 docs-viewer = { path = "../docs-viewer" }

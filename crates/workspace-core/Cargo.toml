@@ -1,0 +1,9 @@
+[package]
+name = "workspace-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = { workspace = true }
+async-trait = { workspace = true }
+serde_yaml = "0.9"

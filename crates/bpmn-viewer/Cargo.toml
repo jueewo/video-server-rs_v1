@@ -5,4 +5,9 @@ edition = "2021"
 
 [dependencies]
 askama = { workspace = true, features = ["serde_json"] }
+axum = { workspace = true }
+async-trait = { workspace = true }
 serde = { workspace = true }
+time = { workspace = true }
+workspace-core = { path = "../workspace-core" }
+walkdir = "2.5"

@@ -78,7 +78,7 @@
 
                 <!-- Zoom -->
                 <button id="btn-zoom-out" class="btn btn-sm btn-ghost font-bold">−</button>
-                <span id="zoom-level" class="text-sm w-12 text-center">150%</span>
+                <span id="zoom-level" class="text-sm w-12 text-center">—</span>
                 <button id="btn-zoom-in" class="btn btn-sm btn-ghost font-bold">+</button>
                 <button id="btn-fit" class="btn btn-sm btn-ghost">Fit</button>
 
@@ -119,7 +119,7 @@
 
     let pdfDoc   = null;
     let pageNum  = 1;
-    let scale    = 1.5;
+    let scale    = 1.0;
     let rendering = false;
 
     const canvas    = document.getElementById('pdf-canvas');
@@ -139,7 +139,7 @@
             loading.classList.add('hidden');
             canvas.classList.remove('hidden');
             updateButtons();
-            await renderPage(pageNum);
+            await fitWidth();
         } catch (err) {
             loading.textContent = '❌ Failed to load PDF: ' + err.message;
             console.error(err);

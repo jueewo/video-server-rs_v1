@@ -25,55 +25,81 @@
             </span>
         </div>
         <div class="flex gap-2">
-            <button onclick="newDiagram()" class="btn btn-sm btn-primary gap-2"><i data-lucide="plus" class="w-4 h-4"></i> New Diagram</button>
+            <button onclick="newDiagramIn(FOLDER_PATH)" class="btn btn-sm btn-primary gap-2"><i data-lucide="plus" class="w-4 h-4"></i> New Diagram</button>
             <a href="{{ back_url }}" class="btn btn-sm btn-ghost gap-2"><i data-lucide="arrow-left" class="w-4 h-4"></i> Workspace</a>
         </div>
     </div>
 
-    {% if files.is_empty() %}
+    {% if groups.is_empty() %}
     <!-- Empty state -->
     <div class="card bg-base-200 shadow">
         <div class="card-body items-center text-center py-12">
             <i data-lucide="workflow" class="w-12 h-12 mb-3 text-base-content/30"></i>
             <h3 class="text-xl font-semibold mb-2">No diagrams yet</h3>
             <p class="text-base-content/60 mb-4">Create your first BPMN process diagram.</p>
-            <button onclick="newDiagram()" class="btn btn-primary gap-2"><i data-lucide="plus" class="w-4 h-4"></i> New Diagram</button>
+            <button onclick="newDiagramIn(FOLDER_PATH)" class="btn btn-primary gap-2"><i data-lucide="plus" class="w-4 h-4"></i> New Diagram</button>
         </div>
     </div>
     {% else %}
-    <!-- Diagram grid -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {% for file in &files %}
-        <div class="card bg-base-100 border border-base-300 hover:shadow-md transition-all duration-150">
-            <div class="card-body p-4">
-                <div class="flex items-start justify-between gap-1">
-                    <i data-lucide="workflow" class="w-8 h-8 text-base-content/40"></i>
-                    <button onclick='openFileSettings({{ file.path|tojson|safe }}, {{ file.md_path|tojson|safe }})'
-                            class="btn btn-xs btn-ghost opacity-40 hover:opacity-100 -mt-1 -mr-1"
-                            title="Rename or delete">
-                        <i data-lucide="settings" class="w-4 h-4"></i>
-                    </button>
-                </div>
-                <h3 class="font-medium text-sm truncate mt-2" title="{{ file.name }}">{{ file.name }}</h3>
-                {% if let Some(desc) = &file.description %}
-                <p class="text-xs text-base-content/60 mt-1 line-clamp-2" title="{{ desc }}">{{ desc }}</p>
-                {% endif %}
-                {% if !file.modified.is_empty() %}
-                <p class="text-xs text-base-content/40 mt-1">{{ file.modified }}</p>
-                {% endif %}
-                <div class="card-actions mt-3 gap-1">
-                    <a href="/workspaces/{{ workspace_id }}/edit?file={{ file.path }}"
-                       class="btn btn-xs btn-primary flex-1">Open</a>
-                    <a href="/workspaces/{{ workspace_id }}/edit-text?file={{ file.md_path }}"
-                       class="btn btn-xs btn-ghost"
-                       title="Edit documentation">
-                        <i data-lucide="file-text" class="w-4 h-4"></i>
-                    </a>
+
+    <!-- Search -->
+    <div class="mb-6">
+        <input type="search" id="diagramSearch" placeholder="Filter diagrams…"
+               class="input input-bordered input-sm w-full max-w-xs"
+               oninput="filterDiagrams(this.value)" />
+    </div>
+
+    <!-- Groups -->
+    {% for group in &groups %}
+    <div class="bpmn-group mb-8">
+        {% if let Some(group_name) = &group.name %}
+        <div class="bpmn-group-header flex items-center justify-between mb-3 pb-2 border-b border-base-300">
+            <h2 class="text-base font-semibold text-base-content/70 flex items-center gap-2">
+                <i data-lucide="folder" class="w-4 h-4"></i>
+                {{ group_name }}
+            </h2>
+            <button onclick='newDiagramIn({{ group.path|tojson|safe }})'
+                    class="btn btn-xs btn-ghost gap-1">
+                <i data-lucide="plus" class="w-3 h-3"></i> New here
+            </button>
+        </div>
+        {% endif %}
+        <div class="bpmn-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {% for file in &group.files %}
+            <div class="bpmn-card card bg-base-100 border border-base-300 hover:shadow-md transition-all duration-150"
+                 data-search="{{ file.search_text }}">
+                <div class="card-body p-4">
+                    <div class="flex items-start justify-between gap-1">
+                        <i data-lucide="workflow" class="w-8 h-8 text-base-content/40"></i>
+                        <button onclick='openFileSettings({{ file.path|tojson|safe }}, {{ file.md_path|tojson|safe }})'
+                                class="btn btn-xs btn-ghost opacity-40 hover:opacity-100 -mt-1 -mr-1"
+                                title="Rename or delete">
+                            <i data-lucide="settings" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    <h3 class="font-medium text-sm truncate mt-2" title="{{ file.name }}">{{ file.name }}</h3>
+                    {% if let Some(desc) = &file.description %}
+                    <p class="text-xs text-base-content/60 mt-1 line-clamp-2" title="{{ desc }}">{{ desc }}</p>
+                    {% endif %}
+                    {% if !file.modified.is_empty() %}
+                    <p class="text-xs text-base-content/40 mt-1">{{ file.modified }}</p>
+                    {% endif %}
+                    <div class="card-actions mt-3 gap-1">
+                        <a href="/workspaces/{{ workspace_id }}/edit?file={{ file.path }}"
+                           class="btn btn-xs btn-primary flex-1">Open</a>
+                        <a href="/workspaces/{{ workspace_id }}/edit-text?file={{ file.md_path }}"
+                           class="btn btn-xs btn-ghost"
+                           title="Edit documentation">
+                            <i data-lucide="file-text" class="w-4 h-4"></i>
+                        </a>
+                    </div>
                 </div>
             </div>
+            {% endfor %}
         </div>
-        {% endfor %}
     </div>
+    {% endfor %}
+
     {% endif %}
 
 </div>
@@ -120,14 +146,29 @@
     const WORKSPACE_ID = {{ workspace_id|tojson|safe }};
     const FOLDER_PATH = {{ folder_path|tojson|safe }};
 
+    // ── Search / filter ───────────────────────────────────────────────────────
+
+    function filterDiagrams(query) {
+        const q = query.toLowerCase().trim();
+        document.querySelectorAll('.bpmn-group').forEach(section => {
+            let visible = 0;
+            section.querySelectorAll('.bpmn-card').forEach(card => {
+                const match = !q || (card.dataset.search || '').toLowerCase().includes(q);
+                card.classList.toggle('hidden', !match);
+                if (match) visible++;
+            });
+            section.classList.toggle('hidden', visible === 0);
+        });
+    }
+
     // ── New diagram ──────────────────────────────────────────────────────────
 
-    async function newDiagram() {
+    async function newDiagramIn(subfolderPath) {
         const name = prompt('Diagram name (without .bpmn):');
         if (!name || !name.trim()) return;
 
         const filename = name.trim().replace(/[^a-zA-Z0-9_\- ]/g, '').trim().replace(/\s+/g, '-') + '.bpmn';
-        const filePath = FOLDER_PATH ? `${FOLDER_PATH}/${filename}` : filename;
+        const filePath = subfolderPath ? `${subfolderPath}/${filename}` : filename;
 
         const processId = 'Process_' + Math.random().toString(36).slice(2, 9);
         const xml = `<?xml version="1.0" encoding="UTF-8"?>

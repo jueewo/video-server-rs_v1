@@ -67,6 +67,17 @@ pub struct BpmnFileEntry {
     pub description: Option<String>,
     /// Workspace-relative path to the sidecar `.md` file (may or may not exist).
     pub md_path: String,
+    /// Combined name + description text for client-side search filtering.
+    pub search_text: String,
+}
+
+/// A group of `.bpmn` files, either top-level (name = None) or from a subfolder.
+pub struct BpmnGroup {
+    /// `None` means top-level / ungrouped; `Some(name)` is the subfolder name.
+    pub name: Option<String>,
+    /// Workspace-relative path to this group's directory (used for "New diagram here").
+    pub path: String,
+    pub files: Vec<BpmnFileEntry>,
 }
 
 #[derive(Template)]
@@ -77,15 +88,15 @@ pub struct BpmnFolderTemplate {
     pub workspace_name: String,
     pub folder_path: String,
     pub folder_name: String,
-    pub files: Vec<BpmnFileEntry>,
+    pub groups: Vec<BpmnGroup>,
     /// Workspace browse URL for the back link.
     pub back_url: String,
 }
 
 /// Folder-type renderer for `bpmn-simulator` folders.
 ///
-/// Lists all `.bpmn` files in the folder and renders them as an inline view
-/// inside the workspace browser. No redirect, no separate app.
+/// Lists all `.bpmn` files in the folder (and one level of subfolders) and
+/// renders them as an inline view inside the workspace browser.
 pub struct BpmnFolderRenderer;
 
 #[async_trait]
@@ -97,9 +108,12 @@ impl FolderTypeRenderer for BpmnFolderRenderer {
     async fn render_folder_view(&self, ctx: FolderViewContext) -> Result<Response, StatusCode> {
         let folder_abs = ctx.workspace_root.join(&ctx.folder_path);
 
-        // Collect .bpmn files (non-recursive — top-level only)
-        let mut files: Vec<BpmnFileEntry> = walkdir::WalkDir::new(&folder_abs)
-            .max_depth(1)
+        // Collect .bpmn files up to depth 2 (top-level + one subfolder level)
+        let mut groups_map: std::collections::HashMap<Option<String>, Vec<BpmnFileEntry>> =
+            std::collections::HashMap::new();
+
+        for e in walkdir::WalkDir::new(&folder_abs)
+            .max_depth(2)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| {
@@ -110,52 +124,103 @@ impl FolderTypeRenderer for BpmnFolderRenderer {
                         .map(|x| x.eq_ignore_ascii_case("bpmn"))
                         .unwrap_or(false)
             })
-            .map(|e| {
-                let name = e.file_name().to_string_lossy().to_string();
-                // workspace-relative path
-                let path = e
-                    .path()
-                    .strip_prefix(&ctx.workspace_root)
-                    .map(|p| p.to_string_lossy().to_string())
-                    .unwrap_or_else(|_| name.clone());
-                let modified = e
-                    .metadata()
-                    .ok()
-                    .and_then(|m| m.modified().ok())
-                    .and_then(|t| {
-                        let secs = t
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .ok()?
-                            .as_secs();
-                        let dt = time::OffsetDateTime::from_unix_timestamp(secs as i64).ok()?;
-                        let fmt = time::format_description::parse("[year]-[month]-[day]").ok()?;
-                        dt.format(&fmt).ok()
-                    })
-                    .unwrap_or_default();
+        {
+            let name = e.file_name().to_string_lossy().to_string();
+            let path = e
+                .path()
+                .strip_prefix(&ctx.workspace_root)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|_| name.clone());
 
-                // Sidecar: same stem, .md extension
-                let md_abs = e.path().with_extension("md");
-                let md_path = md_abs
-                    .strip_prefix(&ctx.workspace_root)
-                    .map(|p| p.to_string_lossy().to_string())
-                    .unwrap_or_else(|_| {
-                        std::path::Path::new(&path)
-                            .with_extension("md")
-                            .to_string_lossy()
-                            .to_string()
-                    });
-                let description = std::fs::read_to_string(&md_abs).ok().and_then(|content| {
-                    content
-                        .lines()
-                        .find(|l| !l.trim().is_empty())
-                        .map(|l| l.trim_start_matches('#').trim().to_string())
+            // depth 1 = top-level file, depth 2 = file inside subfolder
+            let group_key: Option<String> = if e.depth() == 1 {
+                None
+            } else {
+                e.path()
+                    .parent()
+                    .and_then(|p| p.file_name())
+                    .map(|n| n.to_string_lossy().to_string())
+            };
+
+            let modified = e
+                .metadata()
+                .ok()
+                .and_then(|m| m.modified().ok())
+                .and_then(|t| {
+                    let secs = t
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .ok()?
+                        .as_secs();
+                    let dt = time::OffsetDateTime::from_unix_timestamp(secs as i64).ok()?;
+                    let fmt = time::format_description::parse("[year]-[month]-[day]").ok()?;
+                    dt.format(&fmt).ok()
+                })
+                .unwrap_or_default();
+
+            // Sidecar: same stem, .md extension
+            let md_abs = e.path().with_extension("md");
+            let md_path = md_abs
+                .strip_prefix(&ctx.workspace_root)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|_| {
+                    std::path::Path::new(&path)
+                        .with_extension("md")
+                        .to_string_lossy()
+                        .to_string()
                 });
+            let description = std::fs::read_to_string(&md_abs).ok().and_then(|content| {
+                content
+                    .lines()
+                    .find(|l| !l.trim().is_empty())
+                    .map(|l| l.trim_start_matches('#').trim().to_string())
+            });
 
-                BpmnFileEntry { name, path, modified, description, md_path }
-            })
+            let search_text = match &description {
+                Some(d) => format!("{} {}", name, d),
+                None => name.clone(),
+            };
+
+            groups_map.entry(group_key).or_default().push(BpmnFileEntry {
+                name,
+                path,
+                modified,
+                description,
+                md_path,
+                search_text,
+            });
+        }
+
+        // Build ordered groups: top-level first, then subfolders alphabetically
+        let mut groups: Vec<BpmnGroup> = Vec::new();
+
+        if let Some(mut top_files) = groups_map.remove(&None) {
+            top_files.sort_by(|a, b| a.name.cmp(&b.name));
+            groups.push(BpmnGroup {
+                name: None,
+                path: ctx.folder_path.clone(),
+                files: top_files,
+            });
+        }
+
+        let mut subfolder_groups: Vec<(String, Vec<BpmnFileEntry>)> = groups_map
+            .into_iter()
+            .filter_map(|(k, v)| k.map(|name| (name, v)))
             .collect();
+        subfolder_groups.sort_by(|(a, _), (b, _)| a.cmp(b));
 
-        files.sort_by(|a, b| a.name.cmp(&b.name));
+        for (subfolder_name, mut files) in subfolder_groups {
+            files.sort_by(|a, b| a.name.cmp(&b.name));
+            let subfolder_path = if ctx.folder_path.is_empty() {
+                subfolder_name.clone()
+            } else {
+                format!("{}/{}", ctx.folder_path, subfolder_name)
+            };
+            groups.push(BpmnGroup {
+                name: Some(subfolder_name),
+                path: subfolder_path,
+                files,
+            });
+        }
 
         let back_url = format!("/workspaces/{}/browse", ctx.workspace_id);
 
@@ -165,7 +230,7 @@ impl FolderTypeRenderer for BpmnFolderRenderer {
             workspace_name: ctx.workspace_name,
             folder_path: ctx.folder_path,
             folder_name: ctx.folder_name,
-            files,
+            groups,
             back_url,
         };
 

@@ -235,6 +235,16 @@ pub struct WorkspaceDisplay {
     pub created_at: String,
     pub created_at_human: String,
     pub file_count: i64,
+    pub total_size_str: String,
+}
+
+#[derive(Clone)]
+pub struct WorkspaceStats {
+    pub image_count: usize,
+    pub video_count: usize,
+    pub doc_count: usize,
+    pub code_count: usize,
+    pub other_count: usize,
 }
 
 // ============================================================================
@@ -267,6 +277,7 @@ pub struct WorkspaceDashboardTemplate {
     pub workspace: WorkspaceDisplay,
     pub folders: Vec<FolderEntry>,
     pub recent_files: Vec<FileEntry>,
+    pub stats: WorkspaceStats,
 }
 
 #[derive(Template)]
@@ -1167,6 +1178,7 @@ pub async fn list_workspaces_page(
                 created_at: created_at.clone(),
                 created_at_human: format_human_date(&created_at),
                 file_count,
+                total_size_str: String::new(),
             }
         })
         .collect();
@@ -1211,14 +1223,77 @@ pub async fn workspace_dashboard(
         verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
     let workspace_root = state.storage.workspace_root(&workspace_id);
-    let file_count = count_files_in_dir(&workspace_root);
+
+    // Single walkdir pass: compute file_count, total_size, and type breakdown.
+    let mut file_count: i64 = 0;
+    let mut total_size: u64 = 0;
+    let mut image_count = 0usize;
+    let mut video_count = 0usize;
+    let mut doc_count = 0usize;
+    let mut code_count = 0usize;
+    let mut other_count = 0usize;
+
+    if workspace_root.exists() {
+        for entry in walkdir::WalkDir::new(&workspace_root)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_file())
+        {
+            // Skip hidden files
+            if entry.file_name().to_string_lossy().starts_with('.') {
+                continue;
+            }
+            file_count += 1;
+            if let Ok(meta) = entry.metadata() {
+                total_size += meta.len();
+            }
+            let mime = mime_guess::from_path(entry.path())
+                .first_or_text_plain()
+                .to_string();
+            if mime.starts_with("image/") {
+                image_count += 1;
+            } else if mime.starts_with("video/") {
+                video_count += 1;
+            } else if mime.contains("pdf") || mime.contains("bpmn") || mime.contains("markdown") {
+                doc_count += 1;
+            } else if mime.starts_with("text/") || mime == "application/json"
+                || mime == "application/yaml" || mime == "application/x-yaml"
+            {
+                code_count += 1;
+            } else {
+                other_count += 1;
+            }
+        }
+    }
+
+    let total_size_str = file_browser::format_size(total_size);
+    let stats = WorkspaceStats { image_count, video_count, doc_count, code_count, other_count };
 
     // List top-level folders
     let mut folders = file_browser::list_dir(&workspace_root, "")
         .map(|e| e.folders)
         .unwrap_or_default();
 
-    // Annotate icon_url for each folder that contains a thumbnail/icon image.
+    // Annotate folders with icon_url and type info from workspace.yaml + registry.
+    let ws_config_opt = WorkspaceConfig::load(&workspace_root).ok();
+    if let Some(ws_config) = ws_config_opt {
+        let registry = state.folder_type_registry.read().unwrap();
+        for folder in &mut folders {
+            if let Some(fc) = ws_config.get_folder(&folder.path) {
+                let type_id = fc.folder_type.as_str();
+                if type_id != "default" {
+                    if let Some(def) = registry.get_type(type_id) {
+                        folder.folder_type = Some(type_id.to_string());
+                        folder.type_color = def.color.clone();
+                        folder.type_icon = Some(def.icon.clone());
+                        folder.type_name = Some(def.name.clone());
+                    } else {
+                        folder.folder_type = Some(type_id.to_string());
+                    }
+                }
+            }
+        }
+    }
     for folder in &mut folders {
         let folder_abs = workspace_root.join(&folder.path);
         if file_browser::folder_has_icon(&folder_abs) {
@@ -1249,6 +1324,7 @@ pub async fn workspace_dashboard(
         created_at: created_at.clone(),
         created_at_human: format_human_date(&created_at),
         file_count,
+        total_size_str,
     };
 
     let template = WorkspaceDashboardTemplate {
@@ -1256,6 +1332,7 @@ pub async fn workspace_dashboard(
         workspace,
         folders,
         recent_files,
+        stats,
     };
 
     let html = template

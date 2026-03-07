@@ -138,12 +138,12 @@
                                     <a href="/workspaces/{{ workspace_id }}/edit?file={{ file.path }}"
                                        class="btn btn-xs btn-outline">{% if file.is_viewable && !file.is_editable %}View{% else %}Open{% endif %}</a>
                                     {% endif %}
+                                    <button onclick="deleteItem('{{ file.path }}', false)"
+                                            class="btn btn-xs btn-error btn-outline"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
                                     {% if file.mime_type.starts_with("image/") || file.mime_type.starts_with("video/") || file.mime_type == "application/pdf" %}
                                     <button onclick="openSendToMediaModal('{{ file.path }}', '{{ file.name }}')"
                                             class="btn btn-xs btn-outline btn-accent gap-1" title="Send to Media Library"><i data-lucide="library" class="w-3 h-3"></i> → Media</button>
                                     {% endif %}
-                                    <button onclick="deleteItem('{{ file.path }}', false)"
-                                            class="btn btn-xs btn-error btn-outline"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
                                 </div>
                             </td>
                         </tr>

@@ -1,332 +1,213 @@
 {% extends "base-tailwind.html" %} {% block title %}{{ app_title }} - Home{%
 endblock %} {% block content %}
-<div class="min-h-[calc(100vh-4rem)] bg-base-200 py-8">
-    <div class="container mx-auto px-4">
-        <!-- Header -->
-        <div class="text-center mb-12">
-            <div class="mb-4 flex justify-center">
-                <img
-                    src="{{ app_icon }}"
-                    alt="{{ app_title }}"
-                    class="w-20 h-20 object-contain"
-                />
+<div class="min-h-[calc(100vh-4rem)]">
+
+    <!-- Hero Section -->
+    <div class="relative overflow-hidden py-20 px-4"
+         style="background: linear-gradient(135deg, #4a63d3 0%, #764ba2 55%, #5a3d8a 100%);">
+        <!-- Decorative elements -->
+        <div class="absolute top-0 right-0 w-[500px] h-[500px] rounded-full -translate-y-1/3 translate-x-1/4 pointer-events-none"
+             style="background: rgba(255,255,255,0.04)"></div>
+        <div class="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full translate-y-1/3 -translate-x-1/4 pointer-events-none"
+             style="background: rgba(255,255,255,0.04)"></div>
+
+        <div class="relative container mx-auto max-w-4xl text-center">
+            <!-- Logo -->
+            <div class="mb-6 flex justify-center">
+                <div class="w-20 h-20 rounded-2xl backdrop-blur-sm flex items-center justify-center shadow-2xl"
+                     style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25)">
+                    <img src="{{ app_icon }}" alt="{{ app_title }}" class="w-14 h-14 object-contain" />
+                </div>
             </div>
-            <h1 class="text-4xl font-bold text-base-content mb-2">
+
+            <h1 class="text-5xl sm:text-6xl font-black text-white tracking-tight mb-4 leading-none">
                 {{ app_title }}
             </h1>
-            <p class="text-lg text-base-content/60">
-                Choose a section to get started
+            <p class="text-white/60 text-lg mb-8 max-w-lg mx-auto">
+                Media vaults · Workspaces · Standalone apps
             </p>
 
-            <!-- Auth Status -->
-            <div class="mt-4">
-                {% if authenticated %}
-                <div class="badge badge-success badge-lg gap-2">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-4 w-4"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                            clip-rule="evenodd"
-                        />
+            <!-- Auth badge + actions in hero -->
+            {% if authenticated %}
+            <div class="flex items-center justify-center gap-3 flex-wrap">
+                <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-sm font-semibold"
+                      style="background: rgba(74,222,128,0.18); color: #4ade80; border: 1px solid rgba(74,222,128,0.3)">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#4ade80]"></span>
+                    Signed in
+                </span>
+                <a href="/profile" class="btn btn-sm text-white gap-1.5 border-0"
+                   style="background: rgba(255,255,255,0.12)">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
                     </svg>
-                    Logged In
-                </div>
-                {% else %}
-                <div class="badge badge-info badge-lg gap-2">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-4 w-4"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                            clip-rule="evenodd"
-                        />
+                    Profile
+                </a>
+                <a href="/logout" class="btn btn-sm gap-1.5 border-0"
+                   style="background: rgba(239,68,68,0.18); color: #fca5a5">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd" />
+                    </svg>
+                    Logout
+                </a>
+            </div>
+            {% else %}
+            <div class="flex items-center justify-center gap-3 flex-wrap">
+                <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-sm"
+                      style="background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.15)">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
                     </svg>
                     Guest Mode
-                </div>
-                {% endif %}
+                </span>
+                <a href="/login" class="btn btn-sm bg-white font-bold shadow-lg gap-1.5 border-0"
+                   style="color: #667eea">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+                    </svg>
+                    Sign In
+                </a>
             </div>
-        </div>
-
-        <!-- Three Sections -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-            <!-- SECTION 1: VAULTS -->
-            <div
-                class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 border-t-4 border-primary"
-            >
-                <div class="card-body">
-                    <div class="flex items-center gap-3 mb-4">
-                        <div
-                            class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center"
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                class="h-6 w-6 text-primary"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
-                                />
-                            </svg>
-                        </div>
-                        <div>
-                            <h2 class="card-title text-primary">Vaults</h2>
-                            <p class="text-sm text-base-content/60">
-                                Media Library
-                            </p>
-                        </div>
-                    </div>
-
-                    <p class="text-base-content/70 mb-4">
-                        Manage and play videos, images, PDFs, and documents
-                        organized in vaults.
-                    </p>
-
-                    <!-- Stats -->
-                    <div class="stats stats-vertical shadow mb-4">
-                        <div class="stat py-2">
-                            <div class="stat-title text-xs">Vaults</div>
-                            <div class="stat-value text-2xl">
-                                {{ vault_count }}
-                            </div>
-                        </div>
-                        <div class="stat py-2">
-                            <div class="stat-title text-xs">Media Files</div>
-                            <div class="stat-value text-2xl">
-                                {{ media_count }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Links -->
-                    <div class="space-y-2 mb-4">
-                        <a
-                            href="/mediavaults"
-                            class="btn btn-primary btn-block btn-sm"
-                            >Vaults Menu</a
-                        >
-                        <a
-                            href="/media"
-                            class="btn btn-outline btn-primary btn-block btn-sm"
-                            >Browse Media</a
-                        >
-                        <a href="/vaults" class="btn btn-ghost btn-block btn-sm"
-                            >Manage Vaults</a
-                        >
-                    </div>
-                </div>
-            </div>
-
-            <!-- SECTION 2: WORKSPACES -->
-            <div
-                class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 border-t-4 border-secondary"
-            >
-                <div class="card-body">
-                    <div class="flex items-center gap-3 mb-4">
-                        <div
-                            class="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center"
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                class="h-6 w-6 text-secondary"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                                />
-                            </svg>
-                        </div>
-                        <div>
-                            <h2 class="card-title text-secondary">
-                                Workspaces
-                            </h2>
-                            <p class="text-sm text-base-content/60">
-                                Specialized Collections
-                            </p>
-                        </div>
-                    </div>
-
-                    <p class="text-base-content/70 mb-4">
-                        Specialized file collections for websites, courses, and
-                        agentic frameworks.
-                    </p>
-
-                    <!-- Stats -->
-                    <div class="stats stats-vertical shadow mb-4">
-                        <div class="stat py-2">
-                            <div class="stat-title text-xs">Workspaces</div>
-                            <div class="stat-value text-2xl">
-                                {{ workspace_count }}
-                            </div>
-                        </div>
-                        <div class="stat py-2">
-                            <div class="stat-title text-xs">Type</div>
-                            <div class="stat-value text-lg">Multi-purpose</div>
-                        </div>
-                    </div>
-
-                    <!-- Links -->
-                    <div class="space-y-2 mb-4">
-                        <a
-                            href="/workspaces"
-                            class="btn btn-secondary btn-block btn-sm"
-                            >Workspaces</a
-                        >
-                        <a
-                            href="/workspaces/list"
-                            class="btn btn-outline btn-secondary btn-block btn-sm"
-                            >All Collections</a
-                        >
-                        {% if authenticated %}
-                        <a
-                            href="/workspaces/new"
-                            class="btn btn-ghost btn-block btn-sm"
-                            >Create New</a
-                        >
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <!-- SECTION 3: APPS -->
-            <div
-                class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 border-t-4 border-accent"
-            >
-                <div class="card-body">
-                    <div class="flex items-center gap-3 mb-4">
-                        <div
-                            class="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center"
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                class="h-6 w-6 text-accent"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
-                                />
-                            </svg>
-                        </div>
-                        <div>
-                            <h2 class="card-title text-accent">Apps</h2>
-                            <p class="text-sm text-base-content/60">
-                                Standalone Tools
-                            </p>
-                        </div>
-                    </div>
-
-                    <p class="text-base-content/70 mb-4">
-                        Standalone applications built on top of vaults and
-                        workspaces.
-                    </p>
-
-                    <!-- Stats -->
-                    <div class="stats stats-vertical shadow mb-4">
-                        <div class="stat py-2">
-                            <div class="stat-title text-xs">Apps</div>
-                            <div class="stat-value text-2xl">
-                                {{ app_count }}
-                            </div>
-                        </div>
-                        <div class="stat py-2">
-                            <div class="stat-title text-xs">Status</div>
-                            <div class="stat-value text-lg">Active</div>
-                        </div>
-                    </div>
-
-                    <!-- Links -->
-                    <div class="space-y-2 mb-4">
-                        <a href="/apps" class="btn btn-accent btn-block btn-sm"
-                            >Open Apps</a
-                        >
-                        <a
-                            href="/3d-viewer"
-                            class="btn btn-outline btn-accent btn-block btn-sm"
-                            >3D Viewer</a
-                        >
-                        <a
-                            href="/course-viewer"
-                            class="btn btn-ghost btn-accent btn-block btn-sm"
-                            >Courses</a
-                        >
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Footer Actions -->
-        <div class="mt-12 flex justify-center gap-4">
-            {% if authenticated %}
-            <a href="/profile" class="btn btn-outline gap-2">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-5 w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                >
-                    <path
-                        fill-rule="evenodd"
-                        d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                        clip-rule="evenodd"
-                    />
-                </svg>
-                Profile
-            </a>
-            <a href="/logout" class="btn btn-outline btn-error gap-2">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-5 w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                >
-                    <path
-                        fill-rule="evenodd"
-                        d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z"
-                        clip-rule="evenodd"
-                    />
-                </svg>
-                Logout
-            </a>
-            {% else %}
-            <a href="/login" class="btn btn-primary btn-lg gap-2">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-5 w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                >
-                    <path
-                        fill-rule="evenodd"
-                        d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                        clip-rule="evenodd"
-                    />
-                </svg>
-                Login
-            </a>
             {% endif %}
+        </div>
+    </div>
+
+    <!-- Cards Section -->
+    <div class="bg-base-200 py-10 px-4 pb-16">
+        <div class="container mx-auto max-w-6xl">
+
+            <!-- Slight overlap from hero -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 -mt-8">
+
+                <!-- VAULTS CARD -->
+                <div class="card bg-base-100 shadow-2xl card-hover border border-base-300/50 overflow-hidden">
+                    <div class="h-1 bg-gradient-to-r from-[#667eea] to-[#764ba2]"></div>
+                    <div class="card-body gap-0 p-6">
+                        <!-- Icon + title -->
+                        <div class="flex items-center gap-3 mb-5">
+                            <div class="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="font-bold text-lg text-base-content leading-none">Vaults</div>
+                                <div class="text-xs text-base-content/40 mt-0.5 uppercase tracking-widest">Media Library</div>
+                            </div>
+                        </div>
+
+                        <p class="text-base-content/60 text-sm mb-6 leading-relaxed">
+                            Videos, images, PDFs, and documents organized in isolated vaults.
+                        </p>
+
+                        <!-- Stat tiles -->
+                        <div class="grid grid-cols-2 gap-3 mb-6">
+                            <div class="bg-primary/10 rounded-xl p-3 text-center">
+                                <div class="text-2xl font-black text-primary leading-none">{{ vault_count }}</div>
+                                <div class="text-[10px] text-base-content/40 mt-1 uppercase tracking-widest font-medium">Vaults</div>
+                            </div>
+                            <div class="bg-base-200 rounded-xl p-3 text-center">
+                                <div class="text-2xl font-black text-base-content leading-none">{{ media_count }}</div>
+                                <div class="text-[10px] text-base-content/40 mt-1 uppercase tracking-widest font-medium">Files</div>
+                            </div>
+                        </div>
+
+                        <!-- Action buttons -->
+                        <div class="space-y-2 mt-auto">
+                            <a href="/mediavaults" class="btn btn-primary btn-block btn-sm">Vaults Menu</a>
+                            <a href="/media" class="btn btn-outline btn-primary btn-block btn-sm">Browse Media</a>
+                            <a href="/vaults" class="btn btn-ghost btn-block btn-sm text-base-content/50">Manage Vaults</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- WORKSPACES CARD -->
+                <div class="card bg-base-100 shadow-2xl card-hover border border-base-300/50 overflow-hidden">
+                    <div class="h-1 bg-gradient-to-r from-[#764ba2] to-[#667eea]"></div>
+                    <div class="card-body gap-0 p-6">
+                        <div class="flex items-center gap-3 mb-5">
+                            <div class="w-11 h-11 rounded-xl bg-secondary/10 flex items-center justify-center shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="font-bold text-lg text-base-content leading-none">Workspaces</div>
+                                <div class="text-xs text-base-content/40 mt-0.5 uppercase tracking-widest">Collections</div>
+                            </div>
+                        </div>
+
+                        <p class="text-base-content/60 text-sm mb-6 leading-relaxed">
+                            File collections for websites, courses, and agentic frameworks.
+                        </p>
+
+                        <!-- Stat tiles -->
+                        <div class="grid grid-cols-2 gap-3 mb-6">
+                            <div class="bg-secondary/10 rounded-xl p-3 text-center">
+                                <div class="text-2xl font-black text-secondary leading-none">{{ workspace_count }}</div>
+                                <div class="text-[10px] text-base-content/40 mt-1 uppercase tracking-widest font-medium">Total</div>
+                            </div>
+                            <div class="bg-base-200 rounded-xl p-3 text-center">
+                                <div class="text-lg font-black text-base-content leading-none mt-0.5">Multi</div>
+                                <div class="text-[10px] text-base-content/40 mt-1 uppercase tracking-widest font-medium">Purpose</div>
+                            </div>
+                        </div>
+
+                        <!-- Action buttons -->
+                        <div class="space-y-2 mt-auto">
+                            <a href="/workspaces" class="btn btn-secondary btn-block btn-sm">Workspaces</a>
+                            <a href="/workspaces/list" class="btn btn-outline btn-secondary btn-block btn-sm">All Collections</a>
+                            {% if authenticated %}
+                            <a href="/workspaces/new" class="btn btn-ghost btn-block btn-sm text-base-content/50">Create New</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- APPS CARD -->
+                <div class="card bg-base-100 shadow-2xl card-hover border border-base-300/50 overflow-hidden">
+                    <div class="h-1 bg-gradient-to-r from-[#4ade80] to-[#22d3ee]"></div>
+                    <div class="card-body gap-0 p-6">
+                        <div class="flex items-center gap-3 mb-5">
+                            <div class="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="font-bold text-lg text-base-content leading-none">Apps</div>
+                                <div class="text-xs text-base-content/40 mt-0.5 uppercase tracking-widest">Standalone Tools</div>
+                            </div>
+                        </div>
+
+                        <p class="text-base-content/60 text-sm mb-6 leading-relaxed">
+                            Standalone applications built on top of vaults and workspaces.
+                        </p>
+
+                        <!-- Stat tiles -->
+                        <div class="grid grid-cols-2 gap-3 mb-6">
+                            <div class="bg-accent/10 rounded-xl p-3 text-center">
+                                <div class="text-2xl font-black text-accent leading-none">{{ app_count }}</div>
+                                <div class="text-[10px] text-base-content/40 mt-1 uppercase tracking-widest font-medium">Apps</div>
+                            </div>
+                            <div class="bg-base-200 rounded-xl p-3 text-center">
+                                <div class="flex items-center justify-center gap-1.5 mt-2">
+                                    <span class="w-2 h-2 rounded-full bg-success shadow-[0_0_6px_#10b981]"></span>
+                                    <span class="text-xs font-bold text-success">Live</span>
+                                </div>
+                                <div class="text-[10px] text-base-content/40 mt-1 uppercase tracking-widest font-medium">Status</div>
+                            </div>
+                        </div>
+
+                        <!-- Action buttons -->
+                        <div class="space-y-2 mt-auto">
+                            <a href="/apps" class="btn btn-accent btn-block btn-sm">Open Apps</a>
+                            <a href="/3d-viewer" class="btn btn-outline btn-accent btn-block btn-sm">3D Viewer</a>
+                            <a href="/course-viewer" class="btn btn-ghost btn-accent btn-block btn-sm text-base-content/50">Courses</a>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
         </div>
     </div>
 </div>

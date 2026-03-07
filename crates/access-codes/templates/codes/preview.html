@@ -6,22 +6,9 @@ Server{% endblock %} {% block content %}
         <div
             class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4"
         >
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-8 w-8 text-primary"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-            >
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-                />
-            </svg>
+            <i data-lucide="key" class="w-8 h-8 text-primary"></i>
         </div>
-        <h1 class="text-4xl font-bold mb-2">🎬 Shared Media Access</h1>
+        <h1 class="text-4xl font-bold mb-2">Shared Media Access</h1>
         {% if has_description %}
         <p class="text-lg text-base-content/70 max-w-2xl mx-auto">
             {{ description }}
@@ -59,20 +46,7 @@ Server{% endblock %} {% block content %}
     {% if resource_count > 0 %}
     <div class="mb-6">
         <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-            >
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                />
-            </svg>
+            <i data-lucide="layout-grid" class="w-6 h-6"></i>
             Available Media
         </h2>
     </div>
@@ -87,56 +61,17 @@ Server{% endblock %} {% block content %}
                 <div class="flex items-center gap-3 mb-3">
                     {% if resource.media_type == "video" %}
                     <div class="badge badge-primary badge-lg gap-1">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-4 w-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                            />
-                        </svg>
+                        <i data-lucide="video" class="w-4 h-4"></i>
                         Video
                     </div>
                     {% else if resource.media_type == "document" %}
                     <div class="badge badge-accent badge-lg gap-1">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-4 w-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                            />
-                        </svg>
+                        <i data-lucide="file-text" class="w-4 h-4"></i>
                         Document
                     </div>
                     {% else %}
                     <div class="badge badge-secondary badge-lg gap-1">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-4 w-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                            />
-                        </svg>
+                        <i data-lucide="image" class="w-4 h-4"></i>
                         Image
                     </div>
                     {% endif %}
@@ -157,64 +92,13 @@ Server{% endblock %} {% block content %}
                         class="btn {% if resource.media_type == "video" %}btn-primary{% else if resource.media_type == "document" %}btn-accent{% else %}btn-secondary{% endif %} gap-2"
                     >
                         {% if resource.media_type == "video" %}
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-5 w-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                            />
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                        </svg>
+                        <i data-lucide="play-circle" class="w-5 h-5"></i>
                         View Video
                         {% else if resource.media_type == "document" %}
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-5 w-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                            />
-                        </svg>
+                        <i data-lucide="file" class="w-5 h-5"></i>
                         View Document
                         {% else %}
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-5 w-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                            />
-                        </svg>
+                        <i data-lucide="eye" class="w-5 h-5"></i>
                         View Image
                         {% endif %}
                     </a>
@@ -227,20 +111,7 @@ Server{% endblock %} {% block content %}
     <!-- Empty State -->
     <div class="card bg-base-200 shadow-xl">
         <div class="card-body items-center text-center py-12">
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-16 w-16 text-base-content/30 mb-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-            >
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-                />
-            </svg>
+            <i data-lucide="inbox" class="w-16 h-16 text-base-content/30 mb-4"></i>
             <h3 class="text-2xl font-bold mb-2">No Resources Available</h3>
             <p class="text-base-content/70">
                 This access code doesn't have any resources assigned yet.
@@ -251,19 +122,7 @@ Server{% endblock %} {% block content %}
 
     <!-- Help Section -->
     <div class="alert alert-info shadow-lg mt-8">
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="stroke-current shrink-0 h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-        >
-            <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-        </svg>
+        <i data-lucide="info" class="shrink-0 w-6 h-6"></i>
         <div>
             <h3 class="font-bold">Access Code Information</h3>
             <div class="text-sm">

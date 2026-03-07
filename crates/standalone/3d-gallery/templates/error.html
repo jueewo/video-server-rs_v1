@@ -4,10 +4,8 @@ endblock %} {% block content %}
     <div class="card bg-base-100 shadow-xl max-w-lg w-full">
         <div class="card-body items-center text-center py-12">
             <!-- Icon -->
-            <div class="text-6xl mb-4">
-                {% if error.code == "INVALID_CODE" %} ⚠️ {% else if error.code
-                == "EXPIRED_CODE" %} ⏰ {% else if error.code == "NO_MEDIA" %}
-                🖼️ {% else %} ❌ {% endif %}
+            <div class="mb-4">
+                {% if error.code == "INVALID_CODE" %}<i data-lucide="alert-triangle" class="w-16 h-16 mx-auto text-warning"></i>{% else if error.code == "EXPIRED_CODE" %}<i data-lucide="clock" class="w-16 h-16 mx-auto text-warning"></i>{% else if error.code == "NO_MEDIA" %}<i data-lucide="image" class="w-16 h-16 mx-auto text-base-content/40"></i>{% else %}<i data-lucide="x-circle" class="w-16 h-16 mx-auto text-error"></i>{% endif %}
             </div>
 
             <!-- Title -->
@@ -30,7 +28,7 @@ endblock %} {% block content %}
                 <button class="btn btn-primary" onclick="history.back()">
                     ← Go Back
                 </button>
-                <a href="/" class="btn btn-ghost"> 🏠 Home </a>
+                <a href="/" class="btn btn-ghost gap-2"><i data-lucide="home" class="w-5 h-5"></i> Home</a>
             </div>
         </div>
     </div>

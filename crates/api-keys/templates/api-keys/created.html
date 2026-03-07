@@ -5,19 +5,15 @@
 <div class="container mx-auto px-4 py-8 max-w-3xl">
     <!-- Success Header -->
     <div class="alert alert-success shadow-lg mb-8">
-        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
+        <i data-lucide="check-circle" class="shrink-0 w-6 h-6"></i>
         <span class="font-bold">API Key Created Successfully!</span>
     </div>
 
     <!-- Critical Warning -->
     <div class="alert alert-error shadow-lg mb-6">
-        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-        </svg>
+        <i data-lucide="alert-triangle" class="shrink-0 w-6 h-6"></i>
         <div>
-            <h3 class="font-bold text-lg">⚠️ Save This Key Now!</h3>
+            <h3 class="font-bold text-lg">Save This Key Now!</h3>
             <p class="text-sm">This is the ONLY time you'll see the full key. Copy it now and store it securely.</p>
         </div>
     </div>
@@ -40,10 +36,8 @@
                         readonly
                         class="input input-bordered join-item w-full font-mono text-sm select-all"
                     />
-                    <button class="btn btn-primary join-item" onclick="copyKey()">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
+                    <button class="btn btn-primary join-item gap-1" onclick="copyKey()">
+                        <i data-lucide="copy" class="w-5 h-5"></i>
                         Copy
                     </button>
                 </div>
@@ -54,9 +48,7 @@
 
             <!-- Copy Confirmation -->
             <div id="copy-success" class="alert alert-success shadow-lg hidden mt-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <i data-lucide="check-circle" class="shrink-0 w-6 h-6"></i>
                 <span>API key copied to clipboard!</span>
             </div>
         </div>
@@ -114,17 +106,15 @@ export MEDIA_API_KEY="{{ key }}"
 
     <!-- Security Reminders -->
     <div class="alert alert-warning shadow-lg mb-6">
-        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-        </svg>
+        <i data-lucide="alert-triangle" class="shrink-0 w-6 h-6"></i>
         <div>
             <h4 class="font-bold">Security Checklist:</h4>
             <ul class="text-sm list-disc list-inside mt-2">
-                <li>✅ Copy the key and save it in a secure location</li>
-                <li>✅ Never commit this key to version control</li>
-                <li>✅ Use environment variables, not hardcoded values</li>
-                <li>✅ If compromised, revoke immediately and create a new key</li>
-                <li>✅ Treat this like a password - keep it secret!</li>
+                <li>Copy the key and save it in a secure location</li>
+                <li>Never commit this key to version control</li>
+                <li>Use environment variables, not hardcoded values</li>
+                <li>If compromised, revoke immediately and create a new key</li>
+                <li>Treat this like a password — keep it secret!</li>
             </ul>
         </div>
     </div>
@@ -132,15 +122,11 @@ export MEDIA_API_KEY="{{ key }}"
     <!-- Actions -->
     <div class="flex gap-3">
         <a href="/profile/api-keys" class="btn btn-primary gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Done - Go to API Keys List
+            <i data-lucide="check" class="w-5 h-5"></i>
+            Done — Go to API Keys List
         </a>
         <a href="/profile/api-keys/create" class="btn btn-ghost gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
+            <i data-lucide="plus" class="w-5 h-5"></i>
             Create Another Key
         </a>
     </div>

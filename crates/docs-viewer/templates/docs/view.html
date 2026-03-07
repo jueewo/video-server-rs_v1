@@ -116,13 +116,13 @@ page_subtitle = file_path %}
     <div class="page-header">
         {% include "components/page-header.html" %}
         <div class="page-header-actions">
-            <button onclick="toggleRaw()" class="btn btn-sm btn-outline">
-                🔍 Toggle Raw
+            <button onclick="toggleRaw()" class="btn btn-sm btn-outline gap-1">
+                <i data-lucide="eye" class="w-4 h-4"></i> Toggle Raw
             </button>
-            <button onclick="copyMarkdown()" class="btn btn-sm btn-outline">
-                📋 Copy Markdown
+            <button onclick="copyMarkdown()" class="btn btn-sm btn-outline gap-1">
+                <i data-lucide="clipboard" class="w-4 h-4"></i> Copy Markdown
             </button>
-            <a href="/docs" class="btn btn-sm btn-ghost">← Back to Docs</a>
+            <a href="/docs" class="btn btn-sm btn-ghost gap-1"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Docs</a>
         </div>
     </div>
 
@@ -154,10 +154,10 @@ page_subtitle = file_path %}
     function copyMarkdown() {
         const markdown = {{ raw_markdown|tojson|safe }};
         navigator.clipboard.writeText(markdown).then(() => {
-            showToast('✅ Markdown copied to clipboard!', 'success');
+            showToast('Markdown copied to clipboard!', 'success');
         }).catch(err => {
             console.error('Failed to copy:', err);
-            showToast('❌ Failed to copy to clipboard', 'error');
+            showToast('Failed to copy to clipboard', 'error');
         });
     }
 </script>

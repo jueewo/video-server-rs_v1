@@ -2,7 +2,7 @@
 endblock %} {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-4xl">
     <!-- Page Header -->
-    {% let page_title = "👤 My Profile" %} {% let page_subtitle = "Manage your
+    {% let page_title = "My Profile" %} {% let page_subtitle = "Manage your
     account and preferences" %}
     <div class="page-header">{% include "components/page-header.html" %}</div>
 
@@ -22,20 +22,7 @@ endblock %} {% block content %}
                         <div
                             class="bg-primary text-primary-content rounded-full w-20 h-20 flex items-center justify-center"
                         >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                class="h-12 w-12"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                                />
-                            </svg>
+                            <i data-lucide="user" class="w-12 h-12"></i>
                         </div>
                         {% endif %}
                     </div>
@@ -82,20 +69,7 @@ endblock %} {% block content %}
     <div class="stats shadow-xl mb-6 w-full bg-base-200">
         <div class="stat">
             <div class="stat-figure text-primary">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-8 w-8"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                    />
-                </svg>
+                <i data-lucide="layout-grid" class="w-8 h-8"></i>
             </div>
             <div class="stat-title">Total Media</div>
             <div class="stat-value text-primary">0</div>
@@ -104,20 +78,7 @@ endblock %} {% block content %}
 
         <div class="stat">
             <div class="stat-figure text-secondary">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-8 w-8"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-                    />
-                </svg>
+                <i data-lucide="folder" class="w-8 h-8"></i>
             </div>
             <div class="stat-title">Workspaces</div>
             <div class="stat-value text-secondary">0</div>
@@ -126,20 +87,7 @@ endblock %} {% block content %}
 
         <div class="stat">
             <div class="stat-figure text-accent">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-8 w-8"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                    />
-                </svg>
+                <i data-lucide="lock" class="w-8 h-8"></i>
             </div>
             <div class="stat-title">Vaults</div>
             <div class="stat-value text-accent">0</div>
@@ -148,20 +96,7 @@ endblock %} {% block content %}
 
         <div class="stat">
             <div class="stat-figure text-warning">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-8 w-8"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-                    />
-                </svg>
+                <i data-lucide="key" class="w-8 h-8"></i>
             </div>
             <div class="stat-title">Access Codes</div>
             <div class="stat-value text-warning">0</div>
@@ -177,20 +112,7 @@ endblock %} {% block content %}
         >
             <div class="card-body">
                 <div class="flex items-center gap-3 mb-4">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-8 w-8 text-secondary"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                        />
-                    </svg>
+                    <i data-lucide="lock" class="w-8 h-8 text-secondary"></i>
                     <h3 class="card-title">Vaults</h3>
                 </div>
                 <div class="overflow-x-auto">
@@ -217,20 +139,7 @@ endblock %} {% block content %}
                 </div>
                 <div class="card-actions justify-end mt-2">
                     <a href="/vaults" class="btn btn-secondary btn-sm gap-2">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-4 w-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"
-                            />
-                        </svg>
+                        <i data-lucide="file" class="w-4 h-4"></i>
                         Manage Vaults
                     </a>
                 </div>
@@ -243,20 +152,7 @@ endblock %} {% block content %}
         >
             <div class="card-body">
                 <div class="flex items-center gap-3 mb-4">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-8 w-8 text-primary"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-                        />
-                    </svg>
+                    <i data-lucide="folder" class="w-8 h-8 text-primary"></i>
                     <h3 class="card-title">Workspaces</h3>
                 </div>
                 <div class="overflow-x-auto">
@@ -283,20 +179,7 @@ endblock %} {% block content %}
                 </div>
                 <div class="card-actions justify-end mt-2">
                     <a href="/workspaces" class="btn btn-primary btn-sm gap-2">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-4 w-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                            />
-                        </svg>
+                        <i data-lucide="clipboard" class="w-4 h-4"></i>
                         Manage Workspaces
                     </a>
                 </div>
@@ -309,20 +192,7 @@ endblock %} {% block content %}
         >
             <div class="card-body">
                 <div class="flex items-center gap-3 mb-4">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-8 w-8 text-accent"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
-                        />
-                    </svg>
+                    <i data-lucide="layout-grid" class="w-8 h-8 text-accent"></i>
                     <h3 class="card-title">Apps</h3>
                 </div>
                 <div class="overflow-x-auto">
@@ -357,20 +227,7 @@ endblock %} {% block content %}
                 </div>
                 <div class="card-actions justify-end mt-2">
                     <a href="/apps" class="btn btn-accent btn-sm gap-2">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-4 w-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
-                            />
-                        </svg>
+                        <i data-lucide="layout-grid" class="w-4 h-4"></i>
                         Browse Apps
                     </a>
                 </div>
@@ -381,20 +238,7 @@ endblock %} {% block content %}
     <!-- Quick Actions -->
     <div class="mb-6">
         <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-            >
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-            </svg>
+            <i data-lucide="zap" class="w-6 h-6"></i>
             Quick Actions
         </h2>
     </div>
@@ -404,20 +248,7 @@ endblock %} {% block content %}
             class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
         >
             <div class="card-body items-center text-center">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-12 w-12 text-secondary mb-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                    />
-                </svg>
+                <i data-lucide="server" class="w-12 h-12 text-secondary mb-2"></i>
                 <h3 class="card-title text-lg">All Media</h3>
                 <p class="text-sm text-base-content/70">
                     Global view across all vaults
@@ -430,20 +261,7 @@ endblock %} {% block content %}
             class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
         >
             <div class="card-body items-center text-center">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-12 w-12 text-error mb-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M15 10l4.553-2.069A1 1 0 0121 8.868v6.264a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                    />
-                </svg>
+                <i data-lucide="video" class="w-12 h-12 text-error mb-2"></i>
                 <h3 class="card-title text-lg">Videos (legacy)</h3>
                 <p class="text-sm text-base-content/70">
                     Legacy video list view</p>
@@ -455,20 +273,7 @@ endblock %} {% block content %}
             class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
         >
             <div class="card-body items-center text-center">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-12 w-12 text-success mb-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                    />
-                </svg>
+                <i data-lucide="upload" class="w-12 h-12 text-success mb-2"></i>
                 <h3 class="card-title text-lg">Upload Media</h3>
                 <p class="text-sm text-base-content/70">Add new content</p>
             </div>
@@ -479,20 +284,7 @@ endblock %} {% block content %}
             class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
         >
             <div class="card-body items-center text-center">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-12 w-12 text-accent mb-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                    />
-                </svg>
+                <i data-lucide="users" class="w-12 h-12 text-accent mb-2"></i>
                 <h3 class="card-title text-lg">Groups</h3>
                 <p class="text-sm text-base-content/70">Manage access groups</p>
             </div>
@@ -503,20 +295,7 @@ endblock %} {% block content %}
             class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
         >
             <div class="card-body items-center text-center">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-12 w-12 text-warning mb-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-                    />
-                </svg>
+                <i data-lucide="key" class="w-12 h-12 text-warning mb-2"></i>
                 <h3 class="card-title text-lg">Access Codes</h3>
                 <p class="text-sm text-base-content/70">Share media securely</p>
             </div>
@@ -527,20 +306,7 @@ endblock %} {% block content %}
             class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
         >
             <div class="card-body items-center text-center">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-12 w-12 text-error mb-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                    />
-                </svg>
+                <i data-lucide="lock" class="w-12 h-12 text-error mb-2"></i>
                 <h3 class="card-title text-lg">API Keys</h3>
                 <p class="text-sm text-base-content/70">API automation</p>
             </div>
@@ -551,20 +317,7 @@ endblock %} {% block content %}
             class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
         >
             <div class="card-body items-center text-center">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-12 w-12 text-purple-500 mb-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                </svg>
+                <i data-lucide="file-text" class="w-12 h-12 text-purple-500 mb-2"></i>
                 <h3 class="card-title text-lg">Documentation</h3>
                 <p class="text-sm text-base-content/70">View docs</p>
             </div>
@@ -577,37 +330,11 @@ endblock %} {% block content %}
             <h3 class="card-title mb-4">Account Actions</h3>
             <div class="flex flex-wrap gap-3">
                 <a href="/" class="btn btn-primary gap-2">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                        />
-                    </svg>
+                    <i data-lucide="home" class="w-5 h-5"></i>
                     Back to Home
                 </a>
                 <a href="/logout" class="btn btn-error gap-2">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                        />
-                    </svg>
+                    <i data-lucide="log-out" class="w-5 h-5"></i>
                     Logout
                 </a>
             </div>

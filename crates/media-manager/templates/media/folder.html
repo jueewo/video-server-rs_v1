@@ -22,8 +22,8 @@
             </span>
         </div>
         <div class="flex gap-2">
-            <a href="{{ upload_url }}" class="btn btn-sm btn-primary gap-1">⬆️ Upload</a>
-            <button onclick="document.getElementById('shareModal').showModal()" class="btn btn-sm btn-outline gap-1">🔗 Share</button>
+            <a href="{{ upload_url }}" class="btn btn-sm btn-primary gap-1"><i data-lucide="upload" class="w-4 h-4"></i> Upload</a>
+            <button onclick="document.getElementById('shareModal').showModal()" class="btn btn-sm btn-outline gap-1"><i data-lucide="share-2" class="w-4 h-4"></i> Share</button>
             <a href="{{ back_url }}" class="btn btn-sm btn-ghost">← Workspace</a>
         </div>
     </div>
@@ -32,10 +32,10 @@
     <!-- Empty state -->
     <div class="card bg-base-200 shadow">
         <div class="card-body items-center text-center py-12">
-            <div class="text-5xl mb-3">🎬</div>
+            <i data-lucide="film" class="w-16 h-16 mb-3 mx-auto text-base-content/30"></i>
             <h3 class="text-xl font-semibold mb-2">No media yet</h3>
             <p class="text-base-content/60 mb-4">Upload images, videos, or documents to this library.</p>
-            <a href="{{ upload_url }}" class="btn btn-primary">⬆️ Upload Media</a>
+            <a href="{{ upload_url }}" class="btn btn-primary gap-2"><i data-lucide="upload" class="w-5 h-5"></i> Upload Media</a>
         </div>
     </div>
     {% else %}

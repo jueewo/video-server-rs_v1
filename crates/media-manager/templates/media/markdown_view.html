@@ -123,11 +123,11 @@ View{% endblock %} {% block extra_head %}
             {% if authenticated %}
             <a href="/media/{{ slug }}/edit" class="btn btn-sm btn-primary gap-2"><i data-lucide="pencil" class="w-4 h-4"></i> Edit</a>
             {% endif %}
-            <button onclick="toggleRaw()" class="btn btn-sm btn-outline">
-                🔍 Toggle Raw
+            <button onclick="toggleRaw()" class="btn btn-sm btn-outline gap-1">
+                <i data-lucide="code" class="w-4 h-4"></i> Toggle Raw
             </button>
-            <button onclick="copyMarkdown()" class="btn btn-sm btn-outline">
-                📋 Copy
+            <button onclick="copyMarkdown()" class="btn btn-sm btn-outline gap-1">
+                <i data-lucide="clipboard" class="w-4 h-4"></i> Copy
             </button>
             <a href="/media" class="btn btn-sm btn-ghost">← Back to Media</a>
         </div>
@@ -136,7 +136,7 @@ View{% endblock %} {% block extra_head %}
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
             <div class="flex gap-3 text-sm text-base-content/60 mb-4">
-                <span>📅 {{ created_at }}</span>
+                <span>{{ created_at }}</span>
             </div>
 
             <div class="divider"></div>
@@ -165,10 +165,10 @@ View{% endblock %} {% block extra_head %}
     function copyMarkdown() {
         const markdown = {{ raw_markdown|tojson|safe }};
         navigator.clipboard.writeText(markdown).then(() => {
-            showToast('✅ Markdown copied to clipboard!', 'success');
+            showToast('Markdown copied to clipboard!', 'success');
         }).catch(err => {
             console.error('Failed to copy:', err);
-            showToast('❌ Failed to copy to clipboard', 'error');
+            showToast('Failed to copy to clipboard', 'error');
         });
     }
 </script>

@@ -123,9 +123,9 @@
         {% include "components/page-header.html" %}
         <div class="page-header-actions">
             {% if is_public %}
-            <span class="badge badge-success badge-lg gap-2">📺 Public</span>
+            <span class="badge badge-success badge-lg gap-2">Public</span>
             {% else %}
-            <span class="badge badge-warning badge-lg gap-2">🔒 Private</span>
+            <span class="badge badge-warning badge-lg gap-2">Private</span>
             {% endif %}
         </div>
     </div>
@@ -140,15 +140,15 @@
 
     <div class="video-details">
         <div class="detail-row">
-            <span class="detail-label">🎬 Title:</span>
+            <span class="detail-label">Title:</span>
             <span class="detail-value">{{ title }}</span>
         </div>
         <div class="detail-row">
-            <span class="detail-label">🔗 Slug:</span>
+            <span class="detail-label">Slug:</span>
             <span class="detail-value"><code>{{ slug }}</code></span>
         </div>
         <div class="detail-row">
-            <span class="detail-label">👁️ Visibility:</span>
+            <span class="detail-label">Visibility:</span>
             <span class="detail-value">
                 {% if is_public %}
                     <strong style="color: #4CAF50;">Public</strong> - Anyone can watch
@@ -158,13 +158,13 @@
             </span>
         </div>
         <div class="detail-row">
-            <span class="detail-label">📂 Stream:</span>
+            <span class="detail-label">Stream:</span>
             <span class="detail-value"><code>/hls/{{ slug }}/master.m3u8</code></span>
         </div>
     </div>
 
     <div class="player-instructions">
-        <h3>🎮 Player</h3> Controls</h3>
+        <h3>Player Controls</h3>
         <ul>
             <li><strong>Play/Pause:</strong> Click the video or use the spacebar</li>
             <li><strong>Volume:</strong> Use the volume slider or arrow keys</li>
@@ -174,27 +174,27 @@
     </div>
 
     <div class="controls-section">
-        <h2>🎯 Navigation</h2>
+        <h2>Navigation</h2>
         <div class="buttons">
-            <a href="/videos" class="btn btn-primary">
-                <span class="emoji">◀️</span>
+            <a href="/videos" class="btn btn-primary gap-2">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
                 Back to Videos
             </a>
             {% if authenticated %}
                 <a href="/videos/{{ slug }}/edit" class="btn btn-secondary gap-2">
                     <i data-lucide="pencil" class="w-4 h-4"></i> Edit Video
                 </a>
-                <a href="/media" class="btn btn-secondary">
-                    <span class="emoji">🎨</span>
+                <a href="/media" class="btn btn-secondary gap-2">
+                    <i data-lucide="image" class="w-4 h-4"></i>
                     All Media
                 </a>
-                <a href="/test" class="btn btn-outline">
-                    <span class="emoji">📡</span>
+                <a href="/test" class="btn btn-outline gap-2">
+                    <i data-lucide="radio" class="w-4 h-4"></i>
                     Live Stream
                 </a>
             {% else %}
-                <a href="/login" class="btn btn-outline">
-                    <span class="emoji">🔐</span>
+                <a href="/login" class="btn btn-outline gap-2">
+                    <i data-lucide="log-in" class="w-4 h-4"></i>
                     Login for More
                 </a>
             {% endif %}
@@ -203,7 +203,7 @@
 
     {% if !authenticated && !is_public %}
     <div class="warning">
-        <strong>⚠️ Limited Access</strong>
+        <strong>Limited Access</strong>
         <p>This is a private video. You may have limited access. <a href="/login">Login</a> for full access to all features.</p>
     </div>
     {% endif %}
@@ -216,19 +216,19 @@
     const playerInfo = document.getElementById('player-info');
 
     function showError(message) {
-        playerInfo.textContent = '❌ Error: ' + message;
+        playerInfo.textContent = 'Error: ' + message;
         playerInfo.style.background = '#f8d7da';
         playerInfo.style.color = '#721c24';
     }
 
     function showSuccess(message) {
-        playerInfo.textContent = '✅ ' + message;
+        playerInfo.textContent = message;
         playerInfo.style.background = '#d4edda';
         playerInfo.style.color = '#155724';
     }
 
     function showInfo(message) {
-        playerInfo.textContent = 'ℹ️ ' + message;
+        playerInfo.textContent = message;
         playerInfo.style.background = '#e7f3ff';
         playerInfo.style.color = '#0c5460';
     }

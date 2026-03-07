@@ -151,10 +151,10 @@
     function copyMarkdown() {
         const markdown = {{ raw_markdown|tojson|safe }};
         navigator.clipboard.writeText(markdown).then(() => {
-            showToast('✅ Markdown copied to clipboard!', 'success');
+            showToast('Markdown copied to clipboard!', 'success');
         }).catch(err => {
             console.error('Failed to copy:', err);
-            showToast('❌ Failed to copy to clipboard', 'error');
+            showToast('Failed to copy to clipboard', 'error');
         });
     }
 </script>

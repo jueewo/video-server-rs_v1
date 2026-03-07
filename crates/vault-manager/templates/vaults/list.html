@@ -114,14 +114,14 @@
             });
 
             if (response.ok) {
-                showToast("✅ Vault renamed successfully!", "success");
+                showToast("Vault renamed successfully!", "success");
                 setTimeout(() => window.location.reload(), 1000);
             } else {
-                showToast("❌ Failed to rename vault", "error");
+                showToast("Failed to rename vault", "error");
             }
         } catch (error) {
             console.error("Error:", error);
-            showToast("❌ Network error", "error");
+            showToast("Network error", "error");
         }
     }
 
@@ -137,14 +137,14 @@
             );
 
             if (response.ok) {
-                showToast("✅ Default vault updated!", "success");
+                showToast("Default vault updated!", "success");
                 setTimeout(() => window.location.reload(), 1000);
             } else {
-                showToast("❌ Failed to set default vault", "error");
+                showToast("Failed to set default vault", "error");
             }
         } catch (error) {
             console.error("Error:", error);
-            showToast("❌ Network error", "error");
+            showToast("Network error", "error");
         }
     }
 
@@ -162,16 +162,16 @@
             });
 
             if (response.status === 204) {
-                showToast("✅ Vault deleted successfully!", "success");
+                showToast("Vault deleted successfully!", "success");
                 setTimeout(() => window.location.reload(), 1000);
             } else if (response.status === 409) {
-                showToast("❌ Cannot delete vault with media items", "error");
+                showToast("Cannot delete vault with media items", "error");
             } else {
-                showToast("❌ Failed to delete vault", "error");
+                showToast("Failed to delete vault", "error");
             }
         } catch (error) {
             console.error("Error:", error);
-            showToast("❌ Network error", "error");
+            showToast("Network error", "error");
         }
     }
 

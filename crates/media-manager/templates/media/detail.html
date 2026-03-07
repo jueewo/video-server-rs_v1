@@ -45,9 +45,7 @@
         <!-- Document Preview -->
         <figure class="bg-base-200 flex items-center justify-center p-12">
             <div class="text-center">
-                <svg class="w-24 h-24 mx-auto mb-4 text-base-content/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
+                <i data-lucide="file-text" class="w-24 h-24 mx-auto mb-4 text-base-content/40"></i>
                 <p class="text-lg font-semibold">{{ media.filename }}</p>
                 <p class="text-sm text-base-content/60 mt-2">{{ media.mime_type }}</p>
             </div>
@@ -64,29 +62,29 @@
                     {% if media.media_type == "video" %}badge-secondary{% endif %}
                     {% if media.media_type == "document" %}badge-accent{% endif %}
                 ">
-                    {% if media.media_type == "image" %}📷 Image{% endif %}
-                    {% if media.media_type == "video" %}🎥 Video{% endif %}
-                    {% if media.media_type == "document" %}📄 Document{% endif %}
+                    {% if media.media_type == "image" %}Image{% endif %}
+                    {% if media.media_type == "video" %}Video{% endif %}
+                    {% if media.media_type == "document" %}Document{% endif %}
                 </span>
             </div>
 
             <!-- Metadata -->
             <div class="flex flex-wrap gap-4 text-sm text-base-content/60 mb-4">
-                <span>👁️ {{ media.view_count }} views</span>
+                <span>{{ media.view_count }} views</span>
                 <span>•</span>
-                <span>⬇️ {{ media.download_count }} downloads</span>
+                <span>{{ media.download_count }} downloads</span>
                 {% if media.like_count > 0 %}
                 <span>•</span>
-                <span>❤️ {{ media.like_count }} likes</span>
+                <span>{{ media.like_count }} likes</span>
                 {% endif %}
                 <span>•</span>
-                <span>📅 {{ media.created_at }}</span>
+                <span>{{ media.created_at }}</span>
                 <span>•</span>
                 <span class="badge {% if media.is_public %}badge-success{% else %}badge-error{% endif %}">
                     {% if media.is_public %}PUBLIC{% else %}PRIVATE{% endif %}
                 </span>
                 {% if media.featured %}
-                <span class="badge badge-secondary">⭐ FEATURED</span>
+                <span class="badge badge-secondary">FEATURED</span>
                 {% endif %}
             </div>
 
@@ -98,7 +96,7 @@
             <!-- Category -->
             {% if media.category.is_some() %}
             <div class="mt-2">
-                <span class="badge badge-outline">📂 {{ media.category.as_ref().unwrap() }}</span>
+                <span class="badge badge-outline">{{ media.category.as_ref().unwrap() }}</span>
             </div>
             {% endif %}
 
@@ -114,22 +112,22 @@
             <!-- Actions -->
             <div class="card-actions justify-end mt-4">
                 {% if media.media_type == "image" %}
-                <a href="/media/{{ media.slug }}/image.webp{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}" target="_blank" class="btn btn-outline">
-                    🖼️ View Image
+                <a href="/media/{{ media.slug }}/image.webp{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}" target="_blank" class="btn btn-outline gap-2">
+                    <i data-lucide="image" class="w-4 h-4"></i> View Image
                 </a>
-                <a href="/media/{{ media.slug }}/thumbnail{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}" target="_blank" class="btn btn-outline btn-sm">
-                    🔍 Thumbnail
+                <a href="/media/{{ media.slug }}/thumbnail{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}" target="_blank" class="btn btn-outline btn-sm gap-2">
+                    <i data-lucide="zoom-in" class="w-4 h-4"></i> Thumbnail
                 </a>
                 {% else if media.media_type == "document" %}
                 {% if media.mime_type == "text/markdown" %}
-                <a href="/media/{{ media.slug }}/view" class="btn btn-primary">
-                    👁️ View Markdown
+                <a href="/media/{{ media.slug }}/view" class="btn btn-primary gap-2">
+                    <i data-lucide="eye" class="w-4 h-4"></i> View Markdown
                 </a>
                 {% endif %}
                 <!-- Download handled by browser for document viewing -->
                 {% else if media.media_type == "video" %}
-                <a href="/media/{{ media.slug }}{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}" class="btn btn-primary">
-                    ▶️ View Video
+                <a href="/media/{{ media.slug }}{% if access_code.is_some() %}?code={{ access_code.as_ref().unwrap() }}{% endif %}" class="btn btn-primary gap-2">
+                    <i data-lucide="play-circle" class="w-4 h-4"></i> View Video
                 </a>
                 {% endif %}
 
@@ -207,7 +205,7 @@
                             id="shareLink"
                         />
                         <button class="btn join-item" onclick="copyShareLink()">
-                            📋 Copy
+                            Copy
                         </button>
                     </div>
                 </div>
@@ -226,7 +224,7 @@
                             id="originalLink"
                         />
                         <button class="btn join-item" onclick="copyOriginalLink()">
-                            📋 Copy
+                            Copy
                         </button>
                     </div>
                 </div>
@@ -244,7 +242,7 @@
                             id="thumbnailLink"
                         />
                         <button class="btn join-item" onclick="copyThumbnailLink()">
-                            📋 Copy
+                            Copy
                         </button>
                     </div>
                 </div>
@@ -262,7 +260,7 @@
                             id="thumbnailLink"
                         />
                         <button class="btn join-item" onclick="copyThumbnailLink()">
-                            📋 Copy
+                            Copy
                         </button>
                     </div>
                 </div>
@@ -281,7 +279,7 @@
                             id="hlsLink"
                         />
                         <button class="btn join-item" onclick="copyHlsLink()">
-                            📋 Copy
+                            Copy
                         </button>
                     </div>
                 </div>
@@ -299,7 +297,7 @@
                             id="mp4Link"
                         />
                         <button class="btn join-item" onclick="copyMp4Link()">
-                            📋 Copy
+                            Copy
                         </button>
                     </div>
                 </div>

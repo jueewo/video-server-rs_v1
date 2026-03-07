@@ -90,44 +90,20 @@
 {% endblock %} {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-3xl">
     <!-- Page Header -->
-    {% let page_title = "📤 Upload Media" %}
+    {% let page_title = "Upload Media" %}
     {% let page_subtitle = "Upload videos, images, or documents — type is auto-detected" %}
     <div class="page-header">{% include "components/page-header.html" %}</div>
 
     <!-- Flash messages -->
     {% match success_message %} {% when Some with (msg) %}
     <div class="alert alert-success mb-6">
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="stroke-current shrink-0 h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-        >
-            <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-        </svg>
+        <i data-lucide="check-circle" class="shrink-0 w-6 h-6"></i>
         <span>{{ msg }}</span>
     </div>
     {% when None %} {% endmatch %} {% match error_message %} {% when Some with
     (msg) %}
     <div class="alert alert-error mb-6">
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="stroke-current shrink-0 h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-        >
-            <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-        </svg>
+        <i data-lucide="x-circle" class="shrink-0 w-6 h-6"></i>
         <span>{{ msg }}</span>
     </div>
     {% when None %} {% endmatch %}
@@ -137,7 +113,7 @@
         <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
         <div class="relative flex items-center justify-center min-h-screen p-4">
             <div class="bg-base-100 rounded-xl shadow-2xl max-w-md w-full p-6">
-                <h3 class="text-xl font-bold mb-4">🎬 Processing Video</h3>
+                <h3 class="text-xl font-bold mb-4">Processing Video</h3>
                 <div id="progressStage" class="text-sm text-base-content/70 mb-2">Starting...</div>
                 <div class="w-full bg-base-300 rounded-full h-3 mb-2">
                     <div id="progressBarFill" class="bg-primary h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
@@ -150,7 +126,7 @@
                     <span id="progressErrorMsg"></span>
                 </div>
                 <div id="progressSuccess" class="hidden mt-4 alert alert-success">
-                    <span>✅ Transcoding complete! Redirecting...</span>
+                    <span>Transcoding complete! Redirecting...</span>
                 </div>
             </div>
         </div>
@@ -176,7 +152,7 @@
                         accept="video/*,image/*,.pdf,.csv,.xml,.md,.mdx,.json,.bpmn,.txt,.doc,.docx"
                         required
                     />
-                    <div class="text-5xl mb-3 text-base-content/30">📁</div>
+                    <i data-lucide="folder" class="w-16 h-16 mb-3 text-base-content/30 mx-auto"></i>
                     <p class="text-base font-medium text-base-content/70">
                         Drag &amp; drop your file here
                     </p>
@@ -188,7 +164,7 @@
                 <!-- File Preview -->
                 <div class="file-preview" id="filePreview">
                     <div class="flex items-center gap-4">
-                        <div class="text-4xl" id="fileIcon">📄</div>
+                        <div class="text-4xl" id="fileIcon"><i data-lucide="file" class="w-10 h-10"></i></div>
                         <div class="flex-1 min-w-0">
                             <div
                                 class="font-semibold truncate"
@@ -382,7 +358,8 @@
                         class="btn btn-primary flex-1"
                         id="uploadBtn"
                     >
-                        📤 Upload Media
+                        <i data-lucide="upload" class="w-5 h-5"></i>
+                        Upload Media
                     </button>
                     {% match return_url %}
                     {% when Some with (url) %}
@@ -406,7 +383,7 @@
             <h3 class="card-title text-base mb-4">Supported File Types</h3>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div class="bg-base-100 rounded-lg p-4">
-                    <h4 class="font-semibold mb-2">📹 Videos</h4>
+                    <h4 class="font-semibold mb-2">Videos</h4>
                     <ul class="text-sm text-base-content/70 space-y-1">
                         <li>✓ MP4 (H.264, H.265)</li>
                         <li>✓ WebM (VP8, VP9)</li>
@@ -415,7 +392,7 @@
                     </ul>
                 </div>
                 <div class="bg-base-100 rounded-lg p-4">
-                    <h4 class="font-semibold mb-2">🖼️ Images</h4>
+                    <h4 class="font-semibold mb-2">Images</h4>
                     <ul class="text-sm text-base-content/70 space-y-1">
                         <li>✓ JPEG / JPG</li>
                         <li>✓ PNG</li>
@@ -424,7 +401,7 @@
                     </ul>
                 </div>
                 <div class="bg-base-100 rounded-lg p-4">
-                    <h4 class="font-semibold mb-2">📄 Documents</h4>
+                    <h4 class="font-semibold mb-2">Documents</h4>
                     <ul class="text-sm text-base-content/70 space-y-1">
                         <li>✓ PDF</li>
                         <li>✓ CSV</li>
@@ -567,8 +544,9 @@
             file.type || "Unknown";
 
         const mediaType = detectMediaType(file);
-        document.getElementById("fileIcon").textContent =
+        document.getElementById("fileIcon").innerHTML =
             getFileIcon(mediaType);
+        lucide.createIcons();
 
         const indicator = document.getElementById("typeIndicator");
         indicator.textContent = mediaType;
@@ -607,10 +585,12 @@
     }
 
     function getFileIcon(type) {
-        return (
-            { video: "🎬", image: "🖼️", document: "📄" }[type.toLowerCase()] ||
-            "📁"
-        );
+        const icons = {
+            video: '<i data-lucide="film" class="w-10 h-10"></i>',
+            image: '<i data-lucide="image" class="w-10 h-10"></i>',
+            document: '<i data-lucide="file-text" class="w-10 h-10"></i>',
+        };
+        return icons[type.toLowerCase()] || '<i data-lucide="file" class="w-10 h-10"></i>';
     }
 
     function formatFileSize(bytes) {
@@ -706,7 +686,7 @@
 
     function resetUploadBtn() {
         uploadBtn.disabled = false;
-        uploadBtn.textContent = "📤 Upload Media";
+        uploadBtn.textContent = "Upload Media";
         progressBar.classList.remove("active");
         progressFill.style.width = "0%";
     }

@@ -2,24 +2,13 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-2xl">
     <!-- Page Header -->
-    {% let page_title = "🏗️ Create New Vault" %}
+    {% let page_title = "Create New Vault" %}
     {% let page_subtitle = "Vaults help you organize your media files into separate storage spaces" %}
     <div class="page-header">
         {% include "components/page-header.html" %}
         <div class="page-header-actions">
             <a href="/vaults" class="btn btn-ghost btn-sm gap-2">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-5 w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                >
-                    <path
-                        fill-rule="evenodd"
-                        d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
-                        clip-rule="evenodd"
-                    />
-                </svg>
+                <i data-lucide="arrow-left" class="w-5 h-5"></i>
                 All Vaults
             </a>
         </div>
@@ -27,19 +16,7 @@
 
     <!-- Error Alert -->
     <div id="errorMessage" class="alert alert-error mb-6 hidden">
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="stroke-current shrink-0 h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-        >
-            <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-        </svg>
+        <i data-lucide="x-circle" class="shrink-0 w-6 h-6"></i>
         <span id="errorText"></span>
     </div>
 
@@ -115,18 +92,7 @@
             <div class="card-actions justify-end mt-2">
                 <a href="/vaults" class="btn btn-ghost">Cancel</a>
                 <button type="submit" class="btn btn-primary gap-2" id="submitBtn">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-5 w-5"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                            clip-rule="evenodd"
-                        />
-                    </svg>
+                    <i data-lucide="plus" class="w-5 h-5"></i>
                     Create Vault
                 </button>
             </div>
@@ -198,7 +164,7 @@
                 const data = await response.json();
                 // Show success toast via base template helper if available
                 if (typeof showToast === "function") {
-                    showToast(`✅ Vault "${vaultName}" created!`, "success");
+                    showToast(`Vault "${vaultName}" created!`, "success");
                 }
                 setTimeout(() => { window.location.href = "/vaults"; }, 800);
             } else if (response.status === 409) {
@@ -230,11 +196,8 @@
 
     function resetBtn() {
         submitBtn.disabled = false;
-        submitBtn.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-            </svg>
-            Create Vault`;
+        submitBtn.innerHTML = `<i data-lucide="plus" class="w-5 h-5"></i> Create Vault`;
+        lucide.createIcons();
     }
 </script>
 {% endblock %}

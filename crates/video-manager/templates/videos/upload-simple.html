@@ -56,7 +56,7 @@
 <div class="container mx-auto px-4 py-8 max-w-3xl" x-data="simpleVideoUpload()">
     <!-- Header -->
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-base-content">📤 Upload Video</h1>
+        <h1 class="text-3xl font-bold text-base-content">Upload Video</h1>
         <p class="text-base-content/60">Upload a video file for transcoding</p>
     </div>
 
@@ -82,7 +82,7 @@
                      @drop.prevent="handleDrop">
                     <input type="file" id="videoFile" accept="video/*" @change="handleFileSelect">
                     <div x-show="!selectedFile">
-                        <div class="text-4xl mb-2">🎬</div>
+                        <i data-lucide="film" class="w-12 h-12 mb-2 mx-auto text-base-content/30"></i>
                         <p class="font-semibold">Drop video here or click to browse</p>
                         <p class="text-sm text-base-content/60 mt-1">MP4, WebM, MOV, AVI, MKV • Max 2GB</p>
                     </div>
@@ -166,7 +166,7 @@
         <!-- Submit -->
         <div class="flex gap-3">
             <button type="submit" class="btn btn-primary flex-1" :disabled="uploading || !selectedFile || !title || !vaultId">
-                <span x-show="!uploading">📤 Upload Video</span>
+                <span x-show="!uploading">Upload Video</span>
                 <span x-show="uploading">Uploading...</span>
             </button>
             <a href="/videos" class="btn btn-ghost">Cancel</a>

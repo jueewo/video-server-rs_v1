@@ -282,9 +282,9 @@
             <div class="form-control mb-4">
                 <label class="label"><span class="label-text">Access</span></label>
                 <select id="app-access" class="select select-bordered">
-                    <option value="public">🌍 Public — anyone with the link</option>
-                    <option value="code">🔑 Code — requires access code</option>
-                    <option value="private">🔒 Private — owner only</option>
+                    <option value="public">Public — anyone with the link</option>
+                    <option value="code">Code — requires access code</option>
+                    <option value="private">Private — owner only</option>
                 </select>
             </div>
         </div>
@@ -1332,8 +1332,8 @@
                     </p>
                     <div class="flex gap-2 mt-2">
                         <button onclick="navigator.clipboard.writeText('${shareUrl}').then(() => showToast('URL copied!', 'success'))"
-                                class="btn btn-xs btn-ghost">📋 Copy link</button>
-                        <a href="/my-apps" class="btn btn-xs btn-ghost">📋 My Apps</a>
+                                class="btn btn-xs btn-ghost">Copy link</button>
+                        <a href="/my-apps" class="btn btn-xs btn-ghost">My Apps</a>
                     </div>
                 </div>`;
                 resultEl.classList.remove('hidden');

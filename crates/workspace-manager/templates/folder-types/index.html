@@ -6,13 +6,11 @@
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-            <h1 class="text-3xl font-bold">📂 Folder Types</h1>
+            <h1 class="text-3xl font-bold">Folder Types</h1>
             <p class="text-base-content/60 mt-1">Define special-purpose folder types and their metadata schemas</p>
         </div>
         <button onclick="openCreateModal()" class="btn btn-primary gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
-            </svg>
+            <i data-lucide="plus" class="w-5 h-5"></i>
             New Type
         </button>
     </div>
@@ -116,12 +114,13 @@ function renderList() {
         el.innerHTML = `
             <div class="card bg-base-200 shadow">
                 <div class="card-body items-center text-center py-12">
-                    <div class="text-5xl mb-3">📂</div>
+                    <i data-lucide="folder" class="w-16 h-16 mb-3 mx-auto text-base-content/30"></i>
                     <h3 class="text-xl font-semibold mb-2">No folder types yet</h3>
                     <p class="text-base-content/60 mb-4">Create your first type to get started.</p>
                     <button onclick="openCreateModal()" class="btn btn-primary">New Type</button>
                 </div>
             </div>`;
+        lucide.createIcons();
         return;
     }
 

@@ -104,7 +104,7 @@
     </div>
 
     <div class="flex gap-3 text-sm text-base-content/60 mt-3">
-        <span>📅 {{ created_at }}</span>
+        <span>{{ created_at }}</span>
     </div>
 </div>
 {% endblock %}
@@ -141,7 +141,7 @@
             updateButtons();
             await fitWidth();
         } catch (err) {
-            loading.textContent = '❌ Failed to load PDF: ' + err.message;
+            loading.textContent = 'Failed to load PDF: ' + err.message;
             console.error(err);
         }
     }

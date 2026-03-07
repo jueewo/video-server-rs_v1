@@ -2,75 +2,98 @@
 {% block title %}Workspaces{% endblock %}
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-7xl">
+
     <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+    <div class="page-header mb-8">
         <div>
-            <h1 class="text-3xl font-bold flex items-center gap-2"><i data-lucide="layout-dashboard" class="w-8 h-8"></i> Workspaces</h1>
-            <p class="text-base-content/60 mt-1">Project workspaces with documents, diagrams, and notes</p>
+            <h1 class="page-header-title flex items-center gap-3">
+                <!-- Gradient icon pill with inline SVG (not Lucide) for reliable rendering -->
+                <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl shrink-0"
+                      style="background: linear-gradient(135deg, #667eea, #764ba2); box-shadow: 0 4px 12px rgba(102,126,234,0.35);">
+                    <i data-lucide="layout-grid" class="w-5 h-5 text-white"></i>
+                </span>
+                <span class="text-gradient">Workspaces</span>
+            </h1>
+            <p class="page-header-subtitle">Project workspaces with documents, diagrams, and notes</p>
         </div>
-        <a href="/workspaces/new" class="btn btn-primary gap-2">
-            <i data-lucide="plus" class="w-5 h-5"></i>
-            New Workspace
-        </a>
+        <div class="page-header-actions">
+            <a href="/workspaces/new" class="btn gap-2 border-0 text-white font-semibold"
+               style="background: linear-gradient(135deg, #667eea, #764ba2); box-shadow: 0 4px 14px rgba(102,126,234,0.35);">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                New Workspace
+            </a>
+        </div>
     </div>
 
     {% if workspaces.is_empty() %}
     <!-- Empty State -->
-    <div class="card bg-base-200 shadow-xl">
-        <div class="card-body items-center text-center py-16">
-            <i data-lucide="layout-dashboard" class="w-16 h-16 mb-4 text-base-content/30"></i>
+    <div class="card bg-base-100 shadow-xl border border-base-300">
+        <div class="card-body items-center text-center py-20">
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#667eea]/15 to-[#764ba2]/10 flex items-center justify-center mb-5 ring-1 ring-primary/20">
+                <i data-lucide="layout-dashboard" class="w-10 h-10 text-primary/50"></i>
+            </div>
             <h2 class="card-title text-2xl mb-2">No Workspaces Yet</h2>
-            <p class="text-base-content/70 mb-6">
+            <p class="text-base-content/60 mb-8 max-w-sm leading-relaxed">
                 Create your first workspace to organize project documents, BPMN diagrams, and notes.
             </p>
-            <a href="/workspaces/new" class="btn btn-primary">Create Your First Workspace</a>
+            <a href="/workspaces/new" class="btn-gradient btn border-0 shadow-lg shadow-primary/25 gap-2">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                Create Your First Workspace
+            </a>
         </div>
     </div>
     {% else %}
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {% for ws in workspaces %}
-        <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-200 border border-base-300">
-            <div class="card-body">
-                <div class="flex justify-between items-start mb-2">
-                    <h3 class="card-title text-lg">
-                        <a href="/workspaces/{{ ws.workspace_id }}" class="hover:text-primary">{{ ws.name }}</a>
+        <div class="card bg-base-100 shadow-lg card-hover group border border-base-300 overflow-hidden">
+            <!-- Gradient top stripe -->
+            <div class="h-1 w-full bg-gradient-to-r from-[#667eea] to-[#764ba2]"></div>
+            <div class="card-body pt-5">
+                <!-- Title row -->
+                <div class="flex justify-between items-start mb-1">
+                    <h3 class="card-title text-lg leading-snug">
+                        <a href="/workspaces/{{ ws.workspace_id }}" class="hover:text-primary transition-colors">{{ ws.name }}</a>
                     </h3>
+                    <span class="badge badge-sm badge-neutral shrink-0 ml-2 mt-0.5">{{ ws.file_count }} files</span>
                 </div>
 
                 {% if !ws.description.is_empty() %}
-                <p class="text-sm text-base-content/70 mb-2 line-clamp-2">{{ ws.description }}</p>
+                <p class="text-sm text-base-content/60 mb-2 line-clamp-2 leading-relaxed">{{ ws.description }}</p>
                 {% endif %}
 
-                <code class="font-mono text-xs text-base-content/50 bg-base-200 px-2 py-1 rounded mb-2 inline-block">
-                    {{ ws.workspace_id }}
-                </code>
+                <div class="flex items-center gap-2 mb-3">
+                    <code class="font-mono text-xs text-base-content/40 bg-base-200 px-2 py-1 rounded flex-1 truncate">{{ ws.workspace_id }}</code>
+                </div>
 
-                <div class="divider my-2"></div>
-                <div class="flex gap-6 mb-2">
-                    <div class="flex flex-col">
-                        <span class="text-xs text-base-content/50 uppercase tracking-wide">Files</span>
-                        <span class="text-2xl font-bold">{{ ws.file_count }}</span>
+                <!-- Meta + file count -->
+                <div class="flex items-center justify-between py-2.5 px-3 bg-base-200/60 rounded-lg mb-4">
+                    <div class="flex items-center gap-2 text-xs text-base-content/50">
+                        <i data-lucide="calendar" class="w-3.5 h-3.5 shrink-0"></i>
+                        <span>{{ ws.created_at_human }}</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <div class="text-xl font-extrabold text-base-content">{{ ws.file_count }}</div>
+                        <div class="text-xs text-base-content/40 uppercase tracking-wide font-medium">files</div>
                     </div>
                 </div>
 
-                <p class="text-sm text-base-content/60 mb-3">Created {{ ws.created_at_human }}</p>
-
+                <!-- Actions -->
                 <div class="card-actions flex-wrap gap-2">
-                    <a href="/workspaces/{{ ws.workspace_id }}" class="btn btn-sm btn-primary gap-1">
-                        <i data-lucide="clipboard-list" class="w-4 h-4"></i> Open
+                    <a href="/workspaces/{{ ws.workspace_id }}" class="btn btn-sm btn-primary gap-1 flex-1">
+                        <i data-lucide="clipboard-list" class="w-3.5 h-3.5"></i> Open
                     </a>
                     <a href="/workspaces/{{ ws.workspace_id }}/browse" class="btn btn-sm btn-outline gap-1">
-                        <i data-lucide="folder-open" class="w-4 h-4"></i> Browse
+                        <i data-lucide="folder-open" class="w-3.5 h-3.5"></i> Browse
                     </a>
                     <button
                         onclick="openEditModal('{{ ws.workspace_id }}', this)"
                         data-name="{{ ws.name }}"
                         data-description="{{ ws.description }}"
                         class="btn btn-sm btn-outline gap-1">
-                        <i data-lucide="pencil" class="w-4 h-4"></i> Edit
+                        <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
                     </button>
                     <button onclick="deleteWorkspace('{{ ws.workspace_id }}')" class="btn btn-sm btn-error btn-outline gap-1">
-                        <i data-lucide="trash-2" class="w-4 h-4"></i> Delete
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                     </button>
                 </div>
             </div>

@@ -4,7 +4,7 @@
 <div class="container mx-auto px-4 py-8 max-w-5xl">
     <div class="flex items-center justify-between mb-6">
         <div>
-            <h1 class="text-2xl font-bold">🚀 My Apps</h1>
+            <h1 class="text-2xl font-bold">My Apps</h1>
             <p class="text-base-content/60 text-sm mt-1">Published apps from your workspaces</p>
         </div>
         <a href="/workspaces" class="btn btn-outline btn-sm">← Workspaces</a>
@@ -13,7 +13,7 @@
     {% if apps.is_empty() %}
     <div class="card bg-base-200 shadow">
         <div class="card-body items-center text-center py-12">
-            <div class="text-5xl mb-3">🚀</div>
+            <i data-lucide="rocket" class="w-16 h-16 mb-3 mx-auto text-base-content/30"></i>
             <h3 class="text-xl font-semibold mb-2">No apps published yet</h3>
             <p class="text-base-content/60 mb-4">Open a typed workspace folder (js-tool, course, etc.) and click <strong>Publish</strong> to create your first app.</p>
             <a href="/workspaces" class="btn btn-primary">Go to Workspaces</a>
@@ -30,7 +30,7 @@
                         {% if let Some(thumb) = &app.thumbnail_url %}
                         <img src="{{ thumb }}" class="w-full h-full object-cover" alt="App thumbnail" loading="lazy" id="thumb-{{ app.app_id }}" />
                         {% else %}
-                        <span class="text-2xl" id="thumb-placeholder-{{ app.app_id }}">🚀</span>
+                        <i data-lucide="layout-grid" class="w-8 h-8 text-base-content/30" id="thumb-placeholder-{{ app.app_id }}"></i>
                         {% endif %}
                     </div>
                     <!-- Info -->
@@ -38,11 +38,11 @@
                         <div class="flex items-center gap-2 flex-wrap mb-1">
                             <h2 class="font-semibold text-lg">{{ app.title }}</h2>
                             {% if app.access == "public" %}
-                            <span class="badge badge-success badge-sm">🌍 Public</span>
+                            <span class="badge badge-success badge-sm">Public</span>
                             {% else if app.access == "code" %}
-                            <span class="badge badge-warning badge-sm">🔑 Code</span>
+                            <span class="badge badge-warning badge-sm">Code</span>
                             {% else %}
-                            <span class="badge badge-ghost badge-sm">🔒 Private</span>
+                            <span class="badge badge-ghost badge-sm">Private</span>
                             {% endif %}
                             <span class="badge badge-ghost badge-sm font-mono text-xs">{{ app.folder_type }}</span>
                         </div>
@@ -50,8 +50,8 @@
                         <p class="text-sm text-base-content/70 mb-2">{{ app.description }}</p>
                         {% endif %}
                         <div class="text-xs text-base-content/50 flex flex-wrap gap-3">
-                            <span>📁 {{ app.workspace_id }}/{{ app.folder_path }}</span>
-                            <span>📅 {{ app.created_at }}</span>
+                            <span>{{ app.workspace_id }}/{{ app.folder_path }}</span>
+                            <span>{{ app.created_at }}</span>
                         </div>
                     </div>
                     <!-- Actions -->
@@ -60,23 +60,23 @@
                         {% if app.access == "code" %}
                         {% if let Some(code) = &app.access_code %}
                         <button onclick="copyAppLink('{{ app.url }}', '{{ code }}')"
-                                class="btn btn-sm btn-ghost">📋 Copy</button>
+                                class="btn btn-sm btn-ghost">Copy</button>
                         {% else %}
                         <button onclick="copyAppLink('{{ app.url }}', '')"
-                                class="btn btn-sm btn-ghost">📋 Copy</button>
+                                class="btn btn-sm btn-ghost">Copy</button>
                         {% endif %}
                         {% else %}
                         <button onclick="copyAppLink('{{ app.url }}', '')"
-                                class="btn btn-sm btn-ghost">📋 Copy</button>
+                                class="btn btn-sm btn-ghost">Copy</button>
                         {% endif %}
                         <button class="btn btn-sm btn-ghost"
                                 data-app-id="{{ app.app_id }}"
                                 data-title="{{ app.title }}"
                                 data-description="{{ app.description }}"
                                 data-access="{{ app.access }}"
-                                onclick="openEditModal(this)">⚙️</button>
+                                onclick="openEditModal(this)"><i data-lucide="settings" class="w-4 h-4"></i></button>
                         <button onclick="deleteApp('{{ app.app_id }}')"
-                                class="btn btn-sm btn-error btn-outline">🗑️</button>
+                                class="btn btn-sm btn-error btn-outline"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                     </div>
                 </div>
                 {% if app.access == "code" %}
@@ -85,7 +85,7 @@
                     <span class="text-base-content/60">Access code:</span>
                     <code class="font-mono">{{ code }}</code>
                     <button onclick="navigator.clipboard.writeText('{{ code }}').then(() => showToast('Code copied!', 'success'))"
-                            class="btn btn-xs btn-ghost ml-1">📋</button>
+                            class="btn btn-xs btn-ghost ml-1"><i data-lucide="clipboard" class="w-3 h-3"></i></button>
                 </div>
                 {% endif %}
                 {% endif %}
@@ -99,7 +99,7 @@
 <!-- Edit Modal -->
 <dialog id="edit-app-modal" class="modal">
     <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4">⚙️ Edit App</h3>
+        <h3 class="font-bold text-lg mb-4">Edit App</h3>
         <input type="hidden" id="edit-app-id" />
         <div class="form-control mb-3">
             <label class="label"><span class="label-text">Title</span></label>
@@ -112,9 +112,9 @@
         <div class="form-control mb-3">
             <label class="label"><span class="label-text">Access</span></label>
             <select id="edit-access" class="select select-bordered">
-                <option value="public">🌍 Public</option>
-                <option value="code">🔑 Code</option>
-                <option value="private">🔒 Private</option>
+                <option value="public">Public</option>
+                <option value="code">Code</option>
+                <option value="private">Private</option>
             </select>
         </div>
         <div class="form-control mb-4">

@@ -84,7 +84,7 @@
             fitView();
         } catch (err) {
             console.error('Failed to load BPMN diagram:', err);
-            showToast('❌ Failed to load BPMN diagram', 'error');
+            showToast('Failed to load BPMN diagram', 'error');
         }
     }
 
@@ -121,7 +121,7 @@
             });
             const result = await response.json();
             if (result.success) {
-                showToast('✅ BPMN saved successfully', 'success');
+                showToast('BPMN saved successfully', 'success');
                 // Return to view mode with saved content
                 const canvas = document.getElementById('bpmn-canvas');
                 canvas.classList.add('view-mode');
@@ -129,11 +129,11 @@
                 document.getElementById('edit-actions').classList.add('hidden');
                 document.getElementById('edit-mode-indicator').classList.add('hidden');
             } else {
-                showToast('❌ ' + result.message, 'error');
+                showToast(result.message, 'error');
             }
         } catch (err) {
             console.error('Save failed:', err);
-            showToast('❌ Failed to save BPMN', 'error');
+            showToast('Failed to save BPMN', 'error');
         }
     }
 

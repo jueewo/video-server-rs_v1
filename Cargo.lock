@@ -6593,6 +6593,7 @@ dependencies = [
  "docs-viewer",
  "mime_guess",
  "pdf-viewer",
+ "rand 0.8.5",
  "serde",
  "serde_json",
  "serde_yaml",

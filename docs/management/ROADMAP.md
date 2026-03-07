@@ -118,17 +118,25 @@ transcoding becomes a service. Phase 1 is about access, not storage.
 | Who | Path | Status |
 |---|---|---|
 | Internal user | Workspace → media-server folder → inline grid | ✓ Done |
-| External client / satellite app | Folder-scoped access code → media list + serving | Phase 1 |
+| External client / satellite app | Folder-scoped access code → media list + serving | ✓ Done |
 
 ### Tasks
 
-- [ ] **Folder-scoped access codes** — a code that unlocks all media in a workspace
-      folder (maps to vault_id internally). Satellite apps (3D gallery, course viewer)
-      present the code to get a media list and serving URLs. No user account needed.
-- [ ] **Per-item codes remain** for sharing a single file with a client (existing feature,
+- [x] **Workspace access codes** — a code that unlocks a workspace folder (media-server
+      folders map to vault_id internally; BPMN/docs/course folders serve raw files).
+      Satellite apps present the code to get media lists + serving URLs. No user account
+      needed. Internal users can claim codes to see shared content. Multiple folders per
+      code supported. Optional group_id scoping for media-server folders. (2026-03-07)
+- [x] **Per-item codes remain** for sharing a single file with a client (existing feature,
       kept as-is)
-- [ ] **API endpoint for folder code** — `GET /api/folder/{code}/media` returns
-      accessible items + serving URLs for the satellite app to consume
+- [x] **API endpoints for folder codes**:
+      - `GET /api/folder/{code}/media` — media items with serving URLs (no session)
+      - `GET /api/folder/{code}/files` — raw files with serve URLs (no session), recursive
+      - `PATCH /api/workspace-access-codes/{code}` — update description / expiry
+      - `POST /api/workspace-access-codes/{code}/folders` — add folder to existing code
+      - All `/media/{slug}/...` and `/api/workspaces/{id}/files/serve` routes accept `?code=` (2026-03-07)
+- [x] **Management UI enhancements** — folder path badges per code; inline description
+      editing; "Add to existing" tab in Share modal with active-code dropdown (2026-03-07)
 - [ ] **Hide `/media` standalone entry points** — `/media` global list and vault picker
       are internal scaffolding; users should reach media only through workspace folders.
       Deprecate or gate behind auth without workspace context.

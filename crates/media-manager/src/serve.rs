@@ -105,10 +105,15 @@ async fn serve_image_variant(
                     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
                 if !item_decision.granted {
-                    let folder_ok = crate::folder_access::folder_code_grants_access(
-                        &state.pool, &code, &vault_id,
-                    )
-                    .await;
+                    let folder_ok =
+                        crate::folder_access::folder_code_grants_access(
+                            &state.pool, &code, &vault_id,
+                        )
+                        .await
+                        || crate::folder_access::workspace_code_grants_vault_access(
+                            &state.pool, &code, &vault_id,
+                        )
+                        .await;
                     if !folder_ok {
                         return Err(StatusCode::FORBIDDEN);
                     }
@@ -260,10 +265,15 @@ pub async fn serve_thumbnail(
                     .await
                     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
                 if !decision.granted {
-                    let folder_ok = crate::folder_access::folder_code_grants_access(
-                        &state.pool, &code, &vault_id,
-                    )
-                    .await;
+                    let folder_ok =
+                        crate::folder_access::folder_code_grants_access(
+                            &state.pool, &code, &vault_id,
+                        )
+                        .await
+                        || crate::folder_access::workspace_code_grants_vault_access(
+                            &state.pool, &code, &vault_id,
+                        )
+                        .await;
                     if !folder_ok {
                         return Err(StatusCode::FORBIDDEN);
                     }

@@ -6,7 +6,7 @@ use axum::{
     extract::{Multipart, Path, Query, State},
     http::{header, StatusCode},
     response::{Html, IntoResponse, Json, Redirect, Response},
-    routing::{delete, get, post, put},
+    routing::{delete, get, patch, post, put},
     Extension, Router,
 };
 use bpmn_viewer::BpmnViewerTemplate;
@@ -26,6 +26,7 @@ mod file_browser;
 mod file_editor;
 mod folder_type_registry;
 mod workspace_config;
+pub mod workspace_access;
 
 pub use file_browser::{FileEntry, FolderEntry};
 pub use folder_type_registry::{AppLink, FieldType, FolderTypeDefinition, FolderTypeRegistry, MetadataField};
@@ -155,6 +156,8 @@ pub struct UpdateFolderMetadataRequest {
 #[derive(Debug, Deserialize)]
 pub struct ServeFileQuery {
     pub path: String,
+    /// Access code for unauthenticated serving (used by satellite apps).
+    pub code: Option<String>,
 }
 
 /// Body sent by Monaco editor's saveDocument() — `{ "content": "..." }`
@@ -248,6 +251,28 @@ pub struct WorkspaceStats {
 }
 
 // ============================================================================
+// Template Display Types (access codes management page)
+// ============================================================================
+
+pub struct CreatedCodeRow {
+    pub code: String,
+    pub description: String,
+    pub folder_count: i64,
+    /// Human-readable folder labels: "workspace_id / folder_path"
+    pub folders: Vec<String>,
+    pub expires_at: String,
+    pub created_at: String,
+    pub is_active: bool,
+}
+
+pub struct ClaimedCodeRow {
+    pub code: String,
+    pub description: String,
+    pub created_by: String,
+    pub claimed_at: String,
+}
+
+// ============================================================================
 // Template Definitions
 // ============================================================================
 
@@ -297,6 +322,14 @@ pub struct WorkspaceBrowserTemplate {
     pub current_type_apps: Vec<(String, String)>,
     /// The raw type id (e.g. "js-tool") — used by the publish-as-app flow.
     pub current_type_id: Option<String>,
+}
+
+#[derive(Template)]
+#[template(path = "workspaces/access_codes.html")]
+pub struct WorkspaceAccessCodesTemplate {
+    pub authenticated: bool,
+    pub created: Vec<CreatedCodeRow>,
+    pub claimed: Vec<ClaimedCodeRow>,
 }
 
 #[derive(Template)]
@@ -883,7 +916,8 @@ pub async fn save_bpmn_content(
 
 /// GET /api/workspaces/{workspace_id}/files/serve?path=...
 ///
-/// Serves raw file bytes — used by PDF.js to fetch the PDF content.
+/// Serves raw file bytes — used by PDF.js and satellite apps.
+/// Accepts either a valid session (owner) or `?code=` (workspace access code).
 pub async fn serve_workspace_file(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
@@ -892,8 +926,40 @@ pub async fn serve_workspace_file(
     State(state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<Response, StatusCode> {
     check_scope(&user, "read")?;
-    let user_id = require_auth(&session).await?;
-    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    // Try session auth first
+    let session_ok = match require_auth(&session).await {
+        Ok(uid) => verify_workspace_ownership(&state.pool, &workspace_id, &uid)
+            .await
+            .is_ok(),
+        Err(_) => false,
+    };
+
+    if !session_ok {
+        // Fall back to access code
+        let code = query.code.as_deref().unwrap_or("");
+        if code.is_empty() {
+            return Err(StatusCode::UNAUTHORIZED);
+        }
+        // Derive the top-level folder from the file path (first segment)
+        let folder_path = query
+            .path
+            .trim_start_matches('/')
+            .split('/')
+            .next()
+            .unwrap_or("")
+            .to_string();
+        let granted = workspace_access::workspace_code_grants_access(
+            &state.pool,
+            code,
+            &workspace_id,
+            &folder_path,
+        )
+        .await;
+        if !granted {
+            return Err(StatusCode::FORBIDDEN);
+        }
+    }
 
     let workspace_root = state.storage.workspace_root(&workspace_id);
 
@@ -2310,6 +2376,86 @@ pub async fn publish_course(
 // Folder Types Management Page
 // ============================================================================
 
+/// GET /workspace-access-codes — management page for created and claimed codes
+pub async fn workspace_access_codes_page(
+    user: Option<Extension<AuthenticatedUser>>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+) -> Result<Html<String>, StatusCode> {
+    check_scope(&user, "read")?;
+    let user_id = require_auth(&session).await?;
+
+    // Codes created by this user — with folder paths via GROUP_CONCAT
+    // (code, description, expires_at, created_at, is_active, folder_count, folder_paths)
+    let created_rows: Vec<(String, Option<String>, Option<String>, Option<String>, i64, i64, Option<String>)> =
+        sqlx::query_as(
+            "SELECT wac.code, wac.description, wac.expires_at, wac.created_at,
+                    wac.is_active, COUNT(f.id) AS folder_count,
+                    GROUP_CONCAT(f.workspace_id || '/' || f.folder_path, '|') AS folder_paths
+             FROM workspace_access_codes wac
+             LEFT JOIN workspace_access_code_folders f ON f.workspace_access_code_id = wac.id
+             WHERE wac.created_by = ?
+             GROUP BY wac.id
+             ORDER BY wac.created_at DESC",
+        )
+        .bind(&user_id)
+        .fetch_all(&state.pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let created: Vec<CreatedCodeRow> = created_rows
+        .into_iter()
+        .map(|(code, description, expires_at, created_at, is_active, folder_count, folder_paths)| {
+            let folders = folder_paths
+                .unwrap_or_default()
+                .split('|')
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .collect();
+            CreatedCodeRow {
+                code,
+                description: description.unwrap_or_default(),
+                folder_count,
+                folders,
+                expires_at: expires_at.unwrap_or_default(),
+                created_at: created_at.unwrap_or_default(),
+                is_active: is_active != 0,
+            }
+        })
+        .collect();
+
+    // Codes claimed by this user — (code, description, created_by, claimed_at)
+    let claimed_rows: Vec<(String, Option<String>, String, Option<String>)> = sqlx::query_as(
+        "SELECT wac.code, wac.description, wac.created_by, ucwc.claimed_at
+         FROM user_claimed_workspace_codes ucwc
+         JOIN workspace_access_codes wac ON wac.id = ucwc.workspace_access_code_id
+         WHERE ucwc.user_id = ?
+         ORDER BY ucwc.claimed_at DESC",
+    )
+    .bind(&user_id)
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let claimed: Vec<ClaimedCodeRow> = claimed_rows
+        .into_iter()
+        .map(|(code, description, created_by, claimed_at)| ClaimedCodeRow {
+            code,
+            description: description.unwrap_or_default(),
+            created_by,
+            claimed_at: claimed_at.unwrap_or_default(),
+        })
+        .collect();
+
+    let template = WorkspaceAccessCodesTemplate {
+        authenticated: true,
+        created,
+        claimed,
+    };
+    let html = template.render().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Html(html))
+}
+
 /// GET /folder-types — folder type registry management UI
 pub async fn folder_types_page(
     user: Option<Extension<AuthenticatedUser>>,
@@ -2661,6 +2807,34 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
                 .delete(delete_folder_type_handler),
         )
         .layer(axum::extract::DefaultBodyLimit::max(100 * 1024 * 1024)) // 100 MB per upload
+        // Workspace access codes — CRUD (auth required)
+        .route(
+            "/api/workspace-access-codes",
+            post(workspace_access::create_workspace_access_code)
+                .get(workspace_access::list_workspace_access_codes),
+        )
+        .route(
+            "/api/workspace-access-codes/{code}",
+            patch(workspace_access::update_workspace_access_code)
+                .delete(workspace_access::deactivate_workspace_access_code),
+        )
+        .route(
+            "/api/workspace-access-codes/claim",
+            post(workspace_access::claim_workspace_access_code),
+        )
+        .route(
+            "/api/workspace-access-codes/{code}/claim",
+            delete(workspace_access::unclaim_workspace_access_code),
+        )
+        .route(
+            "/api/workspace-access-codes/{code}/folders",
+            post(workspace_access::add_folder_to_access_code),
+        )
+        // Folder file access — public (no auth, code is credential)
+        .route(
+            "/api/folder/{code}/files",
+            get(workspace_access::folder_files_by_code),
+        )
         // UI pages
         .route("/folder-types", get(folder_types_page))
         .route("/workspaces", get(list_workspaces_page))
@@ -2676,5 +2850,6 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         )
         .route("/workspaces/{workspace_id}/edit", get(open_file_page))
         .route("/workspaces/{workspace_id}/edit-text", get(edit_text_file_page))
+        .route("/workspace-access-codes", get(workspace_access_codes_page))
         .with_state(state)
 }

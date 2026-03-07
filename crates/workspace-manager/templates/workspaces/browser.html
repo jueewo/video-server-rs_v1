@@ -133,17 +133,21 @@
                             <td class="text-xs text-base-content/60">{{ file.size_str }}</td>
                             <td class="text-xs text-base-content/60">{{ file.modified }}</td>
                             <td>
-                                <div class="flex gap-1">
+                                <div class="flex gap-1 items-center">
                                     {% if file.is_editable || file.is_viewable %}
                                     <a href="/workspaces/{{ workspace_id }}/edit?file={{ file.path }}"
                                        class="btn btn-xs btn-outline">{% if file.is_viewable && !file.is_editable %}View{% else %}Open{% endif %}</a>
                                     {% endif %}
-                                    <button onclick="deleteItem('{{ file.path }}', false)"
-                                            class="btn btn-xs btn-error btn-outline"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
-                                    {% if file.mime_type.starts_with("image/") || file.mime_type.starts_with("video/") || file.mime_type == "application/pdf" %}
-                                    <button onclick="openSendToMediaModal('{{ file.path }}', '{{ file.name }}')"
-                                            class="btn btn-xs btn-outline btn-accent gap-1" title="Send to Media Library"><i data-lucide="library" class="w-3 h-3"></i> → Media</button>
+                                    {% if file.mime_type == "text/csv" %}
+                                    <button onclick="openCsvPreview('{{ file.path }}')" class="btn btn-xs btn-outline gap-1" title="Preview CSV">
+                                        <i data-lucide="table-2" class="w-3 h-3"></i> Preview
+                                    </button>
                                     {% endif %}
+                                    <button class="btn btn-xs btn-ghost px-1" title="More actions"
+                                        data-path="{{ file.path }}"
+                                        data-name="{{ file.name }}"
+                                        data-media="{% if file.mime_type.starts_with("image/") || file.mime_type.starts_with("video/") || file.mime_type == "application/pdf" %}1{% else %}0{% endif %}"
+                                        onclick="showFileMenu(event, this)">•••</button>
                                 </div>
                             </td>
                         </tr>
@@ -170,6 +174,16 @@
         </div>
     </div>
     {% endif %}
+</div>
+
+<!-- Shared floating file context menu (fixed-position, escapes scroll containers) -->
+<div id="file-ctx-menu" class="hidden fixed z-[9999] bg-base-100 border border-base-300 rounded-box shadow-xl w-40 py-1" style="min-width:10rem">
+    <ul class="menu menu-xs p-0">
+        <li><a id="ctx-rename" class="gap-2"><i data-lucide="pencil" class="w-3 h-3"></i> Rename</a></li>
+        <li><a id="ctx-move" class="gap-2"><i data-lucide="folder-input" class="w-3 h-3"></i> Move</a></li>
+        <li id="ctx-media-li"><a id="ctx-media" class="gap-2"><i data-lucide="library" class="w-3 h-3"></i> → Media</a></li>
+        <li><a id="ctx-delete" class="gap-2 text-error"><i data-lucide="trash-2" class="w-3 h-3"></i> Delete</a></li>
+    </ul>
 </div>
 
 <!-- New File Modal -->
@@ -199,6 +213,42 @@
         <div id="stm-result" class="hidden alert mb-3"></div>
         <div class="modal-action">
             <button onclick="document.getElementById('send-to-media-modal').close()" class="btn btn-ghost btn-sm">Cancel</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Rename File Modal -->
+<dialog id="rename-file-modal" class="modal">
+    <div class="modal-box max-w-sm">
+        <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="pencil" class="w-5 h-5"></i> Rename File</h3>
+        <input type="hidden" id="rename-file-path" />
+        <div class="form-control mb-4">
+            <label class="label"><span class="label-text">New name</span></label>
+            <input type="text" id="rename-file-name" class="input input-bordered" />
+        </div>
+        <div id="rename-file-error" class="hidden alert alert-error mb-3 text-sm"></div>
+        <div class="modal-action">
+            <button onclick="document.getElementById('rename-file-modal').close()" class="btn btn-ghost btn-sm">Cancel</button>
+            <button onclick="submitRename()" class="btn btn-primary btn-sm">Rename</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Move File Modal -->
+<dialog id="move-file-modal" class="modal">
+    <div class="modal-box max-w-sm">
+        <h3 class="font-bold text-lg mb-1 flex items-center gap-2"><i data-lucide="folder-input" class="w-5 h-5"></i> Move File</h3>
+        <p id="move-file-label" class="text-sm text-base-content/60 mb-3"></p>
+        <input type="hidden" id="move-file-path" />
+        <input type="hidden" id="move-file-name" />
+        <div class="text-xs text-base-content/50 mb-1">Select destination folder:</div>
+        <div id="move-dir-list" class="flex flex-col gap-1 max-h-60 overflow-y-auto border border-base-300 rounded-lg p-1 mb-3"></div>
+        <div id="move-file-error" class="hidden alert alert-error mb-3 text-sm"></div>
+        <div class="modal-action">
+            <button onclick="document.getElementById('move-file-modal').close()" class="btn btn-ghost btn-sm">Cancel</button>
+            <button onclick="submitMove()" class="btn btn-primary btn-sm">Move</button>
         </div>
     </div>
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
@@ -308,6 +358,35 @@
     </div>
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
+<!-- CSV Preview Modal -->
+<!-- CSV Preview Modal -->
+<dialog id="csv-preview-modal" class="modal">
+    <div class="modal-box max-w-5xl w-full" style="display:flex; flex-direction:column; max-height:85vh; overflow:hidden;">
+        <div class="flex items-center justify-between mb-3" style="flex-shrink:0;">
+            <h3 id="csv-modal-title" class="font-bold text-lg flex items-center gap-2">
+                <i data-lucide="table-2" class="w-5 h-5"></i> CSV Preview
+            </h3>
+            <button onclick="document.getElementById('csv-preview-modal').close()" class="btn btn-sm btn-ghost btn-circle">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+        <div class="mb-3" style="flex-shrink:0;">
+            <input id="csv-search" type="search" placeholder="Filter rows…"
+                   class="input input-bordered input-sm w-full" oninput="filterCsvRows(this.value)" />
+        </div>
+        <div id="csv-preview-content" class="border border-base-300 rounded-lg" style="flex:1; min-height:0; overflow:auto;">
+        </div>
+        <div id="csv-preview-meta" class="text-xs text-base-content/50 mt-2" style="flex-shrink:0;"></div>
+        <div class="modal-action" style="flex-shrink:0;">
+            <a id="csv-download-link" href="#" download class="btn btn-sm btn-outline gap-1">
+                <i data-lucide="download" class="w-4 h-4"></i> Download
+            </a>
+            <button onclick="document.getElementById('csv-preview-modal').close()" class="btn btn-sm btn-ghost">Close</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
 {% endblock %}
 {% block extra_scripts %}
 <script>
@@ -495,6 +574,146 @@
             }
         } catch (e) {
             alert('Network error: ' + e.message);
+        }
+    }
+
+    // ── File context menu ────────────────────────────────────────────────────
+
+    (function () {
+        const menu = document.getElementById('file-ctx-menu');
+        let ctxPath = null, ctxName = null;
+
+        window.showFileMenu = function (event, btn) {
+            event.stopPropagation();
+            ctxPath = btn.dataset.path;
+            ctxName = btn.dataset.name;
+            document.getElementById('ctx-media-li').style.display =
+                btn.dataset.media === '1' ? '' : 'none';
+
+            // Position below the button, clamped to viewport
+            const r = btn.getBoundingClientRect();
+            const menuW = 160;
+            let left = r.left;
+            if (left + menuW > window.innerWidth - 8) left = window.innerWidth - menuW - 8;
+            menu.style.top  = (r.bottom + 4) + 'px';
+            menu.style.left = left + 'px';
+            menu.classList.remove('hidden');
+            lucide.createIcons();
+        };
+
+        document.addEventListener('click', () => menu.classList.add('hidden'));
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') menu.classList.add('hidden'); });
+
+        document.getElementById('ctx-rename').onclick = () => openRenameModal(ctxPath, ctxName);
+        document.getElementById('ctx-move').onclick   = () => openMoveModal(ctxPath, ctxName);
+        document.getElementById('ctx-media').onclick  = () => openSendToMediaModal(ctxPath, ctxName);
+        document.getElementById('ctx-delete').onclick = () => deleteItem(ctxPath, false);
+    })();
+
+    // ── Rename ──────────────────────────────────────────────────────────────
+
+    function openRenameModal(filePath, fileName) {
+        document.getElementById('rename-file-path').value = filePath;
+        document.getElementById('rename-file-name').value = fileName;
+        document.getElementById('rename-file-error').classList.add('hidden');
+        document.getElementById('rename-file-modal').showModal();
+        setTimeout(() => {
+            const input = document.getElementById('rename-file-name');
+            const dot = input.value.lastIndexOf('.');
+            input.setSelectionRange(0, dot > 0 ? dot : input.value.length);
+            input.focus();
+        }, 50);
+    }
+
+    async function submitRename() {
+        const fromPath = document.getElementById('rename-file-path').value;
+        const newName  = document.getElementById('rename-file-name').value.trim();
+        const errEl    = document.getElementById('rename-file-error');
+        if (!newName) return;
+
+        const dir  = fromPath.includes('/') ? fromPath.substring(0, fromPath.lastIndexOf('/') + 1) : '';
+        const toPath = dir + newName;
+
+        const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/rename`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from: fromPath, to: toPath }),
+        });
+        if (r.ok) {
+            document.getElementById('rename-file-modal').close();
+            location.reload();
+        } else {
+            const msg = r.status === 409 ? 'A file with that name already exists.'
+                      : r.status === 404 ? 'File not found.'
+                      : `Rename failed (${r.status}).`;
+            errEl.textContent = msg;
+            errEl.classList.remove('hidden');
+        }
+    }
+
+    // ── Move ─────────────────────────────────────────────────────────────────
+
+    let _moveSelectedDir = null;
+
+    async function openMoveModal(filePath, fileName) {
+        _moveSelectedDir = null;
+        document.getElementById('move-file-path').value = filePath;
+        document.getElementById('move-file-name').value = fileName;
+        document.getElementById('move-file-label').textContent = fileName;
+        document.getElementById('move-file-error').classList.add('hidden');
+
+        const list = document.getElementById('move-dir-list');
+        list.innerHTML = '<div class="text-xs text-base-content/40 p-2">Loading…</div>';
+        document.getElementById('move-file-modal').showModal();
+
+        const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/dirs`);
+        if (!r.ok) { list.innerHTML = '<div class="text-xs text-error p-2">Failed to load folders.</div>'; return; }
+        const dirs = await r.json();
+
+        // Current dir of the file (exclude as destination)
+        const currentDir = filePath.includes('/')
+            ? filePath.substring(0, filePath.lastIndexOf('/'))
+            : '';
+
+        list.innerHTML = '';
+        dirs.forEach(d => {
+            if (d.path === currentDir) return; // skip current location
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-xs btn-ghost justify-start text-left w-full font-mono';
+            btn.textContent = d.path === '' ? '/ (root)' : '/' + d.path;
+            btn.onclick = () => {
+                list.querySelectorAll('button').forEach(b => b.classList.remove('btn-active'));
+                btn.classList.add('btn-active');
+                _moveSelectedDir = d.path;
+            };
+            list.appendChild(btn);
+        });
+    }
+
+    async function submitMove() {
+        if (_moveSelectedDir === null) return;
+        const fromPath = document.getElementById('move-file-path').value;
+        const fileName = document.getElementById('move-file-name').value;
+        const errEl    = document.getElementById('move-file-error');
+
+        const toPath = _moveSelectedDir === ''
+            ? fileName
+            : _moveSelectedDir + '/' + fileName;
+
+        const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/rename`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from: fromPath, to: toPath }),
+        });
+        if (r.ok) {
+            document.getElementById('move-file-modal').close();
+            location.reload();
+        } else {
+            const msg = r.status === 409 ? 'A file with that name already exists there.'
+                      : r.status === 404 ? 'File not found.'
+                      : `Move failed (${r.status}).`;
+            errEl.textContent = msg;
+            errEl.classList.remove('hidden');
         }
     }
 
@@ -885,6 +1104,123 @@
 
     function escHtml(s) {
         return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── CSV Preview ──────────────────────────────────────────────────────────
+
+    async function openCsvPreview(filePath) {
+        const modal   = document.getElementById('csv-preview-modal');
+        const content = document.getElementById('csv-preview-content');
+        const meta    = document.getElementById('csv-preview-meta');
+        const title   = document.getElementById('csv-modal-title');
+        const dlLink  = document.getElementById('csv-download-link');
+
+        const fileName = filePath.split('/').pop();
+        title.innerHTML = `<i data-lucide="table-2" class="w-5 h-5"></i> ${escHtml(fileName)}`;
+        content.innerHTML = '<div class="flex justify-center py-10"><span class="loading loading-spinner loading-md"></span></div>';
+        meta.textContent = '';
+
+        document.getElementById('csv-search').value = '';
+
+        const serveUrl = `/api/workspaces/${WORKSPACE_ID}/files/serve?path=${encodeURIComponent(filePath)}`;
+        dlLink.href = serveUrl;
+        dlLink.download = fileName;
+
+        modal.showModal();
+        lucide.createIcons();
+
+        try {
+            const r = await fetch(serveUrl);
+            if (!r.ok) throw new Error(`Failed to load file (${r.status})`);
+            const text = await r.text();
+
+            const sep = detectCsvSep(text);
+            const { headers, rows } = parseCsv(text, sep);
+
+            if (headers.length === 0 && rows.length === 0) {
+                content.innerHTML = '<div class="text-center text-base-content/50 py-8">Empty file</div>';
+                return;
+            }
+
+            const MAX_ROWS = 500;
+            const previewRows = rows.slice(0, MAX_ROWS);
+
+            const th = headers.map(h =>
+                `<th class="whitespace-nowrap bg-base-200">${escHtml(h)}</th>`
+            ).join('');
+            const tbody = previewRows.map(row =>
+                `<tr>${row.map(cell =>
+                    `<td class="text-sm max-w-xs overflow-hidden text-ellipsis whitespace-nowrap" title="${escHtml(cell)}">${escHtml(cell)}</td>`
+                ).join('')}</tr>`
+            ).join('');
+
+            content.innerHTML = `
+                <table class="table table-xs table-zebra">
+                    <thead class="sticky top-0 z-10"><tr>${th}</tr></thead>
+                    <tbody>${tbody}</tbody>
+                </table>`;
+
+            const sepLabel = sep === '\t' ? 'tab' : `'${sep}'`;
+            const baseText = `${headers.length} column${headers.length !== 1 ? 's' : ''} · ${rows.length} row${rows.length !== 1 ? 's' : ''}${rows.length > MAX_ROWS ? ` (showing first ${MAX_ROWS})` : ''} · separator: ${sepLabel}`;
+            meta.dataset.base = baseText;
+            meta.textContent = baseText;
+        } catch (e) {
+            content.innerHTML = `<div class="alert alert-error text-sm m-4">${escHtml(e.message)}</div>`;
+        }
+    }
+
+    /** Detect delimiter by counting occurrences in the first line. */
+    function detectCsvSep(text) {
+        const firstLine = text.split(/\r?\n/)[0] || '';
+        const counts = {
+            ',': (firstLine.match(/,/g) || []).length,
+            ';': (firstLine.match(/;/g) || []).length,
+            '\t': (firstLine.match(/\t/g) || []).length,
+        };
+        return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+    }
+
+    function parseCsv(text, sep) {
+        const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+        if (lines.length === 0) return { headers: [], rows: [] };
+        const headers = parseCsvRow(lines[0], sep);
+        const rows = lines.slice(1).map(l => parseCsvRow(l, sep));
+        return { headers, rows };
+    }
+
+    function filterCsvRows(query) {
+        const tbody = document.querySelector('#csv-preview-content tbody');
+        if (!tbody) return;
+        const term = query.trim().toLowerCase();
+        let visible = 0;
+        for (const row of tbody.rows) {
+            const match = !term || row.textContent.toLowerCase().includes(term);
+            row.style.display = match ? '' : 'none';
+            if (match) visible++;
+        }
+        const meta = document.getElementById('csv-preview-meta');
+        const base = meta.dataset.base || '';
+        meta.textContent = term ? `${visible} row${visible !== 1 ? 's' : ''} match · ${base}` : base;
+    }
+
+    function parseCsvRow(line, sep) {
+        const cells = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (ch === '"') {
+                if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+                else inQuotes = !inQuotes;
+            } else if (ch === sep && !inQuotes) {
+                cells.push(current);
+                current = '';
+            } else {
+                current += ch;
+            }
+        }
+        cells.push(current);
+        return cells;
     }
 
     // Preload folder types and current directory type on page load

@@ -67,7 +67,11 @@ without changing the core codebase.
 - [x] Define `FolderTypeRenderer` trait in `workspace-core` crate
 - [x] Refactor `workspace-manager` to accept `Vec<Arc<dyn FolderTypeRenderer>>`
 - [x] Migrate `bpmn-viewer` as first proof-of-concept (smallest, most self-contained)
+      - Enhanced: recursive subfolder support (any depth), grouped by relative subfolder path, client-side search filter (2026-03-07)
 - [x] Migrate `media-manager` folder view (replaces Phase 0.5 redirect)
+- [x] Workspace dashboard enriched: total size, file-type composition chips, folder type badges,
+      clickable filenames, inline image thumbnails in Recent Files (2026-03-07)
+- [x] PDF viewer defaults to fit-to-width (2026-03-07)
 - [ ] Document the pattern for adding new folder types
 
 ---
@@ -78,14 +82,23 @@ without changing the core codebase.
 
 **Implemented 2026-03-06** — see `docs/management/media-server-folder-type.md`
 
-- [x] Register `media-server` folder type in the folder-type registry
+- [x] Register `media-server` folder type in the folder-type registry (film icon, #6366f1, builtin YAML)
 - [x] Auto-create a vault when a folder is assigned `folder-type: media-server`
 - [x] Store `vault_id` in `workspace.yaml` folder metadata
 - [x] Redirect to `/media?vault_id=...` when a media-server folder is opened
+- [x] `GET /api/workspaces/{id}/media-folders` — lists media-server folders with vault_id for the picker
+- [x] Replace "Publish to Vault" modal with compact "→ Media" popover: auto-sends if one media-server
+      folder exists, shows picker if multiple, guides user to create one if none
+- [x] `publish_to_vault` uses `vault_nested_media_dir` (correct nested path), detects `MediaType`
+      from MIME, auto-infers title from filename stem
+- [x] Restrict → Media button and server-side handler to `image/*`, `video/*`, `application/pdf` only
+      — text/yaml/markdown stay as plain workspace files
+- [x] Access-code step removed from publish flow (handled separately per plan)
 
 **Result:** Users can create a "Media Server" folder in any workspace. Opening it takes
 them directly to the scoped media manager. Each media-server folder is backed by an
-isolated vault. No storage migration required.
+isolated vault. Publishing a file from the workspace browser to media is a single click.
+No storage migration required.
 
 ---
 

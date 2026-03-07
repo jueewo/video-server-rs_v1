@@ -301,6 +301,8 @@ pub fn file_icon(mime: &str) -> &'static str {
         "file-code"
     } else if mime.starts_with("image/") {
         "image"
+    } else if mime.contains("csv") {
+        "table-2"
     } else if mime.contains("pdf") {
         "file-type-2"
     } else {

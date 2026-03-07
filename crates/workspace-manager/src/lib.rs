@@ -732,10 +732,48 @@ pub async fn delete_file(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// GET /api/workspaces/{workspace_id}/dirs
+///
+/// Returns all directories in the workspace (recursively), suitable for a
+/// move-file folder picker. Root is represented by an empty path string.
+pub async fn list_dirs(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
+    check_scope(&user, "read")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let mut dirs: Vec<serde_json::Value> = vec![
+        serde_json::json!({ "path": "", "label": "(workspace root)" }),
+    ];
+
+    for e in walkdir::WalkDir::new(&workspace_root)
+        .min_depth(1)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_dir())
+    {
+        if let Ok(rel) = e.path().strip_prefix(&workspace_root) {
+            let path = rel.to_string_lossy().to_string();
+            dirs.push(serde_json::json!({ "path": path, "label": path }));
+        }
+    }
+
+    dirs.sort_by(|a, b| {
+        a["path"].as_str().unwrap_or("").cmp(b["path"].as_str().unwrap_or(""))
+    });
+
+    Ok(Json(dirs))
+}
+
 /// POST /api/workspaces/{workspace_id}/files/rename
 ///
-/// Renames (moves) a single file within the workspace. The destination must
-/// be in the same directory. Does not update workspace.yaml (files are not
+/// Renames or moves a single file within the workspace. `from` and `to` are
+/// workspace-relative paths. Does not update workspace.yaml (files are not
 /// tracked there, only folders are).
 pub async fn rename_file(
     user: Option<Extension<AuthenticatedUser>>,
@@ -2562,6 +2600,10 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         .route(
             "/api/workspaces/{workspace_id}/files/rename",
             post(rename_file),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/dirs",
+            get(list_dirs),
         )
         .route(
             "/api/workspaces/{workspace_id}/files/save-text",

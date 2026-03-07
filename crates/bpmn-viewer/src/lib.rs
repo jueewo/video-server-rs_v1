@@ -95,8 +95,8 @@ pub struct BpmnFolderTemplate {
 
 /// Folder-type renderer for `bpmn-simulator` folders.
 ///
-/// Lists all `.bpmn` files in the folder (and one level of subfolders) and
-/// renders them as an inline view inside the workspace browser.
+/// Lists all `.bpmn` files in the folder (any depth) and renders them grouped
+/// by their subfolder path as an inline view inside the workspace browser.
 pub struct BpmnFolderRenderer;
 
 #[async_trait]
@@ -108,12 +108,11 @@ impl FolderTypeRenderer for BpmnFolderRenderer {
     async fn render_folder_view(&self, ctx: FolderViewContext) -> Result<Response, StatusCode> {
         let folder_abs = ctx.workspace_root.join(&ctx.folder_path);
 
-        // Collect .bpmn files up to depth 2 (top-level + one subfolder level)
+        // Collect .bpmn files at any depth, grouped by their relative subfolder path.
         let mut groups_map: std::collections::HashMap<Option<String>, Vec<BpmnFileEntry>> =
             std::collections::HashMap::new();
 
         for e in walkdir::WalkDir::new(&folder_abs)
-            .max_depth(2)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| {
@@ -132,15 +131,13 @@ impl FolderTypeRenderer for BpmnFolderRenderer {
                 .map(|p| p.to_string_lossy().to_string())
                 .unwrap_or_else(|_| name.clone());
 
-            // depth 1 = top-level file, depth 2 = file inside subfolder
-            let group_key: Option<String> = if e.depth() == 1 {
-                None
-            } else {
-                e.path()
-                    .parent()
-                    .and_then(|p| p.file_name())
-                    .map(|n| n.to_string_lossy().to_string())
-            };
+            // Group key: None for top-level files, relative subfolder path for everything else.
+            let group_key: Option<String> = e
+                .path()
+                .parent()
+                .and_then(|p| p.strip_prefix(&folder_abs).ok())
+                .filter(|rel| !rel.as_os_str().is_empty())
+                .map(|rel| rel.to_string_lossy().to_string());
 
             let modified = e
                 .metadata()

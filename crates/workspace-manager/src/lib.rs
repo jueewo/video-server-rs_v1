@@ -941,19 +941,11 @@ pub async fn serve_workspace_file(
         if code.is_empty() {
             return Err(StatusCode::UNAUTHORIZED);
         }
-        // Derive the top-level folder from the file path (first segment)
-        let folder_path = query
-            .path
-            .trim_start_matches('/')
-            .split('/')
-            .next()
-            .unwrap_or("")
-            .to_string();
         let granted = workspace_access::workspace_code_grants_access(
             &state.pool,
             code,
             &workspace_id,
-            &folder_path,
+            &query.path,
         )
         .await;
         if !granted {

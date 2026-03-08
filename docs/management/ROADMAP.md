@@ -72,7 +72,15 @@ without changing the core codebase.
 - [x] Workspace dashboard enriched: total size, file-type composition chips, folder type badges,
       clickable filenames, inline image thumbnails in Recent Files (2026-03-07)
 - [x] PDF viewer defaults to fit-to-width (2026-03-07)
-- [ ] Document the pattern for adding new folder types
+- [x] **`crates/course/` — first full dual-use crate** (2026-03-08)
+      - Embedded: `CourseFolderRenderer` — module/lesson outline in workspace browser
+      - Standalone: `GET /course?code={code}` — full course viewer with own shell, no session
+      - `course.yaml` optional for title/ordering overrides; pure filesystem inference otherwise
+      - Markdown rendering with asset URL rewriting (images served via `?code=` without session)
+      - Old `crates/standalone/course-viewer/` removed (was unimplemented, vault-model)
+      - See `docs/apps/course-viewer.md`
+- [ ] `crates/media/` dual-use — media viewer/gallery (same pattern as course, next up)
+- [ ] Document the pattern for adding new folder types → `docs/apps/DUAL_USE_PATTERN.md`
 
 ---
 
@@ -190,9 +198,9 @@ platform as a content backend) connect via open interfaces.
 - [ ] Document the integration pattern for satellite apps
 - [ ] Vue3/Preact data platforms (e.g. pharma industry prototypes) deployable as
       js-tool folder types — consulting work product delivered via the platform
-- [ ] Evaluate `crates/standalone/3d-gallery` and `crates/standalone/course-viewer`:
-      migrate to dual-use library crates (embedded + standalone) per the Architecture
-      Foundation pattern, or keep as standalone-only if they never embed in the workspace
+- [x] `crates/course/` migrated to dual-use (2026-03-08) — see above
+- [ ] `crates/standalone/3d-gallery` — evaluate for dual-use migration
+- [ ] `crates/media/` dual-use — standalone media viewer/gallery consuming `/api/folder/{code}/media`
 
 **Result:** Platform is the delivery vehicle for consulting and business work product.
 

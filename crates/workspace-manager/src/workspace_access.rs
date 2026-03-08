@@ -31,25 +31,29 @@ use api_keys::middleware::AuthenticatedUser;
 
 // ── Public auth helpers ───────────────────────────────────────────────────────
 
-/// True if `code` is active, not expired, and has a grant covering
-/// (`workspace_id`, `folder_path`). Used by `serve_workspace_file`.
+/// True if `code` is active, not expired, and has a grant whose `folder_path`
+/// is a prefix of `file_path` within `workspace_id`.
+/// Pass the full relative file path (e.g. "courses/sa-intro/session1/img.png").
 pub async fn workspace_code_grants_access(
     pool: &sqlx::SqlitePool,
     code: &str,
     workspace_id: &str,
-    folder_path: &str,
+    file_path: &str,
 ) -> bool {
+    let clean = file_path.trim_start_matches('/');
     sqlx::query_scalar::<_, i32>(
         "SELECT 1
          FROM workspace_access_codes wac
          JOIN workspace_access_code_folders f ON f.workspace_access_code_id = wac.id
-         WHERE wac.code = ? AND f.workspace_id = ? AND f.folder_path = ?
+         WHERE wac.code = ? AND f.workspace_id = ?
+           AND (? = f.folder_path OR ? LIKE f.folder_path || '/%')
            AND wac.is_active = 1
            AND (wac.expires_at IS NULL OR wac.expires_at > datetime('now'))",
     )
     .bind(code)
     .bind(workspace_id)
-    .bind(folder_path)
+    .bind(clean)
+    .bind(clean)
     .fetch_optional(pool)
     .await
     .ok()

@@ -1,0 +1,22 @@
+[package]
+name = "course"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+workspace-core = { path = "../workspace-core" }
+common = { path = "../common" }
+
+axum = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_yaml = "0.9"
+serde_json = "1.0"
+askama = { workspace = true, features = ["serde_json"] }
+sqlx = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+urlencoding = { workspace = true }
+pulldown-cmark = "0.9"
+walkdir = "2.5"
+anyhow = { workspace = true }

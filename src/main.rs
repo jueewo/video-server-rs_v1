@@ -74,7 +74,7 @@ use access_groups;
 use api_keys::{middleware::api_key_or_session_auth, routes::api_key_routes};
 use common::request_id::request_id_middleware;
 use app_publisher::{app_publisher_routes, AppPublisherState};
-use course_viewer::{course_viewer_routes, CourseViewerState};
+use course::{course_routes, CourseFolderRenderer, CourseState};
 use js_tool_viewer::{js_tool_viewer_routes, JsToolViewerState};
 use docs_viewer::{docs_routes, markdown::MarkdownRenderer, DocsState};
 use gallery3d;
@@ -315,14 +315,6 @@ struct D3ViewerTemplate {
     app_icon: String,
 }
 
-#[allow(dead_code)]
-#[derive(Template)]
-#[template(path = "course-viewer.html")]
-struct CourseViewerTemplate {
-    authenticated: bool,
-    app_title: String,
-    app_icon: String,
-}
 
 #[allow(dead_code)]
 #[derive(Template)]
@@ -452,25 +444,6 @@ async fn d3_viewer_handler(
     Ok(Html(template.render().unwrap()))
 }
 
-#[tracing::instrument(skip(session, state))]
-async fn course_viewer_page_handler(
-    session: Session,
-    State(state): State<Arc<AppState>>,
-) -> Result<Html<String>, StatusCode> {
-    let authenticated: bool = session
-        .get("authenticated")
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or(false);
-
-    let template = CourseViewerTemplate {
-        authenticated,
-        app_title: state.config.title.clone(),
-        app_icon: state.config.icon.clone(),
-    };
-    Ok(Html(template.render().unwrap()))
-}
 
 #[tracing::instrument(skip(params, state))]
 async fn demo_handler(
@@ -934,6 +907,9 @@ async fn main() -> anyhow::Result<()> {
     let mut workspace_state = WorkspaceManagerState::new(pool.clone(), user_storage.clone());
     workspace_state.register_renderer(Arc::new(BpmnFolderRenderer));
     workspace_state.register_renderer(Arc::new(MediaFolderRenderer { pool: pool.clone() }));
+    workspace_state.register_renderer(Arc::new(CourseFolderRenderer {
+        storage: (*user_storage).clone(),
+    }));
     let workspace_state = Arc::new(workspace_state);
 
     // Initialize Access Control Service with audit logging enabled
@@ -963,12 +939,12 @@ async fn main() -> anyhow::Result<()> {
     println!("📚 Docs Viewer initialized");
     println!("   - Docs root: {}", docs_root.display());
 
-    // Initialize Course Viewer state
-    let course_viewer_state = Arc::new(CourseViewerState {
+    // Initialize Course state
+    let course_state = Arc::new(CourseState {
         pool: pool.clone(),
-        storage_path: storage_dir.to_string_lossy().to_string(),
+        storage: (*user_storage).clone(),
     });
-    println!("🎓 Course Viewer initialized");
+    println!("🎓 Course initialized");
 
     // Initialize JS Tool Viewer state
     let js_tool_state = Arc::new(JsToolViewerState {
@@ -1050,7 +1026,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/home", get(home_handler))
         .route("/apps", get(apps_handler))
         .route("/3d-viewer", get(d3_viewer_handler))
-        .route("/course-viewer", get(course_viewer_page_handler))
+
         .route("/demo", get(demo_handler))
         .route("/health", get(health_check))
         .route("/favicon.ico", get(favicon_handler))
@@ -1159,7 +1135,7 @@ async fn main() -> anyhow::Result<()> {
             ),
         )
         // Course viewer (standalone course presentation)
-        .merge(course_viewer_routes(course_viewer_state))
+        .merge(course_routes(course_state))
         .merge(js_tool_viewer_routes(js_tool_state))
         // App publisher (publish workspace folders as public apps)
         .merge(app_publisher_routes(app_publisher_state))

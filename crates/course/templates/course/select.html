@@ -1,0 +1,46 @@
+{% extends "base-tailwind.html" %}
+{% block title %}Choose a Course{% endblock %}
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-base-200 px-4">
+    <div class="w-full max-w-lg">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4"
+                 style="background: linear-gradient(135deg, #f59e0b, #d97706); box-shadow: 0 4px 16px rgba(245,158,11,0.35);">
+                <i data-lucide="graduation-cap" class="w-8 h-8 text-white"></i>
+            </div>
+            <h1 class="text-2xl font-bold">Choose a Course</h1>
+            <p class="text-base-content/60 text-sm mt-1">Multiple courses are available with this access code.</p>
+        </div>
+
+        <div class="space-y-3">
+            {% for c in courses %}
+            <a href="/course?code={{ code }}&workspace_id={{ c.workspace_id }}&folder={{ c.folder_path }}"
+               class="card bg-base-100 shadow border border-base-300 hover:border-primary hover:shadow-md transition-all block">
+                <div class="card-body py-4 flex-row items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center"
+                         style="background: linear-gradient(135deg, #f59e0b22, #d97706aa);">
+                        <i data-lucide="book-open" class="w-5 h-5 text-amber-600"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-semibold">{{ c.title }}</div>
+                        {% if let Some(desc) = c.description %}
+                        <div class="text-sm text-base-content/60 truncate">{{ desc }}</div>
+                        {% else %}
+                        <div class="text-xs text-base-content/40 font-mono truncate">{{ c.folder_path }}</div>
+                        {% endif %}
+                    </div>
+                    <i data-lucide="chevron-right" class="w-5 h-5 text-base-content/30 shrink-0"></i>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    });
+</script>
+{% endblock %}

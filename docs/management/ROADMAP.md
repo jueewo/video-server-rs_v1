@@ -79,8 +79,11 @@ without changing the core codebase.
       - Markdown rendering with asset URL rewriting (images served via `?code=` without session)
       - Old `crates/standalone/course-viewer/` removed (was unimplemented, vault-model)
       - See `docs/apps/course-viewer.md`
-- [ ] `crates/media/` dual-use — media viewer/gallery (same pattern as course, next up)
-- [ ] Document the pattern for adding new folder types → `docs/apps/DUAL_USE_PATTERN.md`
+- [x] `crates/media-viewer/` dual-use — media viewer/gallery (2026-03-09)
+      - Embedded: `MediaViewerRenderer` replaces `MediaFolderRenderer` from media-manager
+      - Standalone: `GET /gallery?code={code}` — public gallery, no session
+      - See `docs/apps/media-viewer.md`
+- [x] Document the pattern for adding new folder types → `docs/apps/DUAL_USE_PATTERN.md` (2026-03-09)
 
 ---
 
@@ -217,6 +220,49 @@ platform as a content backend) connect via open interfaces.
 
 **Result:** Third parties can publish apps that integrate with the platform.
 The workspace becomes a platform others build on.
+
+---
+
+## Phase 6 — Multi-Tier Delivery
+
+**Goal:** Package and deliver the platform to three distinct customer types from one
+codebase. No new features — get the core delivery model right before adding modules.
+
+See `docs/management/DELIVERY_TIERS.md` for the full design.
+
+```
+Tier 1 — Your hosted platform     (B2C + your own use)
+Tier 2 — Hosted B2B               (company on your infrastructure, tenant-scoped)
+Tier 3 — Standalone               (company on their own infrastructure, single-tenant)
+```
+
+### Phase 6A — Standalone packaging (Tier 3) ~1 week
+
+- [ ] `deployment_mode` field in config — `standalone` locks to single tenant at startup
+- [ ] Rename `app.yaml` → `branding.yaml`, extend with logo, colors, support email
+- [ ] Cargo `[features]`: `media`, `course`, `bpmn`, `full` — compile only what's licensed
+- [ ] Conditional `register_renderer()` and `.merge(routes)` in `main.rs` per feature
+- [ ] `Dockerfile` — binary + FFmpeg + Ghostscript + cwebp
+- [ ] `docker-compose.yml` — storage volume, DB, config mounts for customer self-hosting
+- [ ] Self-hosting configuration documentation
+
+**Result:** A standalone customer (e.g. regulated industry) receives a Docker image
+with exactly their licensed features, their branding, pointing at their own IdP.
+Single-tenant enforced. No data leaves their infrastructure.
+
+### Phase 6B — Tenant scoping (Tier 2) ~1 week
+
+- [ ] `tenants` table — one row per company + `'platform'` row for your workspaces
+- [ ] `tenant_id` column on `workspaces` — migrate existing rows to `'platform'`
+- [ ] Session middleware resolves `tenant_id` after login
+- [ ] Workspace list query scoped to `WHERE tenant_id = ?`
+- [ ] Per-tenant branding stored as JSON on tenant row, resolved per session
+- [ ] Minimal tenant admin UI — your account provisions tenants, assigns workspaces
+- [ ] Hosted B2B onboarding flow — create tenant → workspace → invite users
+
+**Result:** A company can be onboarded as a tenant on your platform. Their users
+see only their workspaces. White-label branding per tenant. Their end users consume
+content via access codes as before.
 
 ---
 

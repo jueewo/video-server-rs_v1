@@ -2732,6 +2732,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "media-viewer"
+version = "0.1.0"
+dependencies = [
+ "askama",
+ "async-trait",
+ "axum",
+ "common",
+ "serde",
+ "sqlx",
+ "tracing",
+ "urlencoding",
+ "workspace-core",
+]
+
+[[package]]
 name = "memchr"
 version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5883,6 +5898,7 @@ dependencies = [
  "image 0.24.9",
  "js-tool-viewer",
  "media-manager",
+ "media-viewer",
  "opentelemetry",
  "opentelemetry-appender-tracing",
  "opentelemetry-otlp",

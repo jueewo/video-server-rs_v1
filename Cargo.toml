@@ -21,6 +21,7 @@ members = [
     "crates/workspace-processors/agent-collection",
     "crates/workspace-processors/course-processor",
     "crates/course",
+    "crates/media-viewer",
     "crates/standalone/js-tool-viewer",
     "crates/standalone/app-publisher",
     "crates/standalone/media-cli",
@@ -64,6 +65,7 @@ vault-manager = { path = "crates/vault-manager" }
 workspace-manager = { path = "crates/workspace-manager" }
 rate-limiter = { path = "crates/rate-limiter" }
 course = { path = "crates/course" }
+media-viewer = { path = "crates/media-viewer" }
 js-tool-viewer = { path = "crates/standalone/js-tool-viewer" }
 app-publisher = { path = "crates/standalone/app-publisher" }
 

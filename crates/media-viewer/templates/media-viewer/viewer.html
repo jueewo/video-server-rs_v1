@@ -1,0 +1,150 @@
+{% extends "base-tailwind.html" %}
+{% block title %}{{ gallery_title }}{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <h1 class="text-2xl font-bold">{{ gallery_title }}</h1>
+        <!-- Type filter buttons -->
+        <div class="flex gap-2 flex-wrap">
+            <button onclick="filterGallery('all')" id="filter-all"
+                    class="btn btn-sm btn-primary filter-btn">All</button>
+            <button onclick="filterGallery('image')" id="filter-image"
+                    class="btn btn-sm btn-ghost filter-btn">
+                <i data-lucide="image" class="w-4 h-4"></i> Images
+            </button>
+            <button onclick="filterGallery('video')" id="filter-video"
+                    class="btn btn-sm btn-ghost filter-btn">
+                <i data-lucide="clapperboard" class="w-4 h-4"></i> Videos
+            </button>
+            <button onclick="filterGallery('document')" id="filter-document"
+                    class="btn btn-sm btn-ghost filter-btn">
+                <i data-lucide="file-text" class="w-4 h-4"></i> Documents
+            </button>
+        </div>
+    </div>
+
+    {% if items.is_empty() %}
+    <div class="card bg-base-200 shadow">
+        <div class="card-body items-center text-center py-12">
+            <i data-lucide="photo" class="w-16 h-16 mb-3 text-base-content/30"></i>
+            <h3 class="text-xl font-semibold mb-2">No media available</h3>
+            <p class="text-base-content/60">This gallery is empty or the access code is invalid.</p>
+        </div>
+    </div>
+    {% else %}
+    <!-- Media grid -->
+    <div id="gallery-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+        {% for item in &items %}
+        <div class="gallery-card card bg-base-100 border border-base-300 hover:shadow-md hover:border-primary/30 transition-all duration-150 overflow-hidden group cursor-pointer"
+             data-type="{{ item.media_type }}"
+             data-slug="{{ item.slug }}"
+             data-title="{{ item.title }}"
+             data-serve="{{ item.serve_url(&code) }}"
+             data-thumb="{{ item.thumb_url(&code) }}"
+             onclick="openItem(this)">
+            <!-- Thumbnail -->
+            <div class="aspect-video bg-base-200 overflow-hidden">
+                {% if item.thumbnail_url.is_some() %}
+                <img src="{{ item.thumb_url(&code) }}" alt="{{ item.title }}"
+                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                     loading="lazy" />
+                {% else %}
+                <div class="w-full h-full flex items-center justify-center text-base-content/30">
+                    <i data-lucide="{{ item.type_icon() }}" class="w-10 h-10"></i>
+                </div>
+                {% endif %}
+            </div>
+            <!-- Info -->
+            <div class="p-3">
+                <p class="text-sm font-medium truncate" title="{{ item.title }}">{{ item.title }}</p>
+                <div class="flex items-center justify-between mt-1">
+                    <span class="text-xs text-base-content/50">{{ item.file_size_str }}</span>
+                    <span class="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-base-200 text-base-content/60">
+                        <i data-lucide="{{ item.type_icon() }}" class="w-3 h-3"></i>
+                        {{ item.type_label() }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- Image lightbox modal -->
+<dialog id="imageModal" class="modal">
+    <div class="modal-box max-w-5xl p-2 bg-black/90">
+        <form method="dialog" class="absolute top-2 right-2 z-10">
+            <button class="btn btn-sm btn-circle btn-ghost text-white">✕</button>
+        </form>
+        <p id="imageModalTitle" class="text-white text-sm px-2 pb-2 font-medium"></p>
+        <img id="imageModalImg" src="" alt="" class="w-full max-h-[80vh] object-contain rounded" />
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Video modal -->
+<dialog id="videoModal" class="modal">
+    <div class="modal-box max-w-4xl p-2 bg-black/90">
+        <form method="dialog" class="absolute top-2 right-2 z-10">
+            <button class="btn btn-sm btn-circle btn-ghost text-white" onclick="stopVideo()">✕</button>
+        </form>
+        <p id="videoModalTitle" class="text-white text-sm px-2 pb-2 font-medium"></p>
+        <video id="videoModalPlayer" controls class="w-full max-h-[75vh] rounded"
+               preload="metadata">
+        </video>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button onclick="stopVideo()">close</button></form>
+</dialog>
+
+<script>
+// Filter gallery cards by media type
+function filterGallery(type) {
+    document.querySelectorAll('.filter-btn').forEach(b => {
+        b.classList.remove('btn-primary');
+        b.classList.add('btn-ghost');
+    });
+    const active = document.getElementById('filter-' + type);
+    if (active) { active.classList.remove('btn-ghost'); active.classList.add('btn-primary'); }
+
+    document.querySelectorAll('.gallery-card').forEach(card => {
+        if (type === 'all' || card.dataset.type === type) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+// Open item based on media type
+function openItem(card) {
+    const type = card.dataset.type;
+    const title = card.dataset.title;
+    const serveUrl = card.dataset.serve;
+
+    if (type === 'image') {
+        document.getElementById('imageModalTitle').textContent = title;
+        document.getElementById('imageModalImg').src = serveUrl;
+        document.getElementById('imageModal').showModal();
+    } else if (type === 'video') {
+        document.getElementById('videoModalTitle').textContent = title;
+        const player = document.getElementById('videoModalPlayer');
+        player.src = serveUrl;
+        document.getElementById('videoModal').showModal();
+        player.play().catch(() => {});
+    } else {
+        // Document — open in new tab
+        window.open(serveUrl, '_blank', 'noopener');
+    }
+}
+
+function stopVideo() {
+    const player = document.getElementById('videoModalPlayer');
+    player.pause();
+    player.src = '';
+}
+</script>
+{% endblock %}

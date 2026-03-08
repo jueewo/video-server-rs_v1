@@ -158,7 +158,7 @@ for any rendered prose content — avoids dependency on Tailwind Typography plug
 | Crate | Folder Type | Standalone URL | Status |
 |---|---|---|---|
 | `crates/bpmn-viewer` | `bpmn-simulator` | — (standalone only via bpmn-js) | Embedded only |
-| `crates/media-manager` | `media-server` | — | Embedded only |
+| `crates/media-viewer` | `media-server` | `GET /gallery?code=` | **Full dual-use** |
 | `crates/course` | `course` | `GET /course?code=` | **Full dual-use** |
 
 ---
@@ -168,4 +168,5 @@ for any rendered prose content — avoids dependency on Tailwind Typography plug
 - `workspace-core/src/lib.rs` — `FolderTypeRenderer` trait definition and docs
 - `crates/course/` — reference implementation (first full dual-use crate)
 - `docs/apps/course-viewer.md` — course viewer user and developer guide
+- `docs/apps/media-viewer.md` — media gallery user and developer guide
 - `docs/management/WORKSPACE_ACCESS_CODES.md` — access code API used by standalone mode

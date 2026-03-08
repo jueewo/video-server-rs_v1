@@ -9,7 +9,6 @@
 pub mod bpmn_view;
 pub mod detail;
 pub mod folder_access;
-pub mod folder_renderer;
 pub mod list;
 pub mod markdown_view;
 pub mod models;
@@ -22,7 +21,6 @@ pub mod serve;
 pub mod templates;
 pub mod upload;
 
-pub use folder_renderer::MediaFolderRenderer;
 pub use routes::{
     folder_access_routes, media_routes, media_serving_routes, media_upload_routes,
     MediaManagerState,

@@ -88,7 +88,7 @@ use vault_manager::{vault_routes, VaultManagerState};
 use video_manager::{rtmp_publish_token, video_routes, VideoManagerState};
 use workspace_manager::{workspace_routes, WorkspaceManagerState};
 use bpmn_viewer::BpmnFolderRenderer;
-use media_manager::MediaFolderRenderer;
+use media_viewer::{gallery_routes, MediaViewerRenderer, MediaViewerState};
 
 // -------------------------------
 // Production Secret Validation (TD-001)
@@ -906,7 +906,7 @@ async fn main() -> anyhow::Result<()> {
     // Initialize Workspace Manager State
     let mut workspace_state = WorkspaceManagerState::new(pool.clone(), user_storage.clone());
     workspace_state.register_renderer(Arc::new(BpmnFolderRenderer));
-    workspace_state.register_renderer(Arc::new(MediaFolderRenderer { pool: pool.clone() }));
+    workspace_state.register_renderer(Arc::new(MediaViewerRenderer { pool: pool.clone() }));
     workspace_state.register_renderer(Arc::new(CourseFolderRenderer {
         storage: (*user_storage).clone(),
     }));
@@ -945,6 +945,13 @@ async fn main() -> anyhow::Result<()> {
         storage: (*user_storage).clone(),
     });
     println!("🎓 Course initialized");
+
+    // Initialize Media Viewer state (standalone gallery)
+    let mv_state = Arc::new(MediaViewerState {
+        pool: pool.clone(),
+        storage: (*user_storage).clone(),
+    });
+    println!("🖼️  Media Viewer (gallery) initialized");
 
     // Initialize JS Tool Viewer state
     let js_tool_state = Arc::new(JsToolViewerState {
@@ -1136,6 +1143,8 @@ async fn main() -> anyhow::Result<()> {
         )
         // Course viewer (standalone course presentation)
         .merge(course_routes(course_state))
+        // Media gallery (standalone, public access via access code)
+        .merge(gallery_routes(mv_state))
         .merge(js_tool_viewer_routes(js_tool_state))
         // App publisher (publish workspace folders as public apps)
         .merge(app_publisher_routes(app_publisher_state))

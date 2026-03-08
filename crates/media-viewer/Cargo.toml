@@ -1,0 +1,15 @@
+[package]
+name = "media-viewer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+workspace-core = { path = "../workspace-core" }
+common          = { path = "../common" }
+axum            = { workspace = true }
+serde           = { workspace = true }
+askama          = { workspace = true, features = ["serde_json"] }
+sqlx            = { workspace = true }
+async-trait     = { workspace = true }
+urlencoding     = { workspace = true }
+tracing         = { workspace = true }

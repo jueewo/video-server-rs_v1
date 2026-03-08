@@ -1,0 +1,22 @@
+# Branding configuration — white-label identity for this deployment.
+# Safe to edit; affects visual identity only, not deployment topology.
+# See config.yaml for deployment mode (standalone vs hosted).
+
+# Display name shown in browser tabs, navbar, and footer
+name: "Media Server | appkask"
+
+# Path to the logo/icon (relative URLs served from /static/)
+logo: "/static/icon.webp"
+
+# Favicon path (defaults to /static/favicon.svg if not set)
+# favicon: "/static/custom/favicon.svg"
+
+# Primary accent color override (CSS hex, e.g. "#0057b7").
+# Leave empty to use the default DaisyUI theme color.
+# primary_color: ""
+
+# Support email shown in footer (leave empty to hide)
+# support_email: "support@example.com"
+
+# Optional description for meta tags
+description: "A media & video streaming server"

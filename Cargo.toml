@@ -35,6 +35,13 @@ version = "0.1.0"
 edition = "2021"
 default-run = "video-server-rs"
 
+[features]
+default = ["full"]
+media   = ["dep:video-manager", "dep:media-manager", "dep:media-viewer"]
+course  = ["dep:course"]
+bpmn    = ["dep:bpmn-viewer"]
+full    = ["media", "course", "bpmn"]
+
 [[bin]]
 name = "generate-thumbnails"
 path = "scripts/admin/generate_thumbnails.rs"
@@ -51,21 +58,21 @@ path = "scripts/cleanup_missing_media.rs"
 # Local crates
 common = { path = "crates/common" }
 access-groups = { path = "crates/access-groups" }
-video-manager = { path = "crates/video-manager" }
-media-manager = { path = "crates/media-manager" }
+video-manager = { path = "crates/video-manager", optional = true }
+media-manager = { path = "crates/media-manager", optional = true }
 user-auth = { path = "crates/user-auth" }
 access-codes = { path = "crates/access-codes" }
 access-control = { path = "crates/access-control" }
 gallery3d = { path = "crates/standalone/3d-gallery" }
 api-keys = { path = "crates/api-keys" }
 docs-viewer = { path = "crates/docs-viewer" }
-bpmn-viewer = { path = "crates/bpmn-viewer" }
+bpmn-viewer = { path = "crates/bpmn-viewer", optional = true }
 pdf-viewer = { path = "crates/pdf-viewer" }
 vault-manager = { path = "crates/vault-manager" }
 workspace-manager = { path = "crates/workspace-manager" }
 rate-limiter = { path = "crates/rate-limiter" }
-course = { path = "crates/course" }
-media-viewer = { path = "crates/media-viewer" }
+course = { path = "crates/course", optional = true }
+media-viewer = { path = "crates/media-viewer", optional = true }
 js-tool-viewer = { path = "crates/standalone/js-tool-viewer" }
 app-publisher = { path = "crates/standalone/app-publisher" }
 

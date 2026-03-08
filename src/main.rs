@@ -16,10 +16,21 @@ use std::{collections::HashMap, fs, net::SocketAddr, sync::Arc};
 // Application Configuration
 // -------------------------------
 
+/// Visual identity / white-label configuration.
+/// Loaded from `branding.yaml`; falls back to `app.yaml` for backward compatibility.
 #[derive(serde::Deserialize, Clone)]
 pub struct AppConfig {
-    pub title: String,
-    pub icon: String,
+    // Primary field names (branding.yaml)
+    #[serde(alias = "title")]          // backward compat: app.yaml used "title"
+    pub name: String,
+    #[serde(alias = "icon")]           // backward compat: app.yaml used "icon"
+    pub logo: String,
+    #[serde(default)]
+    pub favicon: Option<String>,
+    #[serde(default)]
+    pub primary_color: Option<String>,
+    #[serde(default)]
+    pub support_email: Option<String>,
     #[serde(default)]
     pub description: Option<String>,
 }
@@ -27,8 +38,11 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            title: "Media Server".to_string(),
-            icon: "/static/icon.webp".to_string(),
+            name: "Media Server".to_string(),
+            logo: "/static/icon.webp".to_string(),
+            favicon: None,
+            primary_color: None,
+            support_email: None,
             description: None,
         }
     }
@@ -36,16 +50,71 @@ impl Default for AppConfig {
 
 impl AppConfig {
     pub fn load() -> Self {
-        match fs::read_to_string("app.yaml") {
-            Ok(content) => serde_yaml::from_str(&content).unwrap_or_else(|e| {
-                println!("⚠️  Failed to parse app.yaml: {}", e);
-                Self::default()
-            }),
-            Err(_) => {
-                println!("ℹ️  No app.yaml found, using defaults");
-                Self::default()
+        // Try branding.yaml first, fall back to legacy app.yaml
+        for filename in &["branding.yaml", "app.yaml"] {
+            match fs::read_to_string(filename) {
+                Ok(content) => {
+                    return serde_yaml::from_str(&content).unwrap_or_else(|e| {
+                        println!("⚠️  Failed to parse {}: {}", filename, e);
+                        Self::default()
+                    });
+                }
+                Err(_) => continue,
             }
         }
+        println!("ℹ️  No branding.yaml found, using defaults");
+        Self::default()
+    }
+}
+
+/// Deployment topology configuration.
+/// Loaded from `config.yaml`. Affects security posture and data scoping.
+#[derive(serde::Deserialize, Clone)]
+pub struct DeploymentConfig {
+    #[serde(default)]
+    pub deployment_mode: DeploymentMode,
+    #[serde(default = "default_tenant_id")]
+    pub tenant_id: String,
+    #[serde(default)]
+    pub tenant_name: Option<String>,
+}
+
+#[derive(serde::Deserialize, Clone, PartialEq, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum DeploymentMode {
+    Hosted,
+    Standalone,
+}
+
+impl Default for DeploymentMode {
+    fn default() -> Self { DeploymentMode::Hosted }
+}
+
+fn default_tenant_id() -> String { "platform".to_string() }
+
+impl Default for DeploymentConfig {
+    fn default() -> Self {
+        Self {
+            deployment_mode: DeploymentMode::Hosted,
+            tenant_id: "platform".to_string(),
+            tenant_name: None,
+        }
+    }
+}
+
+impl DeploymentConfig {
+    pub fn load() -> Self {
+        match fs::read_to_string("config.yaml") {
+            Ok(content) => serde_yaml::from_str(&content).unwrap_or_else(|e| {
+                println!("⚠️  Failed to parse config.yaml: {}", e);
+                Self::default()
+            }),
+            Err(_) => Self::default(),
+        }
+    }
+
+    pub fn is_standalone(&self) -> bool {
+        self.deployment_mode == DeploymentMode::Standalone
     }
 }
 use time::{Duration, OffsetDateTime};
@@ -74,21 +143,29 @@ use access_groups;
 use api_keys::{middleware::api_key_or_session_auth, routes::api_key_routes};
 use common::request_id::request_id_middleware;
 use app_publisher::{app_publisher_routes, AppPublisherState};
-use course::{course_routes, CourseFolderRenderer, CourseState};
 use js_tool_viewer::{js_tool_viewer_routes, JsToolViewerState};
 use docs_viewer::{docs_routes, markdown::MarkdownRenderer, DocsState};
 use gallery3d;
+use rate_limiter::RateLimitConfig;
+use user_auth::{auth_routes, AuthState, OidcConfig};
+use vault_manager::{vault_routes, VaultManagerState};
+use workspace_manager::{workspace_routes, WorkspaceManagerState};
+
+#[cfg(feature = "media")]
 use media_manager::{
     folder_access_routes, media_routes, media_serving_routes, media_upload_routes,
     MediaManagerState,
 };
-use rate_limiter::RateLimitConfig;
-use user_auth::{auth_routes, AuthState, OidcConfig};
-use vault_manager::{vault_routes, VaultManagerState};
+#[cfg(feature = "media")]
 use video_manager::{rtmp_publish_token, video_routes, VideoManagerState};
-use workspace_manager::{workspace_routes, WorkspaceManagerState};
-use bpmn_viewer::BpmnFolderRenderer;
+#[cfg(feature = "media")]
 use media_viewer::{gallery_routes, MediaViewerRenderer, MediaViewerState};
+
+#[cfg(feature = "course")]
+use course::{course_routes, CourseFolderRenderer, CourseState};
+
+#[cfg(feature = "bpmn")]
+use bpmn_viewer::BpmnFolderRenderer;
 
 // -------------------------------
 // Production Secret Validation (TD-001)
@@ -109,18 +186,21 @@ fn validate_production_config(oidc_config: &OidcConfig) {
     let mut errors: Vec<String> = Vec::new();
 
     // ── RTMP Publish Token ──────────────────────────────────────────
-    let rtmp_token = rtmp_publish_token();
-    if rtmp_token == "supersecret123" || rtmp_token.is_empty() {
-        errors.push(
-            "RTMP_PUBLISH_TOKEN is missing or still the insecure default 'supersecret123'. \
-             Set a strong, unique token in your environment."
-                .to_string(),
-        );
-    } else if rtmp_token.len() < 16 {
-        errors.push(format!(
-            "RTMP_PUBLISH_TOKEN is too short ({} chars). Use at least 16 characters.",
-            rtmp_token.len()
-        ));
+    #[cfg(feature = "media")]
+    {
+        let rtmp_token = rtmp_publish_token();
+        if rtmp_token == "supersecret123" || rtmp_token.is_empty() {
+            errors.push(
+                "RTMP_PUBLISH_TOKEN is missing or still the insecure default 'supersecret123'. \
+                 Set a strong, unique token in your environment."
+                    .to_string(),
+            );
+        } else if rtmp_token.len() < 16 {
+            errors.push(format!(
+                "RTMP_PUBLISH_TOKEN is too short ({} chars). Use at least 16 characters.",
+                rtmp_token.len()
+            ));
+        }
     }
 
     // ── OIDC Secrets ────────────────────────────────────────────────
@@ -262,11 +342,14 @@ fn load_apps_catalog() -> Vec<AppCard> {
 #[derive(Clone)]
 #[allow(dead_code)]
 struct AppState {
+    pool: sqlx::SqlitePool,
+    #[cfg(feature = "media")]
     video_state: Arc<VideoManagerState>,
     auth_state: Arc<AuthState>,
     access_state: Arc<AccessCodeState>,
     access_control: Arc<AccessControlService>,
     config: AppConfig,
+    deployment: DeploymentConfig,
     apps: Vec<AppCard>,
 }
 
@@ -356,8 +439,8 @@ async fn index_handler(
 
     let template = IndexTemplate {
         authenticated,
-        app_title: state.config.title.clone(),
-        app_icon: state.config.icon.clone(),
+        app_title: state.config.name.clone(),
+        app_icon: state.config.logo.clone(),
     };
     Ok(Html(template.render().unwrap()))
 }
@@ -374,7 +457,7 @@ async fn home_handler(
         .flatten()
         .unwrap_or(false);
 
-    let pool = &state.video_state.pool;
+    let pool = &state.pool;
 
     let media_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM media_items")
         .fetch_one(pool)
@@ -393,8 +476,8 @@ async fn home_handler(
 
     let template = HomeTemplate {
         authenticated,
-        app_title: state.config.title.clone(),
-        app_icon: state.config.icon.clone(),
+        app_title: state.config.name.clone(),
+        app_icon: state.config.logo.clone(),
         media_count,
         vault_count,
         workspace_count,
@@ -417,8 +500,8 @@ async fn apps_handler(
 
     let template = AppsTemplate {
         authenticated,
-        app_title: state.config.title.clone(),
-        app_icon: state.config.icon.clone(),
+        app_title: state.config.name.clone(),
+        app_icon: state.config.logo.clone(),
         apps: state.apps.clone(),
     };
     Ok(Html(template.render().unwrap()))
@@ -438,8 +521,8 @@ async fn d3_viewer_handler(
 
     let template = D3ViewerTemplate {
         authenticated,
-        app_title: state.config.title.clone(),
-        app_icon: state.config.icon.clone(),
+        app_title: state.config.name.clone(),
+        app_icon: state.config.logo.clone(),
     };
     Ok(Html(template.render().unwrap()))
 }
@@ -460,7 +543,7 @@ async fn demo_handler(
         let code_info: Option<(i32, Option<String>)> =
             sqlx::query_as("SELECT id, expires_at FROM access_codes WHERE code = ?")
                 .bind(access_code)
-                .fetch_optional(&state.video_state.pool)
+                .fetch_optional(&state.pool)
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -482,7 +565,7 @@ async fn demo_handler(
                     "SELECT media_type, media_slug FROM access_code_permissions WHERE access_code_id = ?",
                 )
                 .bind(code_id)
-                .fetch_all(&state.video_state.pool)
+                .fetch_all(&state.pool)
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -493,7 +576,7 @@ async fn demo_handler(
                     )
                     .bind(&slug)
                     .bind(&media_type)
-                    .fetch_optional(&state.video_state.pool)
+                    .fetch_optional(&state.pool)
                     .await
                     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -518,8 +601,8 @@ async fn demo_handler(
         error,
         resources,
         resource_count,
-        app_title: state.config.title.clone(),
-        app_icon: state.config.icon.clone(),
+        app_title: state.config.name.clone(),
+        app_icon: state.config.logo.clone(),
     };
     Ok(Html(template.render().unwrap()))
 }
@@ -856,13 +939,14 @@ async fn main() -> anyhow::Result<()> {
         .build()?;
 
     // Initialize module states
+    #[cfg(feature = "media")]
     let video_state = Arc::new(VideoManagerState::new(
         pool.clone(),
         storage_dir.clone(),
         http_client,
     ));
-
-    // REMOVED: image_state and document_state - replaced by unified media-manager
+    #[cfg(not(feature = "media"))]
+    drop(http_client);
 
     // Create user_storage for unified media system
     let user_storage = Arc::new(common::storage::UserStorageManager::new(
@@ -905,8 +989,11 @@ async fn main() -> anyhow::Result<()> {
 
     // Initialize Workspace Manager State
     let mut workspace_state = WorkspaceManagerState::new(pool.clone(), user_storage.clone());
+    #[cfg(feature = "bpmn")]
     workspace_state.register_renderer(Arc::new(BpmnFolderRenderer));
+    #[cfg(feature = "media")]
     workspace_state.register_renderer(Arc::new(MediaViewerRenderer { pool: pool.clone() }));
+    #[cfg(feature = "course")]
     workspace_state.register_renderer(Arc::new(CourseFolderRenderer {
         storage: (*user_storage).clone(),
     }));
@@ -917,6 +1004,7 @@ async fn main() -> anyhow::Result<()> {
     println!("🔐 Access Control Service initialized with audit logging enabled");
 
     // Initialize unified media manager with video processing support
+    #[cfg(feature = "media")]
     let media_manager_state = Arc::new(MediaManagerState::with_video_processing(
         pool.clone(),
         storage_dir.to_str().unwrap_or("storage").to_string(),
@@ -926,6 +1014,7 @@ async fn main() -> anyhow::Result<()> {
         video_state.metrics_store.clone(),
         video_state.audit_logger.clone(),
     ));
+    #[cfg(feature = "media")]
     println!("📁 Unified Media Manager initialized (images with original + WebP support, HLS video transcoding)");
 
     // Initialize Docs Viewer state
@@ -940,17 +1029,21 @@ async fn main() -> anyhow::Result<()> {
     println!("   - Docs root: {}", docs_root.display());
 
     // Initialize Course state
+    #[cfg(feature = "course")]
     let course_state = Arc::new(CourseState {
         pool: pool.clone(),
         storage: (*user_storage).clone(),
     });
+    #[cfg(feature = "course")]
     println!("🎓 Course initialized");
 
     // Initialize Media Viewer state (standalone gallery)
+    #[cfg(feature = "media")]
     let mv_state = Arc::new(MediaViewerState {
         pool: pool.clone(),
         storage: (*user_storage).clone(),
     });
+    #[cfg(feature = "media")]
     println!("🖼️  Media Viewer (gallery) initialized");
 
     // Initialize JS Tool Viewer state
@@ -967,18 +1060,24 @@ async fn main() -> anyhow::Result<()> {
     });
     println!("🚀 App Publisher initialized");
 
-    // Load application configuration
+    // Load branding and deployment configuration
     let app_config = AppConfig::load();
-    println!("📋 Application Configuration:");
-    println!("   - Title: {}", app_config.title);
-    println!("   - Icon: {}", app_config.icon);
+    let deployment_config = DeploymentConfig::load();
+    println!("📋 Branding: {}", app_config.name);
+    println!("🚦 Deployment mode: {:?}", deployment_config.deployment_mode);
+    if deployment_config.is_standalone() {
+        println!("   - Tenant: {} ({})", deployment_config.tenant_name.as_deref().unwrap_or("—"), deployment_config.tenant_id);
+    }
 
     let app_state = Arc::new(AppState {
+        pool: pool.clone(),
+        #[cfg(feature = "media")]
         video_state: video_state.clone(),
         auth_state: auth_state.clone(),
         access_state: access_state.clone(),
         access_control: access_control.clone(),
         config: app_config,
+        deployment: deployment_config,
         apps: load_apps_catalog(),
     });
 
@@ -1052,8 +1151,8 @@ async fn main() -> anyhow::Result<()> {
         base_router
     };
 
+    // Merge module routers — with per-class rate limiting (TD-010)
     let app = app
-        // Merge module routers — with per-class rate limiting (TD-010)
         .merge({
             let r = auth_routes(auth_state.clone());
             if let Some(layer) = rate_limit.auth_layer() {
@@ -1065,7 +1164,11 @@ async fn main() -> anyhow::Result<()> {
         // API Keys management — session auth checked in handlers, middleware adds defense-in-depth
         .merge(api_key_routes(Arc::new(pool.clone())).route_layer(
             axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
-        ))
+        ));
+
+    // ── Media feature ────────────────────────────────────────────
+    #[cfg(feature = "media")]
+    let app = app
         // Folder access code API — public, no auth (validated by code)
         .merge(folder_access_routes().with_state((*media_manager_state).clone()))
         // Unified media manager — listing, search, detail, CRUD (no rate limit on reads)
@@ -1101,7 +1204,10 @@ async fn main() -> anyhow::Result<()> {
         })
         // Legacy video routes - kept for HLS streaming
         .merge(video_routes().with_state(video_state))
-        // REMOVED: image_routes and document_routes - replaced by unified media-manager
+        // Media gallery (standalone, public access via access code)
+        .merge(gallery_routes(mv_state));
+
+    let app = app
         // Access codes — public preview route stays unauthenticated (shared link landing page)
         // Rate-limited as "validation" class (abuse-prone access-code checks)
         .merge({
@@ -1140,11 +1246,13 @@ async fn main() -> anyhow::Result<()> {
                     api_key_or_session_auth,
                 ),
             ),
-        )
-        // Course viewer (standalone course presentation)
-        .merge(course_routes(course_state))
-        // Media gallery (standalone, public access via access code)
-        .merge(gallery_routes(mv_state))
+        );
+
+    // ── Course feature ───────────────────────────────────────────
+    #[cfg(feature = "course")]
+    let app = app.merge(course_routes(course_state));
+
+    let app = app
         .merge(js_tool_viewer_routes(js_tool_state))
         // App publisher (publish workspace folders as public apps)
         .merge(app_publisher_routes(app_publisher_state))
@@ -1257,34 +1365,37 @@ async fn main() -> anyhow::Result<()> {
     println!("   • MediaMTX API:  http://{}/api/mediamtx/status", addr);
     println!("   • Access Codes:  http://{}/api/access-codes", addr);
 
-    println!("\n📡 MEDIAMTX CONFIGURATION:");
-    println!("   • RTMP Input:    rtmp://localhost:1935/live");
-    println!("   • HLS Output:    http://localhost:8888/live/index.m3u8");
-    println!("   • WebRTC Output: http://localhost:8889/live");
-    println!("   • API:           http://localhost:9997");
-    println!("   • Metrics:       http://localhost:9998/metrics");
+    #[cfg(feature = "media")]
+    {
+        println!("\n📡 MEDIAMTX CONFIGURATION:");
+        println!("   • RTMP Input:    rtmp://localhost:1935/live");
+        println!("   • HLS Output:    http://localhost:8888/live/index.m3u8");
+        println!("   • WebRTC Output: http://localhost:8889/live");
+        println!("   • API:           http://localhost:9997");
+        println!("   • Metrics:       http://localhost:9998/metrics");
 
-    // Only show streaming commands with token in development mode
-    if !production {
-        let token = rtmp_publish_token();
-        println!("\n🎬 STREAMING COMMANDS:");
-        println!("\n   macOS (Camera + Microphone):");
-        println!("   ffmpeg -f avfoundation -framerate 30 -video_size 1280x720 -i \"0:0\" \\");
-        println!("     -c:v libx264 -preset veryfast -tune zerolatency \\");
-        println!("     -c:a aac -b:a 128k -ar 44100 \\");
-        println!("     -f flv \"rtmp://localhost:1935/live?token={}\"", token);
+        // Only show streaming commands with token in development mode
+        if !production {
+            let token = rtmp_publish_token();
+            println!("\n🎬 STREAMING COMMANDS:");
+            println!("\n   macOS (Camera + Microphone):");
+            println!("   ffmpeg -f avfoundation -framerate 30 -video_size 1280x720 -i \"0:0\" \\");
+            println!("     -c:v libx264 -preset veryfast -tune zerolatency \\");
+            println!("     -c:a aac -b:a 128k -ar 44100 \\");
+            println!("     -f flv \"rtmp://localhost:1935/live?token={}\"", token);
 
-        println!("\n   Linux (Webcam + Microphone):");
-        println!("   ffmpeg -f v4l2 -i /dev/video0 -f alsa -i hw:0 \\");
-        println!("     -c:v libx264 -preset veryfast -tune zerolatency \\");
-        println!("     -c:a aac -b:a 128k -ar 44100 \\");
-        println!("     -f flv \"rtmp://localhost:1935/live?token={}\"", token);
+            println!("\n   Linux (Webcam + Microphone):");
+            println!("   ffmpeg -f v4l2 -i /dev/video0 -f alsa -i hw:0 \\");
+            println!("     -c:v libx264 -preset veryfast -tune zerolatency \\");
+            println!("     -c:a aac -b:a 128k -ar 44100 \\");
+            println!("     -f flv \"rtmp://localhost:1935/live?token={}\"", token);
 
-        println!("\n   OBS Studio:");
-        println!("   • Server:     rtmp://localhost:1935/live");
-        println!("   • Stream Key: ?token={}", token);
-    } else {
-        println!("\n🎬 STREAMING: Token hidden in production (see RTMP_PUBLISH_TOKEN env var)");
+            println!("\n   OBS Studio:");
+            println!("   • Server:     rtmp://localhost:1935/live");
+            println!("   • Stream Key: ?token={}", token);
+        } else {
+            println!("\n🎬 STREAMING: Token hidden in production (see RTMP_PUBLISH_TOKEN env var)");
+        }
     }
 
     println!("\n⚠️  IMPORTANT:");

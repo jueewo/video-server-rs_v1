@@ -1,4 +1,12 @@
 # Multi-stage build for video-server-rs
+# Build arg controls which feature set is compiled in (controls license scope for Tier 3)
+#   full    — all features (default, Tier 1/2)
+#   media   — media + gallery only
+#   course  — course viewer only
+#   bpmn    — BPMN viewer only
+#   media,course — combine as needed
+ARG FEATURES=full
+
 FROM rust:1.75-alpine AS builder
 
 # Install build dependencies
@@ -32,8 +40,9 @@ COPY src/ ./src/
 COPY templates/ ./templates/
 COPY migrations/ ./migrations/
 
-# Build Rust application
-RUN cargo build --release
+# Build Rust application — compile only licensed features
+ARG FEATURES
+RUN cargo build --release --no-default-features --features "${FEATURES}"
 
 # ============================================================================
 # Final stage - Runtime image
@@ -45,6 +54,7 @@ RUN apk add --no-cache \
     ffmpeg \
     ffmpeg-libs \
     ghostscript \
+    libwebp-tools \
     sqlite \
     sqlite-libs \
     ca-certificates \
@@ -66,9 +76,8 @@ COPY --from=builder /app/target/release/video-server-rs /app/video-server-rs
 COPY --from=builder /app/static /app/static
 COPY templates/ /app/templates/
 
-# Create storage directories
-RUN mkdir -p /app/storage/images \
-             /app/storage/videos \
+# Create storage directories (vault-based nested layout)
+RUN mkdir -p /app/storage/vaults \
              /app/storage/temp && \
     chown -R mediaserver:mediaserver /app
 

@@ -1,0 +1,93 @@
+# Standalone deployment compose file — Tier 3 (customer self-hosting)
+#
+# Usage:
+#   docker compose -f docker-compose.standalone.yml up -d
+#
+# Before starting:
+#   1. Edit ../branding.yaml — set your name, logo, colors
+#   2. Edit ../config.yaml   — set deployment_mode: standalone, tenant_id, tenant_name
+#   3. Configure OIDC env vars below (or use ENABLE_EMERGENCY_LOGIN for initial setup)
+#   4. Place your logo at ../static/custom/logo.webp (or update branding.yaml logo path)
+#
+# Build a licensed feature set:
+#   docker compose -f docker-compose.standalone.yml build --build-arg FEATURES=media,course
+
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        # Set FEATURES to the licensed feature set for this customer:
+        #   full          — all modules
+        #   media         — media manager + gallery
+        #   media,course  — media + course viewer
+        #   course,bpmn   — course + BPMN (no media pipeline)
+        FEATURES: ${FEATURES:-full}
+    container_name: platform
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-3000}:3000"
+    volumes:
+      # Persistent storage — all media, thumbnails, and vaults
+      - storage:/app/storage
+      # Persistent database
+      - ../media.db:/app/media.db
+      # Branding and deployment config — mount as read-only so customer edits take effect on restart
+      - ../branding.yaml:/app/branding.yaml:ro
+      - ../config.yaml:/app/config.yaml:ro
+      # Custom static assets (logo, favicon) — customer drops files here
+      - ../static/custom:/app/static/custom:ro
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+      - DATABASE_URL=sqlite:media.db
+      - STORAGE_DIR=/app/storage
+
+      # OIDC — point at the customer's own IdP
+      # - OIDC_ISSUER_URL=https://auth.customer.com
+      # - OIDC_CLIENT_ID=platform
+      # - OIDC_CLIENT_SECRET=changeme
+      # - OIDC_REDIRECT_URL=https://platform.customer.com/auth/callback
+
+      # Emergency login — enable for initial setup, disable in production
+      # - ENABLE_EMERGENCY_LOGIN=true
+      # - SU_USER=admin
+      # - SU_PWD=changeme
+
+      # Production mode enforces security checks
+      - RUN_MODE=${RUN_MODE:-production}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  # MediaMTX — only needed if the media feature is compiled in and RTMP/HLS streaming is used
+  # Comment out if customer does not need live streaming
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: mediamtx
+    restart: unless-stopped
+    ports:
+      - "1935:1935"  # RTMP ingest
+      - "8888:8888"  # HLS output
+      - "8889:8889"  # WebRTC
+      - "9997:9997"  # API
+    volumes:
+      - ../mediamtx.yml:/mediamtx.yml:ro
+    environment:
+      - MTX_PROTOCOLS=tcp
+      - MTX_LOGLEVEL=info
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9997/v3/config/get"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  storage:
+    driver: local

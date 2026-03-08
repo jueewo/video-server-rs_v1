@@ -536,6 +536,14 @@ pub async fn oidc_callback_handler(
         );
     }
 
+    // Resolve tenant_id for this user (set by admin on user row; defaults to 'platform')
+    let tenant_id: String = sqlx::query_scalar("SELECT tenant_id FROM users WHERE id = ?")
+        .bind(&user_id)
+        .fetch_optional(&state.pool)
+        .await
+        .unwrap_or_default()
+        .unwrap_or_else(|| "platform".to_string());
+
     // Store user information in session
     session
         .insert("authenticated", true)
@@ -544,6 +552,11 @@ pub async fn oidc_callback_handler(
 
     session
         .insert("user_id", user_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    session
+        .insert("tenant_id", tenant_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -666,12 +679,22 @@ pub async fn emergency_login_auth_handler(
             );
         }
 
+        // Resolve tenant_id for emergency user
+        let tenant_id: String =
+            sqlx::query_scalar("SELECT tenant_id FROM users WHERE id = ?")
+                .bind(&emergency_user_id)
+                .fetch_optional(&state.pool)
+                .await
+                .unwrap_or_default()
+                .unwrap_or_else(|| "platform".to_string());
+
         // Set session values for emergency access
         session.insert("authenticated", true).await.unwrap();
         session
             .insert("user_id", emergency_user_id.clone())
             .await
             .unwrap();
+        session.insert("tenant_id", tenant_id).await.unwrap();
         session
             .insert("email", emergency_email.clone())
             .await

@@ -2702,7 +2702,6 @@ dependencies = [
  "urlencoding",
  "uuid",
  "video-manager",
- "workspace-core",
 ]
 
 [[package]]

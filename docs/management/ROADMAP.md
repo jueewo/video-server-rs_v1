@@ -238,13 +238,13 @@ Tier 3 — Standalone               (company on their own infrastructure, single
 
 ### Phase 6A — Standalone packaging (Tier 3) ~1 week
 
-- [ ] `deployment_mode` field in config — `standalone` locks to single tenant at startup
-- [ ] Rename `app.yaml` → `branding.yaml`, extend with logo, colors, support email
-- [ ] Cargo `[features]`: `media`, `course`, `bpmn`, `full` — compile only what's licensed
-- [ ] Conditional `register_renderer()` and `.merge(routes)` in `main.rs` per feature
-- [ ] `Dockerfile` — binary + FFmpeg + Ghostscript + cwebp
-- [ ] `docker-compose.yml` — storage volume, DB, config mounts for customer self-hosting
-- [ ] Self-hosting configuration documentation
+- [x] `deployment_mode` field in config — `standalone` locks to single tenant at startup (2026-03-09)
+- [x] Rename `app.yaml` → `branding.yaml`, extend with logo, colors, support email (2026-03-09)
+- [x] Cargo `[features]`: `media`, `course`, `bpmn`, `full` — compile only what's licensed (2026-03-09)
+- [x] Conditional `register_renderer()` and `.merge(routes)` in `main.rs` per feature (2026-03-09)
+- [x] `Dockerfile` — binary + FFmpeg + Ghostscript + cwebp; `FEATURES` build arg (2026-03-09)
+- [x] `docker-compose.standalone.yml` — storage volume, DB, config mounts for customer self-hosting (2026-03-09)
+- [x] `docs/deployment/STANDALONE_CONFIG.md` — self-hosting configuration guide (2026-03-09)
 
 **Result:** A standalone customer (e.g. regulated industry) receives a Docker image
 with exactly their licensed features, their branding, pointing at their own IdP.
@@ -252,13 +252,16 @@ Single-tenant enforced. No data leaves their infrastructure.
 
 ### Phase 6B — Tenant scoping (Tier 2) ~1 week
 
-- [ ] `tenants` table — one row per company + `'platform'` row for your workspaces
-- [ ] `tenant_id` column on `workspaces` — migrate existing rows to `'platform'`
-- [ ] Session middleware resolves `tenant_id` after login
-- [ ] Workspace list query scoped to `WHERE tenant_id = ?`
-- [ ] Per-tenant branding stored as JSON on tenant row, resolved per session
-- [ ] Minimal tenant admin UI — your account provisions tenants, assigns workspaces
-- [ ] Hosted B2B onboarding flow — create tenant → workspace → invite users
+- [x] `tenants` table — one row per company + `'platform'` row for your workspaces (2026-03-09)
+- [x] `tenant_id` column on `workspaces` + `users` — migrate existing rows to `'platform'` (2026-03-09)
+- [x] Session resolves `tenant_id` after login (OIDC + emergency paths) (2026-03-09)
+- [x] Workspace list query scoped to `WHERE tenant_id = ?` (2026-03-09)
+- [x] Workspace create stores `tenant_id` from session (2026-03-09)
+- [x] Per-tenant branding stored as JSON on tenant row (schema in place) (2026-03-09)
+- [x] Minimal tenant admin API — `POST /api/admin/tenants`, `GET /api/admin/tenants`, `PUT /api/admin/users/{id}/tenant` (2026-03-09)
+- [ ] Tenant admin UI page — provision tenants, assign users (Phase 6C)
+- [ ] Per-tenant branding resolved per session and applied to templates (Phase 6C)
+- [ ] Hosted B2B onboarding flow — create tenant → workspace → invite users (Phase 6C)
 
 **Result:** A company can be onboarded as a tenant on your platform. Their users
 see only their workspaces. White-label branding per tenant. Their end users consume

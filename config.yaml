@@ -1,0 +1,13 @@
+# Deployment configuration — topology and tenant settings.
+# Edit with care; affects security posture and data scoping.
+# See branding.yaml for visual identity settings.
+
+# Deployment mode:
+#   hosted     — multi-tenant, your infrastructure (Tier 1 / Tier 2)
+#   standalone — single-tenant, customer's own infrastructure (Tier 3)
+deployment_mode: hosted
+
+# Fixed tenant identity — used only when deployment_mode: standalone.
+# Ignored in hosted mode (tenants are resolved from the database).
+# tenant_id: "acme"
+# tenant_name: "Acme Corp"

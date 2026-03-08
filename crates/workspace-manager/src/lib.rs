@@ -564,6 +564,12 @@ pub async fn create_workspace(
 ) -> Result<Json<WorkspaceResponse>, StatusCode> {
     check_scope(&user, "write")?;
     let user_id = require_auth(&session).await?;
+    let tenant_id: String = session
+        .get("tenant_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "platform".to_string());
 
     if request.name.trim().is_empty() {
         return Err(StatusCode::BAD_REQUEST);
@@ -573,10 +579,11 @@ pub async fn create_workspace(
 
     // Insert into DB
     sqlx::query(
-        "INSERT INTO workspaces (workspace_id, user_id, name, description, created_at) VALUES (?, ?, ?, ?, datetime('now'))",
+        "INSERT INTO workspaces (workspace_id, user_id, tenant_id, name, description, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
     )
     .bind(&workspace_id)
     .bind(&user_id)
+    .bind(&tenant_id)
     .bind(request.name.trim())
     .bind(request.description.as_deref().filter(|s| !s.trim().is_empty()))
     .execute(&state.pool)
@@ -1253,11 +1260,18 @@ pub async fn list_workspaces_page(
 
     check_scope(&user, "read")?;
     let user_id = require_auth(&session).await?;
+    let tenant_id: String = session
+        .get("tenant_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "platform".to_string());
 
     let rows: Vec<(String, String, Option<String>, String)> = sqlx::query_as(
-        "SELECT workspace_id, name, description, created_at FROM workspaces WHERE user_id = ? ORDER BY created_at DESC",
+        "SELECT workspace_id, name, description, created_at FROM workspaces WHERE user_id = ? AND (tenant_id = ? OR tenant_id IS NULL) ORDER BY created_at DESC",
     )
     .bind(&user_id)
+    .bind(&tenant_id)
     .fetch_all(&state.pool)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -2707,6 +2721,161 @@ pub async fn serve_folder_icon_handler(
 }
 
 // ============================================================================
+// Tenant Admin API
+// ============================================================================
+//
+// Minimal admin endpoints for tenant lifecycle management (Phase 6B).
+// All routes require session auth. A proper admin-role check should be added
+// in Phase 6C when the role model is defined.
+//
+// Routes:
+//   GET  /api/admin/tenants                  — list tenants
+//   POST /api/admin/tenants                  — create tenant
+//   GET  /api/admin/tenants/{id}/users       — list users in tenant
+//   PUT  /api/admin/users/{user_id}/tenant   — move user to tenant
+
+#[derive(Deserialize)]
+pub struct CreateTenantRequest {
+    pub id: String,
+    pub name: String,
+    pub branding: Option<serde_json::Value>,
+}
+
+#[derive(Serialize)]
+pub struct TenantResponse {
+    pub id: String,
+    pub name: String,
+    pub branding: Option<serde_json::Value>,
+    pub created_at: String,
+}
+
+#[derive(Serialize)]
+pub struct TenantUserResponse {
+    pub user_id: String,
+    pub email: String,
+    pub name: Option<String>,
+    pub tenant_id: String,
+}
+
+#[derive(Deserialize)]
+pub struct AssignTenantRequest {
+    pub tenant_id: String,
+}
+
+pub async fn list_tenants_handler(
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+) -> Result<Json<Vec<TenantResponse>>, StatusCode> {
+    require_auth(&session).await?;
+
+    let rows: Vec<(String, String, Option<String>, String)> = sqlx::query_as(
+        "SELECT id, name, branding, created_at FROM tenants ORDER BY created_at ASC",
+    )
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let tenants = rows
+        .into_iter()
+        .map(|(id, name, branding_json, created_at)| TenantResponse {
+            id,
+            name,
+            branding: branding_json
+                .and_then(|j| serde_json::from_str(&j).ok()),
+            created_at,
+        })
+        .collect();
+
+    Ok(Json(tenants))
+}
+
+pub async fn create_tenant_handler(
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(req): Json<CreateTenantRequest>,
+) -> Result<Json<TenantResponse>, StatusCode> {
+    require_auth(&session).await?;
+
+    if req.id.trim().is_empty() || req.name.trim().is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let branding_json = req
+        .branding
+        .as_ref()
+        .and_then(|b| serde_json::to_string(b).ok());
+
+    sqlx::query("INSERT INTO tenants (id, name, branding) VALUES (?, ?, ?)")
+        .bind(req.id.trim())
+        .bind(req.name.trim())
+        .bind(&branding_json)
+        .execute(&state.pool)
+        .await
+        .map_err(|e| {
+            warn!("Failed to create tenant: {}", e);
+            StatusCode::CONFLICT  // likely duplicate id
+        })?;
+
+    Ok(Json(TenantResponse {
+        id: req.id,
+        name: req.name,
+        branding: req.branding,
+        created_at: time::OffsetDateTime::now_utc().to_string(),
+    }))
+}
+
+pub async fn list_tenant_users_handler(
+    Path(tenant_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+) -> Result<Json<Vec<TenantUserResponse>>, StatusCode> {
+    require_auth(&session).await?;
+
+    let rows: Vec<(String, String, Option<String>, String)> = sqlx::query_as(
+        "SELECT id, email, name, tenant_id FROM users WHERE tenant_id = ? ORDER BY email ASC",
+    )
+    .bind(&tenant_id)
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let users = rows
+        .into_iter()
+        .map(|(user_id, email, name, tid)| TenantUserResponse {
+            user_id,
+            email,
+            name,
+            tenant_id: tid,
+        })
+        .collect();
+
+    Ok(Json(users))
+}
+
+pub async fn assign_user_tenant_handler(
+    Path(user_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(req): Json<AssignTenantRequest>,
+) -> Result<StatusCode, StatusCode> {
+    require_auth(&session).await?;
+
+    let rows_updated = sqlx::query("UPDATE users SET tenant_id = ? WHERE id = ?")
+        .bind(&req.tenant_id)
+        .bind(&user_id)
+        .execute(&state.pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .rows_affected();
+
+    if rows_updated == 0 {
+        Err(StatusCode::NOT_FOUND)
+    } else {
+        Ok(StatusCode::NO_CONTENT)
+    }
+}
+
+// ============================================================================
 // Router
 // ============================================================================
 
@@ -2843,5 +3012,19 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         .route("/workspaces/{workspace_id}/edit", get(open_file_page))
         .route("/workspaces/{workspace_id}/edit-text", get(edit_text_file_page))
         .route("/workspace-access-codes", get(workspace_access_codes_page))
+        // ── Tenant admin API (Phase 6B) ───────────────────────────────────
+        // TODO: add admin role check when role model is defined (Phase 6C)
+        .route(
+            "/api/admin/tenants",
+            get(list_tenants_handler).post(create_tenant_handler),
+        )
+        .route(
+            "/api/admin/tenants/{tenant_id}/users",
+            get(list_tenant_users_handler),
+        )
+        .route(
+            "/api/admin/users/{user_id}/tenant",
+            put(assign_user_tenant_handler),
+        )
         .with_state(state)
 }

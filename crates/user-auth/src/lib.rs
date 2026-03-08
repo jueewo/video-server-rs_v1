@@ -544,6 +544,22 @@ pub async fn oidc_callback_handler(
         .unwrap_or_default()
         .unwrap_or_else(|| "platform".to_string());
 
+    // Resolve tenant branding (brand_name override; empty = use platform config.name)
+    let brand_name: String = {
+        let branding_json: Option<String> =
+            sqlx::query_scalar("SELECT branding FROM tenants WHERE id = ?")
+                .bind(&tenant_id)
+                .fetch_optional(&state.pool)
+                .await
+                .unwrap_or_default()
+                .flatten();
+
+        branding_json
+            .and_then(|j| serde_json::from_str::<serde_json::Value>(&j).ok())
+            .and_then(|v| v.get("name").and_then(|n| n.as_str()).map(String::from))
+            .unwrap_or_default()
+    };
+
     // Store user information in session
     session
         .insert("authenticated", true)
@@ -557,6 +573,11 @@ pub async fn oidc_callback_handler(
 
     session
         .insert("tenant_id", tenant_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    session
+        .insert("brand_name", brand_name)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -688,6 +709,22 @@ pub async fn emergency_login_auth_handler(
                 .unwrap_or_default()
                 .unwrap_or_else(|| "platform".to_string());
 
+        // Resolve tenant branding
+        let brand_name: String = {
+            let branding_json: Option<String> =
+                sqlx::query_scalar("SELECT branding FROM tenants WHERE id = ?")
+                    .bind(&tenant_id)
+                    .fetch_optional(&state.pool)
+                    .await
+                    .unwrap_or_default()
+                    .flatten();
+
+            branding_json
+                .and_then(|j| serde_json::from_str::<serde_json::Value>(&j).ok())
+                .and_then(|v| v.get("name").and_then(|n| n.as_str()).map(String::from))
+                .unwrap_or_default()
+        };
+
         // Set session values for emergency access
         session.insert("authenticated", true).await.unwrap();
         session
@@ -695,6 +732,7 @@ pub async fn emergency_login_auth_handler(
             .await
             .unwrap();
         session.insert("tenant_id", tenant_id).await.unwrap();
+        session.insert("brand_name", brand_name).await.unwrap();
         session
             .insert("email", emergency_email.clone())
             .await

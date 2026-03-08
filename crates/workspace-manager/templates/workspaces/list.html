@@ -1,5 +1,6 @@
 {% extends "base-tailwind.html" %}
 {% block title %}Workspaces{% endblock %}
+{% if !brand_name.is_empty() %}{% block brand_name %}{{ brand_name }}{% endblock %}{% endif %}
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-7xl">
 

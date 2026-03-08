@@ -259,9 +259,10 @@ Single-tenant enforced. No data leaves their infrastructure.
 - [x] Workspace create stores `tenant_id` from session (2026-03-09)
 - [x] Per-tenant branding stored as JSON on tenant row (schema in place) (2026-03-09)
 - [x] Minimal tenant admin API — `POST /api/admin/tenants`, `GET /api/admin/tenants`, `PUT /api/admin/users/{id}/tenant` (2026-03-09)
-- [ ] Tenant admin UI page — provision tenants, assign users (Phase 6C)
-- [ ] Per-tenant branding resolved per session and applied to templates (Phase 6C)
-- [ ] Hosted B2B onboarding flow — create tenant → workspace → invite users (Phase 6C)
+- [x] Tenant admin UI — `/admin/tenants`: list tenants, create, assign users, edit branding (2026-03-09)
+- [x] Per-tenant branding resolved at login, stored in session, applied in navbar (`brand_name` block) (2026-03-09)
+- [ ] Per-tenant branding applied across all templates (Phase 6D — requires threading through all structs)
+- [ ] Hosted B2B onboarding flow — create tenant → workspace → invite users (Phase 6D)
 
 **Result:** A company can be onboarded as a tenant on your platform. Their users
 see only their workspaces. White-label branding per tenant. Their end users consume

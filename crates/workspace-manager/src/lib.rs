@@ -281,6 +281,14 @@ pub struct ClaimedCodeRow {
 pub struct WorkspaceListTemplate {
     pub authenticated: bool,
     pub workspaces: Vec<WorkspaceDisplay>,
+    pub brand_name: String,
+}
+
+#[derive(Template)]
+#[template(path = "admin/tenants.html")]
+pub struct TenantAdminTemplate {
+    pub authenticated: bool,
+    pub tenants: Vec<TenantResponse>,
 }
 
 #[derive(Template)]
@@ -1266,6 +1274,12 @@ pub async fn list_workspaces_page(
         .ok()
         .flatten()
         .unwrap_or_else(|| "platform".to_string());
+    let brand_name: String = session
+        .get("brand_name")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_default();
 
     let rows: Vec<(String, String, Option<String>, String)> = sqlx::query_as(
         "SELECT workspace_id, name, description, created_at FROM workspaces WHERE user_id = ? AND (tenant_id = ? OR tenant_id IS NULL) ORDER BY created_at DESC",
@@ -1296,6 +1310,7 @@ pub async fn list_workspaces_page(
     let template = WorkspaceListTemplate {
         authenticated: true,
         workspaces,
+        brand_name,
     };
 
     let html = template
@@ -2875,6 +2890,76 @@ pub async fn assign_user_tenant_handler(
     }
 }
 
+pub async fn update_tenant_branding_handler(
+    Path(tenant_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(branding): Json<serde_json::Value>,
+) -> Result<StatusCode, StatusCode> {
+    require_auth(&session).await?;
+
+    let branding_json = serde_json::to_string(&branding)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    let rows = sqlx::query("UPDATE tenants SET branding = ? WHERE id = ?")
+        .bind(&branding_json)
+        .bind(&tenant_id)
+        .execute(&state.pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .rows_affected();
+
+    if rows == 0 {
+        Err(StatusCode::NOT_FOUND)
+    } else {
+        Ok(StatusCode::NO_CONTENT)
+    }
+}
+
+pub async fn tenant_admin_page(
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+) -> Result<Response, StatusCode> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
+    if !authenticated {
+        return Ok(Redirect::to("/login").into_response());
+    }
+
+    let rows: Vec<(String, String, Option<String>, String)> = sqlx::query_as(
+        "SELECT id, name, branding, created_at FROM tenants ORDER BY created_at ASC",
+    )
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let tenants: Vec<TenantResponse> = rows
+        .into_iter()
+        .map(|(id, name, branding_json, created_at)| TenantResponse {
+            id,
+            name,
+            branding: branding_json.and_then(|j| serde_json::from_str(&j).ok()),
+            created_at,
+        })
+        .collect();
+
+    let template = TenantAdminTemplate {
+        authenticated: true,
+        tenants,
+    };
+    Ok(Html(
+        template
+            .render()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+    )
+    .into_response())
+}
+
 // ============================================================================
 // Router
 // ============================================================================
@@ -3023,8 +3108,14 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
             get(list_tenant_users_handler),
         )
         .route(
+            "/api/admin/tenants/{tenant_id}/branding",
+            put(update_tenant_branding_handler),
+        )
+        .route(
             "/api/admin/users/{user_id}/tenant",
             put(assign_user_tenant_handler),
         )
+        // Tenant admin UI page
+        .route("/admin/tenants", get(tenant_admin_page))
         .with_state(state)
 }

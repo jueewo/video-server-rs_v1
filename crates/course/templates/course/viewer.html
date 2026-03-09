@@ -23,6 +23,25 @@
 .markdown-body td { padding: 0.5rem 0.75rem; border: 1px solid oklch(var(--b3)); }
 .markdown-body tr:nth-child(even) td { background: oklch(var(--b2)/.5); }
 .markdown-body hr { border: none; border-top: 1px solid oklch(var(--b3)); margin: 2rem 0; }
+/* App embed */
+.app-embed-container { border: 1px solid oklch(var(--b3)); border-radius: 0.75rem; overflow: hidden; margin: 1.5rem 0; background: oklch(var(--b1)); }
+.app-embed-header { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.45rem 0.875rem; background: oklch(var(--b2)); border-bottom: 1px solid oklch(var(--b3)); }
+.app-embed-title { font-size: 0.75rem; font-weight: 600; color: oklch(var(--bc)/.55); display: flex; align-items: center; gap: 0.35rem; }
+.app-embed-actions { display: flex; align-items: center; gap: 0.5rem; }
+.app-embed-actions a, .app-embed-actions button { font-size: 0.7rem; color: oklch(var(--p)); text-decoration: none; background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.4rem; border-radius: 0.25rem; }
+.app-embed-actions a:hover, .app-embed-actions button:hover { background: oklch(var(--b3)); }
+.app-embed-frame { width: 100%; border: none; display: block; }
+/* App popup modal */
+#app-popup-dialog { padding: 0; border: none; border-radius: 0.75rem; box-shadow: 0 25px 60px rgba(0,0,0,.35); background: oklch(var(--b1)); max-width: min(1200px, 96vw); width: min(1200px, 96vw); max-height: 92vh; }
+#app-popup-dialog::backdrop { background: rgba(0,0,0,.55); backdrop-filter: blur(2px); }
+#app-popup-header { display: flex; align-items: center; justify-content: space-between; padding: 0.625rem 1rem; background: oklch(var(--b2)); border-bottom: 1px solid oklch(var(--b3)); }
+#app-popup-title { font-size: 0.85rem; font-weight: 600; color: oklch(var(--bc)/.7); }
+#app-popup-actions { display: flex; gap: 0.5rem; }
+#app-popup-actions a, #app-popup-actions button { font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 0.375rem; border: none; cursor: pointer; background: oklch(var(--b3)); color: oklch(var(--bc)); text-decoration: none; display: flex; align-items: center; gap: 0.3rem; }
+#app-popup-actions a:hover, #app-popup-actions button:hover { background: oklch(var(--b2)); }
+#app-popup-close { font-size: 1rem; background: none; border: none; cursor: pointer; color: oklch(var(--bc)/.6); padding: 0.15rem 0.4rem; border-radius: 0.25rem; line-height: 1; }
+#app-popup-close:hover { background: oklch(var(--b3)); color: oklch(var(--bc)); }
+#app-popup-frame { width: 100%; border: none; display: block; height: calc(92vh - 3rem); }
 </style>
 {% endblock %}
 {% block content %}
@@ -65,6 +84,17 @@
     <main class="flex-1 overflow-y-auto">
         {% if raw_markdown.is_some() %}
         <article id="lesson-content" class="max-w-3xl mx-auto px-8 py-8 markdown-body"></article>
+        <!-- App popup modal (shared, opened by JS) -->
+        <dialog id="app-popup-dialog">
+            <div id="app-popup-header">
+                <span id="app-popup-title">Interactive App</span>
+                <div id="app-popup-actions">
+                    <a id="app-popup-open" href="#" target="_blank" rel="noopener">&#x2197; Open in new tab</a>
+                    <button id="app-popup-close" onclick="document.getElementById('app-popup-dialog').close()">&#x2715;</button>
+                </div>
+            </div>
+            <iframe id="app-popup-frame" src="" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+        </dialog>
         {% else %}
         <div class="flex items-center justify-center h-full text-base-content/40">
             <div class="text-center">
@@ -110,16 +140,117 @@
         return `/api/workspaces/${WORKSPACE_ID}/files/serve?path=${encodeURIComponent(rel)}&code=${encodeURIComponent(CODE)}`;
     }
 
-    const processed = raw.textContent.replace(
-        /!\[([^\]]*)\]\(([^)\s"]+)(?:\s+"([^"]*)")?\)/g,
-        (_, alt, src, title) => {
+    // Helpers: build media embed HTML using the course access code
+    function buildMediaImage(langOpts, slug) {
+        const s = slug.trim();
+        const url = `/media/${s}/image.webp?code=${encodeURIComponent(CODE)}`;
+        const titleMatch = langOpts.match(/title="([^"]+)"/);
+        const alt = titleMatch ? titleMatch[1] : s;
+        return `<img src="${url}" alt="${alt}" class="max-w-full rounded-lg my-4" loading="lazy">`;
+    }
+
+    function buildMediaVideo(langOpts, slug) {
+        const s = slug.trim();
+        const hlsUrl   = `/hls/${s}/master.m3u8?code=${encodeURIComponent(CODE)}`;
+        const mp4Url   = `/media/${s}/video.mp4?code=${encodeURIComponent(CODE)}`;
+        const thumbUrl = `/media/${s}/thumbnail?code=${encodeURIComponent(CODE)}`;
+        const titleMatch = langOpts.match(/title="([^"]+)"/);
+        const label = titleMatch ? titleMatch[1] : 'Video';
+        const q = s => s.replace(/"/g, '&quot;');
+        return `<div class="app-embed-container">
+<div class="app-embed-header">
+<span class="app-embed-title">&#x25B6; ${label}</span>
+<div class="app-embed-actions">
+<a href="${q(mp4Url)}" download title="Download MP4">&#x2B07; Download</a>
+</div></div>
+<video controls class="app-embed-frame" style="height:auto;max-height:480px;background:#000"
+       poster="${q(thumbUrl)}" data-hls-src="${q(hlsUrl)}" data-mp4-src="${q(mp4Url)}">
+<source src="${q(mp4Url)}" type="video/mp4">
+</video></div>`;
+    }
+
+    function buildWorkspaceVideo(langOpts, filename) {
+        const f = filename.trim();
+        const titleMatch = langOpts.match(/title="([^"]+)"/);
+        const label = titleMatch ? titleMatch[1] : f;
+        const rel = LESSON_FOLDER ? `${FOLDER_PATH}/${LESSON_FOLDER}/${f}` : `${FOLDER_PATH}/${f}`;
+        const src = `/api/workspaces/${WORKSPACE_ID}/files/serve?path=${encodeURIComponent(rel)}&code=${encodeURIComponent(CODE)}`;
+        const q = s => s.replace(/"/g, '&quot;');
+        return `<div class="app-embed-container">
+<div class="app-embed-header">
+<span class="app-embed-title">&#x25B6; ${label}</span>
+</div>
+<video controls class="app-embed-frame" style="height:auto;max-height:480px;background:#000">
+<source src="${q(src)}" type="video/mp4">
+</video></div>`;
+    }
+
+    function initVideoPlayers() {
+        const videos = el.querySelectorAll('video[data-hls-src]');
+        if (!videos.length) return;
+        // Safari supports HLS natively
+        const probe = document.createElement('video');
+        if (probe.canPlayType('application/vnd.apple.mpegurl')) {
+            videos.forEach(v => { v.src = v.dataset.hlsSrc; });
+            return;
+        }
+        // Other browsers: load hls.js and use it
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js';
+        script.onload = () => {
+            videos.forEach(v => {
+                if (Hls.isSupported()) {
+                    const hls = new Hls();
+                    hls.loadSource(v.dataset.hlsSrc);
+                    hls.attachMedia(v);
+                    hls.on(Hls.Events.ERROR, (_, data) => {
+                        if (data.fatal) {
+                            hls.destroy(); // detach before changing src
+                            v.src = v.dataset.mp4Src;
+                            v.load();
+                        }
+                    });
+                } else {
+                    v.src = v.dataset.mp4Src;
+                }
+            });
+        };
+        document.head.appendChild(script);
+    }
+
+    // Step 1b: replace app-embed fenced code blocks with raw HTML before marked sees them.
+    // This avoids any marked renderer API version issues.
+    function buildAppEmbed(langOpts, content) {
+        const heightMatch = langOpts.match(/height=(\d+)/);
+        const height = heightMatch ? parseInt(heightMatch[1]) : 480;
+        const url = content.trim().replace(/"/g, '&quot;');
+        return `<div class="app-embed-container">
+<div class="app-embed-header">
+<span class="app-embed-title">&#x1F9E9; Interactive App</span>
+<div class="app-embed-actions">
+<button onclick="openAppPopup('${url}','Interactive App')">&#x26F6; Expand</button>
+<a href="${url}" target="_blank" rel="noopener">&#x2197; New tab</a>
+</div></div>
+<iframe src="${url}" height="${height}" class="app-embed-frame"
+sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+loading="lazy" allowfullscreen></iframe>
+</div>`;
+    }
+
+    const processed = raw.textContent
+        .replace(/```app-embed([^\n]*)\n([\s\S]*?)```/g, (_, langOpts, content) => buildAppEmbed(langOpts, content))
+        .replace(/```media-image([^\n]*)\n([\s\S]*?)```/g, (_, langOpts, slug) => buildMediaImage(langOpts, slug))
+        .replace(/```media-video([^\n]*)\n([\s\S]*?)```/g, (_, langOpts, slug) => buildMediaVideo(langOpts, slug))
+        .replace(/```workspace-video([^\n]*)\n([\s\S]*?)```/g, (_, langOpts, file) => buildWorkspaceVideo(langOpts, file))
+        .replace(/!\[([^\]]*)\]\(([^)\s"]+)(?:\s+"([^"]*)")?\)/g, (_, alt, src, title) => {
             const finalSrc = rewriteImageUrl(src);
             return `<img src="${finalSrc}" alt="${alt}"${title ? ` title="${title}"` : ''} class="max-w-full rounded-lg my-4">`;
-        }
-    );
+        });
 
     marked.use({ breaks: false, gfm: true });
     el.innerHTML = marked.parse(processed);
+
+    initVideoPlayers();
 
     // Step 2: catch any <img src="relative"> tags that were already in the HTML
     // (e.g. <img src="file.png"> inside <div> blocks, not in markdown image syntax).
@@ -129,8 +260,36 @@
         if (rewritten !== src) img.setAttribute('src', rewritten);
     });
 
+    // Step 3: enhance links pointing to js-apps or pub apps with a popup button
+    el.querySelectorAll('a[href]').forEach(a => {
+        const href = a.getAttribute('href');
+        if (!href) return;
+        if (href.startsWith('/js-apps/') || href.startsWith('/pub/')) {
+            const btn = document.createElement('button');
+            btn.textContent = ' ⧉';
+            btn.title = 'Open app in popup';
+            btn.style.cssText = 'font-size:0.8em;vertical-align:middle;padding:0 0.25em;border:none;background:none;cursor:pointer;color:oklch(var(--p));';
+            btn.addEventListener('click', e => { e.preventDefault(); openAppPopup(href, a.textContent.trim()); });
+            a.after(btn);
+        }
+    });
+
     if (typeof lucide !== 'undefined') lucide.createIcons();
 })();
+
+function openAppPopup(url, title) {
+    const dialog = document.getElementById('app-popup-dialog');
+    const frame = document.getElementById('app-popup-frame');
+    const titleEl = document.getElementById('app-popup-title');
+    const openLink = document.getElementById('app-popup-open');
+    if (!dialog) return;
+    titleEl.textContent = title || 'Interactive App';
+    openLink.href = url;
+    frame.src = url;
+    dialog.showModal();
+    dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); }, { once: true });
+    dialog.addEventListener('close', () => { frame.src = ''; }, { once: true });
+}
 </script>
 {% else %}
 <script>

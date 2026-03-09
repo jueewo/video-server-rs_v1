@@ -258,6 +258,8 @@ in the workspace browser folder settings UI (icon, color, metadata schema).
 
 ## See Also
 
+- `docs/apps/course-app-embed.md` — embedding apps, images, and videos inside lessons
+- `docs/management/course-media-setup.md` — making media items accessible via course code
 - `docs/apps/DUAL_USE_PATTERN.md` — how dual-use crates work in general
 - `docs/management/WORKSPACE_ACCESS_CODES.md` — access code management
 - `crates/workspace-core/src/lib.rs` — `FolderTypeRenderer` trait

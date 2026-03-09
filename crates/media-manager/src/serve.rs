@@ -352,15 +352,17 @@ pub async fn serve_thumbnail(
 /// GET /media/{slug}/video.mp4
 pub async fn serve_video_mp4(
     State(state): State<MediaManagerState>,
+    session: Session,
     Path(slug): Path<String>,
+    Query(query): Query<AccessQuery>,
 ) -> Result<Response, StatusCode> {
     use common::storage::MediaType;
 
     debug!("Serving MP4 video: slug={}", slug);
 
-    // Look up the video in media_items to get vault_id
-    let (vault_id, video_type): (Option<String>, Option<String>) = sqlx::query_as(
-        "SELECT vault_id, video_type FROM media_items WHERE slug = ? AND media_type = 'video'"
+    // Look up the video in media_items
+    let row: Option<(i32, Option<String>, Option<String>, Option<String>, i32)> = sqlx::query_as(
+        "SELECT id, user_id, vault_id, video_type, is_public FROM media_items WHERE slug = ? AND media_type = 'video'"
     )
     .bind(&slug)
     .fetch_optional(&state.pool)
@@ -368,9 +370,10 @@ pub async fn serve_video_mp4(
     .map_err(|e| {
         error!("Database error: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
-    })?
-    .map(|row: (Option<String>, Option<String>)| row)
-    .unwrap_or((None, None));
+    })?;
+
+    let (media_id, owner_user_id, vault_id, video_type, is_public) =
+        row.unwrap_or((0, None, None, None, 0));
 
     // Check if it's an MP4 video
     if video_type.as_deref() != Some("mp4") {
@@ -380,6 +383,60 @@ pub async fn serve_video_mp4(
 
     // All media should have vault_id now
     let vault_id = vault_id.ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Access control (same pattern as image/thumbnail handlers)
+    if is_public == 0 {
+        let authenticated: bool = session
+            .get("authenticated")
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or(false);
+        let user_id: Option<String> = if authenticated {
+            session.get("user_id").await.ok().flatten()
+        } else {
+            None
+        };
+
+        let has_access = user_id
+            .as_ref()
+            .map(|uid| owner_user_id.as_ref() == Some(uid))
+            .unwrap_or(false);
+
+        if !has_access {
+            if let Some(code) = query.code {
+                let item_decision = state
+                    .access_control
+                    .check_access(
+                        access_control::AccessContext::new(
+                            access_control::ResourceType::Video,
+                            media_id,
+                        )
+                        .with_key(code.clone()),
+                        access_control::Permission::Read,
+                    )
+                    .await
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+                if !item_decision.granted {
+                    let folder_ok =
+                        crate::folder_access::folder_code_grants_access(
+                            &state.pool, &code, &vault_id,
+                        )
+                        .await
+                        || crate::folder_access::workspace_code_grants_vault_access(
+                            &state.pool, &code, &vault_id,
+                        )
+                        .await;
+                    if !folder_ok {
+                        return Err(StatusCode::FORBIDDEN);
+                    }
+                }
+            } else {
+                return Err(StatusCode::UNAUTHORIZED);
+            }
+        }
+    }
 
     // Find video file using vault-based storage
     // Videos are stored in subdirectories: {slug}/video.mp4

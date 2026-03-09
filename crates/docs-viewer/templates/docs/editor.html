@@ -2,7 +2,7 @@
 %} {% block extra_head %}
 <style>
     #editor-container {
-        height: calc(100vh - 250px);
+        height: calc(100vh - 280px);
         min-height: 500px;
         border: 2px solid oklch(var(--b3));
         border-radius: 8px;
@@ -38,6 +38,59 @@
         display: inline;
         color: oklch(var(--er));
     }
+
+    {% if language == "markdown" %}
+    #insert-panel {
+        height: calc(100vh - 280px);
+        min-height: 500px;
+        overflow-y: auto;
+    }
+
+    .insert-tab-content {
+        display: none;
+    }
+    .insert-tab-content.active {
+        display: block;
+    }
+
+    .media-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+    .media-item:hover {
+        background: oklch(var(--b2));
+    }
+    .media-item img {
+        width: 40px;
+        height: 40px;
+        object-fit: cover;
+        border-radius: 4px;
+        flex-shrink: 0;
+        background: oklch(var(--b3));
+    }
+    .media-item .media-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .media-item .media-name {
+        font-size: 0.8rem;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .media-item .media-type-badge {
+        font-size: 0.65rem;
+        opacity: 0.6;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    {% endif %}
 </style>
 {% endblock %} {% block content %}
 <div class="container mx-auto px-4 py-8">
@@ -74,14 +127,80 @@
         </div>
     </div>
 
+    {% if language == "markdown" %}
+    <!-- Two-column layout for markdown: editor + insert panel -->
+    <div class="flex gap-4 items-start">
+        <!-- Monaco Editor -->
+        <div class="card bg-base-100 shadow-xl flex-1 min-w-0">
+            <div class="card-body">
+                <div class="divider"></div>
+                <div id="editor-container"></div>
+            </div>
+        </div>
+
+        <!-- Insert Panel -->
+        <div class="card bg-base-100 shadow-xl w-72 flex-shrink-0 sticky top-4">
+            <div class="card-body p-3">
+                <h3 class="font-semibold text-sm mb-2 flex items-center gap-1">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i> Insert
+                </h3>
+
+                <!-- Tabs -->
+                <div class="tabs tabs-bordered tabs-sm mb-3">
+                    <a class="tab tab-active" id="tab-media" onclick="switchTab('media')">Media</a>
+                    <a class="tab" id="tab-files" onclick="switchTab('files')">Files</a>
+                    <a class="tab" id="tab-apps" onclick="switchTab('apps')">Apps</a>
+                </div>
+
+                <!-- Media Tab -->
+                <div id="panel-media" class="insert-tab-content active">
+                    <input
+                        type="text"
+                        id="media-search"
+                        placeholder="Search media..."
+                        class="input input-bordered input-xs w-full mb-2"
+                        oninput="debounceMediaSearch(this.value)"
+                    />
+                    <div class="flex gap-1 mb-2">
+                        <select id="media-type-filter" class="select select-bordered select-xs flex-1" onchange="loadMedia()">
+                            <option value="">All types</option>
+                            <option value="image">Images</option>
+                            <option value="video">Videos</option>
+                        </select>
+                    </div>
+                    <div id="media-list" class="space-y-1">
+                        <div class="text-xs opacity-50 text-center py-4">Loading...</div>
+                    </div>
+                    <div id="media-load-more" class="hidden mt-2">
+                        <button class="btn btn-ghost btn-xs w-full" onclick="loadMoreMedia()">Load more</button>
+                    </div>
+                </div>
+
+                <!-- Files Tab -->
+                <div id="panel-files" class="insert-tab-content">
+                    <div id="files-list" class="space-y-1">
+                        <div class="text-xs opacity-50 text-center py-4">Loading...</div>
+                    </div>
+                </div>
+
+                <!-- Apps Tab -->
+                <div id="panel-apps" class="insert-tab-content">
+                    <div id="apps-list" class="space-y-1">
+                        <div class="text-xs opacity-50 text-center py-4">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Single-column layout for non-markdown files -->
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
             <div class="divider"></div>
-
-            <!-- Monaco Editor -->
             <div id="editor-container"></div>
         </div>
     </div>
+    {% endif %}
 </div>
 {% endblock %} {% block extra_scripts %}
 <!-- Monaco Editor from CDN -->
@@ -210,4 +329,303 @@
         }
     });
 </script>
+
+{% if language == "markdown" %}
+<script>
+    // Insert panel state
+    const WORKSPACE_ID = {{ slug|tojson|safe }};
+    const FOLDER_PATH = {{ folder_path|tojson|safe }};
+
+    let mediaPage = 0;
+    let mediaSearchTerm = '';
+    let mediaSearchTimer = null;
+    let activeTab = 'media';
+
+    function insertAtCursor(text) {
+        if (!editor) return;
+        editor.executeEdits('insert-media', [{
+            range: editor.getSelection(),
+            text: text,
+            forceMoveMarkers: true
+        }]);
+        editor.focus();
+    }
+
+    function switchTab(tab) {
+        activeTab = tab;
+        document.querySelectorAll('.insert-tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tabs .tab').forEach(el => el.classList.remove('tab-active'));
+        document.getElementById('panel-' + tab).classList.add('active');
+        document.getElementById('tab-' + tab).classList.add('tab-active');
+
+        if (tab === 'media' && document.getElementById('media-list').children.length <= 1) {
+            loadMedia();
+        } else if (tab === 'files') {
+            loadFiles();
+        } else if (tab === 'apps') {
+            loadApps();
+        }
+    }
+
+    // ── Media Tab ──────────────────────────────────────────────────────────
+
+    function debounceMediaSearch(value) {
+        clearTimeout(mediaSearchTimer);
+        mediaSearchTimer = setTimeout(() => {
+            mediaSearchTerm = value;
+            mediaPage = 0;
+            loadMedia();
+        }, 300);
+    }
+
+    async function loadMedia() {
+        mediaPage = 0;
+        const typeFilter = document.getElementById('media-type-filter').value;
+        const list = document.getElementById('media-list');
+        list.innerHTML = '<div class="text-xs opacity-50 text-center py-4">Loading...</div>';
+        document.getElementById('media-load-more').classList.add('hidden');
+
+        try {
+            const params = new URLSearchParams({ page_size: 20, page: 0 });
+            if (mediaSearchTerm) params.set('q', mediaSearchTerm);
+            if (typeFilter) params.set('type_filter', typeFilter);
+
+            const resp = await fetch('/api/media?' + params.toString());
+            if (!resp.ok) throw new Error('Failed to load media');
+            const data = await resp.json();
+
+            renderMediaItems(data.items || [], list, false);
+
+            if ((data.items || []).length >= 20) {
+                document.getElementById('media-load-more').classList.remove('hidden');
+                mediaPage = 1;
+            }
+        } catch (e) {
+            list.innerHTML = '<div class="text-xs text-error text-center py-4">Failed to load</div>';
+        }
+    }
+
+    async function loadMoreMedia() {
+        const typeFilter = document.getElementById('media-type-filter').value;
+        const list = document.getElementById('media-list');
+
+        try {
+            const params = new URLSearchParams({ page_size: 20, page: mediaPage });
+            if (mediaSearchTerm) params.set('q', mediaSearchTerm);
+            if (typeFilter) params.set('type_filter', typeFilter);
+
+            const resp = await fetch('/api/media?' + params.toString());
+            if (!resp.ok) throw new Error('Failed to load');
+            const data = await resp.json();
+
+            renderMediaItems(data.items || [], list, true);
+
+            if ((data.items || []).length >= 20) {
+                mediaPage++;
+            } else {
+                document.getElementById('media-load-more').classList.add('hidden');
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    function renderMediaItems(items, container, append) {
+        if (!append) container.innerHTML = '';
+
+        if (items.length === 0 && !append) {
+            container.innerHTML = '<div class="text-xs opacity-50 text-center py-4">No media found</div>';
+            return;
+        }
+
+        items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'media-item';
+            div.title = 'Insert ' + item.title;
+            div.onclick = () => insertMediaSnippet(item);
+
+            const img = document.createElement('img');
+            img.src = item.thumbnail_url || '';
+            img.alt = '';
+            img.onerror = () => { img.style.display = 'none'; };
+
+            const info = document.createElement('div');
+            info.className = 'media-info';
+            info.innerHTML = `<div class="media-name">${escHtml(item.title)}</div><div class="media-type-badge">${escHtml(item.media_type || '')}</div>`;
+
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-ghost btn-xs';
+            btn.innerHTML = '<i data-lucide="plus" class="w-3 h-3"></i>';
+            btn.onclick = (e) => { e.stopPropagation(); insertMediaSnippet(item); };
+
+            div.appendChild(img);
+            div.appendChild(info);
+            div.appendChild(btn);
+            container.appendChild(div);
+        });
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function insertMediaSnippet(item) {
+        let snippet;
+        if (item.media_type === 'image') {
+            snippet = '```media-image\n' + item.slug + '\n```';
+        } else if (item.media_type === 'video') {
+            snippet = '```media-video\n' + item.slug + '\n```';
+        } else {
+            snippet = '```media-image\n' + item.slug + '\n```';
+        }
+        insertAtCursor(snippet);
+    }
+
+    // ── Files Tab ──────────────────────────────────────────────────────────
+
+    async function loadFiles() {
+        const list = document.getElementById('files-list');
+        list.innerHTML = '<div class="text-xs opacity-50 text-center py-4">Loading...</div>';
+
+        try {
+            const params = new URLSearchParams({ path: FOLDER_PATH });
+            const resp = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/list?` + params.toString());
+            if (!resp.ok) throw new Error('Failed to load files');
+            const data = await resp.json();
+
+            const files = (data.files || []).filter(f => {
+                const mt = f.mime_type || '';
+                return mt.startsWith('video/') || mt.startsWith('image/');
+            });
+
+            if (files.length === 0) {
+                list.innerHTML = '<div class="text-xs opacity-50 text-center py-4">No media files in this folder</div>';
+                return;
+            }
+
+            list.innerHTML = '';
+            files.forEach(f => {
+                const div = document.createElement('div');
+                div.className = 'media-item';
+                div.title = 'Insert ' + f.name;
+                div.onclick = () => insertFileSnippet(f);
+
+                const mt = f.mime_type || '';
+                const icon = document.createElement('div');
+                icon.className = 'w-10 h-10 rounded bg-base-200 flex-shrink-0 overflow-hidden flex items-center justify-center';
+                if (mt.startsWith('image/')) {
+                    const serveUrl = `/api/workspaces/${WORKSPACE_ID}/files/serve?path=${encodeURIComponent(f.path)}`;
+                    icon.innerHTML = `<img src="${serveUrl}" class="w-full h-full object-cover" alt="" loading="lazy">`;
+                } else {
+                    icon.innerHTML = `<i data-lucide="video" class="w-5 h-5 opacity-60"></i>`;
+                }
+
+                const info = document.createElement('div');
+                info.className = 'media-info';
+                info.innerHTML = `<div class="media-name">${escHtml(f.name)}</div><div class="media-type-badge">${escHtml(mt.split('/')[0] || '')}</div>`;
+
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-ghost btn-xs';
+                btn.innerHTML = '<i data-lucide="plus" class="w-3 h-3"></i>';
+                btn.onclick = (e) => { e.stopPropagation(); insertFileSnippet(f); };
+
+                div.appendChild(icon);
+                div.appendChild(info);
+                div.appendChild(btn);
+                list.appendChild(div);
+            });
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        } catch (e) {
+            list.innerHTML = '<div class="text-xs text-error text-center py-4">Failed to load</div>';
+        }
+    }
+
+    function insertFileSnippet(f) {
+        const mt = f.mime_type || '';
+        let snippet;
+        if (mt.startsWith('video/') || f.name.match(/\.mp4$/i)) {
+            snippet = '```workspace-video\n' + f.name + '\n```';
+        } else {
+            snippet = '![' + f.name + '](' + f.name + ')';
+        }
+        insertAtCursor(snippet);
+    }
+
+    // ── Apps Tab ──────────────────────────────────────────────────────────
+
+    async function loadApps() {
+        const list = document.getElementById('apps-list');
+        list.innerHTML = '<div class="text-xs opacity-50 text-center py-4">Loading...</div>';
+
+        try {
+            const resp = await fetch('/api/apps');
+            if (!resp.ok) throw new Error('Failed to load apps');
+            const data = await resp.json();
+            const apps = data.apps || data || [];
+
+            const published = apps.filter(a => a.published !== false);
+
+            if (published.length === 0) {
+                list.innerHTML = '<div class="text-xs opacity-50 text-center py-4">No published apps</div>';
+                return;
+            }
+
+            list.innerHTML = '';
+            published.forEach(app => {
+                const div = document.createElement('div');
+                div.className = 'media-item';
+                div.title = 'Insert ' + app.title;
+                div.onclick = () => insertAppSnippet(app);
+
+                const icon = document.createElement('div');
+                icon.className = 'w-10 h-10 flex items-center justify-center rounded bg-base-200 flex-shrink-0 overflow-hidden';
+                if (app.thumbnail_url) {
+                    icon.innerHTML = `<img src="${escHtml(app.thumbnail_url)}" class="w-full h-full object-cover" alt="" />`;
+                } else {
+                    icon.innerHTML = '<i data-lucide="layout-template" class="w-5 h-5 opacity-60"></i>';
+                }
+
+                const info = document.createElement('div');
+                info.className = 'media-info';
+                info.innerHTML = `<div class="media-name">${escHtml(app.title)}</div><div class="media-type-badge">app</div>`;
+
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-ghost btn-xs';
+                btn.innerHTML = '<i data-lucide="plus" class="w-3 h-3"></i>';
+                btn.onclick = (e) => { e.stopPropagation(); insertAppSnippet(app); };
+
+                div.appendChild(icon);
+                div.appendChild(info);
+                div.appendChild(btn);
+                list.appendChild(div);
+            });
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        } catch (e) {
+            list.innerHTML = '<div class="text-xs text-error text-center py-4">Failed to load</div>';
+        }
+    }
+
+    function insertAppSnippet(app) {
+        let url = '/pub/' + app.app_id;
+        if (app.access === 'code' && app.access_code) {
+            url += '?code=' + encodeURIComponent(app.access_code);
+        }
+        const snippet = '```app-embed height=480\n' + url + '\n```';
+        insertAtCursor(snippet);
+    }
+
+    // ── Utilities ─────────────────────────────────────────────────────────
+
+    function escHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    // Load media tab on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        loadMedia();
+    });
+</script>
+{% endif %}
 {% endblock %}

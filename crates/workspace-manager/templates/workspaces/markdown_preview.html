@@ -157,5 +157,35 @@
             showToast('Failed to copy to clipboard', 'error');
         });
     }
+
+    // HLS video initialisation for media-video embeds
+    function initVideoPlayers() {
+        const videos = document.querySelectorAll('video[data-hls-src]');
+        if (!videos.length) return;
+        const probe = document.createElement('video');
+        if (probe.canPlayType('application/vnd.apple.mpegurl')) {
+            videos.forEach(v => { v.src = v.dataset.hlsSrc; });
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js';
+        script.onload = () => {
+            videos.forEach(v => {
+                if (Hls.isSupported()) {
+                    const hls = new Hls();
+                    hls.loadSource(v.dataset.hlsSrc);
+                    hls.attachMedia(v);
+                    hls.on(Hls.Events.ERROR, (_, data) => {
+                        if (data.fatal) { hls.destroy(); v.src = v.dataset.mp4Src; v.load(); }
+                    });
+                } else {
+                    v.src = v.dataset.mp4Src;
+                }
+            });
+        };
+        document.head.appendChild(script);
+    }
+
+    document.addEventListener('DOMContentLoaded', initVideoPlayers);
 </script>
 {% endblock %}

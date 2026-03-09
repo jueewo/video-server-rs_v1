@@ -28,6 +28,6 @@ pub fn register_all(
     user_storage: UserStorageManager,
 ) {
     state.register_renderer(Arc::new(BpmnFolderRenderer));
-    state.register_renderer(Arc::new(MediaViewerRenderer { pool }));
-    state.register_renderer(Arc::new(CourseFolderRenderer { storage: user_storage }));
+    state.register_renderer(Arc::new(MediaViewerRenderer { pool: pool.clone() }));
+    state.register_renderer(Arc::new(CourseFolderRenderer { storage: user_storage, pool }));
 }

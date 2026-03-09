@@ -30,6 +30,8 @@ pub struct FolderEntry {
     pub type_name: Option<String>,
     /// URL to serve the folder's thumbnail/icon image, if one exists.
     pub icon_url: Option<String>,
+    /// True if the workspace config has typed sub-folders under this path.
+    pub has_typed_children: bool,
 }
 
 pub struct DirListing {
@@ -129,6 +131,7 @@ pub fn list_dir(workspace_root: &Path, subpath: &str) -> Result<DirListing> {
                 type_icon: None,
                 type_name: None,
                 icon_url: None,
+                has_typed_children: false,
             });
         } else if file_type.is_file() {
             let metadata = entry.metadata()?;

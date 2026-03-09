@@ -842,6 +842,40 @@ pub async fn list_dirs(
     Ok(Json(dirs))
 }
 
+/// GET /api/workspaces/{workspace_id}/files/list?path=...
+///
+/// Lists files in the given folder path (relative to workspace root).
+/// Returns JSON: `{ "files": [{ "name", "path", "mime_type" }] }`.
+pub async fn list_files_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    Query(query): Query<std::collections::HashMap<String, String>>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "read")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let path = query.get("path").cloned().unwrap_or_default();
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+
+    let listing = file_browser::list_dir(&workspace_root, &path)
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+
+    let files: Vec<serde_json::Value> = listing
+        .files
+        .into_iter()
+        .map(|f| serde_json::json!({
+            "name": f.name,
+            "path": f.path,
+            "mime_type": f.mime_type,
+        }))
+        .collect();
+
+    Ok(Json(serde_json::json!({ "files": files })))
+}
+
 /// POST /api/workspaces/{workspace_id}/files/rename
 ///
 /// Renames or moves a single file within the workspace. `from` and `to` are
@@ -1475,6 +1509,13 @@ pub async fn workspace_dashboard(
                     }
                 }
             }
+            // Check if any configured typed path lives under this folder
+            if folder.folder_type.is_none() {
+                let prefix = format!("{}/", folder.path);
+                folder.has_typed_children = ws_config.folders.iter().any(|(path, fc)| {
+                    path.starts_with(&prefix) && !fc.folder_type.is_default()
+                });
+            }
         }
     }
     for folder in &mut folders {
@@ -1525,16 +1566,23 @@ pub async fn workspace_dashboard(
     Ok(Html(html))
 }
 
+#[derive(serde::Deserialize, Default)]
+pub(crate) struct BrowseQuery {
+    files: Option<String>,
+}
+
 /// GET /workspaces/{workspace_id}/browse/{*path}
+#[allow(private_interfaces)]
 pub async fn file_browser_page(
     user: Option<Extension<AuthenticatedUser>>,
     Path(path_parts): Path<(String, String)>,
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
+    Query(query): Query<BrowseQuery>,
 ) -> Result<Response, StatusCode> {
     check_scope(&user, "read")?;
     let (workspace_id, subpath) = path_parts;
-    file_browser_handler(workspace_id, subpath, session, state).await
+    file_browser_handler(workspace_id, subpath, session, state, query.files.as_deref() == Some("1")).await
 }
 
 /// GET /workspaces/{workspace_id}/browse
@@ -1545,7 +1593,7 @@ pub async fn file_browser_root_page(
     State(state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<Response, StatusCode> {
     check_scope(&user, "read")?;
-    file_browser_handler(workspace_id, String::new(), session, state).await
+    file_browser_handler(workspace_id, String::new(), session, state, false).await
 }
 
 async fn file_browser_handler(
@@ -1553,6 +1601,7 @@ async fn file_browser_handler(
     subpath: String,
     session: Session,
     state: Arc<WorkspaceManagerState>,
+    force_files: bool,
 ) -> Result<Response, StatusCode> {
     let user_id = require_auth(&session).await?;
     let (workspace_name, workspace_description) =
@@ -1574,7 +1623,7 @@ async fn file_browser_handler(
     let ws_config_opt = WorkspaceConfig::load(&workspace_root).ok();
 
     // media-server folders redirect to the media library scoped to their vault
-    if !subpath.is_empty() {
+    if !force_files && !subpath.is_empty() {
         if let Some(ref ws_config) = ws_config_opt {
             if let Some(fc) = ws_config.get_folder(&subpath) {
                 if fc.folder_type.as_str() == "media-server" {
@@ -1588,7 +1637,7 @@ async fn file_browser_handler(
     }
 
     // Delegate to a registered renderer if one handles this folder type
-    if !subpath.is_empty() {
+    if !force_files && !subpath.is_empty() {
         if let Some(ref ws_config) = ws_config_opt {
             if let Some(fc) = ws_config.get_folder(&subpath) {
                 let type_id = fc.folder_type.as_str();
@@ -1660,6 +1709,13 @@ async fn file_browser_handler(
                         folder.folder_type = Some(type_id.to_string());
                     }
                 }
+            }
+            // Check if any configured typed path lives under this folder
+            if folder.folder_type.is_none() {
+                let prefix = format!("{}/", folder.path);
+                folder.has_typed_children = ws_config.folders.iter().any(|(path, fc)| {
+                    path.starts_with(&prefix) && !fc.folder_type.is_default()
+                });
             }
         }
     }
@@ -1778,6 +1834,11 @@ pub async fn edit_text_file_page(
     template.back_url = back_url;
     template.back_label = workspace_name.clone();
     template.path_crumbs = build_path_crumbs(&workspace_id, &workspace_name, &file_path);
+    template.folder_path = std::path::Path::new(&file_path)
+        .parent()
+        .and_then(|p| p.to_str())
+        .unwrap_or("")
+        .to_string();
 
     let html = template
         .render()
@@ -3206,6 +3267,10 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         .route(
             "/api/workspaces/{workspace_id}/dirs",
             get(list_dirs),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/files/list",
+            get(list_files_handler),
         )
         .route(
             "/api/workspaces/{workspace_id}/files/save-text",

@@ -102,6 +102,16 @@
                         <li><button @click.stop.prevent="open = false; openFolderSettings('{{ folder.path }}', '{{ folder.name }}')" class="gap-2 text-sm">
                             <i data-lucide="settings" class="w-4 h-4"></i> Settings
                         </button></li>
+                        {% if folder.folder_type.is_some() %}
+                        <li><a href="/workspaces/{{ workspace_id }}/browse/{{ folder.path }}?files=1"
+                               @click.stop.prevent="open = false; window.location.href='/workspaces/{{ workspace_id }}/browse/{{ folder.path }}?files=1'"
+                               class="gap-2 text-sm">
+                            <i data-lucide="folder-open" class="w-4 h-4"></i> View Files
+                        </a></li>
+                        {% endif %}
+                        <li><button @click.stop.prevent="open = false; openMoveFolderModal('{{ folder.path }}', '{{ folder.name }}')" class="gap-2 text-sm">
+                            <i data-lucide="folder-input" class="w-4 h-4"></i> Move
+                        </button></li>
                         <li><button @click.stop.prevent="open = false; openShareModal('{{ folder.path }}', '{{ folder.name }}')" class="gap-2 text-sm">
                             <i data-lucide="share-2" class="w-4 h-4"></i> Share
                         </button></li>
@@ -127,7 +137,15 @@
                     <div class="badge badge-sm badge-ghost mt-1 font-normal">{{ type_name }}</div>
                     {% endif %}
                     {% else %}
-                    <div class="text-xs text-base-content/50">{{ folder.file_count }} file{% if folder.file_count != 1 %}s{% endif %}</div>
+                    <div class="flex items-center justify-center gap-1.5 text-xs text-base-content/50 mt-0.5">
+                        <span>{{ folder.file_count }} file{% if folder.file_count != 1 %}s{% endif %}</span>
+                        {% if folder.has_typed_children %}
+                        <span class="text-base-content/30">·</span>
+                        <span class="flex items-center gap-0.5 text-primary/60" title="Contains typed folders">
+                            <i data-lucide="layers" class="w-3 h-3"></i> typed
+                        </span>
+                        {% endif %}
+                    </div>
                     {% endif %}
                 </a>
             </div>
@@ -338,7 +356,7 @@
 <!-- Move File Modal -->
 <dialog id="move-file-modal" class="modal">
     <div class="modal-box max-w-sm">
-        <h3 class="font-bold text-lg mb-1 flex items-center gap-2"><i data-lucide="folder-input" class="w-5 h-5"></i> Move File</h3>
+        <h3 class="font-bold text-lg mb-1 flex items-center gap-2"><i data-lucide="folder-input" class="w-5 h-5"></i> <span id="move-modal-title">Move File</span></h3>
         <p id="move-file-label" class="text-sm text-base-content/60 mb-3"></p>
         <input type="hidden" id="move-file-path" />
         <input type="hidden" id="move-file-name" />
@@ -448,7 +466,7 @@
         </div>
 
         <div class="modal-action justify-between">
-            <button id="delete-folder-btn" onclick="confirmDeleteFolder()" class="btn btn-error btn-outline gap-1"><i data-lucide="trash-2" class="w-4 h-4"></i> Delete Folder</button>
+            <button id="delete-folder-btn" onclick="confirmDeleteFolder()" class="btn btn-error btn-outline gap-2"><i data-lucide="trash-2" class="w-4 h-4 shrink-0"></i><span>Delete Folder</span></button>
             <div class="flex gap-2">
                 <button onclick="document.getElementById('folder-settings-modal').close()" class="btn btn-ghost">Cancel</button>
                 <button id="save-folder-btn" onclick="saveFolderSettings()" class="btn btn-primary gap-1"><i data-lucide="save" class="w-4 h-4"></i> Save Settings</button>
@@ -633,7 +651,7 @@
         populateFolderTypeSelect('default');
 
         // Hide delete button in create mode
-        document.getElementById('delete-folder-btn').style.display = 'none';
+        document.getElementById('delete-folder-btn').classList.add('hidden');
         document.getElementById('save-folder-btn').textContent = 'Create Folder';
 
         applyParentTypeLock();
@@ -775,6 +793,7 @@
 
     async function openMoveModal(filePath, fileName) {
         _moveSelectedDir = null;
+        document.getElementById('move-modal-title').textContent = 'Move File';
         document.getElementById('move-file-path').value = filePath;
         document.getElementById('move-file-name').value = fileName;
         document.getElementById('move-file-label').textContent = fileName;
@@ -796,6 +815,44 @@
         list.innerHTML = '';
         dirs.forEach(d => {
             if (d.path === currentDir) return; // skip current location
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-xs btn-ghost justify-start text-left w-full font-mono';
+            btn.textContent = d.path === '' ? '/ (root)' : '/' + d.path;
+            btn.onclick = () => {
+                list.querySelectorAll('button').forEach(b => b.classList.remove('btn-active'));
+                btn.classList.add('btn-active');
+                _moveSelectedDir = d.path;
+            };
+            list.appendChild(btn);
+        });
+    }
+
+    async function openMoveFolderModal(folderPath, folderName) {
+        _moveSelectedDir = null;
+        document.getElementById('move-modal-title').textContent = 'Move Folder';
+        document.getElementById('move-file-path').value = folderPath;
+        document.getElementById('move-file-name').value = folderName;
+        document.getElementById('move-file-label').textContent = folderName;
+        document.getElementById('move-file-error').classList.add('hidden');
+
+        const list = document.getElementById('move-dir-list');
+        list.innerHTML = '<div class="text-xs text-base-content/40 p-2">Loading…</div>';
+        document.getElementById('move-file-modal').showModal();
+
+        const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/dirs`);
+        if (!r.ok) { list.innerHTML = '<div class="text-xs text-error p-2">Failed to load folders.</div>'; return; }
+        const dirs = await r.json();
+
+        // Current parent of the folder
+        const currentParent = folderPath.includes('/')
+            ? folderPath.substring(0, folderPath.lastIndexOf('/'))
+            : '';
+
+        list.innerHTML = '';
+        dirs.forEach(d => {
+            if (d.path === currentParent) return;          // already here
+            if (d.path === folderPath) return;             // itself
+            if (d.path.startsWith(folderPath + '/')) return; // descendant
             const btn = document.createElement('button');
             btn.className = 'btn btn-xs btn-ghost justify-start text-left w-full font-mono';
             btn.textContent = d.path === '' ? '/ (root)' : '/' + d.path;
@@ -1010,7 +1067,7 @@
         // Set edit mode
         document.getElementById('folder-settings-mode').value = 'edit';
         document.getElementById('folder-settings-title').innerHTML = '<i data-lucide="settings" class="w-5 h-5"></i> Folder Settings';
-        document.getElementById('delete-folder-btn').style.display = 'block';
+        document.getElementById('delete-folder-btn').classList.remove('hidden');
         document.getElementById('save-folder-btn').textContent = 'Save Settings';
 
         document.getElementById('folder-settings-path').value = folderPath;
@@ -1122,7 +1179,7 @@
             const defVal = field.default != null ? String(field.default) : '';
 
             let input;
-            switch (field.field_type) {
+            switch (field.type) {
                 case 'enum': {
                     const opts = (field.values || []).map(v =>
                         `<option value="${v}"${v === defVal ? ' selected' : ''}>${v}</option>`

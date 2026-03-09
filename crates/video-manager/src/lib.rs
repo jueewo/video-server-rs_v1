@@ -647,13 +647,39 @@ pub async fn hls_proxy_handler(
         })?;
 
     if !decision.granted {
-        info!(
-            video_slug = %slug,
-            file_path = %file_path,
-            reason = %decision.reason,
-            "Access denied to HLS stream"
-        );
-        return Err(StatusCode::UNAUTHORIZED);
+        // Fallback: workspace folder access code whose workspace owner also owns this vault
+        let vault_ok = if let (Some(ref code), Some(ref vid)) = (query.code.as_ref(), vault_id.as_ref()) {
+            sqlx::query_scalar::<_, i32>(
+                "SELECT 1
+                 FROM workspace_access_codes wac
+                 JOIN workspace_access_code_folders f ON f.workspace_access_code_id = wac.id
+                 JOIN workspaces w ON w.workspace_id = f.workspace_id
+                 JOIN storage_vaults v ON v.user_id = w.user_id
+                 WHERE wac.code = ? AND v.vault_id = ?
+                   AND f.vault_id IS NULL
+                   AND wac.is_active = 1
+                   AND (wac.expires_at IS NULL OR wac.expires_at > datetime('now'))",
+            )
+            .bind(code)
+            .bind(vid)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten()
+            .is_some()
+        } else {
+            false
+        };
+
+        if !vault_ok {
+            info!(
+                video_slug = %slug,
+                file_path = %file_path,
+                reason = %decision.reason,
+                "Access denied to HLS stream"
+            );
+            return Err(StatusCode::UNAUTHORIZED);
+        }
     }
 
     info!(

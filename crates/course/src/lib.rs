@@ -68,10 +68,11 @@ struct CourseFolderTemplate {
     authenticated: bool,
     workspace_id: String,
     workspace_name: String,
-    #[allow(dead_code)]
     folder_path: String,
     folder_name: String,
     course: CourseStructure,
+    /// Active access code for previewing this course, if one exists.
+    preview_code: Option<String>,
 }
 
 // ── Query params ──────────────────────────────────────────────────────────────
@@ -183,7 +184,8 @@ async fn course_viewer_handler(
         course
             .modules
             .first()
-            .and_then(|m| m.lessons.first())
+            .and_then(|m| m.sections.first())
+            .and_then(|s| s.lessons.first())
             .map(|l| l.path.clone())
     });
 
@@ -223,6 +225,7 @@ pub fn course_routes(state: Arc<CourseState>) -> Router {
 
 pub struct CourseFolderRenderer {
     pub storage: UserStorageManager,
+    pub pool: SqlitePool,
 }
 
 #[async_trait]
@@ -237,6 +240,22 @@ impl FolderTypeRenderer for CourseFolderRenderer {
         let course = structure::load_course(&folder_abs, &ctx.folder_path)
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
+        let preview_code: Option<String> = sqlx::query_scalar(
+            "SELECT wac.code
+             FROM workspace_access_codes wac
+             JOIN workspace_access_code_folders f ON f.workspace_access_code_id = wac.id
+             WHERE f.workspace_id = ? AND f.folder_path = ? AND f.vault_id IS NULL
+               AND wac.is_active = 1
+               AND (wac.expires_at IS NULL OR wac.expires_at > datetime('now'))
+             LIMIT 1",
+        )
+        .bind(&ctx.workspace_id)
+        .bind(&ctx.folder_path)
+        .fetch_optional(&self.pool)
+        .await
+        .ok()
+        .flatten();
+
         let tmpl = CourseFolderTemplate {
             authenticated: true,
             workspace_id: ctx.workspace_id,
@@ -244,6 +263,7 @@ impl FolderTypeRenderer for CourseFolderRenderer {
             folder_path: ctx.folder_path,
             folder_name: ctx.folder_name,
             course,
+            preview_code,
         };
 
         let html = tmpl.render().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;

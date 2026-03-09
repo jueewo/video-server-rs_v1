@@ -113,6 +113,10 @@ async fn serve_image_variant(
                         || crate::folder_access::workspace_code_grants_vault_access(
                             &state.pool, &code, &vault_id,
                         )
+                        .await
+                        || crate::folder_access::workspace_folder_code_grants_vault_via_owner(
+                            &state.pool, &code, &vault_id,
+                        )
                         .await;
                     if !folder_ok {
                         return Err(StatusCode::FORBIDDEN);
@@ -273,6 +277,10 @@ pub async fn serve_thumbnail(
                         || crate::folder_access::workspace_code_grants_vault_access(
                             &state.pool, &code, &vault_id,
                         )
+                        .await
+                        || crate::folder_access::workspace_folder_code_grants_vault_via_owner(
+                            &state.pool, &code, &vault_id,
+                        )
                         .await;
                     if !folder_ok {
                         return Err(StatusCode::FORBIDDEN);
@@ -425,6 +433,10 @@ pub async fn serve_video_mp4(
                         )
                         .await
                         || crate::folder_access::workspace_code_grants_vault_access(
+                            &state.pool, &code, &vault_id,
+                        )
+                        .await
+                        || crate::folder_access::workspace_folder_code_grants_vault_via_owner(
                             &state.pool, &code, &vault_id,
                         )
                         .await;

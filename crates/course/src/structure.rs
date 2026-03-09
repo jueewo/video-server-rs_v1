@@ -39,11 +39,21 @@ pub struct CourseStructure {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct ModuleSection {
+    /// Display title derived from the sub-folder name (e.g. "Chapter 1").
+    /// `None` means lessons sit directly at the module root with no sub-folder.
+    pub title: Option<String>,
+    pub lessons: Vec<Lesson>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct CourseModule {
     /// Relative path from course folder root (e.g. "session1")
     pub path: String,
     pub title: String,
-    pub lessons: Vec<Lesson>,
+    /// Lessons grouped by immediate sub-folder. A single section with `title: None`
+    /// means all lessons live directly under the module folder (no sub-folders).
+    pub sections: Vec<ModuleSection>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -162,7 +172,7 @@ pub fn load_course(folder_abs: &Path, _folder_path: &str) -> anyhow::Result<Cour
                 }
             });
 
-            let lessons = lesson_entries
+            let lessons: Vec<Lesson> = lesson_entries
                 .into_iter()
                 .map(|(path, default_title)| {
                     let title = config
@@ -175,7 +185,9 @@ pub fn load_course(folder_abs: &Path, _folder_path: &str) -> anyhow::Result<Cour
                 })
                 .collect();
 
-            (order, CourseModule { path: module_path, title, lessons })
+            let sections = group_into_sections(&module_path, lessons);
+
+            (order, CourseModule { path: module_path, title, sections })
         })
         .collect();
 
@@ -196,6 +208,48 @@ pub fn load_course(folder_abs: &Path, _folder_path: &str) -> anyhow::Result<Cour
         instructor: config.instructor,
         modules,
     })
+}
+
+/// Group a sorted lesson list into sections by their immediate sub-folder within the module.
+///
+/// E.g. for module `session1`, a lesson at `session1/chapter1/basics.md` has sub-folder
+/// `chapter1`; a lesson at `session1/intro.md` has no sub-folder (`None`).
+fn group_into_sections(module_path: &str, lessons: Vec<Lesson>) -> Vec<ModuleSection> {
+    let mut sections: Vec<(Option<String>, Vec<Lesson>)> = Vec::new();
+
+    for lesson in lessons {
+        // Strip module prefix to get path relative to the module folder
+        let rel = if module_path.is_empty() {
+            lesson.path.as_str()
+        } else {
+            lesson.path
+                .strip_prefix(&format!("{}/", module_path))
+                .unwrap_or(&lesson.path)
+        };
+        // The immediate sub-folder is the first component if there's more than one
+        let sub_folder: Option<String> = if rel.contains('/') {
+            rel.split('/').next().map(|s| s.to_string())
+        } else {
+            None
+        };
+
+        // Append to the last section if it matches, otherwise start a new one
+        if let Some(last) = sections.last_mut() {
+            if last.0 == sub_folder {
+                last.1.push(lesson);
+                continue;
+            }
+        }
+        sections.push((sub_folder, vec![lesson]));
+    }
+
+    sections
+        .into_iter()
+        .map(|(key, lessons)| ModuleSection {
+            title: key.as_deref().map(title_case),
+            lessons,
+        })
+        .collect()
 }
 
 /// Convert a snake_case or kebab-case string to Title Case.

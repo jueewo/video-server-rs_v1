@@ -8,7 +8,6 @@
     <div class="page-header mb-8">
         <div>
             <h1 class="page-header-title flex items-center gap-3">
-                <!-- Gradient icon pill with inline SVG (not Lucide) for reliable rendering -->
                 <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl shrink-0"
                       style="background: linear-gradient(135deg, #667eea, #764ba2); box-shadow: 0 4px 12px rgba(102,126,234,0.35);">
                     <i data-lucide="layout-grid" class="w-5 h-5 text-white"></i>
@@ -21,12 +20,75 @@
             <a href="/workspace-access-codes" class="btn btn-ghost btn-sm gap-1">
                 <i data-lucide="share-2" class="w-4 h-4"></i> Access Codes
             </a>
+            <!-- Filter button -->
+            <div class="relative" id="filter-container">
+                <button id="filter-btn" onclick="toggleFilter()"
+                        class="btn btn-ghost btn-sm gap-1.5 border border-base-300">
+                    <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+                    Filter
+                    <span id="filter-badge" class="badge badge-primary badge-xs hidden">0</span>
+                </button>
+                <!-- Filter dropdown -->
+                <div id="filter-panel"
+                     class="hidden absolute right-0 top-full mt-2 w-80 bg-base-100 border border-base-300 rounded-2xl shadow-2xl z-50 p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="font-semibold text-sm">Filter Workspaces</span>
+                        <button onclick="clearFilters()" class="btn btn-ghost btn-xs text-base-content/50">
+                            Clear all
+                        </button>
+                    </div>
+
+                    <!-- Keyword search -->
+                    <div class="mb-4">
+                        <label class="label pb-1 pt-0">
+                            <span class="label-text text-xs font-medium text-base-content/60 uppercase tracking-wide">Keyword</span>
+                        </label>
+                        <div class="relative">
+                            <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-base-content/40 pointer-events-none"></i>
+                            <input id="filter-keyword" type="text" placeholder="Search name or description…"
+                                   oninput="applyFilters()"
+                                   class="input input-sm input-bordered w-full pl-8 text-sm" />
+                        </div>
+                    </div>
+
+                    {% if !all_tags.is_empty() %}
+                    <!-- Tag filter -->
+                    <div>
+                        <label class="label pb-2 pt-0">
+                            <span class="label-text text-xs font-medium text-base-content/60 uppercase tracking-wide">Tags</span>
+                        </label>
+                        <div class="flex flex-wrap gap-1.5" id="tag-filter-chips">
+                            {% for tag in all_tags %}
+                            <button onclick="toggleTagFilter('{{ tag }}')"
+                                    data-tag="{{ tag }}"
+                                    class="tag-chip badge badge-outline badge-sm cursor-pointer hover:badge-primary transition-all">
+                                {{ tag }}
+                            </button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Remember filter toggle -->
+                    <label class="flex items-center gap-2 mt-4 pt-3 border-t border-base-300 cursor-pointer select-none w-fit">
+                        <input type="checkbox" id="filter-remember" class="checkbox checkbox-xs checkbox-primary"
+                               onchange="onRememberChanged()" />
+                        <span class="text-xs text-base-content/60">Remember filter</span>
+                    </label>
+                </div>
+            </div>
             <a href="/workspaces/new" class="btn gap-2 border-0 text-white font-semibold"
                style="background: linear-gradient(135deg, #667eea, #764ba2); box-shadow: 0 4px 14px rgba(102,126,234,0.35);">
                 <i data-lucide="plus" class="w-4 h-4"></i>
                 New Workspace
             </a>
         </div>
+    </div>
+
+    <!-- Active filters summary bar -->
+    <div id="active-filters-bar" class="hidden mb-4 flex items-center gap-2 flex-wrap">
+        <span class="text-sm text-base-content/50">Showing:</span>
+        <div id="active-filter-pills" class="flex flex-wrap gap-1.5"></div>
     </div>
 
     {% if workspaces.is_empty() %}
@@ -47,25 +109,70 @@
         </div>
     </div>
     {% else %}
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+
+    <!-- No-results message (hidden by default) -->
+    <div id="no-results" class="hidden card bg-base-100 shadow border border-base-300">
+        <div class="card-body items-center text-center py-16">
+            <i data-lucide="search-x" class="w-10 h-10 text-base-content/25 mb-4"></i>
+            <p class="text-base-content/50">No workspaces match your filters.</p>
+            <button onclick="clearFilters()" class="btn btn-sm btn-ghost mt-3">Clear filters</button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5" id="workspace-grid">
         {% for ws in workspaces %}
-        <div class="card bg-base-100 shadow-lg card-hover group border border-base-300 overflow-hidden">
+        <div class="workspace-card card bg-base-100 shadow-lg card-hover group border border-base-300"
+             data-name="{{ ws.name|lower }}"
+             data-description="{{ ws.description|lower }}"
+             data-tags="{{ ws.tags|join(",") }}"
+             data-ws-id="{{ ws.workspace_id }}"
+             data-ws-name="{{ ws.name }}"
+             data-ws-description="{{ ws.description }}"
+             data-ws-tags="{{ ws.tags|join(",") }}">
             <!-- Gradient top stripe -->
-            <div class="h-1 w-full bg-gradient-to-r from-[#667eea] to-[#764ba2]"></div>
-            <div class="card-body pt-5">
+            <div class="h-1 w-full bg-gradient-to-r from-[#667eea] to-[#764ba2] rounded-t-2xl"></div>
+            <div class="card-body pt-5 flex flex-col">
                 <!-- Title row -->
-                <div class="flex justify-between items-start mb-1">
+                <div class="flex justify-between items-start mb-2">
                     <h3 class="card-title text-lg leading-snug">
                         <a href="/workspaces/{{ ws.workspace_id }}" class="hover:text-primary transition-colors">{{ ws.name }}</a>
                     </h3>
-                    <span class="badge badge-sm badge-neutral shrink-0 ml-2 mt-0.5">{{ ws.file_count }} files</span>
+                    <div class="flex items-center gap-1 shrink-0 ml-2">
+                        <span class="badge badge-sm badge-neutral">{{ ws.file_count }} files</span>
+                        <!-- Dot menu -->
+                        <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                            <button @click.stop="open = !open"
+                                    class="btn btn-xs btn-ghost btn-square">
+                                <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+                            </button>
+                            <ul x-show="open" x-cloak
+                                class="absolute right-0 top-full mt-0.5 z-50 menu bg-base-200 rounded-box shadow-lg w-36 p-1">
+                                <li><button @click.stop="open = false; openWsSettingsById('{{ ws.workspace_id }}')"
+                                            class="gap-2 text-sm">
+                                    <i data-lucide="settings" class="w-4 h-4"></i> Settings
+                                </button></li>
+                                <li><button @click.stop="open = false; deleteWorkspace('{{ ws.workspace_id }}')"
+                                            class="gap-2 text-sm text-error">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i> Delete
+                                </button></li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
 
-                {% if !ws.description.is_empty() %}
-                <p class="text-sm text-base-content/60 mb-2 line-clamp-2 leading-relaxed">{{ ws.description }}</p>
-                {% endif %}
+                <!-- Description: always reserves 2 lines of space -->
+                <p class="text-sm text-base-content/60 line-clamp-2 leading-relaxed" style="min-height:2.5rem">{{ ws.description }}</p>
 
-                <div class="flex items-center gap-2 mb-3">
+                <!-- Tags: always reserves one row of space -->
+                <div class="flex flex-wrap gap-1 mt-2" style="min-height:1.625rem">
+                    {% for tag in ws.tags %}
+                    <span class="badge badge-sm badge-primary badge-outline cursor-pointer hover:badge-primary hover:text-primary-content transition-all"
+                          onclick="activateTagFilter('{{ tag }}')">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+
+                <!-- Workspace ID -->
+                <div class="flex items-center gap-2 mt-3 mb-3">
                     <code class="font-mono text-xs text-base-content/40 bg-base-200 px-2 py-1 rounded flex-1 truncate">{{ ws.workspace_id }}</code>
                 </div>
 
@@ -82,23 +189,13 @@
                 </div>
 
                 <!-- Actions -->
-                <div class="card-actions flex-wrap gap-2">
+                <div class="card-actions gap-2">
                     <a href="/workspaces/{{ ws.workspace_id }}" class="btn btn-sm btn-primary gap-1 flex-1">
                         <i data-lucide="clipboard-list" class="w-3.5 h-3.5"></i> Open
                     </a>
-                    <a href="/workspaces/{{ ws.workspace_id }}/browse" class="btn btn-sm btn-outline gap-1">
+                    <a href="/workspaces/{{ ws.workspace_id }}/browse" class="btn btn-sm btn-outline gap-1 flex-1">
                         <i data-lucide="folder-open" class="w-3.5 h-3.5"></i> Browse
                     </a>
-                    <button
-                        onclick="openEditModal('{{ ws.workspace_id }}', this)"
-                        data-name="{{ ws.name }}"
-                        data-description="{{ ws.description }}"
-                        class="btn btn-sm btn-outline gap-1">
-                        <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
-                    </button>
-                    <button onclick="deleteWorkspace('{{ ws.workspace_id }}')" class="btn btn-sm btn-error btn-outline gap-1">
-                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                    </button>
                 </div>
             </div>
         </div>
@@ -107,96 +204,196 @@
     {% endif %}
 </div>
 
-<!-- Edit Workspace Modal -->
-<dialog id="edit-modal" class="modal">
-    <div class="modal-box">
-        <h3 class="font-bold text-lg mb-5">Edit Workspace</h3>
-
-        <div id="edit-error" class="alert alert-error mb-4 hidden">
-            <span id="edit-error-msg"></span>
-        </div>
-
-        <div class="grid grid-cols-[8rem_1fr] items-start gap-x-4 gap-y-4 mb-6">
-            <label for="edit-name" class="label py-2 justify-end">
-                <span class="label-text font-semibold text-right">Name <span class="text-error">*</span></span>
-            </label>
-            <input type="text" id="edit-name" class="input input-bordered w-full" maxlength="100" />
-
-            <label for="edit-description" class="label py-2 justify-end">
-                <span class="label-text font-semibold text-right">Description</span>
-            </label>
-            <div>
-                <textarea id="edit-description" class="textarea textarea-bordered w-full" rows="3" maxlength="500"
-                          placeholder="Brief description of this workspace..."></textarea>
-                <p class="text-xs text-base-content/50 mt-1">Optional</p>
-            </div>
-        </div>
-
-        <div class="modal-action">
-            <button onclick="document.getElementById('edit-modal').close()" class="btn btn-ghost">Cancel</button>
-            <button id="edit-save-btn" onclick="saveEdit()" class="btn btn-primary">Save Changes</button>
-        </div>
-    </div>
-    <form method="dialog" class="modal-backdrop"><button>close</button></form>
-</dialog>
+{% include "components/workspace-edit-modal.html" %}
 {% endblock %}
 {% block extra_scripts %}
 <script>
-    let editingWorkspaceId = null;
+    let activeTagFilters = new Set();
+    let filterPanelOpen = false;
 
-    function openEditModal(workspaceId, btn) {
-        editingWorkspaceId = workspaceId;
-        document.getElementById('edit-name').value = btn.dataset.name || '';
-        document.getElementById('edit-description').value = btn.dataset.description || '';
-        document.getElementById('edit-error').classList.add('hidden');
-        document.getElementById('edit-save-btn').disabled = false;
-        document.getElementById('edit-save-btn').textContent = 'Save Changes';
-        document.getElementById('edit-modal').showModal();
-        document.getElementById('edit-name').focus();
+    const FILTER_KEY = 'workspace-filter';
+    const REMEMBER_KEY = 'workspace-filter-remember';
+
+    function isRemembering() {
+        return document.getElementById('filter-remember').checked;
     }
 
-    async function saveEdit() {
-        const name = document.getElementById('edit-name').value.trim();
-        const description = document.getElementById('edit-description').value.trim();
-
-        if (!name) {
-            document.getElementById('edit-error-msg').textContent = 'Name is required.';
-            document.getElementById('edit-error').classList.remove('hidden');
-            return;
+    function onRememberChanged() {
+        if (isRemembering()) {
+            localStorage.setItem(REMEMBER_KEY, '1');
+            saveFilter(); // persist current filter immediately
+        } else {
+            localStorage.removeItem(REMEMBER_KEY);
+            localStorage.removeItem(FILTER_KEY);
         }
+    }
 
-        const btn = document.getElementById('edit-save-btn');
-        btn.disabled = true;
-        btn.textContent = 'Saving...';
+    function saveFilter() {
+        if (!isRemembering()) return;
+        const keyword = document.getElementById('filter-keyword').value.trim();
+        const state = { keyword, tags: [...activeTagFilters] };
+        if (keyword || activeTagFilters.size > 0) {
+            localStorage.setItem(FILTER_KEY, JSON.stringify(state));
+        } else {
+            localStorage.removeItem(FILTER_KEY);
+        }
+    }
 
+    function restoreFilter() {
+        // Restore the remember checkbox first
+        if (localStorage.getItem(REMEMBER_KEY) === '1') {
+            document.getElementById('filter-remember').checked = true;
+        } else {
+            return; // remember is off — don't restore anything
+        }
         try {
-            const response = await fetch(`/api/user/workspaces/${editingWorkspaceId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, description: description || null }),
-            });
-            if (response.ok) {
-                document.getElementById('edit-modal').close();
-                showToast('Workspace updated!', 'success');
-                setTimeout(() => window.location.reload(), 800);
-            } else {
-                document.getElementById('edit-error-msg').textContent = 'Failed to save changes.';
-                document.getElementById('edit-error').classList.remove('hidden');
-                btn.disabled = false;
-                btn.textContent = 'Save Changes';
-            }
-        } catch (e) {
-            document.getElementById('edit-error-msg').textContent = 'Network error: ' + e.message;
-            document.getElementById('edit-error').classList.remove('hidden');
-            btn.disabled = false;
-            btn.textContent = 'Save Changes';
+            const raw = localStorage.getItem(FILTER_KEY);
+            if (!raw) return;
+            const { keyword, tags } = JSON.parse(raw);
+            if (keyword) document.getElementById('filter-keyword').value = keyword;
+            if (tags && tags.length) tags.forEach(t => activeTagFilters.add(t));
+            updateTagChipStyles();
+            applyFilters();
+        } catch (_) {
+            localStorage.removeItem(FILTER_KEY);
         }
     }
 
-    // Submit on Enter in the name field
-    document.getElementById('edit-name').addEventListener('keydown', e => {
-        if (e.key === 'Enter') saveEdit();
+    // ── Filter panel ─────────────────────────────────────────────────────────
+
+    function toggleFilter() {
+        filterPanelOpen = !filterPanelOpen;
+        document.getElementById('filter-panel').classList.toggle('hidden', !filterPanelOpen);
+    }
+
+    // Close filter panel when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!document.getElementById('filter-container').contains(e.target)) {
+            filterPanelOpen = false;
+            document.getElementById('filter-panel').classList.add('hidden');
+        }
     });
+
+    function toggleTagFilter(tag) {
+        if (activeTagFilters.has(tag)) {
+            activeTagFilters.delete(tag);
+        } else {
+            activeTagFilters.add(tag);
+        }
+        updateTagChipStyles();
+        applyFilters();
+    }
+
+    function activateTagFilter(tag) {
+        // Clicking a tag on a card activates that tag filter and opens panel
+        activeTagFilters.add(tag);
+        updateTagChipStyles();
+        applyFilters();
+        // Open the filter panel briefly to show the active filter
+        filterPanelOpen = true;
+        document.getElementById('filter-panel').classList.remove('hidden');
+    }
+
+    function updateTagChipStyles() {
+        document.querySelectorAll('#tag-filter-chips .tag-chip').forEach(chip => {
+            const tag = chip.dataset.tag;
+            if (activeTagFilters.has(tag)) {
+                chip.classList.remove('badge-outline');
+                chip.classList.add('badge-primary', 'text-primary-content');
+            } else {
+                chip.classList.add('badge-outline');
+                chip.classList.remove('badge-primary', 'text-primary-content');
+            }
+        });
+    }
+
+    function clearFilters() {
+        document.getElementById('filter-keyword').value = '';
+        activeTagFilters.clear();
+        updateTagChipStyles();
+        applyFilters(); // saveFilter() called inside — will remove FILTER_KEY since empty
+    }
+
+    function applyFilters() {
+        const keyword = document.getElementById('filter-keyword').value.toLowerCase().trim();
+        const cards = document.querySelectorAll('.workspace-card');
+        let visibleCount = 0;
+
+        cards.forEach(card => {
+            const name = card.dataset.name || '';
+            const desc = card.dataset.description || '';
+            const tagsStr = card.dataset.tags || '';
+            const cardTags = tagsStr ? tagsStr.split(',') : [];
+
+            const matchKeyword = !keyword || name.includes(keyword) || desc.includes(keyword);
+            const matchTags = activeTagFilters.size === 0 ||
+                [...activeTagFilters].every(t => cardTags.includes(t));
+
+            const visible = matchKeyword && matchTags;
+            card.classList.toggle('hidden', !visible);
+            if (visible) visibleCount++;
+        });
+
+        // Show/hide no-results
+        const noResults = document.getElementById('no-results');
+        if (noResults) noResults.classList.toggle('hidden', visibleCount > 0);
+
+        // Update filter badge
+        const filterCount = (keyword ? 1 : 0) + activeTagFilters.size;
+        const badge = document.getElementById('filter-badge');
+        if (filterCount > 0) {
+            badge.textContent = filterCount;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+
+        // Update active filters bar
+        updateActiveFiltersBar(keyword);
+        saveFilter();
+    }
+
+    function updateActiveFiltersBar(keyword) {
+        const bar = document.getElementById('active-filters-bar');
+        const pills = document.getElementById('active-filter-pills');
+        const hasPills = keyword || activeTagFilters.size > 0;
+        bar.classList.toggle('hidden', !hasPills);
+        if (!hasPills) return;
+
+        pills.innerHTML = '';
+        if (keyword) {
+            pills.insertAdjacentHTML('beforeend',
+                `<span class="badge badge-sm badge-ghost gap-1">
+                    <i data-lucide="search" class="w-3 h-3"></i> "${keyword}"
+                    <button onclick="clearKeyword()" class="ml-1 opacity-60 hover:opacity-100">✕</button>
+                </span>`);
+        }
+        activeTagFilters.forEach(tag => {
+            pills.insertAdjacentHTML('beforeend',
+                `<span class="badge badge-sm badge-primary gap-1">
+                    <i data-lucide="tag" class="w-3 h-3"></i> ${tag}
+                    <button onclick="toggleTagFilter('${tag}')" class="ml-1 opacity-70 hover:opacity-100">✕</button>
+                </span>`);
+        });
+        lucide.createIcons({ nodes: [pills] });
+    }
+
+    function clearKeyword() {
+        document.getElementById('filter-keyword').value = '';
+        applyFilters(); // saveFilter() called inside applyFilters
+    }
+
+    function openWsSettingsById(wsId) {
+        const card = document.querySelector(`.workspace-card[data-ws-id="${wsId}"]`);
+        console.log('[ws-settings] wsId:', wsId, 'card:', card);
+        if (!card) return;
+        const name = card.dataset.wsName || '';
+        const desc = card.dataset.wsDescription || '';
+        const rawTags = card.dataset.tags;
+        const tags = rawTags ? rawTags.split(',').filter(t => t) : [];
+        console.log('[ws-settings] name:', name, 'desc:', desc, 'rawTags:', rawTags, 'tags:', tags);
+        openWorkspaceEditModal(wsId, name, desc, tags);
+    }
 
     async function deleteWorkspace(workspaceId) {
         if (!confirm('Delete this workspace? All files will be permanently removed.')) return;
@@ -214,5 +411,9 @@
             showToast('Network error', 'error');
         }
     }
+
+    // Restore persisted filter on page load
+    restoreFilter();
 </script>
+{% include "components/workspace-edit-modal-js.html" %}
 {% endblock %}

@@ -1,0 +1,89 @@
+<script>
+(function () {
+    let _wsEditId = null;
+    let _wsEditTags = [];
+
+    function wsEditRenderTags() {
+        document.getElementById('ws-edit-tags-display').innerHTML = _wsEditTags.map(tag =>
+            `<span class="badge badge-sm badge-primary gap-1">${tag}
+                <button type="button" onclick="wsEditRemoveTag('${tag}')"
+                        class="opacity-70 hover:opacity-100 ml-0.5">✕</button>
+            </span>`
+        ).join('');
+    }
+
+    window.wsEditRemoveTag = function (tag) {
+        _wsEditTags = _wsEditTags.filter(t => t !== tag);
+        wsEditRenderTags();
+    };
+
+    window.wsEditAddTagFromInput = function () {
+        const input = document.getElementById('ws-edit-tag-input');
+        const newTags = input.value.split(',')
+            .map(t => t.trim().toLowerCase())
+            .filter(t => t.length > 0 && !_wsEditTags.includes(t));
+        _wsEditTags = [..._wsEditTags, ...newTags];
+        input.value = '';
+        wsEditRenderTags();
+    };
+
+    window.openWorkspaceEditModal = function (workspaceId, name, description, tags) {
+        _wsEditId = workspaceId;
+        _wsEditTags = (tags || []).slice();
+        document.getElementById('ws-edit-name').value = name || '';
+        document.getElementById('ws-edit-description').value = description || '';
+        document.getElementById('ws-edit-tag-input').value = '';
+        document.getElementById('ws-edit-error').classList.add('hidden');
+        const btn = document.getElementById('ws-edit-save-btn');
+        btn.disabled = false;
+        btn.textContent = 'Save';
+        wsEditRenderTags();
+        document.getElementById('ws-edit-modal').showModal();
+        document.getElementById('ws-edit-name').focus();
+    };
+
+    window.saveWorkspaceEdit = async function () {
+        const name = document.getElementById('ws-edit-name').value.trim();
+        const description = document.getElementById('ws-edit-description').value.trim();
+        if (!name) {
+            document.getElementById('ws-edit-error-msg').textContent = 'Name is required.';
+            document.getElementById('ws-edit-error').classList.remove('hidden');
+            return;
+        }
+        const btn = document.getElementById('ws-edit-save-btn');
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+        try {
+            const r = await fetch(`/api/user/workspaces/${_wsEditId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description: description || null, tags: _wsEditTags }),
+            });
+            if (r.ok) {
+                document.getElementById('ws-edit-modal').close();
+                showToast('Workspace updated!', 'success');
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                document.getElementById('ws-edit-error-msg').textContent = 'Failed to save.';
+                document.getElementById('ws-edit-error').classList.remove('hidden');
+                btn.disabled = false;
+                btn.textContent = 'Save';
+            }
+        } catch (e) {
+            document.getElementById('ws-edit-error-msg').textContent = 'Network error: ' + e.message;
+            document.getElementById('ws-edit-error').classList.remove('hidden');
+            btn.disabled = false;
+            btn.textContent = 'Save';
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('ws-edit-tag-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); wsEditAddTagFromInput(); }
+        });
+        document.getElementById('ws-edit-name').addEventListener('keydown', e => {
+            if (e.key === 'Enter') saveWorkspaceEdit();
+        });
+    });
+})();
+</script>

@@ -39,11 +39,30 @@
             {% endif %}
             {% endif %}
         </div>
-        <div class="flex gap-2 flex-wrap">
+        <div class="flex gap-2 flex-wrap items-center">
             <button onclick="newFile()" class="btn btn-sm btn-primary gap-1"><i data-lucide="file-plus" class="w-4 h-4"></i> New File</button>
             <button onclick="newFolder()" class="btn btn-sm btn-outline gap-1"><i data-lucide="folder-plus" class="w-4 h-4"></i> New Folder</button>
             <button onclick="document.getElementById('upload-files-input').click()" class="btn btn-sm btn-outline gap-1"><i data-lucide="upload" class="w-4 h-4"></i> Upload Files</button>
             <button onclick="document.getElementById('upload-folder-input').click()" class="btn btn-sm btn-outline gap-1"><i data-lucide="package-open" class="w-4 h-4"></i> Upload Folder</button>
+            <div class="dropdown dropdown-end">
+                <button tabindex="0" class="btn btn-sm btn-outline btn-square" title="More options">
+                    <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+                </button>
+                <ul tabindex="0" class="dropdown-content menu bg-base-200 rounded-box shadow-lg z-50 w-44 p-1 mt-1">
+                    {% if current_path.is_empty() %}
+                    <li><button onclick="openWorkspaceSettings()" class="gap-2 text-sm">
+                        <i data-lucide="settings" class="w-4 h-4"></i> Settings
+                    </button></li>
+                    {% else %}
+                    <li><button onclick="currentFolderSettings()" class="gap-2 text-sm">
+                        <i data-lucide="settings" class="w-4 h-4"></i> Settings
+                    </button></li>
+                    <li><button onclick="currentFolderShare()" class="gap-2 text-sm">
+                        <i data-lucide="share-2" class="w-4 h-4"></i> Share
+                    </button></li>
+                    {% endif %}
+                </ul>
+            </div>
         </div>
     </div>
 
@@ -72,16 +91,22 @@
             {% for folder in folders %}
             <div class="card bg-base-100 border hover:shadow-md transition-all duration-150 relative
                         {% if folder.folder_type.is_some() %}border-base-300{% else %}border-base-300{% endif %}">
-                <button onclick="openFolderSettings('{{ folder.path }}', '{{ folder.name }}')"
-                        class="absolute top-2 right-2 btn btn-xs btn-ghost btn-circle z-10"
-                        title="Folder settings">
-                    <i data-lucide="settings" class="w-4 h-4"></i>
-                </button>
-                <button onclick="openShareModal('{{ folder.path }}', '{{ folder.name }}')"
-                        class="absolute top-2 left-2 btn btn-xs btn-ghost btn-circle z-10"
-                        title="Share folder">
-                    <i data-lucide="share-2" class="w-4 h-4"></i>
-                </button>
+                <div class="absolute top-1 right-1 z-20"
+                     x-data="{ open: false }" @click.outside="open = false">
+                    <button @click.stop.prevent="open = !open"
+                            class="btn btn-xs btn-ghost btn-square" title="More options">
+                        <i data-lucide="more-horizontal" class="w-3.5 h-3.5"></i>
+                    </button>
+                    <ul x-show="open" x-cloak @click.outside="open = false"
+                        class="absolute right-0 top-full mt-0.5 z-50 menu bg-base-200 rounded-box shadow-lg w-36 p-1">
+                        <li><button @click.stop.prevent="open = false; openFolderSettings('{{ folder.path }}', '{{ folder.name }}')" class="gap-2 text-sm">
+                            <i data-lucide="settings" class="w-4 h-4"></i> Settings
+                        </button></li>
+                        <li><button @click.stop.prevent="open = false; openShareModal('{{ folder.path }}', '{{ folder.name }}')" class="gap-2 text-sm">
+                            <i data-lucide="share-2" class="w-4 h-4"></i> Share
+                        </button></li>
+                    </ul>
+                </div>
                 <a href="/workspaces/{{ workspace_id }}/browse/{{ folder.path }}"
                    class="card-body items-center text-center p-4">
                     <div class="mb-1 w-12 h-12 flex items-center justify-center overflow-hidden">
@@ -461,11 +486,30 @@
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
+{% include "components/workspace-edit-modal.html" %}
+
 {% endblock %}
 {% block extra_scripts %}
 <script>
     const WORKSPACE_ID = "{{ workspace_id }}";
     const CURRENT_PATH = "{{ current_path }}";
+    const CURRENT_FOLDER_NAME = CURRENT_PATH.split('/').filter(Boolean).pop() || '';
+
+    function currentFolderSettings() {
+        openFolderSettings(CURRENT_PATH, CURRENT_FOLDER_NAME);
+    }
+    function currentFolderShare() {
+        openShareModal(CURRENT_PATH, CURRENT_FOLDER_NAME);
+    }
+
+    function openWorkspaceSettings() {
+        openWorkspaceEditModal(
+            WORKSPACE_ID,
+            "{{ workspace_name }}",
+            "{{ workspace_description }}",
+            [{% for tag in workspace_tags %}"{{ tag }}"{% if !loop.last %},{% endif %}{% endfor %}]
+        );
+    }
     {% if let Some(tid) = &current_type_id %}
     const CURRENT_TYPE_ID = "{{ tid }}";
     {% else %}
@@ -1576,4 +1620,5 @@
     }
 
 </script>
+{% include "components/workspace-edit-modal-js.html" %}
 {% endblock %}

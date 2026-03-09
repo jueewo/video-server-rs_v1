@@ -99,6 +99,7 @@ pub struct CreateWorkspaceRequest {
 pub struct UpdateWorkspaceRequest {
     pub name: Option<String>,
     pub description: Option<String>,
+    pub tags: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -239,6 +240,7 @@ pub struct WorkspaceDisplay {
     pub created_at_human: String,
     pub file_count: i64,
     pub total_size_str: String,
+    pub tags: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -281,6 +283,7 @@ pub struct ClaimedCodeRow {
 pub struct WorkspaceListTemplate {
     pub authenticated: bool,
     pub workspaces: Vec<WorkspaceDisplay>,
+    pub all_tags: Vec<String>,
     pub brand_name: String,
 }
 
@@ -319,6 +322,8 @@ pub struct WorkspaceBrowserTemplate {
     pub authenticated: bool,
     pub workspace_id: String,
     pub workspace_name: String,
+    pub workspace_description: String,
+    pub workspace_tags: Vec<String>,
     pub current_path: String,
     pub breadcrumbs: Vec<(String, String)>, // (label, url)
     pub folders: Vec<FolderEntry>,
@@ -658,6 +663,25 @@ pub async fn update_workspace(
     .execute(&state.pool)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Replace tags if provided
+    if let Some(tags) = request.tags {
+        sqlx::query("DELETE FROM workspace_tags WHERE workspace_id = ?")
+            .bind(&workspace_id)
+            .execute(&state.pool)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        for tag in tags.iter().map(|t| t.trim()).filter(|t| !t.is_empty()) {
+            sqlx::query(
+                "INSERT OR IGNORE INTO workspace_tags (workspace_id, tag) VALUES (?, ?)",
+            )
+            .bind(&workspace_id)
+            .bind(tag)
+            .execute(&state.pool)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        }
+    }
 
     info!("Updated workspace {}", workspace_id);
     Ok(StatusCode::OK)
@@ -1292,11 +1316,32 @@ pub async fn list_workspaces_page(
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
+    // Fetch all tags for user's workspaces in one query
+    let tag_rows: Vec<(String, String)> = sqlx::query_as(
+        "SELECT wt.workspace_id, wt.tag FROM workspace_tags wt \
+         JOIN workspaces w ON w.workspace_id = wt.workspace_id \
+         WHERE w.user_id = ? AND (w.tenant_id = ? OR w.tenant_id IS NULL)",
+    )
+    .bind(&user_id)
+    .bind(&tenant_id)
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    // Group tags by workspace_id
+    let mut tags_by_workspace: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
+    for (ws_id, tag) in tag_rows {
+        tags_by_workspace.entry(ws_id).or_default().push(tag);
+    }
+
     let workspaces: Vec<WorkspaceDisplay> = rows
         .into_iter()
         .map(|(workspace_id, name, description, created_at)| {
             let workspace_root = state.storage.workspace_root(&workspace_id);
             let file_count = count_files_in_dir(&workspace_root);
+            let mut tags = tags_by_workspace.remove(&workspace_id).unwrap_or_default();
+            tags.sort();
             WorkspaceDisplay {
                 workspace_id,
                 name,
@@ -1305,13 +1350,24 @@ pub async fn list_workspaces_page(
                 created_at_human: format_human_date(&created_at),
                 file_count,
                 total_size_str: String::new(),
+                tags,
             }
         })
         .collect();
 
+    // Collect all unique tags for the filter panel
+    let mut all_tags: Vec<String> = workspaces
+        .iter()
+        .flat_map(|w| w.tags.iter().cloned())
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    all_tags.sort();
+
     let template = WorkspaceListTemplate {
         authenticated: true,
         workspaces,
+        all_tags,
         brand_name,
     };
 
@@ -1452,6 +1508,7 @@ pub async fn workspace_dashboard(
         created_at_human: format_human_date(&created_at),
         file_count,
         total_size_str,
+        tags: vec![],
     };
 
     let template = WorkspaceDashboardTemplate {
@@ -1498,8 +1555,18 @@ async fn file_browser_handler(
     state: Arc<WorkspaceManagerState>,
 ) -> Result<Response, StatusCode> {
     let user_id = require_auth(&session).await?;
-    let (workspace_name, _) =
+    let (workspace_name, workspace_description) =
         verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+    let workspace_description = workspace_description.unwrap_or_default();
+
+    let mut workspace_tags: Vec<String> = sqlx::query_scalar(
+        "SELECT tag FROM workspace_tags WHERE workspace_id = ? ORDER BY tag",
+    )
+    .bind(&workspace_id)
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+    workspace_tags.sort();
 
     let workspace_root = state.storage.workspace_root(&workspace_id);
 
@@ -1635,6 +1702,8 @@ async fn file_browser_handler(
         authenticated: true,
         workspace_id,
         workspace_name,
+        workspace_description,
+        workspace_tags,
         current_path: subpath,
         breadcrumbs,
         folders: dir_listing.folders,

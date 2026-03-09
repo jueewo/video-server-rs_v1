@@ -75,13 +75,19 @@
             <li><a href="/test" @click="mobileOpen = false" class="gap-2"><i data-lucide="radio" class="w-4 h-4"></i> Live</a></li>
 
             {% if authenticated %}
+            <li class="menu-title pt-3">Workspaces</li>
+            <li><a href="/workspaces" @click="mobileOpen = false" class="gap-2"><i data-lucide="layout-dashboard" class="w-4 h-4"></i> Workspaces</a></li>
+            <li><a href="/folder-types" @click="mobileOpen = false" class="gap-2"><i data-lucide="folder-open" class="w-4 h-4"></i> Folder Types</a></li>
+            <li class="menu-title pt-3">Apps</li>
+            <li><a href="/apps" @click="mobileOpen = false" class="gap-2"><i data-lucide="layout-grid" class="w-4 h-4"></i> Apps</a></li>
+            <li><a href="/my-apps" @click="mobileOpen = false" class="gap-2"><i data-lucide="rocket" class="w-4 h-4"></i> Published</a></li>
+            <li><a href="/js-apps" @click="mobileOpen = false" class="gap-2"><i data-lucide="play-circle" class="w-4 h-4"></i> Live Preview</a></li>
+            <li class="menu-title pt-3">Media</li>
+            <li><a href="/media" @click="mobileOpen = false" class="gap-2"><i data-lucide="photo-film" class="w-4 h-4"></i> Media</a></li>
+            <li><a href="/vaults" @click="mobileOpen = false" class="gap-2"><i data-lucide="package" class="w-4 h-4"></i> Vaults</a></li>
+            <li><a href="/groups" @click="mobileOpen = false" class="gap-2"><i data-lucide="users" class="w-4 h-4"></i> Groups</a></li>
             <li class="menu-title pt-3">Account</li>
             <li><a href="/profile" @click="mobileOpen = false" class="gap-2"><i data-lucide="user" class="w-4 h-4"></i> Profile</a></li>
-            <li><a href="/groups" @click="mobileOpen = false" class="gap-2"><i data-lucide="users" class="w-4 h-4"></i> Groups</a></li>
-            <li><a href="/vaults" @click="mobileOpen = false" class="gap-2"><i data-lucide="package" class="w-4 h-4"></i> Vaults</a></li>
-            <li><a href="/workspaces" @click="mobileOpen = false" class="gap-2"><i data-lucide="layout-dashboard" class="w-4 h-4"></i> Workspaces</a></li>
-            <li><a href="/my-apps" @click="mobileOpen = false" class="gap-2"><i data-lucide="rocket" class="w-4 h-4"></i> My Apps</a></li>
-            <li><a href="/folder-types" @click="mobileOpen = false" class="gap-2"><i data-lucide="folder-open" class="w-4 h-4"></i> Folder Types</a></li>
             <li><a href="/admin/tenants" @click="mobileOpen = false" class="gap-2"><i data-lucide="building-2" class="w-4 h-4"></i> Tenants</a></li>
             <li class="pt-1"><a href="/logout" class="text-error gap-2"><i data-lucide="log-out" class="w-4 h-4"></i> Logout</a></li>
             {% else %}

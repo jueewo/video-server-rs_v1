@@ -66,8 +66,38 @@ Short version: workspace access codes are the primary sharing primitive. They re
 
 ---
 
+## Three Delivery Tiers
+
+The same codebase ships in three modes. The mental model stays consistent across all of them.
+
+```
+Tier 1 — Your hosted platform   multi-tenant, your infrastructure, your branding
+Tier 2 — Hosted B2B             a company on your infrastructure, tenant-scoped, their branding
+Tier 3 — Standalone             a company on their own infrastructure, licensed features only
+```
+
+**What changes per tier:**
+
+| Concept | Tier 1 | Tier 2 | Tier 3 |
+|---|---|---|---|
+| Tenants | One (platform) | Multiple (one per company) | One (hardcoded at startup) |
+| Workspace scoping | Per user | Per user + per tenant | Per user |
+| Branding | Platform `branding.yaml` | Per-tenant JSON in DB | Customer `branding.yaml` |
+| Feature set | All | All | Licensed features only (`--features media,course`) |
+| Data location | Your server | Your server | Customer's server |
+
+**What never changes:** the workspace → folder → app navigation model, the access code sharing primitive, the vault isolation, the dual-use crate pattern.
+
+Tenant isolation is enforced at login: `tenant_id` is resolved from the `users` table and stored in the session. Workspace queries filter by `tenant_id`. The platform tenant (`'platform'`) is the default for all existing users.
+
+Standalone mode is locked at startup via `deployment_mode: standalone` in `config.yaml`. No tenant management UI is shown. Every authenticated user belongs to the single configured tenant.
+
+---
+
 ## Future Direction (ROADMAP)
 
-- The `/media` direct entry point (global media list, vault picker) will be hidden. Users will reach media only through workspace folder navigation.
-- The media-server folder inline view (rendering the media grid inside the workspace browser rather than redirecting) is the end state.
-- Per-item access code UI will live in the inline media-server folder view, not on `/media`.
+- The `/media` direct entry point (global media list, vault picker) is internal scaffolding — users should reach media only through workspace folder navigation.
+- Per-tenant primary color applied to templates (currently applied client-side via CSS override; Phase 6D foundation in place).
+- Transcoding as a service (Phase 2): trigger HLS transcoding on a workspace file, output written back to the workspace.
+- Open access layer (Phase 3): stable public API, API keys, WebDAV documentation.
+- Satellite apps (Phase 4): external URL support in folder-type app links; js-tool folder type for consulting work product.

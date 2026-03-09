@@ -142,6 +142,22 @@ crate is independently shippable.
 Built-ins are Rust crates. Externals are URLs. Both are declared in the same
 YAML registry. The browser does not care which tier it is talking to.
 
+### Three Delivery Tiers
+
+The same binary ships in three commercial modes:
+
+| Tier | Who | How | Status |
+|---|---|---|---|
+| Tier 1 | You + B2C customers | Hosted, multi-tenant | ✅ Implemented |
+| Tier 2 | B2B companies on your infra | Hosted, tenant-scoped, white-label | ✅ Implemented |
+| Tier 3 | Companies on their own infra | Standalone Docker, licensed features | ✅ Implemented |
+
+Tier 2 enforcement: `tenant_id` on workspaces and users, resolved at login, applied to all workspace queries. Branding overrides stored per tenant in DB.
+
+Tier 3 enforcement: `deployment_mode: standalone` in `config.yaml` locks to one tenant at startup. `cargo build --no-default-features --features media,course` compiles only licensed modules. Customer receives a Docker image with their branding baked into `branding.yaml`.
+
+See `DELIVERY_TIERS.md` for the full design and implementation detail.
+
 ---
 
 ## How to Communicate It
@@ -171,11 +187,12 @@ That's the thing nobody else does. Show that first.
 
 The story and the product must match. In order:
 
-1. **Storage consolidation** — one place files live (ROADMAP Phase 1)
-2. **Transcoding as a service** — on workspace files (ROADMAP Phase 2)
-3. **Open access layer** — stable API, WebDAV, MCP (ROADMAP Phase 3)
-4. **Docker Compose setup** — one command to start
-5. **README + 2-minute demo video** — ironic for a media platform not to have one
+1. ✅ **Access model** — workspace access codes, external path via codes (Phase 1 done)
+2. ✅ **Delivery tiers** — Tier 1/2/3, tenant scoping, standalone packaging (Phase 6 done)
+3. ✅ **Docker Compose setup** — `docker/docker-compose.standalone.yml` for Tier 3
+4. [ ] **Transcoding as a service** — on workspace files, not vault-specific (Phase 2)
+5. [ ] **Open access layer** — stable API docs, WebDAV, MCP (Phase 3)
+6. [ ] **README + 2-minute demo video** — ironic for a media platform not to have one
 
 See `ROADMAP.md` for the full implementation plan.
 See `personas.md` for who this is built for.

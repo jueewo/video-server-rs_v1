@@ -1,257 +1,93 @@
-# Documentation Directory
+# Documentation
 
-**Purpose:** Central hub for all project documentation  
-**Last Updated:** February 2026  
-**Status:** ✅ Complete and Organized
+> Last updated: 2026-03-09
 
 ---
 
-## 📚 Welcome to the Documentation
-
-All project documentation is organized here in clear subdirectories by purpose and audience.
-
-## 📂 Directory Structure
+## Directory Map
 
 ```
 docs/
-├── docs_user/      👤 End-User Documentation
-├── docs_status/    📊 Project Status & Roadmap
-├── docs_design/    🏗️  Architecture & Design
-├── docs_dev/       👨‍💻 Developer Documentation
-└── docs_archive/   📦 Historical Documentation
+├── management/      Strategy, roadmap, delivery tiers, mental model
+├── apps/            Dual-use crate guides (course viewer, media viewer, patterns)
+├── deployment/      Self-hosting and standalone configuration (Tier 3)
+├── design/          Architecture decisions and design notes
+├── dev/             Developer how-tos: auth, migrations, templates, vault naming
+├── user/            End-user guides: media, access codes, permissions, API
+├── audit/           Security and compliance notes
+├── futureideas/     Parking lot for ideas not yet planned
+└── archive/         Superseded docs kept for reference
 ```
 
 ---
 
-## 🎯 Quick Navigation
+## Start Here
 
-### 👤 End Users (Content Creators, Administrators)
-**→ [docs_user/](docs_user/)**
-
-Learn how to use the media server:
-- Upload and manage videos, images, documents
-- Organize content with tags
-- Set up access control and permissions
-- Share content with access codes
-- Collaborate with teams using groups
-- API documentation and testing
-
-**Start here if you want to:** Use the system, manage content, configure access
-
----
-
-### 📊 Project Status & Planning
-**→ [docs_status/](docs_status/)**
-
-View project status and roadmap:
-- **PROJECT_STATUS.md** - ✅ Current status (Production Ready)
-- **MASTER_PLAN.md** - Complete roadmap and vision
-- **MEDIA_CLI_PROGRESS.md** - CLI tool development
-- **DOCUMENTATION_INDEX.md** - Complete doc map
-
-**Start here if you want to:** Check project status, understand roadmap, track progress
+| I want to… | Go to |
+|---|---|
+| Understand what this platform is and where it's going | `management/STRATEGY.md` |
+| See the implementation roadmap | `management/ROADMAP.md` |
+| Understand the workspace/folder/app mental model | `management/MENTAL_MODEL.md` |
+| Understand how the platform is packaged and sold | `management/DELIVERY_TIERS.md` |
+| Self-host the platform (Tier 3 / standalone) | `deployment/STANDALONE_CONFIG.md` |
+| Add a new folder-type app (dual-use crate) | `apps/DUAL_USE_PATTERN.md` |
+| Understand media serving, access codes, sharing | `management/ACCESS_CODES.md` |
+| Use the platform as a user | `user/` |
+| Work on the Rust codebase | `dev/` |
 
 ---
 
-### 🏗️  Architecture & Design
-**→ [docs_design/](docs_design/)**
+## Key Concepts (30-second version)
 
-Understand the system design:
-- Architecture Decision Records (ADRs)
-- System design patterns
-- Component architecture
-- Tagging system design
-- Access control model
-- UI component structure
+**The workspace is the product.** Users create workspaces per client or project.
+Folders inside a workspace have types — BPMN, course, media-server — and opening
+a folder opens the right app. Users never navigate away from the workspace browser.
 
-**Start here if you want to:** Understand design decisions, learn architecture, contribute to design
+**Files live in one place.** Uploading to a workspace folder stores a plain file.
+Publishing to a `media-server` folder runs it through the media pipeline (transcode,
+thumbnail, WebP) and gives it a slug + serving URL. The pipeline is a service, not
+a separate concept.
 
----
+**Access codes are the sharing primitive.** Internal users reach content through
+workspace folders. External clients and satellite apps use workspace access codes —
+a code unlocks one or more folders. No user account needed for consumers.
 
-### 👨‍💻 Developer Documentation
-**→ [docs_dev/](docs_dev/)**
-
-Technical implementation details:
-- Setup and configuration guides
-- Authentication system (OIDC, Casdoor)
-- Feature implementation details
-- API specifications
-- Database migrations
-- Testing strategies
-
-**Start here if you want to:** Develop features, fix bugs, understand implementation
+**Three delivery tiers from one codebase:**
+- Tier 1 — your hosted platform (B2C + your own use)
+- Tier 2 — hosted B2B (a company on your infrastructure, tenant-scoped)
+- Tier 3 — standalone (a company on their own infrastructure, licensed features only)
 
 ---
 
-### 📦 Historical Documentation
-**→ [docs_archive/](docs_archive/)**
+## Management Docs
 
-Historical records and completed work:
-- Phase completion summaries
-- Bug fix documentation
-- Migration guides
-- Legacy planning documents
-- Old architecture docs
-
-**Start here if you want to:** Understand project history, see what changed, learn from past decisions
-
----
-
-## 🚀 Getting Started Paths
-
-### I'm a New User
-1. Read [../README.md](../README.md) - Project overview
-2. Follow [../QUICKSTART.md](../QUICKSTART.md) - Get running
-3. Browse [docs_user/](docs_user/) - Learn features
-
-### I'm a Developer
-1. Read [../README.md](../README.md) - Project overview
-2. Check [docs_status/PROJECT_STATUS.md](docs_status/PROJECT_STATUS.md) - Current state
-3. Review [docs_design/ARCHITECTURE_DECISIONS.md](docs_design/ARCHITECTURE_DECISIONS.md) - Design
-4. Explore [docs_dev/](docs_dev/) - Implementation details
-
-### I'm a Project Manager
-1. Check [docs_status/PROJECT_STATUS.md](docs_status/PROJECT_STATUS.md) - Status
-2. Review [docs_status/MASTER_PLAN.md](docs_status/MASTER_PLAN.md) - Roadmap
-3. Browse [docs_user/](docs_user/) - User capabilities
-
-### I'm Deploying to Production
-1. Read [../DEPLOYMENT.md](../DEPLOYMENT.md) - Deployment guide
-2. Check [docs_user/PERMISSION_MANAGEMENT_GUIDE.md](docs_user/PERMISSION_MANAGEMENT_GUIDE.md) - Access setup
-3. Review [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md) - Common issues
+| File | What it covers |
+|---|---|
+| `ROADMAP.md` | Phased implementation plan with completion status |
+| `STRATEGY.md` | Product vision, differentiators, what this is not |
+| `DELIVERY_TIERS.md` | Tier 1/2/3 packaging, boundary enforcement, DB schema |
+| `MENTAL_MODEL.md` | Workspace, media pipeline, vault, access — how it all fits |
+| `WORKSPACE_ACCESS_CODES.md` | Access code system design and lifecycle |
+| `ACCESS_CODES.md` | Access code landscape (item codes vs folder codes) |
+| `media-server-folder-type.md` | How the media-server folder type works |
+| `MENTAL_MODEL.md` | Core mental model for developers and power users |
+| `SWOT.md` | Competitive analysis |
+| `personas.md` | Target user personas |
 
 ---
 
-## 📋 Documentation by Topic
+## Apps / Dual-Use Crates
 
-### Authentication & Security
-- [docs_dev/auth/](docs_dev/auth/) - OIDC, Casdoor, PKCE
-- [docs_user/PERMISSION_MANAGEMENT_GUIDE.md](docs_user/PERMISSION_MANAGEMENT_GUIDE.md) - Access control
-- [docs_design/GROUP_ACCESS_CODES.md](docs_design/GROUP_ACCESS_CODES.md) - Access design
-
-### Media Management
-- [docs_user/VIDEO_MANAGEMENT_GUIDE.md](docs_user/VIDEO_MANAGEMENT_GUIDE.md) - Videos
-- [docs_user/RESOURCE_WORKFLOW_GUIDE.md](docs_user/RESOURCE_WORKFLOW_GUIDE.md) - Workflow
-- [docs_design/IMAGE_MANAGER_QUICK_REFERENCE.md](docs_design/IMAGE_MANAGER_QUICK_REFERENCE.md) - Images
-
-### Organization & Search
-- [docs_user/TAG_MANAGEMENT_GUIDE.md](docs_user/TAG_MANAGEMENT_GUIDE.md) - Tagging
-- [docs_design/TAGGING_SYSTEM_SUMMARY.md](docs_design/TAGGING_SYSTEM_SUMMARY.md) - Tag architecture
-
-### Collaboration
-- [docs_user/GROUP_OWNERSHIP_EXPLAINED.md](docs_user/GROUP_OWNERSHIP_EXPLAINED.md) - Teams
-- [docs_user/ACCESS_CODE_DECISION_GUIDE.md](docs_user/ACCESS_CODE_DECISION_GUIDE.md) - Sharing
-
-### API & Integration
-- [docs_user/API_TESTING_GUIDE.md](docs_user/API_TESTING_GUIDE.md) - REST API
-- [docs_dev/](docs_dev/) - Technical integration
+| File | What it covers |
+|---|---|
+| `apps/DUAL_USE_PATTERN.md` | Pattern for embedded + standalone mode in one crate |
+| `apps/course-viewer.md` | Course viewer crate |
+| `apps/media-viewer.md` | Media viewer / gallery crate |
 
 ---
 
-## 📊 Documentation Statistics
+## Deployment
 
-- **End-User Guides:** 14 files in `docs_user/`
-- **Status & Planning:** 5 files in `docs_status/`
-- **Design & Architecture:** 7 files in `docs_design/`
-- **Developer Docs:** ~30 files in `docs_dev/`
-- **Historical Archive:** 135+ files in `docs_archive/`
-
-**Total:** 195+ documentation files
-
----
-
-## 🎯 Key Documents (Most Important)
-
-1. **[docs_status/PROJECT_STATUS.md](docs_status/PROJECT_STATUS.md)** - Current status ⭐
-2. **[docs_status/MASTER_PLAN.md](docs_status/MASTER_PLAN.md)** - Complete roadmap
-3. **[docs_design/ARCHITECTURE_DECISIONS.md](docs_design/ARCHITECTURE_DECISIONS.md)** - Design decisions
-4. **[docs_user/VIDEO_MANAGEMENT_GUIDE.md](docs_user/VIDEO_MANAGEMENT_GUIDE.md)** - Core feature
-5. **[docs_user/TAG_MANAGEMENT_GUIDE.md](docs_user/TAG_MANAGEMENT_GUIDE.md)** - Organization
-6. **[docs_user/API_TESTING_GUIDE.md](docs_user/API_TESTING_GUIDE.md)** - API reference
-7. **[docs_dev/auth/](docs_dev/auth/)** - Authentication system
-8. **[docs_user/PERMISSION_MANAGEMENT_GUIDE.md](docs_user/PERMISSION_MANAGEMENT_GUIDE.md)** - Access control
-
----
-
-## ✅ Documentation Quality Standards
-
-### Organization
-- ✅ All docs under single `docs/` directory
-- ✅ Clear subdirectories by audience
-- ✅ README in each major subdirectory
-- ✅ Consistent naming conventions
-
-### Content
-- ✅ Up-to-date with current system
-- ✅ Cross-linked where relevant
-- ✅ Code examples where applicable
-- ✅ Clear, concise language
-
-### Maintenance
-- ✅ Old docs moved to archive (not deleted)
-- ✅ Regular reviews and updates
-- ✅ Version controlled in git
-- ✅ Linked from main README
-
----
-
-## 🔍 Can't Find What You Need?
-
-**Complete documentation index:**
-→ [docs_status/DOCUMENTATION_INDEX.md](docs_status/DOCUMENTATION_INDEX.md)
-
-**Documentation structure guide:**
-→ [../DOCUMENTATION_STRUCTURE.md](../DOCUMENTATION_STRUCTURE.md)
-
-**For quick help:**
-→ [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md)
-
----
-
-## 🤝 Contributing to Documentation
-
-When adding or updating docs:
-
-1. **Choose the right subdirectory:**
-   - User guides → `docs_user/`
-   - Status updates → `docs_status/`
-   - Design docs → `docs_design/`
-   - Developer docs → `docs_dev/`
-   - Old docs → `docs_archive/`
-
-2. **Follow conventions:**
-   - Use clear, descriptive filenames
-   - Add to relevant README
-   - Cross-link related docs
-   - Use markdown formatting
-
-3. **Keep organized:**
-   - Don't create new top-level folders
-   - Use existing categories
-   - Archive old docs instead of deleting
-
----
-
-## 📞 Need Help?
-
-**Using the system:**
-→ Browse [docs_user/](docs_user/)
-
-**Understanding architecture:**
-→ Check [docs_design/](docs_design/)
-
-**Implementing features:**
-→ Explore [docs_dev/](docs_dev/)
-
-**Checking status:**
-→ Read [docs_status/PROJECT_STATUS.md](docs_status/PROJECT_STATUS.md)
-
-**Something not working:**
-→ See [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md)
-
----
-
-**Documentation Hub Version:** 1.0  
-**Structure:** Clean, organized, comprehensive  
-**Status:** ✅ Production Ready  
-**Last Updated:** February 2026
+| File | What it covers |
+|---|---|
+| `deployment/STANDALONE_CONFIG.md` | Tier 3 self-hosting: branding.yaml, config.yaml, Docker, OIDC |

@@ -261,8 +261,8 @@ Single-tenant enforced. No data leaves their infrastructure.
 - [x] Minimal tenant admin API — `POST /api/admin/tenants`, `GET /api/admin/tenants`, `PUT /api/admin/users/{id}/tenant` (2026-03-09)
 - [x] Tenant admin UI — `/admin/tenants`: list tenants, create, assign users, edit branding (2026-03-09)
 - [x] Per-tenant branding resolved at login, stored in session, applied in navbar (`brand_name` block) (2026-03-09)
-- [ ] Per-tenant branding applied across all templates (Phase 6D — requires threading through all structs)
-- [ ] Hosted B2B onboarding flow — create tenant → workspace → invite users (Phase 6D)
+- [x] Per-tenant branding applied across all pages via `GET /api/me/branding` + client-side JS (brand name + primary color) (2026-03-09)
+- [x] Hosted B2B onboarding: `tenant_invitations` table + invitation API + invite-by-email UI in admin page; OIDC login consumes invitation on first login (2026-03-09)
 
 **Result:** A company can be onboarded as a tenant on your platform. Their users
 see only their workspaces. White-label branding per tenant. Their end users consume

@@ -74,14 +74,28 @@
 
                 <!-- Users panel (hidden by default, shown on click) -->
                 <div id="users-{{ tenant.id }}" class="hidden mt-4 border-t border-base-300 pt-4">
+                    <!-- Current users -->
                     <div class="flex items-center justify-between mb-3">
                         <span class="text-sm font-semibold text-base-content/70">Users in this tenant</span>
                         <button onclick="openAssignModal('{{ tenant.id }}')" class="btn btn-xs btn-ghost gap-1">
-                            <i data-lucide="user-plus" class="w-3 h-3"></i> Assign user
+                            <i data-lucide="user-plus" class="w-3 h-3"></i> Assign existing user
                         </button>
                     </div>
-                    <div id="users-list-{{ tenant.id }}" class="space-y-2 text-sm">
+                    <div id="users-list-{{ tenant.id }}" class="space-y-2 text-sm mb-5">
                         <span class="text-base-content/40 italic">Loading...</span>
+                    </div>
+
+                    <!-- Pending invitations -->
+                    <div class="border-t border-base-300 pt-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-sm font-semibold text-base-content/70">Pending invitations</span>
+                            <button onclick="openInviteModal('{{ tenant.id }}')" class="btn btn-xs btn-ghost gap-1">
+                                <i data-lucide="mail-plus" class="w-3 h-3"></i> Invite by email
+                            </button>
+                        </div>
+                        <div id="invitations-list-{{ tenant.id }}" class="space-y-2 text-sm">
+                            <span class="text-base-content/40 italic">Loading...</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -149,6 +163,34 @@
         <div class="modal-action">
             <button onclick="document.getElementById('assign-modal').close()" class="btn btn-ghost">Cancel</button>
             <button onclick="assignUser()" class="btn btn-primary" id="assign-btn">Assign</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Invite User Modal -->
+<dialog id="invite-modal" class="modal">
+    <div class="modal-box max-w-md">
+        <h3 class="font-bold text-lg mb-2">Invite User by Email</h3>
+        <p class="text-sm text-base-content/60 mb-5">
+            When this email address logs in via OIDC for the first time, they will be
+            automatically assigned to this tenant.
+        </p>
+
+        <div id="invite-error" class="alert alert-error mb-4 hidden">
+            <span id="invite-error-msg"></span>
+        </div>
+
+        <div class="form-control mb-6">
+            <label class="label py-1"><span class="label-text font-semibold">Email address <span class="text-error">*</span></span></label>
+            <input type="email" id="invite-email" class="input input-bordered w-full"
+                   placeholder="user@company.com" />
+        </div>
+
+        <input type="hidden" id="invite-tenant-id" />
+        <div class="modal-action">
+            <button onclick="document.getElementById('invite-modal').close()" class="btn btn-ghost">Cancel</button>
+            <button onclick="sendInvite()" class="btn btn-primary" id="invite-btn">Send Invitation</button>
         </div>
     </div>
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
@@ -246,20 +288,21 @@ async function createTenant() {
 
 async function loadUsers(tenantId) {
     const panel = document.getElementById('users-' + tenantId);
-    const listEl = document.getElementById('users-list-' + tenantId);
-
     if (!panel.classList.contains('hidden')) {
         panel.classList.add('hidden');
         return;
     }
     panel.classList.remove('hidden');
+    await Promise.all([refreshUsers(tenantId), refreshInvitations(tenantId)]);
+}
 
+async function refreshUsers(tenantId) {
+    const listEl = document.getElementById('users-list-' + tenantId);
     try {
         const res = await fetch('/api/admin/tenants/' + tenantId + '/users');
         const users = await res.json();
-
         if (users.length === 0) {
-            listEl.innerHTML = '<span class="text-base-content/40 italic">No users assigned to this tenant.</span>';
+            listEl.innerHTML = '<span class="text-base-content/40 italic">No users assigned yet.</span>';
         } else {
             listEl.innerHTML = users.map(u => `
                 <div class="flex items-center justify-between py-1.5 px-3 bg-base-200 rounded-lg">
@@ -267,11 +310,37 @@ async function loadUsers(tenantId) {
                         <span class="font-medium">${u.name || u.email}</span>
                         <span class="text-base-content/50 text-xs ml-2">${u.email}</span>
                     </div>
-                    <code class="text-xs text-base-content/40 font-mono hidden sm:block">${u.user_id}</code>
+                    <code class="text-xs text-base-content/40 font-mono hidden sm:block truncate max-w-[12rem]">${u.user_id}</code>
                 </div>`).join('');
         }
     } catch (e) {
         listEl.innerHTML = '<span class="text-error text-xs">Failed to load users.</span>';
+    }
+}
+
+async function refreshInvitations(tenantId) {
+    const listEl = document.getElementById('invitations-list-' + tenantId);
+    try {
+        const res = await fetch('/api/admin/tenants/' + tenantId + '/invitations');
+        const invitations = await res.json();
+        if (invitations.length === 0) {
+            listEl.innerHTML = '<span class="text-base-content/40 italic">No pending invitations.</span>';
+        } else {
+            listEl.innerHTML = invitations.map(inv => `
+                <div class="flex items-center justify-between py-1.5 px-3 bg-base-200 rounded-lg">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="mail" class="w-3.5 h-3.5 text-base-content/40"></i>
+                        <span class="text-sm">${inv.email}</span>
+                    </div>
+                    <button onclick="deleteInvitation('${tenantId}', '${inv.email}', this)"
+                            class="btn btn-xs btn-ghost text-error gap-1">
+                        <i data-lucide="x" class="w-3 h-3"></i>
+                    </button>
+                </div>`).join('');
+            lucide.createIcons();
+        }
+    } catch (e) {
+        listEl.innerHTML = '<span class="text-error text-xs">Failed to load invitations.</span>';
     }
 }
 
@@ -280,6 +349,70 @@ function openAssignModal(tenantId) {
     document.getElementById('assign-user-id').value = '';
     document.getElementById('assign-error').classList.add('hidden');
     document.getElementById('assign-modal').showModal();
+}
+
+function openInviteModal(tenantId) {
+    document.getElementById('invite-tenant-id').value = tenantId;
+    document.getElementById('invite-email').value = '';
+    document.getElementById('invite-error').classList.add('hidden');
+    document.getElementById('invite-modal').showModal();
+}
+
+async function sendInvite() {
+    const tenantId = document.getElementById('invite-tenant-id').value;
+    const email = document.getElementById('invite-email').value.trim();
+    const errEl = document.getElementById('invite-error');
+    const errMsg = document.getElementById('invite-error-msg');
+    errEl.classList.add('hidden');
+
+    if (!email) {
+        errMsg.textContent = 'Email is required.';
+        errEl.classList.remove('hidden');
+        return;
+    }
+
+    const btn = document.getElementById('invite-btn');
+    btn.disabled = true; btn.textContent = 'Sending...';
+
+    try {
+        const res = await fetch('/api/admin/tenants/' + tenantId + '/invitations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+        });
+        if (res.status === 201) {
+            document.getElementById('invite-modal').close();
+            showToast('Invitation created. User will be assigned on next login.', 'success');
+            const panel = document.getElementById('users-' + tenantId);
+            if (!panel.classList.contains('hidden')) refreshInvitations(tenantId);
+        } else {
+            errMsg.textContent = 'Failed to create invitation.';
+            errEl.classList.remove('hidden');
+        }
+    } catch (e) {
+        errMsg.textContent = 'Network error: ' + e.message;
+        errEl.classList.remove('hidden');
+    }
+    btn.disabled = false; btn.textContent = 'Send Invitation';
+}
+
+async function deleteInvitation(tenantId, email, btn) {
+    btn.disabled = true;
+    try {
+        const res = await fetch('/api/admin/tenants/' + tenantId + '/invitations/' + encodeURIComponent(email), {
+            method: 'DELETE',
+        });
+        if (res.status === 204) {
+            showToast('Invitation removed.', 'success');
+            refreshInvitations(tenantId);
+        } else {
+            showToast('Failed to remove invitation.', 'error');
+            btn.disabled = false;
+        }
+    } catch (e) {
+        showToast('Network error.', 'error');
+        btn.disabled = false;
+    }
 }
 
 async function assignUser() {
@@ -310,9 +443,7 @@ async function assignUser() {
             // Refresh the users panel if open
             const panel = document.getElementById('users-' + tenantId);
             if (!panel.classList.contains('hidden')) {
-                panel.classList.add('hidden');
-                loadUsers(tenantId);
-            }
+                refreshUsers(tenantId);
         } else if (res.status === 404) {
             errMsg.textContent = 'User not found.';
             errEl.classList.remove('hidden');

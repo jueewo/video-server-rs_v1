@@ -29,6 +29,34 @@
         </style>
 
         {% block extra_head %}{% endblock %}
+
+        <!-- Per-tenant branding: applied client-side so all pages benefit without template changes -->
+        <script>
+            (function () {
+                fetch('/api/me/branding', { credentials: 'same-origin' })
+                    .then(r => r.ok ? r.json() : null)
+                    .then(b => {
+                        if (!b) return;
+                        if (b.name) {
+                            document.querySelectorAll('.brand-name-text').forEach(el => {
+                                el.textContent = b.name;
+                            });
+                        }
+                        if (b.primary_color && /^#[0-9a-fA-F]{6}$/.test(b.primary_color)) {
+                            // Inject primary color as a CSS variable override
+                            const style = document.createElement('style');
+                            style.textContent = ':root { --brand-primary: ' + b.primary_color + '; }';
+                            document.head.appendChild(style);
+                            // Apply to DaisyUI primary buttons and accents
+                            document.querySelectorAll('.btn-primary').forEach(el => {
+                                el.style.setProperty('background-color', b.primary_color, 'important');
+                                el.style.setProperty('border-color', b.primary_color, 'important');
+                            });
+                        }
+                    })
+                    .catch(() => {});
+            })();
+        </script>
     </head>
     <body class="bg-base-100 min-h-screen flex flex-col">
         <!-- Navbar -->

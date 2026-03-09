@@ -536,6 +536,33 @@ pub async fn oidc_callback_handler(
         );
     }
 
+    // Check for tenant invitation on first login (email-based, consumed on use)
+    if let Ok(Some(invited_tenant)) =
+        sqlx::query_scalar::<_, String>(
+            "SELECT tenant_id FROM tenant_invitations WHERE email = ? LIMIT 1",
+        )
+        .bind(&email)
+        .fetch_optional(&state.pool)
+        .await
+    {
+        // Assign user to the invited tenant and consume the invitation
+        let _ = sqlx::query("UPDATE users SET tenant_id = ? WHERE id = ?")
+            .bind(&invited_tenant)
+            .bind(&user_id)
+            .execute(&state.pool)
+            .await;
+        let _ = sqlx::query("DELETE FROM tenant_invitations WHERE email = ?")
+            .bind(&email)
+            .execute(&state.pool)
+            .await;
+        info!(
+            event = "invitation_accepted",
+            user_id = %user_id,
+            tenant_id = %invited_tenant,
+            "User assigned to tenant via invitation"
+        );
+    }
+
     // Resolve tenant_id for this user (set by admin on user row; defaults to 'platform')
     let tenant_id: String = sqlx::query_scalar("SELECT tenant_id FROM users WHERE id = ?")
         .bind(&user_id)

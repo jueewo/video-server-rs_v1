@@ -2961,6 +2961,145 @@ pub async fn tenant_admin_page(
 }
 
 // ============================================================================
+// Tenant Invitation API + Branding endpoint
+// ============================================================================
+
+#[derive(Deserialize)]
+pub struct InviteUserRequest {
+    pub email: String,
+}
+
+#[derive(Serialize)]
+pub struct InvitationResponse {
+    pub email: String,
+    pub tenant_id: String,
+    pub invited_at: String,
+}
+
+#[derive(Serialize)]
+pub struct BrandingResponse {
+    pub name: String,
+    pub logo: String,
+    pub primary_color: String,
+    pub support_email: String,
+}
+
+pub async fn create_invitation_handler(
+    Path(tenant_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(req): Json<InviteUserRequest>,
+) -> Result<StatusCode, StatusCode> {
+    require_auth(&session).await?;
+
+    let email = req.email.trim().to_lowercase();
+    if email.is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    sqlx::query(
+        "INSERT OR IGNORE INTO tenant_invitations (email, tenant_id) VALUES (?, ?)",
+    )
+    .bind(&email)
+    .bind(&tenant_id)
+    .execute(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(StatusCode::CREATED)
+}
+
+pub async fn list_invitations_handler(
+    Path(tenant_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+) -> Result<Json<Vec<InvitationResponse>>, StatusCode> {
+    require_auth(&session).await?;
+
+    let rows: Vec<(String, String, String)> = sqlx::query_as(
+        "SELECT email, tenant_id, invited_at FROM tenant_invitations WHERE tenant_id = ? ORDER BY invited_at DESC",
+    )
+    .bind(&tenant_id)
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(
+        rows.into_iter()
+            .map(|(email, tid, invited_at)| InvitationResponse {
+                email,
+                tenant_id: tid,
+                invited_at,
+            })
+            .collect(),
+    ))
+}
+
+pub async fn delete_invitation_handler(
+    Path((tenant_id, email)): Path<(String, String)>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+) -> Result<StatusCode, StatusCode> {
+    require_auth(&session).await?;
+
+    let decoded_email = urlencoding::decode(&email)
+        .map(|s| s.into_owned())
+        .unwrap_or(email);
+
+    sqlx::query(
+        "DELETE FROM tenant_invitations WHERE email = ? AND tenant_id = ?",
+    )
+    .bind(&decoded_email)
+    .bind(&tenant_id)
+    .execute(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// GET /api/me/branding — returns the current user's tenant branding from session.
+/// Used by the client-side branding script to apply brand name + colors globally.
+pub async fn me_branding_handler(
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+) -> Result<Json<BrandingResponse>, StatusCode> {
+    let tenant_id: String = session
+        .get("tenant_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "platform".to_string());
+
+    let branding_json: Option<String> =
+        sqlx::query_scalar("SELECT branding FROM tenants WHERE id = ?")
+            .bind(&tenant_id)
+            .fetch_optional(&state.pool)
+            .await
+            .unwrap_or_default()
+            .flatten();
+
+    let branding: serde_json::Value = branding_json
+        .and_then(|j| serde_json::from_str(&j).ok())
+        .unwrap_or(serde_json::Value::Object(Default::default()));
+
+    let str_field = |key: &str| -> String {
+        branding
+            .get(key)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string()
+    };
+
+    Ok(Json(BrandingResponse {
+        name: str_field("name"),
+        logo: str_field("logo"),
+        primary_color: str_field("primary_color"),
+        support_email: str_field("support_email"),
+    }))
+}
+
+// ============================================================================
 // Router
 // ============================================================================
 
@@ -3117,5 +3256,16 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         )
         // Tenant admin UI page
         .route("/admin/tenants", get(tenant_admin_page))
+        // Tenant invitation API
+        .route(
+            "/api/admin/tenants/{tenant_id}/invitations",
+            get(list_invitations_handler).post(create_invitation_handler),
+        )
+        .route(
+            "/api/admin/tenants/{tenant_id}/invitations/{email}",
+            delete(delete_invitation_handler),
+        )
+        // Current user branding (public, no auth required — returns empty if unauthenticated)
+        .route("/api/me/branding", get(me_branding_handler))
         .with_state(state)
 }

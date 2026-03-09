@@ -11,7 +11,7 @@
   name: Course Viewer
   subtitle: Learning management
   description: Browse and take interactive courses with lessons, quizzes, and progress tracking.
-  url: /course-viewer
+  url: /course
   color: secondary
   icon: book
   status: available

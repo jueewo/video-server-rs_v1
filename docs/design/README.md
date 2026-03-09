@@ -18,12 +18,6 @@ Documentation about **how the system is designed** - architecture patterns, desi
   - Design rationale and trade-offs
 
 ### Feature Design
-- **[TAGGING_SYSTEM_SUMMARY.md](TAGGING_SYSTEM_SUMMARY.md)** - Tagging system architecture
-  - Many-to-many relationships
-  - Tag categories and hierarchies
-  - Cross-resource tagging
-  - Search implementation
-
 - **[GROUP_ACCESS_CODES.md](GROUP_ACCESS_CODES.md)** - Group access control design
   - Group-level access codes
   - 4-layer access control model

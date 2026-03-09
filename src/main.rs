@@ -142,10 +142,10 @@ use access_control::AccessControlService;
 use access_groups;
 use api_keys::{middleware::api_key_or_session_auth, routes::api_key_routes};
 use common::request_id::request_id_middleware;
-use app_publisher::{app_publisher_routes, AppPublisherState};
-use js_tool_viewer::{js_tool_viewer_routes, JsToolViewerState};
+#[cfg(feature = "apps")]
+use workspace_apps::workspace_app_routes;
+use workspace_renderers;
 use docs_viewer::{docs_routes, markdown::MarkdownRenderer, DocsState};
-use gallery3d;
 use rate_limiter::RateLimitConfig;
 use user_auth::{auth_routes, AuthState, OidcConfig};
 use vault_manager::{vault_routes, VaultManagerState};
@@ -159,13 +159,11 @@ use media_manager::{
 #[cfg(feature = "media")]
 use video_manager::{rtmp_publish_token, video_routes, VideoManagerState};
 #[cfg(feature = "media")]
-use media_viewer::{gallery_routes, MediaViewerRenderer, MediaViewerState};
+use media_viewer::{gallery_routes, MediaViewerState};
 
 #[cfg(feature = "course")]
-use course::{course_routes, CourseFolderRenderer, CourseState};
+use course::{course_routes, CourseState};
 
-#[cfg(feature = "bpmn")]
-use bpmn_viewer::BpmnFolderRenderer;
 
 // -------------------------------
 // Production Secret Validation (TD-001)
@@ -989,14 +987,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Initialize Workspace Manager State
     let mut workspace_state = WorkspaceManagerState::new(pool.clone(), user_storage.clone());
-    #[cfg(feature = "bpmn")]
-    workspace_state.register_renderer(Arc::new(BpmnFolderRenderer));
-    #[cfg(feature = "media")]
-    workspace_state.register_renderer(Arc::new(MediaViewerRenderer { pool: pool.clone() }));
-    #[cfg(feature = "course")]
-    workspace_state.register_renderer(Arc::new(CourseFolderRenderer {
-        storage: (*user_storage).clone(),
-    }));
+    workspace_renderers::register_all(&mut workspace_state, pool.clone(), (*user_storage).clone());
     let workspace_state = Arc::new(workspace_state);
 
     // Initialize Access Control Service with audit logging enabled
@@ -1046,19 +1037,8 @@ async fn main() -> anyhow::Result<()> {
     #[cfg(feature = "media")]
     println!("🖼️  Media Viewer (gallery) initialized");
 
-    // Initialize JS Tool Viewer state
-    let js_tool_state = Arc::new(JsToolViewerState {
-        pool: pool.clone(),
-        storage_base: storage_dir.clone(),
-    });
-    println!("🧰 JS Tool Viewer initialized");
-
-    // Initialize App Publisher state
-    let app_publisher_state = Arc::new(AppPublisherState {
-        pool: pool.clone(),
-        storage_base: storage_dir.clone(),
-    });
-    println!("🚀 App Publisher initialized");
+    #[cfg(feature = "apps")]
+    println!("🧰 JS Tool Viewer + App Publisher + 3D Gallery initialized");
 
     // Load branding and deployment configuration
     let app_config = AppConfig::load();
@@ -1252,10 +1232,11 @@ async fn main() -> anyhow::Result<()> {
     #[cfg(feature = "course")]
     let app = app.merge(course_routes(course_state));
 
+    // ── Apps feature (js-tool-viewer, app-publisher, 3d-gallery) ─────────────
+    #[cfg(feature = "apps")]
+    let app = app.merge(workspace_app_routes(pool.clone(), storage_dir.clone()));
+
     let app = app
-        .merge(js_tool_viewer_routes(js_tool_state))
-        // App publisher (publish workspace folders as public apps)
-        .merge(app_publisher_routes(app_publisher_state))
         // Documentation viewer (markdown preview)
         .nest(
             "/docs",
@@ -1276,7 +1257,6 @@ async fn main() -> anyhow::Result<()> {
                     api_key_or_session_auth,
                 )),
         )
-        .merge(gallery3d::router(Arc::new(pool.clone())))
         // Serve static CSS and assets (excluding 3d-gallery which is handled by gallery3d router)
         .route("/static/{*path}", get(serve_static_excluding_gallery))
         // Apply middleware

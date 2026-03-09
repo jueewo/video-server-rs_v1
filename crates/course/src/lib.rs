@@ -76,9 +76,22 @@ struct CourseFolderTemplate {
 
 // ── Query params ──────────────────────────────────────────────────────────────
 
+#[derive(Template)]
+#[template(path = "course/enter_code.html")]
+struct EnterCodeTemplate {
+    authenticated: bool,
+}
+
+#[derive(Template)]
+#[template(path = "course/not_found.html")]
+struct CodeNotFoundTemplate {
+    authenticated: bool,
+    code: String,
+}
+
 #[derive(Deserialize)]
 struct CourseQuery {
-    code: String,
+    code: Option<String>,
     /// workspace_id of the specific folder to view (disambiguates when a code
     /// covers multiple course folders).
     workspace_id: Option<String>,
@@ -95,6 +108,17 @@ async fn course_viewer_handler(
     Query(q): Query<CourseQuery>,
     State(state): State<Arc<CourseState>>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    // No code provided — show landing page with entry form
+    let code = match q.code.as_deref() {
+        Some(c) if !c.is_empty() => c.to_string(),
+        _ => {
+            let html = EnterCodeTemplate { authenticated: false }
+                .render()
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            return Ok(Html(html));
+        }
+    };
+
     // Fetch all non-vault (course/docs) folder grants for this code
     let grants: Vec<(String, String)> = sqlx::query_as(
         "SELECT f.workspace_id, f.folder_path
@@ -105,13 +129,16 @@ async fn course_viewer_handler(
            AND f.vault_id IS NULL
          ORDER BY f.folder_path",
     )
-    .bind(&q.code)
+    .bind(&code)
     .fetch_all(&state.pool)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     if grants.is_empty() {
-        return Err(StatusCode::NOT_FOUND);
+        let html = CodeNotFoundTemplate { authenticated: false, code: code.clone() }
+            .render()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        return Ok(Html(html));
     }
 
     // Resolve which folder to show
@@ -140,7 +167,7 @@ async fn course_viewer_handler(
                 description: cs.and_then(|c| c.description),
             });
         }
-        let tmpl = CourseSelectTemplate { authenticated: false, code: q.code.clone(), courses };
+        let tmpl = CourseSelectTemplate { authenticated: false, code: code.clone(), courses };
         let html = tmpl.render().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         return Ok(Html(html));
     };
@@ -173,7 +200,7 @@ async fn course_viewer_handler(
     let tmpl = CourseViewerTemplate {
         authenticated: false,
         course,
-        code: q.code.clone(),
+        code: code.clone(),
         workspace_id,
         folder_path,
         active_lesson_path,

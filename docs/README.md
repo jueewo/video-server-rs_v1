@@ -70,7 +70,6 @@ a code unlocks one or more folders. No user account needed for consumers.
 | `WORKSPACE_ACCESS_CODES.md` | Access code system design and lifecycle |
 | `ACCESS_CODES.md` | Access code landscape (item codes vs folder codes) |
 | `media-server-folder-type.md` | How the media-server folder type works |
-| `MENTAL_MODEL.md` | Core mental model for developers and power users |
 | `SWOT.md` | Competitive analysis |
 | `personas.md` | Target user personas |
 

@@ -19,12 +19,6 @@ This folder contains documentation for **end users** - how to use the media serv
   - Video metadata and tags
   - Access control
   
-- **[TAG_MANAGEMENT_GUIDE.md](TAG_MANAGEMENT_GUIDE.md)** - Organize with tags
-  - Creating and managing tags
-  - Tag categories
-  - Bulk tagging
-  - Search and filtering
-
 - **[RESOURCE_WORKFLOW_GUIDE.md](RESOURCE_WORKFLOW_GUIDE.md)** - Complete workflow guide
   - Upload process
   - Organization strategies
@@ -75,8 +69,6 @@ This folder contains documentation for **end users** - how to use the media serv
 ## 🔧 Technical References
 
 - **[FILESYSTEM_MOUNT.md](FILESYSTEM_MOUNT.md)** - File system configuration
-- **[VIDEO_THUMBNAIL_FIX.md](VIDEO_THUMBNAIL_FIX.md)** - Thumbnail troubleshooting
-- **[LEGACY_MANAGERS_DEACTIVATION.md](LEGACY_MANAGERS_DEACTIVATION.md)** - Legacy system info
 
 ## 🎯 By Use Case
 
@@ -87,8 +79,7 @@ This folder contains documentation for **end users** - how to use the media serv
 2. Learn about sharing in [ACCESS_CODE_DECISION_GUIDE.md](ACCESS_CODE_DECISION_GUIDE.md)
 
 **Organize my content**
-1. Start with [TAG_MANAGEMENT_GUIDE.md](TAG_MANAGEMENT_GUIDE.md)
-2. Follow best practices in [RESOURCE_WORKFLOW_GUIDE.md](RESOURCE_WORKFLOW_GUIDE.md)
+1. Follow best practices in [RESOURCE_WORKFLOW_GUIDE.md](RESOURCE_WORKFLOW_GUIDE.md)
 
 **Set up team collaboration**
 1. Read [GROUP_OWNERSHIP_EXPLAINED.md](GROUP_OWNERSHIP_EXPLAINED.md)

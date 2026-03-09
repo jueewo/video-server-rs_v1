@@ -1,0 +1,12 @@
+[package]
+name = "workspace-renderers"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bpmn-viewer    = { path = "../bpmn-viewer" }
+media-viewer   = { path = "../media-viewer" }
+course         = { path = "../course" }
+workspace-manager = { path = "../workspace-manager" }
+common         = { path = "../common" }
+sqlx           = { workspace = true }

@@ -1,7 +1,7 @@
 # UI Template Consolidation Audit
 
-**Last Updated:** 2025  
-**Status:** 🔄 In Progress — Batch 2 Complete, Batch 3 Next  
+**Last Updated:** 2026
+**Status:** ✅ Complete — All 4 batches done (see archived `UI_UPDATE_DONE.md` for batch-by-batch detail)
 **Related TD Item:** [TD-013 — UI component governance and design tokens](../audit/TECHNICAL_DEBT_BACKLOG.md)  
 **Component Reference:** [COMPONENT_QUICK_REFERENCE.md](./COMPONENT_QUICK_REFERENCE.md)  
 **Demo Page:** `http://localhost:3000/dev/components`
@@ -102,14 +102,14 @@ Legend:
 | `3d-gallery/viewer.html` | ❌ | — | — | ❌ | Full-screen 3D viewer — intentionally standalone; documented exception |
 | **access-codes** | | | | | |
 | `codes/list.html` | ✅ | ✅ `page-header` component | ✅ uses `confirm-dialog` (callback mode) | ✅ | ✅ Batch 2.2 done |
-| `codes/detail.html` | ✅ | ❌ inline `<h1>` + status badge | ✅ uses `confirm-dialog` (callback mode) | ✅ | Batch 2 pending — see UI_UPDATE_DONE.md §B3 |
+| `codes/detail.html` | ✅ | ✅ `page-header` component | ✅ uses `confirm-dialog` (callback mode) | ✅ | ✅ Batch 2 done |
 | `codes/new.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2.2 done |
 | `codes/preview.html` | ✅ | ❌ inline `<h1>` | — | ✅ | Exception — centred hero layout; see Exceptions Register |
 | **access-groups** | | | | | |
 | `groups/list.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2.3 done |
-| `groups/detail.html` | ✅ | ❌ inline `<h1>` in header card | ❌ inline modal | ✅ | Batch 2 pending (Rust change needed) — see UI_UPDATE_DONE.md §C1 |
+| `groups/detail.html` | ✅ | ✅ `page-header` component | ✅ `confirm-dialog` | ✅ | ✅ Batch 2 + 3 done |
 | `groups/create.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2.3 done |
-| `groups/settings.html` | ✅ | ✅ `page-header` component | ❌ inline modals | ✅ | Page-header done ✅; modals deferred to Batch 3 |
+| `groups/settings.html` | ✅ | ✅ `page-header` component | ✅ `confirm-dialog` | ✅ | ✅ Batch 2 + 3 done |
 | `invitations/accept.html` | ✅ | ❌ inline `<h1>` | — | ✅ | Exception — public centred card layout; see Exceptions Register |
 | **api-keys** | | | | | |
 | `api-keys/list.html` | ✅ | ✅ `page-header` component | ✅ uses `confirm-dialog` | ✅ | ✅ Batch 2.4 done |
@@ -117,39 +117,39 @@ Legend:
 | `api-keys/created.html` | ✅ | — | — | ✅ | Display-only success page — no page-header needed |
 | **docs-viewer** | | | | | |
 | `docs/index.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2.5 done |
-| `docs/upload.html` | ✅ | ❌ inline `<h1>` inside card body | — | ✅ | Batch 2 pending — see UI_UPDATE_DONE.md §A2 |
-| `docs/view.html` | ✅ | ❌ inline `<h1>` inside card body | — | ⚠️ has markdown renderer styles | Batch 2 pending — see UI_UPDATE_DONE.md §B1; styles are keeper |
-| `docs/editor.html` | ✅ | ❌ inline `<h1>` inside card | — | ⚠️ Monaco editor styles | Batch 2 pending (Rust change needed) — see UI_UPDATE_DONE.md §C2 |
+| `docs/upload.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2 done |
+| `docs/view.html` | ✅ | ✅ `page-header` component | — | ⚠️ markdown renderer styles (page-specific, kept) | ✅ Batch 2 done |
+| `docs/editor.html` | ✅ | ✅ `page-header` component | — | ⚠️ Monaco editor styles (page-specific, kept) | ✅ Batch 2 done |
 | **media-manager** | | | | | |
-| `media_list_tailwind.html` | ✅ | ✅ `page-header` component | ❌ inline `<dialog id="edit_modal">` + native `confirm()` | ✅ | Page-header done ✅; modals deferred to Batch 3.4 |
+| `media_list_tailwind.html` | ✅ | ✅ `page-header` component | ✅ `confirm-dialog` (native `<dialog>` for edit form kept) | ✅ | ✅ Batch 2 + 3 done |
 | `media/detail.html` | ✅ | ❌ `<h1>` is `card-title` | — | ✅ | Exception — media item title inside display card; not a page-level header; see Exceptions Register |
-| `media/markdown_view.html` | ✅ | ❌ inline `<h1>` inside card | — | ✅ | Batch 2 pending — see UI_UPDATE_DONE.md §B2 |
-| `media_upload.html` | ✅ | ⚠️ inline `.page-header-title` (not using `{% include %}`) | — | ⚠️ upload-specific CSS in `extra_head` | Batch 2 pending — see UI_UPDATE_DONE.md §A3 |
+| `media/markdown_view.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2 done |
+| `media_upload.html` | ✅ | ✅ `page-header` component | — | ⚠️ upload-specific CSS in `extra_head` (page-specific, kept) | ✅ Batch 2 done |
 | **user-auth** | | | | | |
 | `auth/login.html` | ✅ | ❌ inline `<h1>` | — | ✅ | Exception — centred card layout (see Exceptions Register); Batch 4 empty-state candidate |
 | `auth/profile.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2.8 done |
-| `auth/error.html` | ✅ | ❌ inline `<h1>` in card | — | ✅ | Batch 4 — empty-state candidate |
-| `auth/already_logged_in.html` | ✅ | ❌ inline `<h1>` in card | — | ✅ | Batch 4 — empty-state candidate |
-| `auth/emergency_login.html` | ✅ | ❌ inline `<h1>` in card | — | ✅ | Has a form — keep card layout; Batch 4 review |
-| `auth/emergency_success.html` | ✅ | ❌ inline `<h1>` in card | — | ✅ | Batch 4 — empty-state candidate |
-| `auth/emergency_failed.html` | ✅ | ❌ inline `<h1>` in card | — | ✅ | Batch 4 — empty-state candidate |
+| `auth/error.html` | ✅ | ❌ | — | ✅ | Exception — dynamic reason/detail; DaisyUI alert preferred over empty-state |
+| `auth/already_logged_in.html` | ✅ | ❌ | — | ✅ | Exception — centred card family; clean DaisyUI already |
+| `auth/emergency_login.html` | ✅ | ❌ | — | ✅ | Exception — has a form; card layout intentional |
+| `auth/emergency_success.html` | ✅ | ❌ | — | ✅ | Exception — auto-redirect + spinner; layout incompatible with empty-state |
+| `auth/emergency_failed.html` | ✅ | ❌ | — | ✅ | Exception — DaisyUI error alert provides better UX context |
 | **vault-manager** | | | | | |
 | `vaults/list.html` | ✅ | ✅ `page-header` component | ✅ `confirm-dialog` component | ✅ | ✅ Batch 2.7 done — local `<style>` block removed |
 | `vaults/new.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2.7 done |
 | **video-manager** | | | | | |
 | `videos/list-tailwind.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2.1 done — title/subtitle from struct fields |
 | `videos/new.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2.1 done |
-| `videos/edit.html` | ✅ | ✅ `page-header` component | ❌ inline Alpine modal (`showDeleteModal`) | ✅ | Page-header done ✅; modal deferred to Batch 3.1 |
+| `videos/edit.html` | ✅ | ✅ `page-header` component | ✅ `confirm-dialog` | ✅ | ✅ Batch 2 + 3 done |
 | `videos/player.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2.1 done — public/private badge in `.page-header-actions` |
 | `videos/upload-enhanced.html` | ✅ | ❌ inline `<h1>` | — | ✅ | Exception — complex multi-step upload wizard (see Exceptions Register) |
-| `videos/live_test.html` | ✅ | ❌ inline `<h1>` | — | ✅ | Batch 2 pending — see UI_UPDATE_DONE.md §A1 |
-| `not_found.html` | ✅ | ❌ bare `<h1>` with inline style | — | ✅ | Batch 4 — empty-state candidate |
+| `videos/live_test.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2 done |
+| `not_found.html` | ✅ | — | — | ✅ | ✅ Batch 4 done — `empty-state` component |
 | **root templates** | | | | | |
 | `index-tailwind.html` | ✅ | ❌ hero `<h1>` | — | ✅ | Exception — DaisyUI hero layout; `page-header` doesn't belong in a hero section; see Exceptions Register |
 | `tags/cloud.html` | ✅ | ✅ `page-header` component | — | ⚠️ `.cloud-tag` styles in `extra_head` | ✅ Batch 2.9 done — cloud styles are page-specific, kept |
 | `tags/manage.html` | ✅ | ✅ `page-header` component | — | ✅ | ✅ Batch 2.9 done |
 | `demo.html` | ✅ | — | — | ✅ | |
-| `unauthorized.html` | ✅ | ❌ bare `<h1>` with undefined CSS classes | — | ✅ | Batch 4 — empty-state candidate |
+| `unauthorized.html` | ✅ | — | — | ✅ | ✅ Batch 4 done — `empty-state` component |
 | `dev/components.html` | ✅ | ✅ | ✅ | ✅ | **Reference template** — uses alert, empty-state, pagination, confirm-dialog |
 
 ---
@@ -165,9 +165,7 @@ Legend:
 | Templates with local `<style>` blocks (non-essential) | 1 | 43 | 2% |
 | Crates missing `askama.toml` (with templates) | 0 | 10 | 0% |
 
-**Key takeaway:** Base layer is 100% complete. Batch 2 is complete — all eligible
-templates migrated, 4 documented exceptions registered. Batch 3 (modal consolidation)
-is next. See [UI_UPDATE_DONE.md](./UI_UPDATE_DONE.md) for per-file instructions.
+**Key takeaway:** All 4 batches complete. Base layer 100%, page-header ~79%, confirm-dialog migrated for all destructive actions, empty-state applied to error/not-found pages. All exceptions documented below.
 
 ---
 
@@ -241,7 +239,7 @@ all render a message + optional action button — exactly the `empty-state` comp
 ## Consolidation Roadmap
 
 Work is ordered by impact and risk. Each batch can be done incrementally.
-**Detailed per-file instructions for all remaining work are in [UI_UPDATE_DONE.md](./UI_UPDATE_DONE.md).**
+**All batches complete. Batch-by-batch detail is in the archived `UI_UPDATE_DONE.md`.**
 
 ### Batch 1 — Quick wins, low risk ✅ COMPLETE
 **Goal:** Eliminate `window.confirm()` and fix the missing base template.

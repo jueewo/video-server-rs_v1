@@ -11,13 +11,12 @@
 //!
 //! 1. Create a crate (e.g. `crates/my-feature/`)
 //! 2. Implement [`FolderTypeRenderer`] in that crate
-//! 3. Register it in `main.rs`:
-//!    ```ignore
-//!    workspace_state.register_renderer(Arc::new(MyFeatureRenderer::new(my_state)));
-//!    ```
+//! 3. Add it as a dep in `crates/workspace-renderers/Cargo.toml` and call
+//!    `state.register_renderer(Arc::new(MyFeatureRenderer::new(...)))` in
+//!    `workspace_renderers::register_all`. `main.rs` does not need to change.
 //! 4. Add a `my-feature.yaml` to `storage/folder-type-registry/`
 //!
-//! No changes to `workspace-manager` are required.
+//! No changes to `workspace-manager` or `main.rs` are required.
 //!
 //! # Dual-use crates
 //!

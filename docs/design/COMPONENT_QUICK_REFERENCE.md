@@ -431,4 +431,4 @@ components go in `templates/components/`.
 
 **Related docs:**
 - `UI_TEMPLATE_AUDIT.md` — full audit plan and exceptions register
-- `UI_UPDATE_DONE.md` — batch progress tracker and hand-off notes
+- `UI_UPDATE_DONE.md` — batch progress tracker (archived; all batches complete)

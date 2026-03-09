@@ -1064,10 +1064,8 @@ pub async fn update_folder_metadata(
 
     // Handle rename if new_name is provided
     if let Some(new_name) = &request.new_name {
-        if !new_name.is_empty() && new_name != &request.path {
-            let old_path = workspace_root.join(&request.path);
-
-            // Compute new path (same parent, new name)
+        if !new_name.is_empty() {
+            // Compute full new path (same parent directory, new leaf name)
             let new_path = if let Some(parent) = std::path::Path::new(&request.path).parent() {
                 if parent.as_os_str().is_empty() {
                     new_name.clone()
@@ -1078,6 +1076,9 @@ pub async fn update_folder_metadata(
                 new_name.clone()
             };
 
+            // Only rename if the resolved path actually differs from the current path
+            if new_path != request.path {
+            let old_path = workspace_root.join(&request.path);
             let new_path_abs = workspace_root.join(&new_path);
 
             // Check if new path already exists
@@ -1093,6 +1094,7 @@ pub async fn update_folder_metadata(
             })?;
 
             final_path = new_path;
+            } // end if new_path != request.path
         }
     }
 

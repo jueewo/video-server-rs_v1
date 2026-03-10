@@ -2,12 +2,25 @@
 {% block title %}My Apps{% endblock %}
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-5xl">
-    <div class="flex items-center justify-between mb-6">
+    <div class="page-header mb-8">
         <div>
-            <h1 class="text-2xl font-bold">My Apps</h1>
-            <p class="text-base-content/60 text-sm mt-1">Published apps from your workspaces</p>
+            <h1 class="page-header-title flex items-center gap-3">
+                <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl shrink-0"
+                      style="background: linear-gradient(135deg, #43e97b, #38f9d7); box-shadow: 0 4px 12px rgba(67,233,123,0.35);">
+                    <i data-lucide="rocket" class="w-5 h-5 text-white"></i>
+                </span>
+                <span class="text-gradient">Published Apps</span>
+            </h1>
+            <p class="page-header-subtitle">Published apps from your workspaces</p>
         </div>
-        <a href="/workspaces" class="btn btn-outline btn-sm">← Workspaces</a>
+        <div class="page-header-actions">
+            <a href="/apps" class="btn btn-ghost btn-sm gap-1">
+                <i data-lucide="layout-grid" class="w-4 h-4"></i> All Apps
+            </a>
+            <a href="/workspaces" class="btn btn-ghost btn-sm gap-1">
+                <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Workspaces
+            </a>
+        </div>
     </div>
 
     {% if apps.is_empty() %}

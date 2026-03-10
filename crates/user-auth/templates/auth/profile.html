@@ -2,9 +2,18 @@
 endblock %} {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-4xl">
     <!-- Page Header -->
-    {% let page_title = "My Profile" %} {% let page_subtitle = "Manage your
-    account and preferences" %}
-    <div class="page-header">{% include "components/page-header.html" %}</div>
+    <div class="page-header mb-8">
+        <div>
+            <h1 class="page-header-title flex items-center gap-3">
+                <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl shrink-0"
+                      style="background: linear-gradient(135deg, #a18cd1, #fbc2eb); box-shadow: 0 4px 12px rgba(161,140,209,0.35);">
+                    <i data-lucide="user" class="w-5 h-5 text-white"></i>
+                </span>
+                <span class="text-gradient">My Profile</span>
+            </h1>
+            <p class="page-header-subtitle">Manage your account and preferences</p>
+        </div>
+    </div>
 
     <!-- Profile Card -->
     <div class="card bg-base-200 shadow-xl mb-6">

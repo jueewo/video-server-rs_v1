@@ -4,15 +4,27 @@
 <div class="container mx-auto px-4 py-8 max-w-5xl">
 
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+    <div class="page-header mb-8">
         <div>
-            <h1 class="text-3xl font-bold">Folder Types</h1>
-            <p class="text-base-content/60 mt-1">Define special-purpose folder types and their metadata schemas</p>
+            <h1 class="page-header-title flex items-center gap-3">
+                <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl shrink-0"
+                      style="background: linear-gradient(135deg, #667eea, #764ba2); box-shadow: 0 4px 12px rgba(102,126,234,0.35);">
+                    <i data-lucide="folder-open" class="w-5 h-5 text-white"></i>
+                </span>
+                <span class="text-gradient">Folder Types</span>
+            </h1>
+            <p class="page-header-subtitle">Define special-purpose folder types and their metadata schemas</p>
         </div>
-        <button onclick="openCreateModal()" class="btn btn-primary gap-2">
-            <i data-lucide="plus" class="w-5 h-5"></i>
-            New Type
-        </button>
+        <div class="page-header-actions">
+            <a href="/workspaces" class="btn btn-ghost btn-sm gap-1">
+                <i data-lucide="layout-grid" class="w-4 h-4"></i> Workspaces
+            </a>
+            <button onclick="openCreateModal()" class="btn btn-sm gap-2 border-0 text-white font-semibold"
+                    style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                New Type
+            </button>
+        </div>
     </div>
 
     <!-- Type list -->
@@ -28,44 +40,73 @@
 
 <!-- Create / Edit Modal -->
 <dialog id="type-modal" class="modal">
-    <div class="modal-box max-w-3xl w-full">
-        <h3 id="modal-title" class="font-bold text-xl mb-5">New Folder Type</h3>
-
-        <!-- Basic fields -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <div class="form-control">
-                <label class="label pb-1"><span class="label-text font-medium">ID <span class="text-error">*</span></span></label>
-                <input id="ft-id" type="text" placeholder="e.g. my-type" class="input input-bordered input-sm" />
-                <label class="label pt-1"><span class="label-text-alt text-base-content/50">Lowercase, hyphens allowed. Cannot be changed after creation.</span></label>
-            </div>
-            <div class="form-control">
-                <label class="label pb-1"><span class="label-text font-medium">Name <span class="text-error">*</span></span></label>
-                <input id="ft-name" type="text" placeholder="e.g. My Custom Type" class="input input-bordered input-sm" />
-            </div>
-            <div class="form-control">
-                <label class="label pb-1"><span class="label-text font-medium">Icon</span></label>
-                <input id="ft-icon" type="text" placeholder="e.g. star, globe, bot" class="input input-bordered input-sm" />
-                <label class="label pt-1"><span class="label-text-alt text-base-content/50">Lucide icon name — preview: <span id="icon-preview">📁</span></span></label>
-            </div>
-            <div class="form-control">
-                <label class="label pb-1"><span class="label-text font-medium">Accent colour</span></label>
-                <div class="flex gap-2 items-center">
-                    <input id="ft-color" type="color" value="#607D8B" class="w-10 h-9 rounded border border-base-300 cursor-pointer p-0.5" />
-                    <input id="ft-color-text" type="text" value="#607D8B" class="input input-bordered input-sm flex-1" placeholder="#4CAF50" />
-                </div>
-            </div>
-            <div class="form-control sm:col-span-2">
-                <label class="label pb-1"><span class="label-text font-medium">Description</span></label>
-                <input id="ft-description" type="text" placeholder="Short description shown in the folder type dropdown" class="input input-bordered input-sm" />
-            </div>
-            <div class="form-control sm:col-span-2">
-                <label class="label pb-1"><span class="label-text font-medium">Git template URL <span class="text-base-content/50">(optional)</span></span></label>
-                <input id="ft-git-template" type="text" placeholder="https://github.com/example/template-repo" class="input input-bordered input-sm" />
-                <label class="label pt-1"><span class="label-text-alt text-base-content/50">When set, users can clone this repo into a new folder of this type.</span></label>
-            </div>
+    <div class="modal-box max-w-2xl w-full">
+        <div class="flex items-center justify-between mb-4">
+            <h3 id="modal-title" class="font-bold text-lg">New Folder Type</h3>
+            <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost">✕</button></form>
         </div>
 
-        <div class="divider text-sm">Metadata Schema</div>
+        <table class="w-full text-sm mb-4">
+            <colgroup><col class="w-36"><col></colgroup>
+            <tbody class="align-top">
+                <tr>
+                    <td class="py-2 pr-4 pt-3 text-base-content/70 font-medium whitespace-nowrap">ID <span class="text-error">*</span></td>
+                    <td class="py-2">
+                        <input id="ft-id" type="text" placeholder="my-type" class="input input-bordered input-sm w-full" />
+                        <label class="label pt-1"><span class="label-text-alt text-xs">Lowercase, hyphens. Fixed after creation.</span></label>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="py-2 pr-4 pt-3 text-base-content/70 font-medium whitespace-nowrap">Name <span class="text-error">*</span></td>
+                    <td class="py-2">
+                        <input id="ft-name" type="text" placeholder="My Custom Type" class="input input-bordered input-sm w-full" />
+                    </td>
+                </tr>
+                <tr>
+                    <td class="py-2 pr-4 pt-3 text-base-content/70 font-medium whitespace-nowrap">Icon</td>
+                    <td class="py-2">
+                        <div class="flex items-center gap-2">
+                            <div id="icon-swatch"
+                                 class="w-9 h-9 rounded-lg flex items-center justify-center border border-base-300 shrink-0"
+                                 style="background:#607D8B22; color:#607D8B">
+                                <i id="icon-preview" data-lucide="folder" class="w-5 h-5"></i>
+                            </div>
+                            <button type="button"
+                                    onclick="openIconPicker(document.getElementById('ft-icon').value, function(n){ document.getElementById('ft-icon').value = n; updateIconPreview(n); })"
+                                    class="btn btn-sm btn-outline gap-1">
+                                <i data-lucide="grid-2x2" class="w-3.5 h-3.5"></i> Pick
+                            </button>
+                            <input id="ft-icon" type="text" placeholder="folder" class="input input-bordered input-sm flex-1"
+                                   oninput="updateIconPreview(this.value)" />
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="py-2 pr-4 pt-3 text-base-content/70 font-medium whitespace-nowrap">Colour</td>
+                    <td class="py-2">
+                        <div class="flex gap-2 items-center">
+                            <input id="ft-color" type="color" value="#607D8B" class="w-9 h-9 rounded border border-base-300 cursor-pointer p-0.5 shrink-0" />
+                            <input id="ft-color-text" type="text" value="#607D8B" class="input input-bordered input-sm w-32" placeholder="#4CAF50" />
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="py-2 pr-4 pt-3 text-base-content/70 font-medium whitespace-nowrap">Description</td>
+                    <td class="py-2">
+                        <input id="ft-description" type="text" placeholder="Short description" class="input input-bordered input-sm w-full" />
+                    </td>
+                </tr>
+                <tr>
+                    <td class="py-2 pr-4 pt-3 text-base-content/70 font-medium whitespace-nowrap">Git template <span class="text-base-content/40 font-normal">(optional)</span></td>
+                    <td class="py-2">
+                        <input id="ft-git-template" type="text" placeholder="https://github.com/example/template-repo" class="input input-bordered input-sm w-full" />
+                        <label class="label pt-1"><span class="label-text-alt text-xs">When set, users can clone this repo into a new folder of this type.</span></label>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="divider text-xs my-2">Metadata Schema</div>
 
         <!-- Schema field list -->
         <div id="schema-fields" class="flex flex-col gap-2 mb-3">
@@ -84,16 +125,15 @@
 
 {% block extra_scripts %}
 <script>
-// ── Icon map ────────────────────────────────────────────────────────────────
-const ICON_EMOJI = {
-    'graduation-cap':'🎓','globe':'🌐','git-branch':'🔀','bot':'🤖',
-    'book-open':'📚','workflow':'📊','folder':'📁','file':'📄',
-    'star':'⭐','code':'💻','code-2':'</>','database':'🗄️','server':'🖥️',
-    'cloud':'☁️','settings':'⚙️','layers':'🗂️','zap':'⚡',
-    'terminal':'🖥️','cpu':'🔲','chart-bar':'📊','shield':'🛡️',
-    'play':'▶️',
-};
-function typeIcon(name) { return ICON_EMOJI[name] || '📁'; }
+function typeIconHtml(name, color) {
+    const icon = name || 'folder';
+    const bg = color ? color + '22' : '#607D8B22';
+    const fg = color || '#607D8B';
+    return `<div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                 style="background:${bg}; color:${fg}">
+                <i data-lucide="${escHtml(icon)}" class="w-5 h-5"></i>
+            </div>`;
+}
 
 // ── State ───────────────────────────────────────────────────────────────────
 let allTypes = [];
@@ -124,7 +164,7 @@ function renderList() {
         return;
     }
 
-    el.innerHTML = `<div class="flex flex-col gap-3">${allTypes.map(def => {
+    el.innerHTML = `<div class="flex flex-col gap-3" id="types-inner">${allTypes.map(def => {
         const fields = def.metadata_schema || [];
         const badges = fields.map(f =>
             `<span class="badge badge-neutral badge-sm">${escHtml(f.label)}</span>`
@@ -135,29 +175,33 @@ function renderList() {
         const appBadges = apps.map(a =>
             `<span class="badge badge-primary badge-sm" title="app: ${escHtml(a.url_template)}">▶ ${escHtml(a.label)}</span>`
         ).join('');
-        const dot = def.color
-            ? `<span class="inline-block w-3 h-3 rounded-full border border-base-300 flex-shrink-0" style="background:${escHtml(def.color)}"></span>` : '';
+        const colorBar = def.color
+            ? `style="border-left: 3px solid ${escHtml(def.color)}"` : '';
 
         return `
-        <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md transition-shadow">
-            <div class="card-body flex-row items-start gap-4 p-4">
-                <div class="text-4xl select-none">${typeIcon(def.icon)}</div>
+        <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md transition-shadow" ${colorBar}>
+            <div class="card-body flex-row items-center gap-4 p-4">
+                ${typeIconHtml(def.icon, def.color)}
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">
-                        <span class="font-bold text-lg">${escHtml(def.name)}</span>
-                        <code class="badge badge-ghost text-xs">${escHtml(def.id)}</code>
-                        ${dot}
+                        <span class="font-bold">${escHtml(def.name)}</span>
+                        <code class="badge badge-ghost badge-sm">${escHtml(def.id)}</code>
                     </div>
-                    <p class="text-base-content/60 text-sm mt-0.5">${escHtml(def.description || '')}</p>
-                    <div class="flex gap-1.5 mt-2 flex-wrap">${badges}${gitBadge}${appBadges}</div>
+                    ${def.description ? `<p class="text-base-content/60 text-sm mt-0.5">${escHtml(def.description)}</p>` : ''}
+                    ${(badges || gitBadge || appBadges) ? `<div class="flex gap-1.5 mt-2 flex-wrap">${badges}${gitBadge}${appBadges}</div>` : ''}
                 </div>
                 <div class="flex gap-2 flex-shrink-0">
-                    <button onclick="openEditModal('${escHtml(def.id)}')" class="btn btn-sm btn-ghost">Edit</button>
-                    <button onclick="deleteType('${escHtml(def.id)}', '${escHtml(def.name)}')" class="btn btn-sm btn-error btn-outline">Delete</button>
+                    <button onclick="openEditModal('${escHtml(def.id)}')" class="btn btn-sm btn-ghost gap-1">
+                        <i data-lucide="pencil" class="w-3.5 h-3.5"></i> Edit
+                    </button>
+                    <button onclick="deleteType('${escHtml(def.id)}', '${escHtml(def.name)}')" class="btn btn-sm btn-ghost btn-error gap-1">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
                 </div>
             </div>
         </div>`;
     }).join('')}</div>`;
+    lucide.createIcons();
 }
 
 // ── Modal helpers ────────────────────────────────────────────────────────────
@@ -206,6 +250,7 @@ function openEditModal(id) {
 
     document.getElementById('modal-title').textContent = `Edit — ${def.name}`;
     document.getElementById('modal-save-btn').textContent = 'Save';
+    syncSwatchColor();
     document.getElementById('type-modal').showModal();
 }
 
@@ -277,17 +322,31 @@ function removeSchemaRow(idx) {
 
 // ── Icon preview ─────────────────────────────────────────────────────────────
 function updateIconPreview(name) {
-    document.getElementById('icon-preview').textContent = typeIcon(name.trim());
+    const el = document.getElementById('icon-preview');
+    el.setAttribute('data-lucide', name.trim() || 'folder');
+    lucide.createIcons();
+    syncSwatchColor();
+}
+function syncSwatchColor() {
+    const color = document.getElementById('ft-color-text').value || '#607D8B';
+    const swatch = document.getElementById('icon-swatch');
+    if (swatch) {
+        swatch.style.background = color + '22';
+        swatch.style.color = color;
+    }
 }
 
 // ── Colour sync ───────────────────────────────────────────────────────────────
-document.getElementById('ft-icon').addEventListener('input', e => updateIconPreview(e.target.value));
 document.getElementById('ft-color').addEventListener('input', e => {
     document.getElementById('ft-color-text').value = e.target.value;
+    syncSwatchColor();
 });
 document.getElementById('ft-color-text').addEventListener('input', e => {
     const v = e.target.value;
-    if (/^#[0-9a-fA-F]{6}$/.test(v)) document.getElementById('ft-color').value = v;
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+        document.getElementById('ft-color').value = v;
+        syncSwatchColor();
+    }
 });
 
 // ── Collect schema from DOM ──────────────────────────────────────────────────

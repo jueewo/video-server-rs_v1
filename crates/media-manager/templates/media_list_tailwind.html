@@ -18,121 +18,169 @@
 
 <div class="container mx-auto px-4 py-8 max-w-7xl">
     <!-- Page Header -->
-    {% let page_title = "All Media" %}
-    {% let page_subtitle = "Unified view of videos, images, and documents" %}
-    <div class="page-header">
-        {% include "components/page-header.html" %}
+    <div class="page-header mb-6">
+        <div>
+            <h1 class="page-header-title flex items-center gap-3">
+                <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl shrink-0"
+                      style="background: linear-gradient(135deg, #f093fb, #f5576c); box-shadow: 0 4px 12px rgba(245,87,108,0.35);">
+                    <i data-lucide="film" class="w-5 h-5 text-white"></i>
+                </span>
+                <span class="text-gradient">Media</span>
+            </h1>
+            <p class="page-header-subtitle">Videos, images, and documents</p>
+        </div>
         <div class="page-header-actions">
-            <a href="/media/upload" class="btn btn-primary gap-2">
-                <i data-lucide="upload" class="w-5 h-5"></i>
-                Upload Media
+            {% if authenticated %}
+            <a href="/access/codes" class="btn btn-ghost btn-sm gap-1">
+                <i data-lucide="share-2" class="w-4 h-4"></i> Access Codes
+            </a>
+            <a href="/groups" class="btn btn-ghost btn-sm gap-1">
+                <i data-lucide="users" class="w-4 h-4"></i> Groups
+            </a>
+            <a href="/vaults" class="btn btn-ghost btn-sm gap-1">
+                <i data-lucide="package" class="w-4 h-4"></i> Vaults
+            </a>
+            {% endif %}
+            <!-- Filter button -->
+            <div class="relative" id="filter-container">
+                <button id="filter-btn" onclick="toggleMediaFilter()"
+                        class="btn btn-ghost btn-sm gap-1.5 border border-base-300">
+                    <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+                    Filter
+                    {% let filter_count = vault_filter.is_some() as u8 + tag_filter.is_some() as u8 + group_filter.is_some() as u8 + search_query.is_some() as u8 + current_filter.is_some() as u8 %}
+                    {% if filter_count > 0 %}
+                    <span class="badge badge-primary badge-xs">{{ filter_count }}</span>
+                    {% endif %}
+                </button>
+                <!-- Filter dropdown panel -->
+                <div id="media-filter-panel"
+                     class="hidden absolute right-0 top-full mt-2 w-[32rem] bg-base-100 border border-base-300 rounded-2xl shadow-2xl z-50 p-4">
+                    <form method="get" action="/media" id="media-filter-form">
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="font-semibold text-sm">Filter Media</span>
+                            <a href="/media" class="btn btn-ghost btn-xs text-base-content/50">Clear all</a>
+                        </div>
+
+                        <!-- Search -->
+                        <div class="mb-4">
+                            <label class="label pb-1 pt-0">
+                                <span class="label-text text-xs font-medium text-base-content/60 uppercase tracking-wide">Search</span>
+                            </label>
+                            <div class="relative">
+                                <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-base-content/40 pointer-events-none"></i>
+                                <input type="text" name="q" placeholder="Title, description, category, tags…"
+                                       value="{% match search_query %}{% when Some with (q) %}{{ q }}{% when None %}{% endmatch %}"
+                                       class="input input-sm input-bordered w-full pl-8 text-sm" />
+                            </div>
+                        </div>
+
+                        <!-- Type filter -->
+                        <div class="mb-4">
+                            <label class="label pb-1 pt-0">
+                                <span class="label-text text-xs font-medium text-base-content/60 uppercase tracking-wide">Type</span>
+                            </label>
+                            <div class="flex flex-wrap gap-1.5">
+                                <button type="submit" name="type_filter" value=""
+                                        class="btn btn-xs {% if current_filter.is_none() %}btn-primary{% else %}btn-ghost border border-base-300{% endif %}">
+                                    All ({{ total_count }})
+                                </button>
+                                <button type="submit" name="type_filter" value="video"
+                                        class="btn btn-xs {% match current_filter %}{% when Some with (f) %}{% if f == "video" %}btn-error{% else %}btn-ghost border border-base-300{% endif %}{% when None %}btn-ghost border border-base-300{% endmatch %}">
+                                    <i data-lucide="video" class="w-3 h-3"></i> Videos ({{ video_count }})
+                                </button>
+                                <button type="submit" name="type_filter" value="image"
+                                        class="btn btn-xs {% match current_filter %}{% when Some with (f) %}{% if f == "image" %}btn-success{% else %}btn-ghost border border-base-300{% endif %}{% when None %}btn-ghost border border-base-300{% endmatch %}">
+                                    <i data-lucide="image" class="w-3 h-3"></i> Images ({{ image_count }})
+                                </button>
+                                <button type="submit" name="type_filter" value="document"
+                                        class="btn btn-xs {% match current_filter %}{% when Some with (f) %}{% if f == "document" %}btn-info{% else %}btn-ghost border border-base-300{% endif %}{% when None %}btn-ghost border border-base-300{% endmatch %}">
+                                    <i data-lucide="file-text" class="w-3 h-3"></i> Documents ({{ document_count }})
+                                </button>
+                            </div>
+                        </div>
+
+                        {% if authenticated %}
+                        <!-- Vault / Tag / Group selectors -->
+                        {% if !all_vaults.is_empty() %}
+                        <div class="mb-3">
+                            <label class="label pb-1 pt-0">
+                                <span class="label-text text-xs font-medium text-base-content/60 uppercase tracking-wide">Vault</span>
+                            </label>
+                            <select name="vault_id" class="select select-bordered select-sm w-full">
+                                <option value="">All Vaults</option>
+                                {% for (vid, vname) in &all_vaults %}
+                                <option value="{{ vid }}" {% if vault_filter.as_deref() == Some(vid.as_str()) %}selected{% endif %}>{{ vname }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+
+                        {% if !all_tags.is_empty() %}
+                        <div class="mb-3">
+                            <label class="label pb-1 pt-0">
+                                <span class="label-text text-xs font-medium text-base-content/60 uppercase tracking-wide">Tag</span>
+                            </label>
+                            <select name="tag" class="select select-bordered select-sm w-full">
+                                <option value="">All Tags</option>
+                                {% for t in &all_tags %}
+                                <option value="{{ t }}" {% if tag_filter.as_deref() == Some(t.as_str()) %}selected{% endif %}>{{ t }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+
+                        {% if !all_groups.is_empty() %}
+                        <div class="mb-3">
+                            <label class="label pb-1 pt-0">
+                                <span class="label-text text-xs font-medium text-base-content/60 uppercase tracking-wide">Group</span>
+                            </label>
+                            <select name="group_id" class="select select-bordered select-sm w-full">
+                                <option value="">All Groups</option>
+                                {% for (gid, gname) in &all_groups %}
+                                <option value="{{ gid }}" {% if group_filter.as_deref() == Some(gid.as_str()) %}selected{% endif %}>{{ gname }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+                        {% endif %}
+
+                        <!-- Preserve sort params -->
+                        <input type="hidden" name="sort_by" value="{{ sort_by }}">
+                        <input type="hidden" name="sort_order" value="{{ sort_order }}">
+
+                        <div class="pt-3 border-t border-base-300 mt-1">
+                            <button type="submit" class="btn btn-primary btn-sm w-full gap-2">
+                                <i data-lucide="search" class="w-4 h-4"></i> Apply Filters
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <a href="/media/upload" class="btn btn-sm gap-2 border-0 text-white font-semibold"
+               style="background: linear-gradient(135deg, #f093fb, #f5576c);">
+                <i data-lucide="upload" class="w-4 h-4"></i>
+                Upload
             </a>
         </div>
     </div>
 
-    <!-- Search and Filters -->
-    <div class="card bg-base-100 shadow-xl mb-8">
-        <div class="card-body">
-            <!-- Search + Filters form (all filters travel together) -->
-            <form method="get" action="/media" id="media-filter-form">
-                <!-- Row 1: Search bar -->
-                <div class="join w-full mb-4">
-                    <input
-                        type="text"
-                        name="q"
-                        class="input input-bordered join-item flex-1"
-                        placeholder="Search title, description, category, tags…"
-                        value="{% match search_query %}{% when Some with (q) %}{{ q }}{% when None %}{% endmatch %}"
-                    />
-                    <button type="submit" class="btn btn-primary join-item">
-                        <i data-lucide="search" class="w-5 h-5"></i>
-                        Search
-                    </button>
-                </div>
-
-                <!-- Row 2: Type filter buttons (set hidden input + submit) -->
-                <div class="flex flex-wrap gap-2 mb-3 items-center">
-                    <span class="text-sm text-base-content/60 mr-1">Type:</span>
-                    <button type="submit" name="type_filter" value=""
-                            class="btn btn-sm {% if current_filter.is_none() %}btn-primary{% else %}btn-ghost{% endif %}">
-                        All ({{ total_count }})
-                    </button>
-                    <button type="submit" name="type_filter" value="video"
-                            class="btn btn-sm {% match current_filter %}{% when Some with (f) %}{% if f == "video" %}btn-error{% else %}btn-ghost{% endif %}{% when None %}btn-ghost{% endmatch %}">
-                        <i data-lucide="video" class="w-4 h-4"></i> Videos ({{ video_count }})
-                    </button>
-                    <button type="submit" name="type_filter" value="image"
-                            class="btn btn-sm {% match current_filter %}{% when Some with (f) %}{% if f == "image" %}btn-success{% else %}btn-ghost{% endif %}{% when None %}btn-ghost{% endmatch %}">
-                        <i data-lucide="image" class="w-4 h-4"></i> Images ({{ image_count }})
-                    </button>
-                    <button type="submit" name="type_filter" value="document"
-                            class="btn btn-sm {% match current_filter %}{% when Some with (f) %}{% if f == "document" %}btn-info{% else %}btn-ghost{% endif %}{% when None %}btn-ghost{% endmatch %}">
-                        <i data-lucide="file-text" class="w-4 h-4"></i> Documents ({{ document_count }})
-                    </button>
-                </div>
-
-                <!-- Row 3: Vault / Tag / Group selectors (authenticated only) -->
-                {% if authenticated %}
-                <div class="flex flex-wrap gap-3 mb-3 items-center">
-                    <span class="text-sm text-base-content/60">Filter by:</span>
-
-                    {% if !all_vaults.is_empty() %}
-                    <select name="vault_id" class="select select-bordered select-sm" onchange="document.getElementById('media-filter-form').submit()">
-                        <option value="">All Vaults</option>
-                        {% for (vid, vname) in &all_vaults %}
-                        <option value="{{ vid }}" {% if vault_filter.as_deref() == Some(vid.as_str()) %}selected{% endif %}>{{ vname }}</option>
-                        {% endfor %}
-                    </select>
-                    {% endif %}
-
-                    {% if !all_tags.is_empty() %}
-                    <select name="tag" class="select select-bordered select-sm" onchange="document.getElementById('media-filter-form').submit()">
-                        <option value="">All Tags</option>
-                        {% for t in &all_tags %}
-                        <option value="{{ t }}" {% if tag_filter.as_deref() == Some(t.as_str()) %}selected{% endif %}>{{ t }}</option>
-                        {% endfor %}
-                    </select>
-                    {% endif %}
-
-                    {% if !all_groups.is_empty() %}
-                    <select name="group_id" class="select select-bordered select-sm" onchange="document.getElementById('media-filter-form').submit()">
-                        <option value="">All Groups</option>
-                        {% for (gid, gname) in &all_groups %}
-                        <option value="{{ gid }}" {% if group_filter.as_deref() == Some(gid.as_str()) %}selected{% endif %}>{{ gname }}</option>
-                        {% endfor %}
-                    </select>
-                    {% endif %}
-
-                    {% if vault_filter.is_some() || tag_filter.is_some() || group_filter.is_some() %}
-                    <a href="/media?sort_by={{ sort_by }}&sort_order={{ sort_order }}" class="btn btn-sm btn-ghost text-error">✕ Clear filters</a>
-                    {% endif %}
-                </div>
-                {% endif %}
-
-                <!-- Preserve sort params -->
-                <input type="hidden" name="sort_by" value="{{ sort_by }}">
-                <input type="hidden" name="sort_order" value="{{ sort_order }}">
-            </form>
-
-            <!-- Stats -->
-            <div class="stats stats-horizontal shadow w-full">
-                <div class="stat">
-                    <div class="stat-title">Total Items</div>
-                    <div class="stat-value text-primary">{{ total }}</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-title">Current Page</div>
-                    <div class="stat-value text-secondary">{{ page + 1 }}</div>
-                    <div class="stat-desc">of {{ total_pages }} pages</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-title">Sort By</div>
-                    <div class="stat-value text-sm">{{ sort_by }}</div>
-                    <div class="stat-desc">{{ sort_order }}</div>
-                </div>
-            </div>
-        </div>
+    <!-- Active filter summary bar -->
+    {% let has_any_filter = vault_filter.is_some() || tag_filter.is_some() || group_filter.is_some() || search_query.is_some() || current_filter.is_some() %}
+    {% if has_any_filter  %}
+    <div class="flex flex-wrap items-center gap-2 mb-4 text-sm">
+        <span class="text-base-content/50">Showing:</span>
+        {% match current_filter %}{% when Some with (f) %}<span class="badge badge-outline">type: {{ f }}</span>{% when None %}{% endmatch %}
+        {% match search_query %}{% when Some with (q) %}<span class="badge badge-outline">q: {{ q }}</span>{% when None %}{% endmatch %}
+        {% match vault_filter %}{% when Some with (v) %}<span class="badge badge-outline">vault: {{ v }}</span>{% when None %}{% endmatch %}
+        {% match tag_filter %}{% when Some with (t) %}<span class="badge badge-outline">tag: {{ t }}</span>{% when None %}{% endmatch %}
+        {% match group_filter %}{% when Some with (g) %}<span class="badge badge-outline">group: {{ g }}</span>{% when None %}{% endmatch %}
+        <span class="text-base-content/40">·</span>
+        <span class="text-base-content/50">{{ total }} item{% if total != 1 %}s{% endif %}</span>
+        <a href="/media" class="btn btn-xs btn-ghost text-error ml-1">✕ Clear</a>
     </div>
+    {% else %}
+    <div class="text-xs text-base-content/40 mb-4">{{ total }} item{% if total != 1 %}s{% endif %} · page {{ page + 1 }} of {{ total_pages }}</div>
+    {% endif %}
 
     <!-- Media Grid -->
     {% if items.is_empty() %}
@@ -418,6 +466,19 @@
 </dialog>
 
 <script>
+    // Filter panel toggle
+    function toggleMediaFilter() {
+        const panel = document.getElementById('media-filter-panel');
+        panel.classList.toggle('hidden');
+    }
+    // Close filter panel when clicking outside
+    document.addEventListener('click', function(e) {
+        const container = document.getElementById('filter-container');
+        if (container && !container.contains(e.target)) {
+            document.getElementById('media-filter-panel').classList.add('hidden');
+        }
+    });
+
     // Enhanced image error handling
     document.addEventListener('DOMContentLoaded', function() {
         const images = document.querySelectorAll('figure img');

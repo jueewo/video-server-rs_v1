@@ -1,47 +1,74 @@
 {% extends "base-tailwind.html" %}
 {% block title %}{{ file_name }} — draw.io{% endblock %}
 {% block content %}
-<div class="flex flex-col h-[calc(100vh-4rem)]">
+<div class="container mx-auto px-4 py-12 max-w-lg text-center">
 
-    <!-- Toolbar -->
-    <div class="flex items-center gap-3 px-4 py-2 bg-base-200 border-b border-base-300 shrink-0">
-        <a href="{{ back_url }}" class="btn btn-ghost btn-sm gap-1">
-            <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
-        </a>
-        <div class="flex items-center gap-2">
-            <i data-lucide="workflow" class="w-4 h-4 text-base-content/50"></i>
-            <span class="font-medium text-sm">{{ file_name }}</span>
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+        <div class="card-body items-center gap-4 py-10">
+
+            <span class="inline-flex items-center justify-center w-14 h-14 rounded-2xl"
+                  style="background: linear-gradient(135deg, #667eea, #764ba2); box-shadow: 0 4px 16px rgba(102,126,234,0.35);">
+                <i data-lucide="workflow" class="w-7 h-7 text-white"></i>
+            </span>
+
+            <div>
+                <h1 class="text-lg font-semibold">{{ file_name }}</h1>
+                <p class="text-sm text-base-content/50 mt-0.5">draw.io diagram</p>
+            </div>
+
+            <!-- Status area -->
+            <div id="status-idle" class="flex flex-col items-center gap-3 w-full">
+                <p class="text-sm text-base-content/60">Opens in a separate window.</p>
+                <button id="open-btn" onclick="openEditor()"
+                        class="btn btn-primary gap-2 w-full">
+                    <i data-lucide="external-link" class="w-4 h-4"></i>
+                    Open Editor
+                </button>
+            </div>
+
+            <div id="status-open" class="hidden flex-col items-center gap-3 w-full">
+                <div class="flex items-center gap-2 text-sm text-base-content/60">
+                    <span class="loading loading-spinner loading-xs"></span>
+                    Editor is open — switch to the draw.io window
+                </div>
+                <div id="save-status" class="text-sm font-medium hidden"></div>
+                <div class="flex gap-2 w-full">
+                    <button onclick="openEditor()" class="btn btn-outline btn-sm flex-1 gap-1">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Reopen
+                    </button>
+                    <a href="{{ back_url }}" class="btn btn-ghost btn-sm flex-1 gap-1">
+                        <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Back
+                    </a>
+                </div>
+            </div>
+
         </div>
-        <div class="flex-1"></div>
-        <span id="save-status" class="text-xs text-base-content/40 hidden">Saved</span>
-        <div id="save-spinner" class="loading loading-spinner loading-xs hidden"></div>
     </div>
 
-    <!-- draw.io embed iframe -->
-    <iframe
-        id="drawio-iframe"
-        src="https://app.diagrams.net/?embed=1&proto=json&libraries=1&noSaveBtn=0&saveAndExit=0&noExitBtn=1"
-        class="flex-1 w-full border-0"
-    ></iframe>
+    <div class="mt-4">
+        <a href="{{ back_url }}" id="back-link" class="btn btn-ghost btn-sm gap-1">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to folder
+        </a>
+    </div>
 </div>
 
 <script>
-const SAVE_URL  = {{ save_url|json }};
+const SAVE_URL    = {{ save_url|json }};
 const XML_CONTENT = {{ xml_content|json }};
+const BACK_URL    = {{ back_url|json }};
 
-const iframe = document.getElementById('drawio-iframe');
-const status = document.getElementById('save-status');
-const spinner = document.getElementById('save-spinner');
+let editorWin = null;
 
-let initialized = false;
-
-function postToDrawio(msg) {
-    iframe.contentWindow.postMessage(JSON.stringify(msg), '*');
+function showStatus(text, cls) {
+    const el = document.getElementById('save-status');
+    el.textContent = text;
+    el.className = 'text-sm font-medium ' + cls;
+    el.classList.remove('hidden');
+    if (cls.includes('success')) setTimeout(() => el.classList.add('hidden'), 3000);
 }
 
 async function saveXml(xml) {
-    spinner.classList.remove('hidden');
-    status.classList.add('hidden');
+    showStatus('Saving…', 'text-base-content/50');
     try {
         const resp = await fetch(SAVE_URL, {
             method: 'POST',
@@ -49,43 +76,50 @@ async function saveXml(xml) {
             body: JSON.stringify({ content: xml }),
         });
         if (resp.ok) {
-            status.textContent = 'Saved ✓';
-            status.classList.remove('hidden', 'text-error');
-            status.classList.add('text-success');
-            setTimeout(() => status.classList.add('hidden'), 2500);
+            showStatus('Saved ✓', 'text-success');
         } else {
-            status.textContent = 'Save failed';
-            status.classList.remove('hidden', 'text-success');
-            status.classList.add('text-error');
+            showStatus('Save failed', 'text-error');
         }
-    } catch (e) {
-        status.textContent = 'Save failed';
-        status.classList.remove('hidden', 'text-success');
-        status.classList.add('text-error');
-    } finally {
-        spinner.classList.add('hidden');
+    } catch {
+        showStatus('Save failed', 'text-error');
     }
 }
 
+function openEditor() {
+    const features = 'width=1400,height=900,menubar=no,toolbar=no,location=no,resizable=yes,scrollbars=yes';
+    editorWin = window.open('https://app.diagrams.net/?embed=1&proto=json&libraries=1', 'drawio-editor', features);
+
+    if (!editorWin) {
+        alert('Popup blocked — please allow popups for this site and try again.');
+        return;
+    }
+
+    document.getElementById('status-idle').classList.add('hidden');
+    document.getElementById('status-open').classList.remove('hidden');
+    document.getElementById('status-open').classList.add('flex');
+}
+
 window.addEventListener('message', function(e) {
+    if (!editorWin || e.source !== editorWin) return;
     let msg;
     try { msg = JSON.parse(e.data); } catch { return; }
 
     switch (msg.event) {
         case 'init':
-            if (!initialized) {
-                initialized = true;
-                postToDrawio({ action: 'load', xml: XML_CONTENT, autosave: 1 });
-            }
+            editorWin.postMessage(JSON.stringify({ action: 'load', xml: XML_CONTENT, autosave: 1 }), '*');
             break;
         case 'save':
         case 'autosave':
             if (msg.xml) saveXml(msg.xml);
             break;
         case 'exit':
-            window.location.href = {{ back_url|json }};
+            editorWin.close();
+            window.location.href = BACK_URL;
             break;
     }
 });
+
+// Auto-open on load
+document.addEventListener('DOMContentLoaded', openEditor);
 </script>
 {% endblock %}

@@ -379,6 +379,13 @@ struct HomeTemplate {
 
 #[allow(dead_code)]
 #[derive(Template)]
+#[template(path = "settings.html")]
+struct SettingsTemplate {
+    authenticated: bool,
+}
+
+#[allow(dead_code)]
+#[derive(Template)]
 #[template(path = "apps.html")]
 struct AppsTemplate {
     authenticated: bool,
@@ -503,6 +510,18 @@ async fn apps_handler(
         apps: state.apps.clone(),
     };
     Ok(Html(template.render().unwrap()))
+}
+
+async fn settings_handler(
+    session: Session,
+) -> Result<Html<String>, StatusCode> {
+    let authenticated: bool = session
+        .get("authenticated")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+    Ok(Html(SettingsTemplate { authenticated }.render().unwrap()))
 }
 
 #[tracing::instrument(skip(session, state))]
@@ -1111,6 +1130,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/mediavaults", get(index_handler))
         .route("/home", get(home_handler))
         .route("/apps", get(apps_handler))
+        .route("/settings", get(settings_handler))
         .route("/3d-viewer", get(d3_viewer_handler))
 
         .route("/demo", get(demo_handler))

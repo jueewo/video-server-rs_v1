@@ -1,0 +1,201 @@
+{% extends "base-tailwind.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-5xl">
+
+    <!-- Page Header -->
+    <div class="page-header mb-8">
+        <div>
+            <h1 class="page-header-title flex items-center gap-3">
+                <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl shrink-0"
+                      style="background: linear-gradient(135deg, #556270, #4ecdc4); box-shadow: 0 4px 12px rgba(78,205,196,0.35);">
+                    <i data-lucide="settings-2" class="w-5 h-5 text-white"></i>
+                </span>
+                <span class="text-gradient">Settings</span>
+            </h1>
+            <p class="page-header-subtitle">Manage workspaces, media, apps, and account settings</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Workspaces -->
+        <div class="card bg-base-100 border border-base-300 shadow-sm">
+            <div class="card-body p-5">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
+                          style="background: linear-gradient(135deg, #667eea, #764ba2); box-shadow: 0 3px 8px rgba(102,126,234,0.3);">
+                        <i data-lucide="layout-dashboard" class="w-4 h-4 text-white"></i>
+                    </span>
+                    <h2 class="font-semibold text-base">Workspaces</h2>
+                </div>
+                <ul class="space-y-1">
+                    <li>
+                        <a href="/workspaces" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="layout-grid" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">Workspaces</div>
+                                <div class="text-xs text-base-content/50">Project workspaces with documents and notes</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/folder-types" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="folder-open" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">Folder Types</div>
+                                <div class="text-xs text-base-content/50">Define special-purpose folder types and schemas</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/workspace-access-codes" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="share-2" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">Workspace Access Codes</div>
+                                <div class="text-xs text-base-content/50">Share workspaces with external users</div>
+                            </div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Media -->
+        <div class="card bg-base-100 border border-base-300 shadow-sm">
+            <div class="card-body p-5">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
+                          style="background: linear-gradient(135deg, #f093fb, #f5576c); box-shadow: 0 3px 8px rgba(245,87,108,0.3);">
+                        <i data-lucide="film" class="w-4 h-4 text-white"></i>
+                    </span>
+                    <h2 class="font-semibold text-base">Media</h2>
+                </div>
+                <ul class="space-y-1">
+                    <li>
+                        <a href="/media" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="images" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">Media Library</div>
+                                <div class="text-xs text-base-content/50">Videos, images, and documents</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/vaults" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="package" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">Vaults</div>
+                                <div class="text-xs text-base-content/50">Isolated storage vaults per project</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/groups" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="users" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">Groups</div>
+                                <div class="text-xs text-base-content/50">Manage access groups for media</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/access/codes" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="share-2" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">Access Codes</div>
+                                <div class="text-xs text-base-content/50">Shareable links with optional expiry</div>
+                            </div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Apps -->
+        <div class="card bg-base-100 border border-base-300 shadow-sm">
+            <div class="card-body p-5">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
+                          style="background: linear-gradient(135deg, #4facfe, #00f2fe); box-shadow: 0 3px 8px rgba(79,172,254,0.3);">
+                        <i data-lucide="layout-grid" class="w-4 h-4 text-white"></i>
+                    </span>
+                    <h2 class="font-semibold text-base">Apps</h2>
+                </div>
+                <ul class="space-y-1">
+                    <li>
+                        <a href="/apps" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="grid-2x2" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">All Apps</div>
+                                <div class="text-xs text-base-content/50">Standalone applications directory</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/my-apps" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="rocket" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">Published Apps</div>
+                                <div class="text-xs text-base-content/50">Apps published from your workspaces</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/js-apps" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="play-circle" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">Live Preview</div>
+                                <div class="text-xs text-base-content/50">Self-contained HTML/JS tools</div>
+                            </div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Account -->
+        <div class="card bg-base-100 border border-base-300 shadow-sm">
+            <div class="card-body p-5">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
+                          style="background: linear-gradient(135deg, #a18cd1, #fbc2eb); box-shadow: 0 3px 8px rgba(161,140,209,0.3);">
+                        <i data-lucide="user" class="w-4 h-4 text-white"></i>
+                    </span>
+                    <h2 class="font-semibold text-base">Account</h2>
+                </div>
+                <ul class="space-y-1">
+                    <li>
+                        <a href="/profile" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="circle-user" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">Profile</div>
+                                <div class="text-xs text-base-content/50">Manage your account details</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/profile/api-keys" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="key" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">API Keys</div>
+                                <div class="text-xs text-base-content/50">Keys for scripts and automation</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/admin/tenants" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="building-2" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">Tenants</div>
+                                <div class="text-xs text-base-content/50">Multi-tenant administration</div>
+                            </div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

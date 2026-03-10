@@ -16,10 +16,9 @@
                 <p class="text-sm text-base-content/50 mt-0.5">draw.io diagram</p>
             </div>
 
-            <!-- Status area -->
             <div id="status-idle" class="flex flex-col items-center gap-3 w-full">
                 <p class="text-sm text-base-content/60">Opens in a separate window.</p>
-                <button id="open-btn" onclick="openEditor()"
+                <button onclick="openEditor()"
                         class="btn btn-primary gap-2 w-full">
                     <i data-lucide="external-link" class="w-4 h-4"></i>
                     Open Editor
@@ -46,78 +45,78 @@
     </div>
 
     <div class="mt-4">
-        <a href="{{ back_url }}" id="back-link" class="btn btn-ghost btn-sm gap-1">
+        <a href="{{ back_url }}" class="btn btn-ghost btn-sm gap-1">
             <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to folder
         </a>
     </div>
 </div>
 
 <script>
-const SAVE_URL    = {{ save_url|json }};
-const XML_CONTENT = {{ xml_content|json }};
-const BACK_URL    = {{ back_url|json }};
+var FETCH_URL = '{{ fetch_url }}';
+var SAVE_URL  = '{{ save_url }}';
+var BACK_URL  = '{{ back_url }}';
+var editorWin = null;
 
-let editorWin = null;
-
-function showStatus(text, cls) {
-    const el = document.getElementById('save-status');
+function showStatus(text, ok) {
+    var el = document.getElementById('save-status');
     el.textContent = text;
-    el.className = 'text-sm font-medium ' + cls;
+    el.className = 'text-sm font-medium ' + (ok ? 'text-success' : 'text-error');
     el.classList.remove('hidden');
-    if (cls.includes('success')) setTimeout(() => el.classList.add('hidden'), 3000);
+    if (ok) setTimeout(function() { el.classList.add('hidden'); }, 3000);
 }
 
-async function saveXml(xml) {
-    showStatus('Saving…', 'text-base-content/50');
-    try {
-        const resp = await fetch(SAVE_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: xml }),
-        });
-        if (resp.ok) {
-            showStatus('Saved ✓', 'text-success');
-        } else {
-            showStatus('Save failed', 'text-error');
-        }
-    } catch {
-        showStatus('Save failed', 'text-error');
-    }
+function saveXml(xml) {
+    showStatus('Saving…', true);
+    fetch(SAVE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: xml })
+    }).then(function(r) {
+        if (r.ok) showStatus('Saved ✓', true);
+        else showStatus('Save failed (' + r.status + ')', false);
+    }).catch(function() {
+        showStatus('Save failed', false);
+    });
 }
 
 function openEditor() {
-    const features = 'width=1400,height=900,menubar=no,toolbar=no,location=no,resizable=yes,scrollbars=yes';
-    editorWin = window.open('https://app.diagrams.net/?embed=1&proto=json&libraries=1', 'drawio-editor', features);
-
+    var features = 'width=1400,height=900,menubar=no,toolbar=no,location=no,resizable=yes,scrollbars=yes';
+    editorWin = window.open(
+        'https://app.diagrams.net/?embed=1&proto=json&libraries=1',
+        'drawio-editor',
+        features
+    );
     if (!editorWin) {
-        alert('Popup blocked — please allow popups for this site and try again.');
+        alert('Popup was blocked. Please allow popups for this site and try again.');
         return;
     }
-
     document.getElementById('status-idle').classList.add('hidden');
-    document.getElementById('status-open').classList.remove('hidden');
-    document.getElementById('status-open').classList.add('flex');
+    var open = document.getElementById('status-open');
+    open.classList.remove('hidden');
+    open.classList.add('flex');
 }
 
 window.addEventListener('message', function(e) {
     if (!editorWin || e.source !== editorWin) return;
-    let msg;
-    try { msg = JSON.parse(e.data); } catch { return; }
+    var msg;
+    try { msg = JSON.parse(e.data); } catch(err) { return; }
 
-    switch (msg.event) {
-        case 'init':
-            editorWin.postMessage(JSON.stringify({ action: 'load', xml: XML_CONTENT, autosave: 1 }), '*');
-            break;
-        case 'save':
-        case 'autosave':
-            if (msg.xml) saveXml(msg.xml);
-            break;
-        case 'exit':
-            editorWin.close();
-            window.location.href = BACK_URL;
-            break;
+    if (msg.event === 'init') {
+        // Fetch the XML from the server, then send it to the editor
+        fetch(FETCH_URL)
+            .then(function(r) { return r.text(); })
+            .then(function(xml) {
+                editorWin.postMessage(
+                    JSON.stringify({ action: 'load', xml: xml, autosave: 1 }),
+                    '*'
+                );
+            });
+    } else if (msg.event === 'save' || msg.event === 'autosave') {
+        if (msg.xml) saveXml(msg.xml);
+    } else if (msg.event === 'exit') {
+        editorWin.close();
+        window.location.href = BACK_URL;
     }
 });
-
 </script>
 {% endblock %}

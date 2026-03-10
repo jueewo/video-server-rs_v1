@@ -360,6 +360,17 @@ pub struct ImageViewerTemplate {
 }
 
 #[derive(Template)]
+#[template(path = "workspaces/drawio_editor.html")]
+pub struct DrawioEditorTemplate {
+    pub authenticated: bool,
+    pub workspace_id: String,
+    pub file_name: String,
+    pub xml_content: String,
+    pub save_url: String,
+    pub back_url: String,
+}
+
+#[derive(Template)]
 #[template(path = "workspaces/markdown_preview.html")]
 pub struct MarkdownPreviewTemplate {
     pub authenticated: bool,
@@ -1889,6 +1900,24 @@ pub async fn open_file_page(
         .to_lowercase();
 
     let html = match ext.as_str() {
+        "drawio" => {
+            let xml_content = file_editor::read_file(&workspace_root, &file_path)
+                .map_err(|_| StatusCode::NOT_FOUND)?;
+            let save_url = format!(
+                "/api/workspaces/{}/files/save-text?path={}",
+                workspace_id, encoded_path
+            );
+            DrawioEditorTemplate {
+                authenticated: true,
+                workspace_id: workspace_id.clone(),
+                file_name: file_name.clone(),
+                xml_content,
+                save_url,
+                back_url,
+            }
+            .render()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        }
         "bpmn" => {
             let bpmn_xml = file_editor::read_file(&workspace_root, &file_path)
                 .map_err(|_| StatusCode::NOT_FOUND)?;

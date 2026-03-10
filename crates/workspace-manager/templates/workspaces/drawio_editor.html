@@ -1,0 +1,91 @@
+{% extends "base-tailwind.html" %}
+{% block title %}{{ file_name }} — draw.io{% endblock %}
+{% block content %}
+<div class="flex flex-col h-[calc(100vh-4rem)]">
+
+    <!-- Toolbar -->
+    <div class="flex items-center gap-3 px-4 py-2 bg-base-200 border-b border-base-300 shrink-0">
+        <a href="{{ back_url }}" class="btn btn-ghost btn-sm gap-1">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
+        </a>
+        <div class="flex items-center gap-2">
+            <i data-lucide="workflow" class="w-4 h-4 text-base-content/50"></i>
+            <span class="font-medium text-sm">{{ file_name }}</span>
+        </div>
+        <div class="flex-1"></div>
+        <span id="save-status" class="text-xs text-base-content/40 hidden">Saved</span>
+        <div id="save-spinner" class="loading loading-spinner loading-xs hidden"></div>
+    </div>
+
+    <!-- draw.io embed iframe -->
+    <iframe
+        id="drawio-iframe"
+        src="https://app.diagrams.net/?embed=1&proto=json&libraries=1&noSaveBtn=0&saveAndExit=0&noExitBtn=1"
+        class="flex-1 w-full border-0"
+    ></iframe>
+</div>
+
+<script>
+const SAVE_URL  = {{ save_url|json }};
+const XML_CONTENT = {{ xml_content|json }};
+
+const iframe = document.getElementById('drawio-iframe');
+const status = document.getElementById('save-status');
+const spinner = document.getElementById('save-spinner');
+
+let initialized = false;
+
+function postToDrawio(msg) {
+    iframe.contentWindow.postMessage(JSON.stringify(msg), '*');
+}
+
+async function saveXml(xml) {
+    spinner.classList.remove('hidden');
+    status.classList.add('hidden');
+    try {
+        const resp = await fetch(SAVE_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: xml }),
+        });
+        if (resp.ok) {
+            status.textContent = 'Saved ✓';
+            status.classList.remove('hidden', 'text-error');
+            status.classList.add('text-success');
+            setTimeout(() => status.classList.add('hidden'), 2500);
+        } else {
+            status.textContent = 'Save failed';
+            status.classList.remove('hidden', 'text-success');
+            status.classList.add('text-error');
+        }
+    } catch (e) {
+        status.textContent = 'Save failed';
+        status.classList.remove('hidden', 'text-success');
+        status.classList.add('text-error');
+    } finally {
+        spinner.classList.add('hidden');
+    }
+}
+
+window.addEventListener('message', function(e) {
+    let msg;
+    try { msg = JSON.parse(e.data); } catch { return; }
+
+    switch (msg.event) {
+        case 'init':
+            if (!initialized) {
+                initialized = true;
+                postToDrawio({ action: 'load', xml: XML_CONTENT, autosave: 1 });
+            }
+            break;
+        case 'save':
+        case 'autosave':
+            if (msg.xml) saveXml(msg.xml);
+            break;
+        case 'exit':
+            window.location.href = {{ back_url|json }};
+            break;
+    }
+});
+</script>
+{% endblock %}

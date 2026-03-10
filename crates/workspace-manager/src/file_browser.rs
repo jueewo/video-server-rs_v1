@@ -141,7 +141,7 @@ pub fn list_dir(workspace_root: &Path, subpath: &str) -> Result<DirListing> {
                 .to_string();
             let is_editable = is_text_mime(&mime_type);
             let is_viewable = mime_type.starts_with("image/");
-            let icon = file_icon(&mime_type).to_string();
+            let icon = file_icon_by_name(&name, &mime_type).to_string();
             let size_str = format_size(size);
             let modified = metadata
                 .modified()
@@ -208,7 +208,7 @@ pub fn recent_files(workspace_root: &Path, limit: usize) -> Vec<FileEntry> {
                 .to_string();
             let is_editable = is_text_mime(&mime_type);
             let is_viewable = mime_type.starts_with("image/");
-            let icon = file_icon(&mime_type).to_string();
+            let icon = file_icon_by_name(&name, &mime_type).to_string();
             let size = metadata.len();
             let size_str = format_size(size);
 
@@ -291,6 +291,20 @@ pub fn format_size(bytes: u64) -> String {
     } else {
         format!("{:.1} MB", bytes as f64 / (1024.0 * 1024.0))
     }
+}
+
+pub fn file_icon_by_name(name: &str, mime: &str) -> &'static str {
+    let ext = std::path::Path::new(name)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    match ext.as_str() {
+        "drawio" => return "workflow",
+        "bpmn" => return "git-branch",
+        _ => {}
+    }
+    file_icon(mime)
 }
 
 pub fn file_icon(mime: &str) -> &'static str {

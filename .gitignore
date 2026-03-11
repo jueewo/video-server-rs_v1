@@ -51,3 +51,5 @@ bundle.js
 bundle.js.map
 media.db_
 docs/management/executive_presentation.pdf
+
+/static/vendor

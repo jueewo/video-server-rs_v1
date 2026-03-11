@@ -157,6 +157,10 @@
                                             class="gap-2 text-sm">
                                     <i data-lucide="settings" class="w-4 h-4"></i> Settings
                                 </button></li>
+                                <li><button @click.stop="open = false; showWebdavUrl('{{ ws.workspace_id }}')"
+                                            class="gap-2 text-sm">
+                                    <i data-lucide="hard-drive" class="w-4 h-4"></i> WebDAV
+                                </button></li>
                                 <li><button @click.stop="open = false; deleteWorkspace('{{ ws.workspace_id }}')"
                                             class="gap-2 text-sm text-error">
                                     <i data-lucide="trash-2" class="w-4 h-4"></i> Delete
@@ -211,6 +215,33 @@
 </div>
 
 {% include "components/workspace-edit-modal.html" %}
+
+<!-- WebDAV URL modal -->
+<dialog id="webdav-modal" class="modal">
+    <div class="modal-box max-w-md">
+        <h3 class="font-bold text-lg mb-1 flex items-center gap-2">
+            <i data-lucide="hard-drive" class="w-5 h-5"></i> WebDAV Mount
+        </h3>
+        <p class="text-sm text-base-content/60 mb-4">Mount this workspace in Finder or any WebDAV client.</p>
+
+        <div class="form-control mb-2">
+            <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wide text-base-content/50">URL</span></label>
+            <div class="join w-full">
+                <input id="webdav-url" type="text" readonly
+                       class="input input-bordered join-item w-full font-mono text-sm" />
+                <button onclick="copyWebdavUrl()" class="btn btn-primary join-item gap-1">
+                    <i data-lucide="copy" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+        <p class="text-xs text-base-content/40 mb-4">Username: anything &nbsp;·&nbsp; Password: your API key</p>
+
+        <div class="modal-action mt-2">
+            <form method="dialog"><button class="btn btn-sm btn-ghost">Close</button></form>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
 {% endblock %}
 {% block extra_scripts %}
 <script>
@@ -438,6 +469,30 @@
 
     // Restore persisted filter on page load
     restoreFilter();
+
+    function slugify(name) {
+        return name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+    }
+
+    function showWebdavUrl(wsId) {
+        const card = document.querySelector(`.workspace-card[data-ws-id="${wsId}"]`);
+        if (!card) return;
+        const slug = slugify(card.dataset.wsName || wsId);
+        const url = `http://${window.location.hostname}:3001/dav/${slug}`;
+        document.getElementById('webdav-url').value = url;
+        document.getElementById('webdav-modal').showModal();
+        lucide.createIcons({ nodes: [document.getElementById('webdav-modal')] });
+    }
+
+    function copyWebdavUrl() {
+        const input = document.getElementById('webdav-url');
+        navigator.clipboard.writeText(input.value).then(() => {
+            showToast('WebDAV URL copied!', 'success');
+        });
+    }
 </script>
 {% include "components/workspace-edit-modal-js.html" %}
 {% endblock %}

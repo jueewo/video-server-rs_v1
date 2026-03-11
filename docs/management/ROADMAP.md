@@ -148,9 +148,8 @@ transcoding becomes a service. Phase 1 is about access, not storage.
       - All `/media/{slug}/...` and `/api/workspaces/{id}/files/serve` routes accept `?code=` (2026-03-07)
 - [x] **Management UI enhancements** — folder path badges per code; inline description
       editing; "Add to existing" tab in Share modal with active-code dropdown (2026-03-07)
-- [ ] **Hide `/media` standalone entry points** — `/media` global list and vault picker
-      are internal scaffolding; users should reach media only through workspace folders.
-      Deprecate or gate behind auth without workspace context.
+- [~] **Hide `/media` standalone entry points** — future decision; keeping `/media` global
+      list and vault picker accessible for now. May gate behind auth or deprecate later.
 
 **Result:** Two clean access paths. Internal = workspace browser. External = access code.
 No vault concept visible to any user or satellite app.
@@ -181,7 +180,11 @@ not reasons to store files differently.
 - [ ] Stable public API surface documented — media serving routes, file serving, metadata
 - [ ] Workspace-level access codes usable by external apps (no user account needed)
 - [ ] API keys for programmatic / satellite app access
-- [ ] WebDAV stable and documented for filesystem-level consumers
+- [~] WebDAV implemented as standalone binary (`crates/standalone/webdav/`, port 3001),
+      workspace-scoped at `/dav/{workspace_id}/`, macOS Finder compatible.
+      API key auth working (password = API key, validated via `api-keys` crate).
+      **Remaining:** workspace-scoped API keys (key grants access to specific workspaces only);
+      no documentation.
 - [ ] MCP server updated to reflect workspace-first model
 
 **Result:** Satellite apps (course platform, 3D gallery, etc.) connect cleanly

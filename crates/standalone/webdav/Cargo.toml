@@ -10,6 +10,7 @@ sqlx = { workspace = true }
 tracing = { workspace = true }
 serde = { workspace = true }
 time = { workspace = true }
+api-keys = { path = "../../api-keys" }
 # Not yet in workspace.dependencies — pinned directly for now
 http = "1"
 bytes = "1"

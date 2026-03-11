@@ -1,10 +1,17 @@
 use std::path::PathBuf;
 
 pub fn propfind_response(href: &str, path: &PathBuf, is_dir: bool) -> String {
-    let displayname = path
-        .file_name()
-        .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or_else(|| href.trim_start_matches('/').to_string());
+    propfind_response_named(href, path, is_dir, None)
+}
+
+pub fn propfind_response_named(href: &str, path: &PathBuf, is_dir: bool, display_name: Option<&str>) -> String {
+    let displayname = display_name
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| {
+            path.file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| href.trim_start_matches('/').to_string())
+        });
 
     let resource_type = if is_dir { r#"<D:collection/>"# } else { "" };
 

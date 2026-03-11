@@ -32,24 +32,19 @@ pub async fn verify_basic_auth(
     let credentials_str =
         String::from_utf8(credentials).map_err(|_| http::StatusCode::UNAUTHORIZED)?;
 
-    let (username, _password) = credentials_str
+    let (_username, password) = credentials_str
         .split_once(':')
         .ok_or(http::StatusCode::UNAUTHORIZED)?;
 
-    let row: Option<(String,)> = sqlx::query_as(
-        "SELECT id FROM users WHERE username = ? OR email = ? LIMIT 1",
-    )
-    .bind(username)
-    .bind(username)
-    .fetch_optional(pool)
-    .await
-    .map_err(|_| http::StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    match row {
-        Some((user_id,)) => Ok(user_id),
-        None => {
-            warn!("WebDAV auth failed for user: {}", username);
+    match api_keys::db::validate_api_key(pool, password).await {
+        Ok(Some(key)) => Ok(key.user_id),
+        Ok(None) => {
+            warn!("WebDAV auth failed: invalid or expired API key");
             Err(http::StatusCode::UNAUTHORIZED)
+        }
+        Err(e) => {
+            warn!("WebDAV auth error: {}", e);
+            Err(http::StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
 }

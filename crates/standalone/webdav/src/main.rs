@@ -25,6 +25,7 @@ async fn main() {
         .expect("WEBDAV_PORT must be a number");
 
     tracing::info!("Connecting to database: {}", database_url);
+    tracing::info!("Storage dir: {}", storage_dir);
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
         .connect(&database_url)
@@ -37,7 +38,7 @@ async fn main() {
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     tracing::info!("WebDAV server listening on http://{}", addr);
-    tracing::warn!("SECURITY: Basic Auth is username-only. Password is NOT validated - any password works.");
+    tracing::info!("Auth: Basic Auth — username ignored, password must be a valid API key");
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();

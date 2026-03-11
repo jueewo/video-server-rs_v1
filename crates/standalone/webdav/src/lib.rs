@@ -131,33 +131,73 @@ fn new_lock_token() -> String {
     format!("opaquelocktoken:{:016x}", h.finish())
 }
 
+fn slugify(s: &str) -> String {
+    let slug: String = s
+        .chars()
+        .map(|c| if c.is_alphanumeric() { c.to_ascii_lowercase() } else { '-' })
+        .collect();
+    // collapse consecutive hyphens and trim
+    let mut result = String::new();
+    let mut last_hyphen = true; // trim leading
+    for c in slug.chars() {
+        if c == '-' {
+            if !last_hyphen { result.push('-'); }
+            last_hyphen = true;
+        } else {
+            result.push(c);
+            last_hyphen = false;
+        }
+    }
+    result.trim_end_matches('-').to_string()
+}
+
+/// Returns (user_id, resolved_workspace_id).
+/// Accepts workspace_id (exact) or a slug derived from the workspace name.
 async fn verify_workspace_access(
     state: &WebdavState,
-    workspace_id: &str,
+    identifier: &str,
     headers: &HeaderMap,
-) -> Result<String, StatusCode> {
+) -> Result<(String, String), StatusCode> {
     let user_id = auth::verify_basic_auth(&state.pool, headers).await?;
 
+    // 1. Try exact workspace_id match
     let row: Option<(String,)> = sqlx::query_as(
         "SELECT workspace_id FROM workspaces WHERE workspace_id = ? AND user_id = ?",
     )
-    .bind(workspace_id)
+    .bind(identifier)
     .bind(&user_id)
     .fetch_optional(&state.pool)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    if row.is_none() {
-        warn!("User {} does not own workspace {}", user_id, workspace_id);
-        return Err(StatusCode::FORBIDDEN);
+    if let Some((workspace_id,)) = row {
+        return Ok((user_id, workspace_id));
     }
 
-    Ok(user_id)
+    // 2. Slug-match against workspace names
+    let rows: Vec<(String, String)> = sqlx::query_as(
+        "SELECT workspace_id, name FROM workspaces WHERE user_id = ?",
+    )
+    .bind(&user_id)
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let identifier_slug = slugify(identifier);
+    for (workspace_id, name) in rows {
+        if slugify(&name) == identifier_slug {
+            return Ok((user_id, workspace_id));
+        }
+    }
+
+    warn!("User {} does not own workspace {}", user_id, identifier);
+    Err(StatusCode::FORBIDDEN)
 }
 
 async fn handle_get(
     state: &WebdavState,
     workspace_id: &str,
+    identifier: &str,
     path: &str,
     headers: &HeaderMap,
 ) -> Response {
@@ -170,7 +210,7 @@ async fn handle_get(
     }
 
     if full_path.is_dir() {
-        return handle_propfind(state, workspace_id, path, headers).await;
+        return handle_propfind(state, workspace_id, identifier, path, headers).await;
     }
 
     match tokio::fs::read(&full_path).await {
@@ -231,7 +271,8 @@ async fn handle_head(
 
 async fn handle_propfind(
     state: &WebdavState,
-    workspace_id: &str,
+    workspace_id: &str,  // resolved, for filesystem
+    identifier: &str,    // original URL segment, for hrefs
     path: &str,
     headers: &HeaderMap,
 ) -> Response {
@@ -249,7 +290,7 @@ async fn handle_propfind(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("1");
 
-    let base_href = format!("/dav/{}/{}", workspace_id, path_trimmed)
+    let base_href = format!("/dav/{}/{}", identifier, path_trimmed)
         .trim_end_matches('/')
         .to_string();
 
@@ -258,10 +299,21 @@ async fn handle_propfind(
     );
 
     if full_path.is_dir() {
-        xml.push_str(&dav_xml::propfind_response(
+        let workspace_name: Option<String> = if path_trimmed.is_empty() {
+            sqlx::query_scalar("SELECT name FROM workspaces WHERE workspace_id = ?")
+                .bind(workspace_id)
+                .fetch_optional(&state.pool)
+                .await
+                .ok()
+                .flatten()
+        } else {
+            None
+        };
+        xml.push_str(&dav_xml::propfind_response_named(
             &format!("{}/", base_href),
             &full_path,
             true,
+            workspace_name.as_deref(),
         ));
 
         if depth != "0" {
@@ -384,7 +436,8 @@ async fn handle_mkcol(
 /// the real name. Without MOVE, temp files accumulate and the upload never lands.
 async fn handle_move(
     state: &WebdavState,
-    workspace_id: &str,
+    workspace_id: &str,  // resolved, for filesystem
+    identifier: &str,    // original URL segment, for Destination header parsing
     path: &str,
     headers: &HeaderMap,
 ) -> Response {
@@ -393,7 +446,7 @@ async fn handle_move(
         None => return (StatusCode::BAD_REQUEST, "Missing Destination header").into_response(),
     };
 
-    let dest_rel = match destination_path(&dest_header, workspace_id) {
+    let dest_rel = match destination_path(&dest_header, identifier) {
         Some(p) => p,
         None => {
             return (StatusCode::BAD_GATEWAY, "Destination outside this workspace").into_response()
@@ -445,7 +498,8 @@ async fn handle_move(
 /// COPY: deep-copy source to destination within the same workspace.
 async fn handle_copy(
     state: &WebdavState,
-    workspace_id: &str,
+    workspace_id: &str,  // resolved, for filesystem
+    identifier: &str,    // original URL segment, for Destination header parsing
     path: &str,
     headers: &HeaderMap,
 ) -> Response {
@@ -454,7 +508,7 @@ async fn handle_copy(
         None => return (StatusCode::BAD_REQUEST, "Missing Destination header").into_response(),
     };
 
-    let dest_rel = match destination_path(&dest_header, workspace_id) {
+    let dest_rel = match destination_path(&dest_header, identifier) {
         Some(p) => p,
         None => {
             return (StatusCode::BAD_GATEWAY, "Destination outside this workspace").into_response()
@@ -509,11 +563,11 @@ async fn handle_copy(
 ///
 /// The client receives a token it includes in subsequent requests via the `If`
 /// header. We accept any `If` header value on PUT/MOVE without validating it.
-fn handle_lock(workspace_id: &str, path: &str) -> Response {
+fn handle_lock(identifier: &str, path: &str) -> Response {
     let token = new_lock_token();
     let href = format!(
         "/dav/{}/{}",
-        workspace_id,
+        identifier,
         path.trim_start_matches('/')
     );
 
@@ -606,15 +660,15 @@ pub fn webdav_routes(state: WebdavState) -> Router {
                         let _ = body.collect().await;
 
                         match verify_workspace_access(&state, &workspace_id, &headers).await {
-                            Ok(_) => match method.as_str() {
-                                "HEAD" => handle_head(&state, &workspace_id, "").await,
+                            Ok((_, resolved)) => match method.as_str() {
+                                "HEAD" => handle_head(&state, &resolved, "").await,
                                 "PROPFIND" => {
-                                    handle_propfind(&state, &workspace_id, "", &headers).await
+                                    handle_propfind(&state, &resolved, &workspace_id, "", &headers).await
                                 }
-                                "MKCOL" => handle_mkcol(&state, &workspace_id, "").await,
+                                "MKCOL" => handle_mkcol(&state, &resolved, "").await,
                                 "LOCK" => handle_lock(&workspace_id, ""),
                                 "UNLOCK" => handle_unlock(),
-                                _ => handle_get(&state, &workspace_id, "", &headers).await,
+                                _ => handle_get(&state, &resolved, &workspace_id, "", &headers).await,
                             },
                             Err(status) => auth_error_response(status),
                         }
@@ -639,15 +693,15 @@ pub fn webdav_routes(state: WebdavState) -> Router {
                         let _ = body.collect().await;
 
                         match verify_workspace_access(&state, &workspace_id, &headers).await {
-                            Ok(_) => match method.as_str() {
-                                "HEAD" => handle_head(&state, &workspace_id, "").await,
+                            Ok((_, resolved)) => match method.as_str() {
+                                "HEAD" => handle_head(&state, &resolved, "").await,
                                 "PROPFIND" => {
-                                    handle_propfind(&state, &workspace_id, "", &headers).await
+                                    handle_propfind(&state, &resolved, &workspace_id, "", &headers).await
                                 }
-                                "MKCOL" => handle_mkcol(&state, &workspace_id, "").await,
+                                "MKCOL" => handle_mkcol(&state, &resolved, "").await,
                                 "LOCK" => handle_lock(&workspace_id, ""),
                                 "UNLOCK" => handle_unlock(),
-                                _ => handle_get(&state, &workspace_id, "", &headers).await,
+                                _ => handle_get(&state, &resolved, &workspace_id, "", &headers).await,
                             },
                             Err(status) => auth_error_response(status),
                         }
@@ -669,21 +723,21 @@ pub fn webdav_routes(state: WebdavState) -> Router {
                         let _ = body.collect().await;
 
                         match verify_workspace_access(&state, &workspace_id, &headers).await {
-                            Ok(_) => match method.as_str() {
-                                "HEAD" => handle_head(&state, &workspace_id, &path).await,
+                            Ok((_, resolved)) => match method.as_str() {
+                                "HEAD" => handle_head(&state, &resolved, &path).await,
                                 "PROPFIND" => {
-                                    handle_propfind(&state, &workspace_id, &path, &headers).await
+                                    handle_propfind(&state, &resolved, &workspace_id, &path, &headers).await
                                 }
-                                "MKCOL" => handle_mkcol(&state, &workspace_id, &path).await,
+                                "MKCOL" => handle_mkcol(&state, &resolved, &path).await,
                                 "MOVE" => {
-                                    handle_move(&state, &workspace_id, &path, &headers).await
+                                    handle_move(&state, &resolved, &workspace_id, &path, &headers).await
                                 }
                                 "COPY" => {
-                                    handle_copy(&state, &workspace_id, &path, &headers).await
+                                    handle_copy(&state, &resolved, &workspace_id, &path, &headers).await
                                 }
                                 "LOCK" => handle_lock(&workspace_id, &path),
                                 "UNLOCK" => handle_unlock(),
-                                _ => handle_get(&state, &workspace_id, &path, &headers).await,
+                                _ => handle_get(&state, &resolved, &workspace_id, &path, &headers).await,
                             },
                             Err(status) => auth_error_response(status),
                         }
@@ -698,7 +752,7 @@ pub fn webdav_routes(state: WebdavState) -> Router {
                     let state = state.clone();
                     async move {
                         match verify_workspace_access(&state, &workspace_id, &headers).await {
-                            Ok(_) => handle_put(&state, &workspace_id, &path, body).await,
+                            Ok((_, resolved)) => handle_put(&state, &resolved, &path, body).await,
                             Err(status) => auth_error_response(status),
                         }
                     }
@@ -710,7 +764,7 @@ pub fn webdav_routes(state: WebdavState) -> Router {
                     let state = state.clone();
                     async move {
                         match verify_workspace_access(&state, &workspace_id, &headers).await {
-                            Ok(_) => handle_delete(&state, &workspace_id, &path).await,
+                            Ok((_, resolved)) => handle_delete(&state, &resolved, &path).await,
                             Err(status) => auth_error_response(status),
                         }
                     }

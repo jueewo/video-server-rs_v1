@@ -136,10 +136,10 @@ pub fn list_dir(workspace_root: &Path, subpath: &str) -> Result<DirListing> {
         } else if file_type.is_file() {
             let metadata = entry.metadata()?;
             let size = metadata.len();
-            let mime_type = mime_guess::from_path(&name)
+            let mime_type = friendly_mime(&name, &mime_guess::from_path(&name)
                 .first_or_text_plain()
-                .to_string();
-            let is_editable = is_text_mime(&mime_type);
+                .to_string());
+            let is_editable = is_text_mime(&mime_type) || is_editable_by_extension(&name);
             let is_viewable = mime_type.starts_with("image/");
             let icon = file_icon_by_name(&name, &mime_type).to_string();
             let size_str = format_size(size);
@@ -203,10 +203,10 @@ pub fn recent_files(workspace_root: &Path, limit: usize) -> Vec<FileEntry> {
                 .to_string_lossy()
                 .replace('\\', "/");
 
-            let mime_type = mime_guess::from_path(&name)
+            let mime_type = friendly_mime(&name, &mime_guess::from_path(&name)
                 .first_or_text_plain()
-                .to_string();
-            let is_editable = is_text_mime(&mime_type);
+                .to_string());
+            let is_editable = is_text_mime(&mime_type) || is_editable_by_extension(&name);
             let is_viewable = mime_type.starts_with("image/");
             let icon = file_icon_by_name(&name, &mime_type).to_string();
             let size = metadata.len();
@@ -335,6 +335,32 @@ fn is_text_mime(mime: &str) -> bool {
         || mime.contains("xml")
         || mime.contains("bpmn")
         || mime.contains("pdf")
+}
+
+/// Human-readable display label for file types where mime_guess returns something
+/// misleading (e.g. .mmd → karaoke format collision).
+fn friendly_mime(name: &str, detected: &str) -> String {
+    let lower = name.to_lowercase();
+    if lower.ends_with(".mmd") || lower.ends_with(".mermaid") {
+        return "Mermaid diagram".to_string();
+    }
+    if lower.ends_with(".excalidraw") {
+        return "Excalidraw canvas".to_string();
+    }
+    if lower.ends_with(".drawio") {
+        return "draw.io diagram".to_string();
+    }
+    detected.to_string()
+}
+
+/// Extensions that have dedicated editors regardless of what mime_guess says.
+/// (e.g. .mmd is mis-identified as "application/vnd.chipnuts.karaoke-mmd")
+fn is_editable_by_extension(name: &str) -> bool {
+    let lower = name.to_lowercase();
+    lower.ends_with(".mmd")
+        || lower.ends_with(".mermaid")
+        || lower.ends_with(".excalidraw")
+        || lower.ends_with(".drawio")
 }
 
 fn format_modified(secs: u64) -> String {

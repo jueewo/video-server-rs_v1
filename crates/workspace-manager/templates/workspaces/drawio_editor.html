@@ -31,20 +31,21 @@
                     Editor is open — switch to the draw.io window
                 </div>
                 <div id="save-status" class="text-sm font-medium hidden"></div>
+                <p class="text-xs text-base-content/40">Keep this page open — it handles auto-save.</p>
                 <div class="flex gap-2 w-full">
-                    <button onclick="openEditor()" class="btn btn-outline btn-sm flex-1 gap-1">
-                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Reopen
+                    <button onclick="focusEditor()" class="btn btn-primary btn-sm flex-1 gap-1">
+                        <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Focus Editor
                     </button>
-                    <a href="{{ back_url }}" class="btn btn-ghost btn-sm flex-1 gap-1">
-                        <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Back
-                    </a>
+                    <button onclick="closeAndBack()" class="btn btn-ghost btn-sm flex-1 gap-1">
+                        <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Close & Back
+                    </button>
                 </div>
             </div>
 
         </div>
     </div>
 
-    <div class="mt-4">
+    <div class="mt-4" id="back-area">
         <a href="{{ back_url }}" class="btn btn-ghost btn-sm gap-1">
             <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to folder
         </a>
@@ -91,10 +92,28 @@ function openEditor() {
         return;
     }
     document.getElementById('status-idle').classList.add('hidden');
+    document.getElementById('back-area').classList.add('hidden');
     var open = document.getElementById('status-open');
     open.classList.remove('hidden');
     open.classList.add('flex');
 }
+
+function focusEditor() {
+    if (editorWin && !editorWin.closed) editorWin.focus();
+    else openEditor();
+}
+
+function closeAndBack() {
+    if (editorWin && !editorWin.closed) editorWin.close();
+    window.location.href = BACK_URL;
+}
+
+window.addEventListener('beforeunload', function(e) {
+    if (editorWin && !editorWin.closed) {
+        e.preventDefault();
+        e.returnValue = 'The draw.io editor is still open. Close it first to avoid losing unsaved changes.';
+    }
+});
 
 window.addEventListener('message', function(e) {
     if (!editorWin || e.source !== editorWin) return;

@@ -1,0 +1,26 @@
+{
+  "comment": "Pinned vendor dependency versions. Edit manually for major bumps; use update-vendor.sh for patch/minor updates.",
+  "dependencies": {
+    "lucide":                     "0.488.0",
+    "htmx.org":                   "1.9.10",
+    "alpinejs":                   "3.14.9",
+    "mermaid":                    "11.4.1",
+    "react":                      "18.3.1",
+    "react-dom":                  "18.3.1",
+    "@excalidraw/excalidraw":     "0.17.6",
+    "hls.js":                     "1.5.17",
+    "marked":                     "9.1.6",
+    "bpmn-js":                    "17.11.1",
+    "pdfjs-dist":                 "5.4.624",
+    "monaco-editor":              "0.45.0",
+    "daisyui":                    "4.12.23"
+  },
+  "notes": {
+    "react + react-dom": "Must stay in sync; Excalidraw requires React 18 — do not bump to 19 until Excalidraw supports it.",
+    "@excalidraw/excalidraw": "Peer-depends on react@18 + react-dom@18.",
+    "pdfjs-dist": "Pinned to exact version; worker and main module must match exactly.",
+    "bpmn-js": "Major bumps often include breaking API changes in the modeler.",
+    "mermaid": "v10→v11 had rendering engine changes; test diagrams after major bump.",
+    "monaco-editor": "Major bumps can change loader API or language service behavior."
+  }
+}

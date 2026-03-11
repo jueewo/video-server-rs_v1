@@ -371,6 +371,28 @@ pub struct DrawioEditorTemplate {
 }
 
 #[derive(Template)]
+#[template(path = "workspaces/mermaid_editor.html")]
+pub struct MermaidEditorTemplate {
+    pub authenticated: bool,
+    pub workspace_id: String,
+    pub file_name: String,
+    pub fetch_url: String,
+    pub save_url: String,
+    pub back_url: String,
+}
+
+#[derive(Template)]
+#[template(path = "workspaces/excalidraw_editor.html")]
+pub struct ExcalidrawEditorTemplate {
+    pub authenticated: bool,
+    pub workspace_id: String,
+    pub file_name: String,
+    pub fetch_url: String,
+    pub save_url: String,
+    pub back_url: String,
+}
+
+#[derive(Template)]
 #[template(path = "workspaces/markdown_preview.html")]
 pub struct MarkdownPreviewTemplate {
     pub authenticated: bool,
@@ -1910,6 +1932,46 @@ pub async fn open_file_page(
                 workspace_id, encoded_path
             );
             DrawioEditorTemplate {
+                authenticated: true,
+                workspace_id: workspace_id.clone(),
+                file_name: file_name.clone(),
+                fetch_url,
+                save_url,
+                back_url,
+            }
+            .render()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        }
+        "mmd" | "mermaid" => {
+            let fetch_url = format!(
+                "/api/workspaces/{}/files/serve?path={}",
+                workspace_id, encoded_path
+            );
+            let save_url = format!(
+                "/api/workspaces/{}/files/save-text?path={}",
+                workspace_id, encoded_path
+            );
+            MermaidEditorTemplate {
+                authenticated: true,
+                workspace_id: workspace_id.clone(),
+                file_name: file_name.clone(),
+                fetch_url,
+                save_url,
+                back_url,
+            }
+            .render()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        }
+        "excalidraw" => {
+            let fetch_url = format!(
+                "/api/workspaces/{}/files/serve?path={}",
+                workspace_id, encoded_path
+            );
+            let save_url = format!(
+                "/api/workspaces/{}/files/save-text?path={}",
+                workspace_id, encoded_path
+            );
+            ExcalidrawEditorTemplate {
                 authenticated: true,
                 workspace_id: workspace_id.clone(),
                 file_name: file_name.clone(),

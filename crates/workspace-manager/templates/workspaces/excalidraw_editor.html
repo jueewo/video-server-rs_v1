@@ -1,0 +1,214 @@
+{% extends "base-tailwind.html" %}
+{% block title %}{{ file_name }} — Canvas{% endblock %}
+{% block extra_head %}
+<style>
+    html, body { overflow: hidden; }
+    #excalidraw-wrap {
+        /* Height set dynamically by JS to avoid guessing navbar/footer sizes */
+        overflow: hidden;
+        position: relative;
+    }
+    #excalidraw-root {
+        width: 100%;
+        height: 100%;
+    }
+    #excalidraw-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        flex-direction: column;
+        gap: 1rem;
+        color: oklch(var(--bc) / 0.5);
+    }
+    /* Pre-register Excalidraw's drawing fonts so document.fonts.load() can
+       trigger their download before we mount — Excalidraw only clears its
+       internal isLoading state after these fonts are fully loaded. */
+    @font-face {
+        font-family: 'Virgil';
+        src: url('/static/vendor/excalidraw-assets/Virgil.woff2') format('woff2');
+        font-display: block;
+    }
+    @font-face {
+        font-family: 'Cascadia';
+        src: url('/static/vendor/excalidraw-assets/Cascadia.woff2') format('woff2');
+        font-display: block;
+    }
+</style>
+{% endblock %}
+{% block content %}
+
+<!-- Toolbar -->
+<div id="excalidraw-toolbar" class="flex items-center gap-2 px-3 py-1.5 border-b border-base-300 bg-base-200" style="height:48px;">
+    <a href="{{ back_url }}" class="btn btn-ghost btn-xs gap-1">
+        <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Back
+    </a>
+    <div class="divider divider-horizontal mx-0 h-5"></div>
+    <i data-lucide="pencil" class="w-4 h-4 text-base-content/50 shrink-0"></i>
+    <span class="text-sm font-medium truncate max-w-xs">{{ file_name }}</span>
+    <div class="flex-1"></div>
+    <span id="save-status" class="text-xs text-base-content/50 hidden"></span>
+    <button id="save-btn" class="btn btn-primary btn-xs gap-1">
+        <i data-lucide="save" class="w-3.5 h-3.5"></i> Save
+    </button>
+</div>
+
+<!-- Excalidraw Canvas -->
+<div id="excalidraw-wrap">
+    <div id="excalidraw-loading">
+        <span class="loading loading-spinner loading-md"></span>
+        <span class="text-sm">Loading canvas…</span>
+    </div>
+    <div id="excalidraw-root" class="hidden"></div>
+</div>
+
+{% endblock %}
+{% block extra_scripts %}
+<script>
+var FETCH_URL = '{{ fetch_url }}';
+var SAVE_URL  = '{{ save_url }}';
+var BACK_URL  = '{{ back_url }}';
+</script>
+
+<!-- Tell Excalidraw where to find self-hosted fonts and lazy chunks -->
+<script>window.EXCALIDRAW_ASSET_PATH = "/static/vendor/";</script>
+
+<!-- React + Excalidraw (self-hosted UMD bundles) -->
+<script src="/static/vendor/react.production.min.js"></script>
+<script src="/static/vendor/react-dom.production.min.js"></script>
+<script src="/static/vendor/excalidraw.production.min.js"></script>
+
+<script>
+// ── Set container height based on actual layout (not guessed constants) ────
+function fitWrap() {
+    const toolbar = document.getElementById('excalidraw-toolbar');
+    const footer  = document.querySelector('footer');
+    const bottom  = footer ? footer.getBoundingClientRect().top : window.innerHeight;
+    const top     = toolbar ? toolbar.getBoundingClientRect().bottom : 0;
+    const wrap    = document.getElementById('excalidraw-wrap');
+    if (wrap) wrap.style.height = Math.max(200, bottom - top) + 'px';
+}
+fitWrap();
+window.addEventListener('resize', fitWrap);
+
+(async function () {
+    const saveBtn    = document.getElementById('save-btn');
+    const saveStatus = document.getElementById('save-status');
+    const loading    = document.getElementById('excalidraw-loading');
+    const rootEl     = document.getElementById('excalidraw-root');
+
+    function showError(msg) {
+        loading.innerHTML = `<span class="text-sm text-error text-center px-4">${msg}</span>`;
+    }
+
+    // Resolve the Excalidraw component.
+    // Note: in React 18, forwardRef/memo components have typeof === "object", not "function".
+    const ExcalidrawComponent = (typeof ExcalidrawLib !== 'undefined')
+        ? (ExcalidrawLib.Excalidraw || ExcalidrawLib.default?.Excalidraw || ExcalidrawLib.default || ExcalidrawLib)
+        : null;
+
+    if (!ExcalidrawComponent) {
+        showError('Excalidraw library not loaded.<br>Run: <code>bash scripts/download-vendor.sh</code>');
+        return;
+    }
+
+    // Load initial data from file
+    let initialData = {
+        elements: [],
+        appState: { gridSize: null, viewBackgroundColor: '#ffffff' },
+        files: {},
+    };
+
+    try {
+        const r = await fetch(FETCH_URL);
+        if (r.ok) {
+            const text = await r.text();
+            if (text.trim()) {
+                const parsed = JSON.parse(text);
+                if (parsed.type === 'excalidraw' && parsed.elements) {
+                    initialData = {
+                        elements: parsed.elements || [],
+                        appState: parsed.appState || {},
+                        files: parsed.files || {},
+                    };
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('Could not load Excalidraw file:', e);
+    }
+
+    let excalidrawAPI = null;
+    let autoSaveTimer = null;
+
+    function showSaveStatus(msg, fade) {
+        saveStatus.textContent = msg;
+        saveStatus.classList.remove('hidden');
+        if (fade) setTimeout(() => saveStatus.classList.add('hidden'), 2500);
+    }
+
+    async function doSave(elements, appState, files) {
+        showSaveStatus('Saving…', false);
+        try {
+            const serialize = ExcalidrawLib.serializeAsJSON || (ExcalidrawLib.default && ExcalidrawLib.default.serializeAsJSON);
+            const json = serialize ? serialize(elements, appState, files, 'local') : JSON.stringify({ type: 'excalidraw', version: 2, elements, appState, files });
+            const r = await fetch(SAVE_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: json }),
+            });
+            if (r.ok) showSaveStatus('Saved ✓', true);
+            else showSaveStatus('Save failed (' + r.status + ')', false);
+        } catch (e) {
+            showSaveStatus('Save failed', false);
+        }
+    }
+
+    // Build Excalidraw React component (without JSX)
+    function App() {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        return React.createElement(ExcalidrawComponent, {
+            theme: isDark ? 'dark' : 'light',
+            initialData: initialData,
+            excalidrawAPI: (api) => { excalidrawAPI = api; },
+            onChange: (elements, appState, files) => {
+                clearTimeout(autoSaveTimer);
+                autoSaveTimer = setTimeout(() => doSave(elements, appState, files), 2000);
+            },
+        });
+    }
+
+    // The @font-face rules in <head> already registered Virgil/Cascadia, so
+    // document.fonts.load() will download them before mount. Excalidraw only
+    // clears its internal isLoading state after these fonts finish loading.
+    await Promise.allSettled([
+        document.fonts.load('1em Virgil'),
+        document.fonts.load('1em Cascadia'),
+    ]);
+
+    // Mount — use inline style to hide loading div (ID-selector CSS in <head>
+    // has higher specificity than Tailwind's .hidden class, so classList won't work).
+    loading.style.display = 'none';
+    rootEl.style.display = 'block';
+    rootEl.classList.remove('hidden');
+    ReactDOM.createRoot(rootEl).render(React.createElement(App));
+
+    // Manual save button
+    saveBtn.addEventListener('click', () => {
+        if (!excalidrawAPI) return;
+        const elements = excalidrawAPI.getSceneElements();
+        const appState = excalidrawAPI.getAppState();
+        const files    = excalidrawAPI.getFiles();
+        doSave(elements, appState, files);
+    });
+
+    // Ctrl+S / Cmd+S
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            saveBtn.click();
+        }
+    });
+})();
+</script>
+{% endblock %}

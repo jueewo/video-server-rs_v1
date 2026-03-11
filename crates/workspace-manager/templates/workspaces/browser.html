@@ -307,6 +307,18 @@
 <dialog id="new-file-modal" class="modal">
     <div class="modal-box">
         <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="file-plus" class="w-5 h-5"></i> New File</h3>
+        <div class="form-control mb-3">
+            <label class="label"><span class="label-text">File Type</span></label>
+            <select id="new-file-type" class="select select-bordered" onchange="onNewFileTypeChange(this.value)">
+                <option value="">Custom — enter filename below</option>
+                <option value=".md">Markdown document (.md)</option>
+                <option value=".mmd">Mermaid diagram (.mmd)</option>
+                <option value=".drawio">draw.io diagram (.drawio)</option>
+                <option value=".bpmn">BPMN process (.bpmn)</option>
+                <option value=".excalidraw">Excalidraw canvas (.excalidraw)</option>
+            </select>
+            <label class="label"><span id="new-file-type-hint" class="label-text-alt text-base-content/50"></span></label>
+        </div>
         <div class="form-control mb-4">
             <label class="label"><span class="label-text">Filename</span></label>
             <input type="text" id="new-file-name" placeholder="e.g. notes.md" class="input input-bordered" />
@@ -634,9 +646,31 @@
 
     // ── New File ────────────────────────────────────────────────────────────
 
+    const NEW_FILE_TYPES = {
+        '.md':          { name: 'notes.md',         hint: 'Markdown document with preview and edit support.' },
+        '.mmd':         { name: 'diagram.mmd',       hint: 'Mermaid diagram with live split-pane editor.' },
+        '.drawio':      { name: 'diagram.drawio',    hint: 'draw.io diagram, opens in the draw.io editor.' },
+        '.bpmn':        { name: 'process.bpmn',      hint: 'BPMN process diagram with bpmn.io editor.' },
+        '.excalidraw':  { name: 'sketch.excalidraw', hint: 'Freehand canvas drawing. Supports Apple Pencil.' },
+    };
+
     function newFile() {
+        document.getElementById('new-file-type').value = '';
         document.getElementById('new-file-name').value = '';
+        document.getElementById('new-file-type-hint').textContent = '';
         document.getElementById('new-file-modal').showModal();
+        lucide.createIcons();
+    }
+
+    function onNewFileTypeChange(type) {
+        const nameInput = document.getElementById('new-file-name');
+        const hint = document.getElementById('new-file-type-hint');
+        if (type && NEW_FILE_TYPES[type]) {
+            nameInput.value = NEW_FILE_TYPES[type].name;
+            hint.textContent = NEW_FILE_TYPES[type].hint;
+        } else {
+            hint.textContent = '';
+        }
     }
 
     async function newFolder() {
@@ -682,15 +716,38 @@
 </bpmn:definitions>`;
     }
 
+    function getMmdTemplate() {
+        return `flowchart TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Action]
+    B -->|No| D[End]
+    C --> D`;
+    }
+
+    function getExcalidrawTemplate() {
+        return JSON.stringify({
+            type: "excalidraw",
+            version: 2,
+            source: "workspace",
+            elements: [],
+            appState: { gridSize: null, viewBackgroundColor: "#ffffff" },
+            files: {}
+        }, null, 2);
+    }
+
     async function submitNewFile() {
         const name = document.getElementById('new-file-name').value.trim();
         if (!name) return;
         const fullPath = pathJoin(CURRENT_PATH, name);
 
-        // Generate BPMN template for .bpmn files
         let content = null;
-        if (name.toLowerCase().endsWith('.bpmn')) {
+        const lname = name.toLowerCase();
+        if (lname.endsWith('.bpmn')) {
             content = getBpmnTemplate();
+        } else if (lname.endsWith('.mmd') || lname.endsWith('.mermaid')) {
+            content = getMmdTemplate();
+        } else if (lname.endsWith('.excalidraw')) {
+            content = getExcalidrawTemplate();
         }
 
         try {

@@ -751,7 +751,7 @@ async fn serve_static_excluding_gallery(
             // Determine MIME type based on file extension
             let mime_type = if file_path.ends_with(".css") {
                 "text/css; charset=utf-8"
-            } else if file_path.ends_with(".js") {
+            } else if file_path.ends_with(".mjs") || file_path.ends_with(".js") {
                 "application/javascript; charset=utf-8"
             } else if file_path.ends_with(".png") {
                 "image/png"
@@ -763,6 +763,16 @@ async fn serve_static_excluding_gallery(
                 "image/x-icon"
             } else if file_path.ends_with(".webp") {
                 "image/webp"
+            } else if file_path.ends_with(".woff2") {
+                "font/woff2"
+            } else if file_path.ends_with(".woff") {
+                "font/woff"
+            } else if file_path.ends_with(".ttf") {
+                "font/ttf"
+            } else if file_path.ends_with(".eot") {
+                "application/vnd.ms-fontobject"
+            } else if file_path.ends_with(".json") {
+                "application/json; charset=utf-8"
             } else {
                 "application/octet-stream"
             };

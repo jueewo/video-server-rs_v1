@@ -1,0 +1,177 @@
+{% extends "base-tailwind.html" %}
+{% block title %}{{ file_name }} — Mermaid{% endblock %}
+{% block extra_head %}
+<style>
+    html, body { overflow: hidden; }
+    #editor-split {
+        display: flex;
+        height: calc(100vh - 56px - 41px); /* minus navbar + footer */
+        overflow: hidden;
+    }
+    #mmd-input {
+        flex: 1;
+        resize: none;
+        border: none;
+        outline: none;
+        padding: 1rem;
+        font-family: 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', monospace;
+        font-size: 14px;
+        line-height: 1.6;
+        background: oklch(var(--b2));
+        color: oklch(var(--bc));
+        tab-size: 2;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    #mmd-preview {
+        flex: 1;
+        overflow: auto;
+        padding: 1.5rem;
+        background: oklch(var(--b1));
+        border-left: 1px solid oklch(var(--b3));
+        -webkit-overflow-scrolling: touch;
+    }
+    #mmd-preview svg {
+        max-width: 100%;
+        height: auto;
+    }
+    #mmd-error {
+        color: oklch(var(--er));
+        font-family: monospace;
+        font-size: 13px;
+        white-space: pre-wrap;
+        padding: 1rem;
+    }
+    /* iPad / small screens: stack vertically */
+    @media (max-width: 768px) {
+        #editor-split { flex-direction: column; }
+        #mmd-input { flex: none; height: 40%; border-left: none; border-bottom: 1px solid oklch(var(--b3)); }
+        #mmd-preview { flex: none; height: 60%; border-left: none; }
+    }
+</style>
+{% endblock %}
+{% block content %}
+
+<!-- Toolbar -->
+<div class="flex items-center gap-2 px-3 py-1.5 border-b border-base-300 bg-base-200" style="height:48px;">
+    <a href="{{ back_url }}" class="btn btn-ghost btn-xs gap-1">
+        <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Back
+    </a>
+    <div class="divider divider-horizontal mx-0 h-5"></div>
+    <i data-lucide="git-branch" class="w-4 h-4 text-base-content/50 shrink-0"></i>
+    <span class="text-sm font-medium truncate max-w-xs">{{ file_name }}</span>
+    <div class="flex-1"></div>
+    <span id="save-status" class="text-xs text-base-content/50 hidden"></span>
+    <button id="save-btn" class="btn btn-primary btn-xs gap-1">
+        <i data-lucide="save" class="w-3.5 h-3.5"></i> Save
+    </button>
+    <div class="divider divider-horizontal mx-0 h-5"></div>
+    <button id="toggle-layout-btn" class="btn btn-ghost btn-xs btn-square" title="Toggle layout">
+        <i data-lucide="layout-panel-left" class="w-4 h-4"></i>
+    </button>
+</div>
+
+<!-- Split Editor -->
+<div id="editor-split">
+    <textarea id="mmd-input" spellcheck="false" placeholder="Enter Mermaid diagram code…"></textarea>
+    <div id="mmd-preview">
+        <div id="mmd-render"></div>
+        <div id="mmd-error" class="hidden"></div>
+    </div>
+</div>
+
+{% endblock %}
+{% block extra_scripts %}
+<script>
+var FETCH_URL = '{{ fetch_url }}';
+var SAVE_URL  = '{{ save_url }}';
+var BACK_URL  = '{{ back_url }}';
+</script>
+<script src="/static/vendor/mermaid.min.js"></script>
+<script>
+const input      = document.getElementById('mmd-input');
+const render     = document.getElementById('mmd-render');
+const errEl      = document.getElementById('mmd-error');
+const saveBtn    = document.getElementById('save-btn');
+const saveStatus = document.getElementById('save-status');
+
+// ── Step 1: load file content (independent of mermaid) ────────────────────
+fetch(FETCH_URL)
+    .then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.text();
+    })
+    .then(text => {
+        input.value = text;
+        renderDiagram();
+    })
+    .catch(e => console.error('Could not load file:', e));
+
+// ── Step 2: init mermaid (independent of content load) ────────────────────
+const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default', securityLevel: 'loose' });
+} else {
+    errEl.textContent = 'Mermaid library not loaded — run: bash scripts/download-vendor.sh';
+    errEl.classList.remove('hidden');
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+let renderTimer = null;
+input.addEventListener('input', () => {
+    clearTimeout(renderTimer);
+    renderTimer = setTimeout(renderDiagram, 400);
+});
+
+async function renderDiagram() {
+    if (typeof mermaid === 'undefined') return;
+    const code = input.value.trim();
+    if (!code) { render.innerHTML = ''; errEl.classList.add('hidden'); return; }
+    try {
+        const { svg } = await mermaid.render('mermaid-' + Date.now(), code);
+        render.innerHTML = svg;
+        errEl.classList.add('hidden');
+    } catch (e) {
+        render.innerHTML = '';
+        errEl.textContent = e.message || String(e);
+        errEl.classList.remove('hidden');
+    }
+}
+
+// ── Save ───────────────────────────────────────────────────────────────────
+async function doSave() {
+    saveStatus.textContent = 'Saving…';
+    saveStatus.classList.remove('hidden');
+    try {
+        const r = await fetch(SAVE_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: input.value }),
+        });
+        if (r.ok) {
+            saveStatus.textContent = 'Saved ✓';
+            setTimeout(() => saveStatus.classList.add('hidden'), 2500);
+        } else {
+            saveStatus.textContent = 'Save failed (' + r.status + ')';
+        }
+    } catch (e) {
+        saveStatus.textContent = 'Save failed';
+    }
+}
+
+saveBtn.addEventListener('click', doSave);
+
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); doSave(); }
+});
+
+// ── Toggle layout (iPad portrait) ─────────────────────────────────────────
+document.getElementById('toggle-layout-btn').addEventListener('click', () => {
+    const split = document.getElementById('editor-split');
+    const isCol = split.style.flexDirection === 'column';
+    split.style.flexDirection = isCol ? '' : 'column';
+    input.style.height = isCol ? '' : '40%';
+    document.getElementById('mmd-preview').style.height = isCol ? '' : '60%';
+});
+</script>
+{% endblock %}

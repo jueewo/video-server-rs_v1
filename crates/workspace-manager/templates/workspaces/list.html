@@ -54,9 +54,15 @@
                     {% if !all_tags.is_empty() %}
                     <!-- Tag filter -->
                     <div>
-                        <label class="label pb-2 pt-0">
+                        <div class="flex items-center justify-between pb-2 pt-0">
                             <span class="label-text text-xs font-medium text-base-content/60 uppercase tracking-wide">Tags</span>
-                        </label>
+                            <div class="join" id="tag-mode-toggle">
+                                <button id="tag-mode-or" onclick="setTagMode('or')"
+                                        class="join-item btn btn-xs btn-active">OR</button>
+                                <button id="tag-mode-and" onclick="setTagMode('and')"
+                                        class="join-item btn btn-xs">AND</button>
+                            </div>
+                        </div>
                         <div class="flex flex-wrap gap-1.5" id="tag-filter-chips">
                             {% for tag in all_tags %}
                             <button onclick="toggleTagFilter('{{ tag }}')"
@@ -209,10 +215,18 @@
 {% block extra_scripts %}
 <script>
     let activeTagFilters = new Set();
+    let tagFilterMode = 'or'; // 'or' | 'and'
     let filterPanelOpen = false;
 
     const FILTER_KEY = 'workspace-filter';
     const REMEMBER_KEY = 'workspace-filter-remember';
+
+    function setTagMode(mode) {
+        tagFilterMode = mode;
+        document.getElementById('tag-mode-or').classList.toggle('btn-active', mode === 'or');
+        document.getElementById('tag-mode-and').classList.toggle('btn-active', mode === 'and');
+        applyFilters();
+    }
 
     function isRemembering() {
         return document.getElementById('filter-remember').checked;
@@ -231,7 +245,7 @@
     function saveFilter() {
         if (!isRemembering()) return;
         const keyword = document.getElementById('filter-keyword').value.trim();
-        const state = { keyword, tags: [...activeTagFilters] };
+        const state = { keyword, tags: [...activeTagFilters], tagMode: tagFilterMode };
         if (keyword || activeTagFilters.size > 0) {
             localStorage.setItem(FILTER_KEY, JSON.stringify(state));
         } else {
@@ -249,9 +263,10 @@
         try {
             const raw = localStorage.getItem(FILTER_KEY);
             if (!raw) return;
-            const { keyword, tags } = JSON.parse(raw);
+            const { keyword, tags, tagMode } = JSON.parse(raw);
             if (keyword) document.getElementById('filter-keyword').value = keyword;
             if (tags && tags.length) tags.forEach(t => activeTagFilters.add(t));
+            if (tagMode === 'and') setTagMode('and');
             updateTagChipStyles();
             applyFilters();
         } catch (_) {
@@ -310,6 +325,7 @@
     function clearFilters() {
         document.getElementById('filter-keyword').value = '';
         activeTagFilters.clear();
+        setTagMode('or');
         updateTagChipStyles();
         applyFilters(); // saveFilter() called inside — will remove FILTER_KEY since empty
     }
@@ -326,8 +342,11 @@
             const cardTags = tagsStr ? tagsStr.split(',') : [];
 
             const matchKeyword = !keyword || name.includes(keyword) || desc.includes(keyword);
-            const matchTags = activeTagFilters.size === 0 ||
-                [...activeTagFilters].every(t => cardTags.includes(t));
+            const matchTags = activeTagFilters.size === 0 || (
+                tagFilterMode === 'and'
+                    ? [...activeTagFilters].every(t => cardTags.includes(t))
+                    : [...activeTagFilters].some(t => cardTags.includes(t))
+            );
 
             const visible = matchKeyword && matchTags;
             card.classList.toggle('hidden', !visible);
@@ -368,7 +387,12 @@
                     <button onclick="clearKeyword()" class="ml-1 opacity-60 hover:opacity-100">✕</button>
                 </span>`);
         }
-        activeTagFilters.forEach(tag => {
+        const tagArr = [...activeTagFilters];
+        tagArr.forEach((tag, i) => {
+            if (i > 0 && tagArr.length > 1) {
+                pills.insertAdjacentHTML('beforeend',
+                    `<span class="text-xs text-base-content/40 font-semibold px-0.5">${tagFilterMode.toUpperCase()}</span>`);
+            }
             pills.insertAdjacentHTML('beforeend',
                 `<span class="badge badge-sm badge-primary gap-1">
                     <i data-lucide="tag" class="w-3 h-3"></i> ${tag}

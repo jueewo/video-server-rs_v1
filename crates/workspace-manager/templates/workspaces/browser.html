@@ -44,6 +44,7 @@
             <button onclick="newFolder()" class="btn btn-sm btn-outline gap-1"><i data-lucide="folder-plus" class="w-4 h-4"></i> New Folder</button>
             <button onclick="document.getElementById('upload-files-input').click()" class="btn btn-sm btn-outline gap-1"><i data-lucide="upload" class="w-4 h-4"></i> Upload Files</button>
             <button onclick="document.getElementById('upload-folder-input').click()" class="btn btn-sm btn-outline gap-1"><i data-lucide="package-open" class="w-4 h-4"></i> Upload Folder</button>
+            <button id="select-mode-btn" onclick="toggleSelectMode()" class="btn btn-sm btn-outline gap-1"><i data-lucide="check-square" class="w-4 h-4"></i> Select</button>
             <div class="dropdown dropdown-end">
                 <button tabindex="0" class="btn btn-sm btn-outline btn-square" title="More options">
                     <i data-lucide="more-horizontal" class="w-4 h-4"></i>
@@ -160,9 +161,12 @@
         <h2 class="text-lg font-semibold mb-3 text-base-content/70">Files</h2>
         <div class="card bg-base-100 shadow border border-base-300">
             <div class="overflow-x-auto">
-                <table class="table table-sm">
+                <table id="files-table" class="table table-sm">
                     <thead>
                         <tr>
+                            <th class="select-col hidden w-8">
+                                <input type="checkbox" id="select-all-cb" class="checkbox checkbox-sm" onchange="selectAll(this.checked)" />
+                            </th>
                             <th>Name</th>
                             <th>Type</th>
                             <th>Size</th>
@@ -172,7 +176,10 @@
                     </thead>
                     <tbody>
                         {% for file in files %}
-                        <tr class="hover">
+                        <tr class="hover" data-path="{{ file.path }}" data-name="{{ file.name }}">
+                            <td class="select-col hidden w-8">
+                                <input type="checkbox" class="file-cb checkbox checkbox-sm" data-path="{{ file.path }}" onchange="onFileCheckbox(this)" />
+                            </td>
                             <td class="font-medium">
                                 <i data-lucide="{{ file.icon }}" class="w-4 h-4 inline-block align-middle mr-1 text-base-content/50"></i>
                                 {{ file.name }}
@@ -232,6 +239,20 @@
         <li id="ctx-media-li"><a id="ctx-media" class="gap-2"><i data-lucide="library" class="w-3 h-3"></i> → Media</a></li>
         <li><a id="ctx-delete" class="gap-2 text-error"><i data-lucide="trash-2" class="w-3 h-3"></i> Delete</a></li>
     </ul>
+</div>
+
+<!-- Bulk Action Bar -->
+<div id="bulk-action-bar" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[9000] bg-base-100 border border-base-300 rounded-box shadow-2xl px-4 py-2 flex items-center gap-3">
+    <span id="bulk-count" class="text-sm font-medium text-base-content/70"></span>
+    <button onclick="openBulkMoveModal()" class="btn btn-sm btn-outline gap-1">
+        <i data-lucide="folder-input" class="w-4 h-4"></i> Move
+    </button>
+    <button onclick="bulkDelete()" class="btn btn-sm btn-error btn-outline gap-1">
+        <i data-lucide="trash-2" class="w-4 h-4"></i> Delete
+    </button>
+    <button onclick="clearSelection()" class="btn btn-sm btn-ghost btn-square" title="Clear selection">
+        <i data-lucide="x" class="w-4 h-4"></i>
+    </button>
 </div>
 
 <!-- Share Folder Modal -->
@@ -1731,6 +1752,148 @@
             resultEl.classList.remove('hidden');
             submitBtn.disabled = false;
         }
+    }
+
+    // ── Multi-select ─────────────────────────────────────────────────────────
+
+    let _selectMode = false;
+    const _selected = new Set();
+
+    function toggleSelectMode() {
+        _selectMode = !_selectMode;
+        const btn = document.getElementById('select-mode-btn');
+        const cols = document.querySelectorAll('.select-col');
+        if (_selectMode) {
+            btn.classList.add('btn-active');
+            cols.forEach(c => c.classList.remove('hidden'));
+        } else {
+            btn.classList.remove('btn-active');
+            cols.forEach(c => c.classList.add('hidden'));
+            clearSelection();
+        }
+    }
+
+    function onFileCheckbox(cb) {
+        if (cb.checked) {
+            _selected.add(cb.dataset.path);
+        } else {
+            _selected.delete(cb.dataset.path);
+        }
+        _updateBulkBar();
+    }
+
+    function selectAll(checked) {
+        document.querySelectorAll('.file-cb').forEach(cb => {
+            cb.checked = checked;
+            if (checked) _selected.add(cb.dataset.path);
+            else _selected.delete(cb.dataset.path);
+        });
+        _updateBulkBar();
+    }
+
+    function clearSelection() {
+        _selected.clear();
+        document.querySelectorAll('.file-cb').forEach(cb => cb.checked = false);
+        const allCb = document.getElementById('select-all-cb');
+        if (allCb) allCb.checked = false;
+        _updateBulkBar();
+    }
+
+    function _updateBulkBar() {
+        const bar = document.getElementById('bulk-action-bar');
+        const n = _selected.size;
+        if (n > 0) {
+            document.getElementById('bulk-count').textContent = `${n} selected`;
+            bar.classList.remove('hidden');
+            lucide.createIcons({ nodes: [bar] });
+        } else {
+            bar.classList.add('hidden');
+        }
+    }
+
+    // ── Bulk Move ────────────────────────────────────────────────────────────
+
+    async function openBulkMoveModal() {
+        if (_selected.size === 0) return;
+        _moveSelectedDir = null;
+        document.getElementById('move-modal-title').textContent = `Move ${_selected.size} file${_selected.size > 1 ? 's' : ''}`;
+        document.getElementById('move-file-path').value = '__bulk__';
+        document.getElementById('move-file-name').value = '';
+        document.getElementById('move-file-label').textContent = `${_selected.size} selected file${_selected.size > 1 ? 's' : ''}`;
+        document.getElementById('move-file-error').classList.add('hidden');
+
+        const list = document.getElementById('move-dir-list');
+        list.innerHTML = '<div class="text-xs text-base-content/40 p-2">Loading…</div>';
+        document.getElementById('move-file-modal').showModal();
+
+        const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/dirs`);
+        if (!r.ok) { list.innerHTML = '<div class="text-xs text-error p-2">Failed to load folders.</div>'; return; }
+        const dirs = await r.json();
+
+        list.innerHTML = '';
+        dirs.forEach(d => {
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-xs btn-ghost justify-start text-left w-full font-mono';
+            btn.textContent = d.path === '' ? '/ (root)' : '/' + d.path;
+            btn.onclick = () => {
+                list.querySelectorAll('button').forEach(b => b.classList.remove('btn-active'));
+                btn.classList.add('btn-active');
+                _moveSelectedDir = d.path;
+            };
+            list.appendChild(btn);
+        });
+    }
+
+    // Patch submitMove to handle bulk mode
+    const _origSubmitMove = submitMove;
+    submitMove = async function () {
+        const fromPath = document.getElementById('move-file-path').value;
+        if (fromPath !== '__bulk__') { return _origSubmitMove(); }
+        if (_moveSelectedDir === null) return;
+
+        const errEl = document.getElementById('move-file-error');
+        const paths = Array.from(_selected);
+        let failed = 0;
+
+        for (const p of paths) {
+            const fileName = p.includes('/') ? p.substring(p.lastIndexOf('/') + 1) : p;
+            const toPath = _moveSelectedDir === '' ? fileName : _moveSelectedDir + '/' + fileName;
+            const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/rename`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ from: p, to: toPath }),
+            });
+            if (!r.ok) failed++;
+        }
+
+        document.getElementById('move-file-modal').close();
+        if (failed > 0) {
+            alert(`${failed} file(s) could not be moved (conflict or error).`);
+        }
+        location.reload();
+    };
+
+    // ── Bulk Delete ──────────────────────────────────────────────────────────
+
+    async function bulkDelete() {
+        const n = _selected.size;
+        if (n === 0) return;
+        if (!confirm(`Delete ${n} file${n > 1 ? 's' : ''}? This cannot be undone.`)) return;
+
+        const paths = Array.from(_selected);
+        let failed = 0;
+
+        for (const p of paths) {
+            const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/files?path=${encodeURIComponent(p)}`, {
+                method: 'DELETE',
+            });
+            if (r.status !== 204) failed++;
+        }
+
+        if (failed > 0) {
+            alert(`${failed} file(s) could not be deleted.`);
+        }
+        location.reload();
     }
 
 </script>

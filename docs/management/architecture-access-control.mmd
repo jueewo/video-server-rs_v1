@@ -1,0 +1,21 @@
+flowchart LR
+    REQ["Incoming Request"] --> L1
+
+    L1{"Public<br/>access?"}
+    L1 -->|yes| ALLOW["✅ Allow"]
+    L1 -->|no| L2
+
+    L2{"Valid<br/>access code?"}
+    L2 -->|yes| ALLOW
+    L2 -->|no| L3
+
+    L3{"Group<br/>membership?"}
+    L3 -->|yes| PERM["Check permission level<br/>Read · Download · Edit · Delete · Admin"]
+    L3 -->|no| L4
+
+    L4{"Owner?"}
+    L4 -->|yes| ALLOW
+    L4 -->|no| DENY["❌ 403 Forbidden"]
+
+    PERM --> ALLOW
+    PERM --> DENY

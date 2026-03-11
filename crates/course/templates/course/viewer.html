@@ -128,7 +128,7 @@
 {% endblock %}
 {% block extra_scripts %}
 {% if raw_markdown.is_some() %}
-<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+<script src="/static/vendor/marked.min.js"></script>
 <script>
 (function () {
     const el = document.getElementById('lesson-content');
@@ -217,7 +217,7 @@
         }
         // Other browsers: load hls.js and use it
         const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js';
+        script.src = '/static/vendor/hls.min.js';
         script.onload = () => {
             videos.forEach(v => {
                 if (Hls.isSupported()) {

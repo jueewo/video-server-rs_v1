@@ -280,7 +280,7 @@ Server{% endblock %} {% block extra_head %}
 </div>
 
 {% if authenticated %}
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script src="/static/vendor/hls.min.js"></script>
 <script>
     const video = document.getElementById("video");
     const videoSrc = "/hls/live/index.m3u8";

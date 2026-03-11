@@ -1,0 +1,94 @@
+flowchart LR
+    subgraph INFRA["Infrastructure"]
+        common
+        media-core
+        rate-limiter
+        vault-manager
+    end
+
+    subgraph AUTH["Auth & Access"]
+        user-auth
+        api-keys
+        access-groups
+        access-codes
+        access-control
+    end
+
+    subgraph MEDIA["Media"]
+        media-manager
+        video-manager
+        docs-viewer
+        bpmn-viewer
+        pdf-viewer
+        media-viewer
+    end
+
+    subgraph WORK["Workspace"]
+        workspace-core
+        workspace-manager
+        workspace-renderers
+        workspace-apps
+        course
+    end
+
+    subgraph SA["Standalone"]
+        gallery3d
+        js-tool-viewer
+        app-publisher
+        webdav
+        media-mcp
+        media-cli
+    end
+
+    subgraph PROC["Processors"]
+        static-site
+        bpmn-simulator
+        agent-collection
+        course-processor
+    end
+
+    %% Foundation
+    common --> media-core
+    common --> access-control
+    common --> media-manager
+    common --> video-manager
+    common --> workspace-manager
+    common --> vault-manager
+
+    %% Auth
+    access-control --> user-auth
+    access-control --> access-groups
+    access-control --> access-codes
+    api-keys --> user-auth
+
+    %% Media
+    media-core --> media-manager
+    media-core --> video-manager
+    access-control --> media-manager
+    media-manager --> video-manager
+    media-manager --> docs-viewer
+    media-manager --> bpmn-viewer
+    media-manager --> pdf-viewer
+
+    %% Workspace
+    workspace-core --> workspace-manager
+    workspace-renderers --> workspace-manager
+    workspace-renderers --> bpmn-viewer
+    workspace-renderers --> media-viewer
+    workspace-renderers --> course
+    media-viewer --> workspace-core
+    course --> workspace-core
+    workspace-manager --> static-site
+    workspace-manager --> bpmn-simulator
+    workspace-manager --> agent-collection
+    workspace-manager --> course-processor
+
+    %% Apps
+    workspace-apps --> gallery3d
+    workspace-apps --> js-tool-viewer
+    workspace-apps --> app-publisher
+
+    %% Standalone singletons
+    media-mcp --> common
+    media-cli --> common
+    webdav --> workspace-manager

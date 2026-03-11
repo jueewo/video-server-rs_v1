@@ -1,0 +1,20 @@
+flowchart TB
+    subgraph T1["Tier 1 — Hosted Platform"]
+        direction LR
+        T1A["Your infrastructure<br/>Multi-tenant<br/>Platform branding<br/>All features"]
+    end
+
+    subgraph T2["Tier 2 — Hosted B2B"]
+        direction LR
+        T2A["Your infrastructure<br/>Per-company tenant<br/>Per-tenant branding in DB<br/>All features"]
+    end
+
+    subgraph T3["Tier 3 — Standalone"]
+        direction LR
+        T3A["Customer infrastructure<br/>Single tenant (config.yaml)<br/>Customer branding.yaml<br/>Licensed features only"]
+    end
+
+    CODE["Same Rust codebase<br/>config.yaml: deployment_mode<br/>Cargo features: media · course · bpmn · apps"]
+    CODE --> T1
+    CODE --> T2
+    CODE --> T3

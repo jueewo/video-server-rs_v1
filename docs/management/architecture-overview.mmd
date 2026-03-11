@@ -1,0 +1,134 @@
+flowchart TB
+    subgraph CLIENTS["Clients"]
+        BR["Browser<br/>Askama SSR · Tailwind CSS · DaisyUI"]
+        WSC["WebSocket<br/>upload / transcode progress"]
+        CD["Claude Desktop<br/>MCP client"]
+        CLI["media-cli<br/>admin CLI tool"]
+    end
+
+    subgraph EXT["External Services"]
+        FF["FFmpeg + ffprobe<br/>video transcoding"]
+        MTX["MediaMTX<br/>RTMP → HLS streaming"]
+        OIDC["Casdoor / OIDC<br/>authentication provider"]
+        GS["Ghostscript<br/>PDF thumbnails"]
+        OTEL["OpenTelemetry / SigNoz<br/>distributed tracing · OTLP gRPC"]
+    end
+
+    subgraph CFG["Config Files"]
+        B["branding.yaml<br/>name · logo · favicon · colors"]
+        C["config.yaml<br/>hosted vs standalone mode"]
+        A["apps-catalog.yaml<br/>platform app cards"]
+    end
+
+    subgraph SERVER["Rust Server  ·  Axum 0.8  ·  Tokio async runtime"]
+        direction TB
+
+        subgraph FOUND["Foundation crates"]
+            COMMON["common<br/>storage manager · DB utils · errors · request-id"]
+            MCORE["media-core<br/>MIME detection · file traits"]
+            RL["rate-limiter<br/>tower_governor 0.8<br/>60 RPM default · 15 upload · 300 serving"]
+            VM["vault-manager<br/>storage vault admin UI"]
+        end
+
+        subgraph AUTHZ["Auth & Access crates"]
+            UA["user-auth<br/>OIDC · tower-sessions · emergency login"]
+            AK["api-keys<br/>SHA-256 hashed API keys · middleware"]
+            AG["access-groups<br/>user groups · roles · invitations"]
+            AC["access-codes<br/>shareable access links"]
+            ACS["access-control<br/>4-layer ACL · audit logging<br/>Public → Code → Group → Owner"]
+        end
+
+        subgraph MEDIAP["Media Pipeline crates"]
+            MM["media-manager<br/>unified upload · CRUD · search · tags<br/>serving routes · WebSocket progress"]
+            VID["video-manager<br/>HLS 8-stage transcoding pipeline<br/>1080p/720p/480p/360p · DashMap progress"]
+            DV["docs-viewer<br/>Markdown · syntax highlighting"]
+            BV["bpmn-viewer<br/>BPMN diagram renderer"]
+            PV["pdf-viewer<br/>PDF inline viewer"]
+            MV["media-viewer<br/>media grid inside workspace folders"]
+        end
+
+        subgraph WS["Workspace crates"]
+            WC["workspace-core<br/>FolderTypeRenderer trait<br/>open extension point"]
+            WM["workspace-manager<br/>folder browser · editor<br/>WebDAV · folder-type registry"]
+            WR["workspace-renderers<br/>renderer registration facade<br/>bpmn · media · course"]
+            WA["workspace-apps  feature:apps<br/>embedded app routes facade"]
+        end
+
+        subgraph PROC["Workspace Processors"]
+            PSS["static-site<br/>processor"]
+            PBS["bpmn-simulator<br/>processor"]
+            PAC["agent-collection<br/>processor"]
+            PCP["course-processor"]
+        end
+
+        subgraph APPS["Standalone Apps / Modules"]
+            G3D["gallery3d<br/>3D virtual gallery<br/>Babylon.js · Three.js"]
+            JST["js-tool-viewer<br/>HTML/JS · Vue3 · Preact SPA<br/>owner preview at /js-apps/"]
+            APB["app-publisher<br/>publish workspace → static snapshot<br/>/pub/ · /my-apps · access codes"]
+            WDV["webdav<br/>WebDAV protocol handler"]
+            MCP["media-mcp<br/>MCP server for Claude Desktop"]
+            CRS["course<br/>markdown lessons · outline viewer"]
+        end
+    end
+
+    subgraph STORAGE["Persistence"]
+        DB[("media.db  SQLite<br/>media_items · users · sessions<br/>workspaces · access_codes<br/>api_keys · vaults · published_apps")]
+        FS["Filesystem<br/>storage/vaults/{vault_id}/media/{type}/<br/>storage/vaults/{vault_id}/thumbnails/{type}/<br/>storage/apps/{app_id}/<br/>storage/workspaces/{ws_id}/"]
+    end
+
+    subgraph ADMIN["Admin Scripts  cargo run --bin"]
+        SC["generate-thumbnails<br/>migrate_storage<br/>cleanup_missing_media<br/>find_orphan_files<br/>create_default_vaults"]
+    end
+
+    %% Client connections
+    BR -->|HTTP routes + SSR| SERVER
+    WSC -->|"ws /api/media/{slug}/progress/ws"| VID
+    CD -->|MCP protocol| MCP
+    CLI -->|SQLite + filesystem| STORAGE
+
+    %% Config
+    CFG -->|startup load| SERVER
+
+    %% External
+    VID -->|subprocess| FF
+    VID <-->|HTTP webhooks| MTX
+    UA <-->|OIDC flow| OIDC
+    MM -->|gs subprocess| GS
+    SERVER -->|OTLP gRPC| OTEL
+
+    %% Foundation
+    COMMON --> ACS
+    COMMON --> MM
+    COMMON --> VID
+    COMMON --> WM
+    MCORE --> MM
+    MCORE --> VID
+
+    %% Auth layer
+    ACS --> UA
+    ACS --> AG
+    ACS --> AC
+    AK -.->|middleware| UA
+
+    %% Media layer
+    ACS --> MM
+    MM --> VID
+    MM --> DV
+    MM --> BV
+    MM --> PV
+
+    %% Workspace layer
+    WC --> WM
+    WR --> WM
+    WR --> BV
+    WR --> MV
+    WR --> CRS
+    WA --> G3D
+    WA --> JST
+    WA --> APB
+    WM --> PROC
+
+    %% Persistence
+    SERVER <-->|sqlx| DB
+    SERVER <-->|filesystem| FS
+    ADMIN --> STORAGE

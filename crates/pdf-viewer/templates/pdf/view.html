@@ -111,9 +111,8 @@
 {% block extra_scripts %}
 <!-- PDF.js -->
 <script type="module">
-    import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.624/build/pdf.min.mjs';
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-        'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.624/build/pdf.worker.min.mjs';
+    import * as pdfjsLib from '/static/vendor/pdfjs/pdf.min.mjs';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/static/vendor/pdfjs/pdf.worker.min.mjs';
 
     const SERVE_URL = {{ serve_url|tojson|safe }};
 

@@ -204,7 +204,7 @@
 </div>
 {% endblock %} {% block extra_scripts %}
 <!-- Monaco Editor from CDN -->
-<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+<script src="/static/vendor/monaco/vs/loader.js"></script>
 <script>
     let editor;
     let originalContent = {{ content|tojson|safe }};
@@ -213,7 +213,7 @@
     // Load Monaco Editor
     require.config({
         paths: {
-            'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs'
+            'vs': '/static/vendor/monaco/vs'
         }
     });
 

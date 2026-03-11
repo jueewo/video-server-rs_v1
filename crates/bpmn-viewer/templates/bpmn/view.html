@@ -2,9 +2,9 @@
 {% block title %}{{ page_title }}{% endblock %}
 {% block extra_head %}
 <!-- bpmn-js CSS -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bpmn-js@17/dist/assets/bpmn-js.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bpmn-js@17/dist/assets/diagram-js.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bpmn-js@17/dist/assets/bpmn-font/css/bpmn.css">
+<link rel="stylesheet" href="/static/vendor/bpmn-js/bpmn-js.css">
+<link rel="stylesheet" href="/static/vendor/bpmn-js/diagram-js.css">
+<link rel="stylesheet" href="/static/vendor/bpmn-js/bpmn-font/css/bpmn.css">
 <style>
     #bpmn-canvas {
         height: 600px;
@@ -71,7 +71,7 @@
 {% endblock %}
 {% block extra_scripts %}
 <!-- bpmn-js modeler -->
-<script src="https://cdn.jsdelivr.net/npm/bpmn-js@17/dist/bpmn-modeler.development.js"></script>
+<script src="/static/vendor/bpmn-js/bpmn-modeler.min.js"></script>
 <script>
     const bpmnXml = {{ bpmn_xml|tojson|safe }};
     const slug = {{ slug|tojson|safe }};

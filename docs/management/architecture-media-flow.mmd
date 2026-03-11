@@ -1,0 +1,31 @@
+sequenceDiagram
+    participant C as Browser
+    participant MM as media-manager
+    participant VM as video-manager
+    participant FF as FFmpeg
+    participant DB as SQLite
+    participant FS as Filesystem
+
+    C->>MM: POST /api/media/upload (multipart)
+    MM->>FS: write temp file
+    MM->>DB: insert media_item (status=processing)
+    MM-->>C: 202 Accepted + slug
+
+    C->>VM: WS /api/media/{slug}/progress/ws
+
+    MM->>VM: spawn tokio task process_video()
+    Note over VM: Stage 1: Validate
+    Note over VM: Stage 2: Extract metadata (ffprobe)
+    Note over VM: Stage 3: Transcode HLS (ffmpeg)
+    VM->>FF: subprocess (1080p/720p/480p/360p)
+    FF-->>VM: HLS segments + playlists
+    VM-->>C: progress updates (25–85%)
+    Note over VM: Stage 4: Generate thumbnail
+    Note over VM: Stage 5: Generate poster
+    VM->>DB: update media_item (status=active)
+    VM->>FS: storage/vaults/{vault_id}/media/videos/{slug}/
+    VM-->>C: 100% complete
+
+    C->>MM: GET /media/{slug}/thumbnail
+    MM->>FS: storage/vaults/{vault_id}/thumbnails/videos/{slug}_thumb.webp
+    FS-->>C: WebP thumbnail

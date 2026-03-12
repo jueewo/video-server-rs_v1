@@ -162,7 +162,7 @@ use video_manager::{rtmp_publish_token, video_routes, VideoManagerState};
 use media_viewer::{gallery_routes, MediaViewerState};
 
 #[cfg(feature = "course")]
-use course::{course_routes, CourseState};
+use course::{course_routes, presentation_routes, CourseState};
 
 
 // -------------------------------
@@ -1260,7 +1260,9 @@ async fn main() -> anyhow::Result<()> {
 
     // ── Course feature ───────────────────────────────────────────
     #[cfg(feature = "course")]
-    let app = app.merge(course_routes(course_state));
+    let app = app.merge(course_routes(course_state.clone()));
+    #[cfg(feature = "course")]
+    let app = app.merge(presentation_routes(course_state));
 
     // ── Apps feature (js-tool-viewer, app-publisher, 3d-gallery) ─────────────
     #[cfg(feature = "apps")]

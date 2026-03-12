@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ title }}</title>
+    <link rel="icon" type="image/webp" href="/static/icon.webp" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/theme/{{ theme }}.css" id="reveal-theme">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/highlight/monokai.css">
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+        .reveal .slides { text-align: left; }
+        /* Legal overlay — unobtrusive, always visible */
+        #legal-overlay {
+            position: fixed;
+            bottom: 4px;
+            right: 8px;
+            font-size: 10px;
+            opacity: 0.4;
+            z-index: 9999;
+            color: #fff;
+            mix-blend-mode: difference;
+        }
+        #legal-overlay a { color: inherit; text-decoration: none; margin-left: 6px; }
+        #legal-overlay a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+            <section data-markdown
+                     data-separator="\r?\n[ \t]*---[ \t]*\r?\n"
+                     data-separator-vertical="\r?\n[ \t]*--[ \t]*\r?\n"
+                     data-separator-notes="^Notes?:">
+                <textarea data-template>{{ raw_slides|e }}</textarea>
+            </section>
+        </div>
+    </div>
+
+    <!-- Legal overlay: Impressum / Datenschutz -->
+    <div id="legal-overlay">
+        <a href="/impressum" target="_blank" rel="noopener">Impressum</a>
+        <a href="/privacy" target="_blank" rel="noopener">Datenschutz</a>
+    </div>
+
+    <script type="module">
+        import Reveal from 'https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.esm.js';
+        import RevealMarkdown from 'https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/markdown/markdown.esm.js';
+        import RevealHighlight from 'https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/highlight/highlight.esm.js';
+        import RevealNotes from 'https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/notes/notes.esm.js';
+
+        const WORKSPACE_ID = '{{ workspace_id }}';
+        const FOLDER_PATH  = '{{ folder_path }}';
+        const CODE         = '{{ code }}';
+
+        const deck = new Reveal({
+            plugins: [RevealMarkdown, RevealHighlight, RevealNotes],
+            hash: true,
+            transition: '{{ transition }}',
+            progress: {{ show_progress }},
+            slideNumber: '{{ show_slide_number }}',
+            loop: {{ loop_ }},
+            autoSlide: {{ auto_slide }},
+        });
+        deck.initialize();
+
+        // Rewrite relative image paths → workspace file serve URLs
+        deck.on('ready', () => {
+            const BASE = `/api/workspaces/${WORKSPACE_ID}/files/serve`;
+            document.querySelectorAll('.slides img').forEach(img => {
+                const src = img.getAttribute('src');
+                if (src && !src.startsWith('http') && !src.startsWith('/') && !src.startsWith('data:')) {
+                    img.src = `${BASE}?path=${encodeURIComponent(FOLDER_PATH + '/' + src)}&code=${encodeURIComponent(CODE)}`;
+                }
+            });
+        });
+    </script>
+</body>
+</html>

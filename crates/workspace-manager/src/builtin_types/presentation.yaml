@@ -1,0 +1,28 @@
+id: presentation
+name: Reveal.js Presentation
+icon: presentation
+description: Markdown-based slide presentation using Reveal.js
+color: "#7C3AED"
+git_template: null
+apps:
+  - app_id: presentation-viewer
+    label: Open Presentation
+    icon: presentation
+    url_template: /presentation
+metadata_schema:
+  - key: title
+    label: Presentation Title
+    type: string
+    default: ""
+    required: true
+  - key: theme
+    label: Reveal.js Theme
+    type: enum
+    values: [white, black, league, beige, sky, night, serif, simple, solarized, moon, dracula]
+    default: white
+    required: false
+  - key: description
+    label: Description
+    type: multiline
+    default: ""
+    required: false

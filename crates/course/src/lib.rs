@@ -1,3 +1,4 @@
+pub mod presentation;
 pub mod render;
 pub mod structure;
 
@@ -17,6 +18,7 @@ use std::sync::Arc;
 use workspace_core::{FolderTypeRenderer, FolderViewContext};
 use serde::Deserialize;
 
+pub use presentation::{PresentationConfig, PresentationData};
 pub use structure::{CourseModule, CourseStructure, Lesson};
 
 // ── Branding ──────────────────────────────────────────────────────────────────
@@ -333,6 +335,227 @@ pub fn course_routes(state: Arc<CourseState>) -> Router {
     Router::new()
         .route("/course", get(course_viewer_handler))
         .with_state(state)
+}
+
+// ── Presentation Templates ─────────────────────────────────────────────────────
+
+#[derive(Template)]
+#[template(path = "presentation/viewer.html")]
+struct PresentationViewerTemplate {
+    title: String,
+    theme: String,
+    transition: String,
+    show_progress: bool,
+    show_slide_number: String,
+    loop_: bool,
+    auto_slide: u32,
+    raw_slides: String,
+    workspace_id: String,
+    folder_path: String,
+    code: String,
+    #[allow(dead_code)]
+    branding: ResolvedBranding,
+}
+
+#[derive(Template)]
+#[template(path = "presentation/folder.html")]
+struct PresentationFolderTemplate {
+    #[allow(dead_code)]
+    authenticated: bool,
+    workspace_id: String,
+    workspace_name: String,
+    folder_path: String,
+    folder_name: String,
+    /// Intermediate path segments for breadcrumbs: (display_label, browse_path)
+    breadcrumb_segments: Vec<(String, String)>,
+    title: String,
+    theme: String,
+    transition: String,
+    slide_count: usize,
+    preview_code: Option<String>,
+}
+
+#[derive(Template)]
+#[template(path = "presentation/enter_code.html")]
+struct PresentationEnterCodeTemplate {
+    authenticated: bool,
+    branding: ResolvedBranding,
+}
+
+#[derive(Template)]
+#[template(path = "presentation/not_found.html")]
+struct PresentationNotFoundTemplate {
+    authenticated: bool,
+    code: String,
+    branding: ResolvedBranding,
+}
+
+#[derive(Deserialize)]
+struct PresentationQuery {
+    code: Option<String>,
+    workspace_id: Option<String>,
+    folder: Option<String>,
+}
+
+// ── Standalone handler ────────────────────────────────────────────────────────
+
+/// GET /presentation?code={code}&workspace_id={optional}&folder={optional}
+async fn presentation_viewer_handler(
+    Query(q): Query<PresentationQuery>,
+    State(state): State<Arc<CourseState>>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let code = match q.code.as_deref() {
+        Some(c) if !c.is_empty() => c.to_string(),
+        _ => {
+            let html = PresentationEnterCodeTemplate {
+                authenticated: false,
+                branding: ResolvedBranding::default(),
+            }
+            .render()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            return Ok(Html(html));
+        }
+    };
+
+    // Fetch all non-vault folder grants for this code
+    let grants: Vec<(String, String)> = sqlx::query_as(
+        "SELECT f.workspace_id, f.folder_path
+         FROM workspace_access_codes wac
+         JOIN workspace_access_code_folders f ON f.workspace_access_code_id = wac.id
+         WHERE wac.code = ? AND wac.is_active = 1
+           AND (wac.expires_at IS NULL OR wac.expires_at > datetime('now'))
+           AND f.vault_id IS NULL
+         ORDER BY f.folder_path",
+    )
+    .bind(&code)
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    if grants.is_empty() {
+        let html = PresentationNotFoundTemplate {
+            authenticated: false,
+            code: code.clone(),
+            branding: ResolvedBranding::default(),
+        }
+        .render()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        return Ok(Html(html));
+    }
+
+    // Resolve which folder to show
+    let (workspace_id, folder_path) = if let (Some(wid), Some(fp)) = (&q.workspace_id, &q.folder) {
+        grants
+            .iter()
+            .find(|(w, f)| w == wid && f == fp)
+            .cloned()
+            .ok_or(StatusCode::NOT_FOUND)?
+    } else if grants.len() == 1 {
+        grants.into_iter().next().unwrap()
+    } else {
+        // Multiple grants — just pick the first one (presentations don't have a select screen)
+        grants.into_iter().next().unwrap()
+    };
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let folder_abs = workspace_root.join(&folder_path);
+
+    let data = presentation::load_presentation(&folder_abs)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let branding = resolve_branding(&workspace_root, &workspace_id, &folder_path, &folder_abs, &code);
+
+    let tmpl = PresentationViewerTemplate {
+        title: data.title,
+        theme: data.theme,
+        transition: data.transition,
+        show_progress: data.show_progress,
+        show_slide_number: data.show_slide_number,
+        loop_: data.loop_,
+        auto_slide: data.auto_slide,
+        raw_slides: data.raw_slides,
+        workspace_id,
+        folder_path,
+        code,
+        branding,
+    };
+
+    let html = tmpl.render().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Html(html))
+}
+
+/// Build presentation standalone routes. Mount at application root.
+pub fn presentation_routes(state: Arc<CourseState>) -> Router {
+    Router::new()
+        .route("/presentation", get(presentation_viewer_handler))
+        .with_state(state)
+}
+
+// ── PresentationFolderRenderer ─────────────────────────────────────────────────
+
+pub struct PresentationFolderRenderer {
+    pub storage: UserStorageManager,
+    pub pool: SqlitePool,
+}
+
+#[async_trait]
+impl FolderTypeRenderer for PresentationFolderRenderer {
+    fn type_id(&self) -> &str {
+        "presentation"
+    }
+
+    async fn render_folder_view(&self, ctx: FolderViewContext) -> Result<Response, StatusCode> {
+        let folder_abs = ctx.workspace_root.join(&ctx.folder_path);
+
+        let data = presentation::load_presentation(&folder_abs)
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        let preview_code: Option<String> = sqlx::query_scalar(
+            "SELECT wac.code
+             FROM workspace_access_codes wac
+             JOIN workspace_access_code_folders f ON f.workspace_access_code_id = wac.id
+             WHERE f.workspace_id = ? AND f.folder_path = ? AND f.vault_id IS NULL
+               AND wac.is_active = 1
+               AND (wac.expires_at IS NULL OR wac.expires_at > datetime('now'))
+             LIMIT 1",
+        )
+        .bind(&ctx.workspace_id)
+        .bind(&ctx.folder_path)
+        .fetch_optional(&self.pool)
+        .await
+        .ok()
+        .flatten();
+
+        // Build intermediate breadcrumb segments (all path components except the last)
+        let breadcrumb_segments: Vec<(String, String)> = {
+            let parts: Vec<&str> = ctx.folder_path.split('/').collect();
+            let mut segs = Vec::new();
+            let mut cumulative = String::new();
+            for part in parts.iter().take(parts.len().saturating_sub(1)) {
+                if !cumulative.is_empty() { cumulative.push('/'); }
+                cumulative.push_str(part);
+                segs.push((part.replace(['-', '_'], " "), cumulative.clone()));
+            }
+            segs
+        };
+
+        let tmpl = PresentationFolderTemplate {
+            authenticated: true,
+            workspace_id: ctx.workspace_id,
+            workspace_name: ctx.workspace_name,
+            folder_path: ctx.folder_path,
+            folder_name: ctx.folder_name,
+            breadcrumb_segments,
+            title: data.title,
+            theme: data.theme,
+            transition: data.transition,
+            slide_count: data.slide_count,
+            preview_code,
+        };
+
+        let html = tmpl.render().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        Ok(Html(html).into_response())
+    }
 }
 
 // ── FolderTypeRenderer ────────────────────────────────────────────────────────

@@ -1354,11 +1354,12 @@
                 }
 
                 // Now set folder metadata (type, description, metadata)
+                const fullPath = CURRENT_PATH ? `${CURRENT_PATH}/${newName}` : newName;
                 const metadataRes = await fetch(`/api/workspaces/${WORKSPACE_ID}/folder-metadata`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        path: newName,
+                        path: fullPath,
                         new_name: newName,
                         description: description || null,
                         folder_type: folderType,

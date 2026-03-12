@@ -1,0 +1,37 @@
+{% extends "base-course.html" %}
+{% block title %}{{ branding.name }}{% endblock %}
+{% block content %}
+<div class="flex-1 flex items-center justify-center bg-base-200 px-4 py-8">
+    <div class="w-full max-w-sm">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4"
+                 style="background: linear-gradient(135deg, #7C3AED, #5b21b6); box-shadow: 0 4px 16px rgba(124,58,237,0.35);">
+                <i data-lucide="presentation" class="w-8 h-8 text-white"></i>
+            </div>
+            <h1 class="text-2xl font-bold">Presentation Viewer</h1>
+            <p class="text-base-content/60 text-sm mt-1">Enter your access code to open a presentation.</p>
+        </div>
+
+        <form method="get" action="/presentation" class="card bg-base-100 shadow border border-base-300">
+            <div class="card-body gap-4">
+                <div class="form-control">
+                    <label class="label" for="code">
+                        <span class="label-text font-medium">Access code</span>
+                    </label>
+                    <input id="code" name="code" type="text" autofocus
+                           class="input input-bordered w-full font-mono"
+                           placeholder="e.g. my-talk-2026" />
+                </div>
+                <button type="submit" class="btn btn-primary w-full">Open Presentation</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    });
+</script>
+{% endblock %}

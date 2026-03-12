@@ -21,6 +21,7 @@ const BUILTIN_DOCUMENTATION: &str = include_str!("builtin_types/documentation.ya
 const BUILTIN_DATA_PIPELINE: &str = include_str!("builtin_types/data-pipeline.yaml");
 const BUILTIN_JS_TOOL: &str = include_str!("builtin_types/js-tool.yaml");
 const BUILTIN_MEDIA_SERVER: &str = include_str!("builtin_types/media-server.yaml");
+const BUILTIN_PRESENTATION: &str = include_str!("builtin_types/presentation.yaml");
 
 const BUILTINS: &[(&str, &str)] = &[
     ("course.yaml", BUILTIN_COURSE),
@@ -31,6 +32,7 @@ const BUILTINS: &[(&str, &str)] = &[
     ("data-pipeline.yaml", BUILTIN_DATA_PIPELINE),
     ("js-tool.yaml", BUILTIN_JS_TOOL),
     ("media-server.yaml", BUILTIN_MEDIA_SERVER),
+    ("presentation.yaml", BUILTIN_PRESENTATION),
 ];
 
 // ============================================================================

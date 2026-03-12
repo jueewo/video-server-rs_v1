@@ -38,6 +38,9 @@
                 </button>
             </div>
             {% endif %}
+            <button onclick="syncCourseYaml()" class="btn btn-ghost btn-sm gap-2" title="Create or update course.yaml from current .md files">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i> Sync course.yaml
+            </button>
             <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}?files=1"
                class="btn btn-ghost btn-sm gap-2">
                 <i data-lucide="folder-open" class="w-4 h-4"></i> Files
@@ -98,8 +101,40 @@
 {% endblock %}
 {% block extra_scripts %}
 <script>
+    async function syncCourseYaml() {
+        const btn = event.currentTarget;
+        btn.disabled = true;
+        const icon = btn.querySelector('[data-lucide="refresh-cw"]');
+        if (icon) icon.style.animation = 'spin 1s linear infinite';
+
+        const r = await fetch('/api/workspaces/{{ workspace_id }}/course/sync-yaml', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folder_path: '{{ folder_path }}' }),
+        });
+
+        btn.disabled = false;
+        if (icon) icon.style.animation = '';
+
+        if (r.ok) {
+            const data = await r.json();
+            const msg = data.created
+                ? `course.yaml created with ${data.added} lesson${data.added !== 1 ? 's' : ''}.`
+                : data.added > 0
+                    ? `course.yaml updated — ${data.added} new lesson${data.added !== 1 ? 's' : ''} added.`
+                    : 'course.yaml is already up to date.';
+            // Navigate to editor
+            window.location.href = `/workspaces/{{ workspace_id }}/edit?file=${encodeURIComponent(data.file_path)}`;
+        } else {
+            alert('Failed to sync course.yaml.');
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         if (typeof lucide !== 'undefined') lucide.createIcons();
     });
 </script>
+<style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+</style>
 {% endblock %}

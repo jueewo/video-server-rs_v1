@@ -3,6 +3,22 @@ use std::collections::HashMap;
 use std::path::Path;
 use walkdir::WalkDir;
 
+/// Branding block that can appear in course.yaml or workspace branding.yaml.
+/// All fields are optional — unset fields fall through to the next level.
+#[derive(Debug, Deserialize, Default, Clone)]
+pub struct CourseBrandingConfig {
+    /// Display name shown in the course header bar.
+    pub name: Option<String>,
+    /// Logo file path, relative to the file in which this block is defined:
+    /// - in `course.yaml`          → relative to the course folder
+    /// - in `workspace/branding.yaml` → relative to the workspace root
+    pub logo: Option<String>,
+    /// Hex color used as the primary accent (e.g. `"#2563eb"`).
+    pub primary_color: Option<String>,
+    /// Link shown as a support / contact button in the header.
+    pub support_url: Option<String>,
+}
+
 /// Optional course.yaml at the root of the course folder.
 #[derive(Debug, Deserialize, Default)]
 pub struct CourseConfig {
@@ -22,12 +38,20 @@ pub struct ModuleConfig {
     pub path: String,
     pub title: Option<String>,
     pub order: Option<i32>,
+    /// When true the entire module (and all its lessons) is excluded from the
+    /// course navigation. Defaults to false when absent.
+    #[serde(default)]
+    pub draft: bool,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct LessonConfig {
     pub title: Option<String>,
     pub order: Option<i32>,
+    /// When true this lesson is excluded from the course navigation.
+    /// Defaults to false when absent.
+    #[serde(default)]
+    pub draft: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -138,8 +162,13 @@ pub fn load_course(folder_abs: &Path, _folder_path: &str) -> anyhow::Result<Cour
     // Build modules, applying config overrides
     let mut modules: Vec<(i32, CourseModule)> = module_map
         .into_iter()
-        .map(|(module_path, mut lesson_entries)| {
+        .filter_map(|(module_path, mut lesson_entries)| {
             let mc = module_config_map.get(module_path.as_str());
+
+            // Skip entire module if marked draft
+            if mc.map(|m| m.draft).unwrap_or(false) {
+                return None;
+            }
 
             let title = mc
                 .and_then(|m| m.title.as_deref())
@@ -153,7 +182,11 @@ pub fn load_course(folder_abs: &Path, _folder_path: &str) -> anyhow::Result<Cour
 
             let order = mc.and_then(|m| m.order).unwrap_or(999);
 
-            // Sort lessons: by config order if specified, otherwise alphabetically
+            // Filter out draft lessons, then sort by config order / alphabetically
+            lesson_entries.retain(|(path, _)| {
+                !config.lessons.get(path).map(|l| l.draft).unwrap_or(false)
+            });
+
             lesson_entries.sort_by(|(path_a, _), (path_b, _)| {
                 let order_a = config
                     .lessons
@@ -187,7 +220,7 @@ pub fn load_course(folder_abs: &Path, _folder_path: &str) -> anyhow::Result<Cour
 
             let sections = group_into_sections(&module_path, lessons);
 
-            (order, CourseModule { path: module_path, title, sections })
+            Some((order, CourseModule { path: module_path, title, sections }))
         })
         .collect();
 

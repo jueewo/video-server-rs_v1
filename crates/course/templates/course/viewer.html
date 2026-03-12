@@ -1,5 +1,5 @@
-{% extends "base-tailwind.html" %}
-{% block title %}{{ course.title }}{% endblock %}
+{% extends "base-course.html" %}
+{% block title %}{{ course.title }} — {{ branding.name }}{% endblock %}
 {% block extra_head %}
 <style>
 .markdown-body { color: var(--color-base-content, #1f2937); line-height: 1.7; }
@@ -32,7 +32,7 @@
 .app-embed-actions a:hover, .app-embed-actions button:hover { background: oklch(var(--b3)); }
 .app-embed-frame { width: 100%; border: none; display: block; }
 /* App popup modal */
-#app-popup-dialog { padding: 0; border: none; border-radius: 0.75rem; box-shadow: 0 25px 60px rgba(0,0,0,.35); background: oklch(var(--b1)); max-width: min(1200px, 96vw); width: min(1200px, 96vw); max-height: 92vh; }
+#app-popup-dialog { padding: 0; border: none; border-radius: 0.75rem; box-shadow: 0 25px 60px rgba(0,0,0,.35); background: oklch(var(--b1)); max-width: min(1200px, 96vw); width: min(1200px, 96vw); max-height: 92vh; margin: auto; }
 #app-popup-dialog::backdrop { background: rgba(0,0,0,.55); backdrop-filter: blur(2px); }
 #app-popup-header { display: flex; align-items: center; justify-content: space-between; padding: 0.625rem 1rem; background: oklch(var(--b2)); border-bottom: 1px solid oklch(var(--b3)); }
 #app-popup-title { font-size: 0.85rem; font-weight: 600; color: oklch(var(--bc)/.7); }
@@ -45,7 +45,7 @@
 </style>
 {% endblock %}
 {% block content %}
-<div class="flex h-[calc(100vh-4rem)] overflow-hidden">
+<div class="flex h-full overflow-hidden">
 
     <!-- Sidebar -->
     <aside class="w-72 shrink-0 bg-base-200 border-r border-base-300 flex flex-col overflow-hidden">
@@ -279,20 +279,6 @@ loading="lazy" allowfullscreen></iframe>
         const src = img.getAttribute('src');
         const rewritten = rewriteImageUrl(src);
         if (rewritten !== src) img.setAttribute('src', rewritten);
-    });
-
-    // Step 3: enhance links pointing to js-apps or pub apps with a popup button
-    el.querySelectorAll('a[href]').forEach(a => {
-        const href = a.getAttribute('href');
-        if (!href) return;
-        if (href.startsWith('/js-apps/') || href.startsWith('/pub/')) {
-            const btn = document.createElement('button');
-            btn.textContent = ' ⧉';
-            btn.title = 'Open app in popup';
-            btn.style.cssText = 'font-size:0.8em;vertical-align:middle;padding:0 0.25em;border:none;background:none;cursor:pointer;color:oklch(var(--p));';
-            btn.addEventListener('click', e => { e.preventDefault(); openAppPopup(href, a.textContent.trim()); });
-            a.after(btn);
-        }
     });
 
     if (typeof lucide !== 'undefined') lucide.createIcons();

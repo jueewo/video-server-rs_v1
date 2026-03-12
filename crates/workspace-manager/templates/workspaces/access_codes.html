@@ -84,11 +84,22 @@
                                 {% if row.folders.is_empty() %}
                                 <span class="text-base-content/30 text-xs">—</span>
                                 {% else %}
-                                <div class="flex flex-col gap-1">
+                                <button onclick="toggleFolders(this)" class="btn btn-xs btn-ghost gap-1 font-normal text-base-content/70 hover:text-base-content">
+                                    <i data-lucide="folder" class="w-3 h-3"></i>
+                                    <span>{{ row.folder_count }} folder{% if row.folder_count != 1 %}s{% endif %}</span>
+                                    <i data-lucide="chevron-down" class="w-3 h-3 transition-transform duration-150"></i>
+                                </button>
+                                <div class="folders-panel hidden mt-1 rounded-lg border border-base-300 bg-base-200 p-2 min-w-[280px] max-w-sm shadow-md">
                                     {% for f in row.folders %}
-                                    <span class="badge badge-sm badge-ghost font-mono text-xs max-w-[220px] truncate" title="{{ f }}">
-                                        <i data-lucide="folder" class="w-3 h-3 mr-1 shrink-0"></i>{{ f }}
-                                    </span>
+                                    <div class="folder-item flex items-center gap-1.5 py-0.5">
+                                        <i data-lucide="folder" class="w-3 h-3 shrink-0 text-base-content/50"></i>
+                                        <span class="font-mono text-xs break-all flex-1">{{ f }}</span>
+                                        <button onclick="removeFolder(this, '{{ row.code }}', '{{ f }}')"
+                                                class="btn btn-xs btn-ghost btn-circle shrink-0 text-error hover:bg-error/10"
+                                                title="Remove this folder">
+                                            <i data-lucide="x" class="w-3 h-3"></i>
+                                        </button>
+                                    </div>
                                     {% endfor %}
                                 </div>
                                 {% endif %}
@@ -105,11 +116,20 @@
                                 {% endif %}
                             </td>
                             <td class="pt-2">
+                                <div class="flex gap-1">
                                 {% if row.is_active %}
-                                <button onclick="deactivateCode('{{ row.code }}')" class="btn btn-xs btn-error btn-outline gap-1" title="Deactivate this code">
+                                <button onclick="deactivateCode('{{ row.code }}')" class="btn btn-xs btn-warning btn-outline gap-1" title="Deactivate this code">
                                     <i data-lucide="shield-off" class="w-3 h-3"></i> Revoke
                                 </button>
+                                {% else %}
+                                <button onclick="activateCode('{{ row.code }}')" class="btn btn-xs btn-success btn-outline gap-1" title="Re-activate this code">
+                                    <i data-lucide="shield-check" class="w-3 h-3"></i> Activate
+                                </button>
                                 {% endif %}
+                                <button onclick="deleteCode('{{ row.code }}')" class="btn btn-xs btn-error btn-outline gap-1" title="Permanently delete this code">
+                                    <i data-lucide="trash-2" class="w-3 h-3"></i>
+                                </button>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -190,12 +210,41 @@
 
     async function deactivateCode(code) {
         if (!confirm(`Revoke code "${code}"?\n\nExisting sessions using this code will lose access. Other codes covering the same folders remain active.`)) return;
-        const r = await fetch(`/api/workspace-access-codes/${encodeURIComponent(code)}`, { method: 'DELETE' });
+        const r = await fetch(`/api/workspace-access-codes/${encodeURIComponent(code)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_active: false }),
+        });
         if (r.ok) {
             showToast('Code revoked.', 'success');
             setTimeout(() => location.reload(), 800);
         } else {
             showToast('Failed to revoke code.', 'error');
+        }
+    }
+
+    async function activateCode(code) {
+        const r = await fetch(`/api/workspace-access-codes/${encodeURIComponent(code)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_active: true }),
+        });
+        if (r.ok) {
+            showToast('Code activated.', 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showToast('Failed to activate code.', 'error');
+        }
+    }
+
+    async function deleteCode(code) {
+        if (!confirm(`Permanently delete code "${code}"?\n\nThis cannot be undone. All access via this code will be removed.`)) return;
+        const r = await fetch(`/api/workspace-access-codes/${encodeURIComponent(code)}`, { method: 'DELETE' });
+        if (r.ok) {
+            showToast('Code deleted.', 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showToast('Failed to delete code.', 'error');
         }
     }
 
@@ -289,6 +338,42 @@
                 <i data-lucide="pencil" class="w-3 h-3"></i>
             </button>`;
         lucide.createIcons();
+    }
+
+    async function removeFolder(btn, code, folderStr) {
+        // folderStr is "workspace_id/folder_path" — split on first slash only
+        const slash = folderStr.indexOf('/');
+        const workspace_id = folderStr.slice(0, slash);
+        const folder_path = folderStr.slice(slash + 1);
+        const r = await fetch(`/api/workspace-access-codes/${encodeURIComponent(code)}/folders`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ workspace_id, folder_path }),
+        });
+        if (r.ok) {
+            const item = btn.closest('.folder-item');
+            item.remove();
+            // Update the folder count badge on the toggle button
+            const panel = item.closest('.folders-panel');
+            const remaining = panel.querySelectorAll('.folder-item').length;
+            const toggleBtn = panel.previousElementSibling;
+            const countSpan = toggleBtn.querySelector('span');
+            countSpan.textContent = `${remaining} folder${remaining !== 1 ? 's' : ''}`;
+            if (remaining === 0) {
+                toggleBtn.replaceWith(document.createTextNode('—'));
+                panel.remove();
+            }
+        } else {
+            showToast('Failed to remove folder.', 'error');
+        }
+    }
+
+    function toggleFolders(btn) {
+        const panel = btn.nextElementSibling;
+        const chevron = btn.querySelector('[data-lucide="chevron-down"]');
+        const isOpen = !panel.classList.contains('hidden');
+        panel.classList.toggle('hidden', isOpen);
+        if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
     }
 
     document.addEventListener('DOMContentLoaded', () => {

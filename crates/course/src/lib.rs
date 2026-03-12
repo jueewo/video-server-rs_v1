@@ -12,11 +12,99 @@ use axum::{
 use askama::Template;
 use common::storage::UserStorageManager;
 use sqlx::SqlitePool;
+use std::path::Path;
 use std::sync::Arc;
 use workspace_core::{FolderTypeRenderer, FolderViewContext};
 use serde::Deserialize;
 
 pub use structure::{CourseModule, CourseStructure, Lesson};
+
+// ── Branding ──────────────────────────────────────────────────────────────────
+
+/// Fully resolved branding passed to all external-facing course templates.
+/// Fields are pre-resolved (logo is a ready-to-use URL, not a file path).
+#[derive(Clone)]
+pub struct ResolvedBranding {
+    pub name: String,
+    pub logo_url: Option<String>,
+    pub primary_color: Option<String>,
+    pub support_url: Option<String>,
+}
+
+impl Default for ResolvedBranding {
+    fn default() -> Self {
+        Self {
+            name: "Course Viewer".to_string(),
+            logo_url: None,
+            primary_color: None,
+            support_url: None,
+        }
+    }
+}
+
+/// Load optional `branding.yaml` from the workspace root.
+fn load_workspace_branding(workspace_root: &Path) -> Option<structure::CourseBrandingConfig> {
+    let path = workspace_root.join("branding.yaml");
+    let content = std::fs::read_to_string(path).ok()?;
+    serde_yaml::from_str(&content).ok()
+}
+
+/// Load optional `branding.yaml` from any folder on disk.
+fn load_branding_yaml(folder: &Path) -> Option<structure::CourseBrandingConfig> {
+    let content = std::fs::read_to_string(folder.join("branding.yaml")).ok()?;
+    serde_yaml::from_str(&content).ok()
+}
+
+/// Merge course-folder and workspace-level branding into a `ResolvedBranding`.
+/// Resolution order (first value wins):
+///   1. `{course_folder}/branding.yaml`
+///   2. `{workspace_root}/branding.yaml`
+///   3. built-in defaults
+/// Logo paths are converted to `/api/workspaces/…/files/serve` URLs.
+fn resolve_branding(
+    workspace_root: &Path,
+    workspace_id: &str,
+    folder_path: &str,
+    course_folder: &Path,
+    code: &str,
+) -> ResolvedBranding {
+    let course = load_branding_yaml(course_folder);
+    let ws = load_branding_yaml(workspace_root);
+    let (c, w) = (course.as_ref(), ws.as_ref());
+
+    let name = c.and_then(|b| b.name.as_deref())
+        .or_else(|| w.and_then(|b| b.name.as_deref()))
+        .unwrap_or("Course Viewer")
+        .to_string();
+
+    let primary_color = c.and_then(|b| b.primary_color.clone())
+        .or_else(|| w.and_then(|b| b.primary_color.clone()));
+
+    let support_url = c.and_then(|b| b.support_url.clone())
+        .or_else(|| w.and_then(|b| b.support_url.clone()));
+
+    // Course logo relative to course folder; workspace logo relative to workspace root.
+    let logo_url = if let Some(logo) = c.and_then(|b| b.logo.as_deref()) {
+        let path = format!("{}/{}", folder_path, logo);
+        Some(format!(
+            "/api/workspaces/{}/files/serve?path={}&code={}",
+            workspace_id,
+            urlencoding::encode(&path),
+            urlencoding::encode(code),
+        ))
+    } else if let Some(logo) = w.and_then(|b| b.logo.as_deref()) {
+        Some(format!(
+            "/api/workspaces/{}/files/serve?path={}&code={}",
+            workspace_id,
+            urlencoding::encode(logo),
+            urlencoding::encode(code),
+        ))
+    } else {
+        None
+    };
+
+    ResolvedBranding { name, logo_url, primary_color, support_url }
+}
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -44,6 +132,7 @@ struct CourseViewerTemplate {
     /// The subfolder of the active lesson (e.g. "session1/chapter1") used by
     /// the client-side image URL rewriter.
     lesson_folder: String,
+    branding: ResolvedBranding,
 }
 
 #[derive(Template)]
@@ -52,6 +141,7 @@ struct CourseSelectTemplate {
     authenticated: bool,
     code: String,
     courses: Vec<CourseOption>,
+    branding: ResolvedBranding,
 }
 
 struct CourseOption {
@@ -81,6 +171,7 @@ struct CourseFolderTemplate {
 #[template(path = "course/enter_code.html")]
 struct EnterCodeTemplate {
     authenticated: bool,
+    branding: ResolvedBranding,
 }
 
 #[derive(Template)]
@@ -88,6 +179,7 @@ struct EnterCodeTemplate {
 struct CodeNotFoundTemplate {
     authenticated: bool,
     code: String,
+    branding: ResolvedBranding,
 }
 
 #[derive(Deserialize)]
@@ -113,9 +205,12 @@ async fn course_viewer_handler(
     let code = match q.code.as_deref() {
         Some(c) if !c.is_empty() => c.to_string(),
         _ => {
-            let html = EnterCodeTemplate { authenticated: false }
-                .render()
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let html = EnterCodeTemplate {
+                authenticated: false,
+                branding: ResolvedBranding::default(),
+            }
+            .render()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
             return Ok(Html(html));
         }
     };
@@ -136,9 +231,13 @@ async fn course_viewer_handler(
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     if grants.is_empty() {
-        let html = CodeNotFoundTemplate { authenticated: false, code: code.clone() }
-            .render()
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let html = CodeNotFoundTemplate {
+            authenticated: false,
+            code: code.clone(),
+            branding: ResolvedBranding::default(),
+        }
+        .render()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         return Ok(Html(html));
     }
 
@@ -168,7 +267,18 @@ async fn course_viewer_handler(
                 description: cs.and_then(|c| c.description),
             });
         }
-        let tmpl = CourseSelectTemplate { authenticated: false, code: code.clone(), courses };
+        // Use branding from the first workspace in the list (best effort)
+        let select_branding = grants.first().map(|(wid, fp)| {
+            let workspace_root = state.storage.workspace_root(wid);
+            let course_folder = workspace_root.join(fp);
+            resolve_branding(&workspace_root, wid, fp, &course_folder, &code)
+        }).unwrap_or_default();
+        let tmpl = CourseSelectTemplate {
+            authenticated: false,
+            code: code.clone(),
+            courses,
+            branding: select_branding,
+        };
         let html = tmpl.render().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         return Ok(Html(html));
     };
@@ -178,6 +288,9 @@ async fn course_viewer_handler(
 
     let course = structure::load_course(&folder_abs, &folder_path)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Resolve branding: course folder branding.yaml overrides workspace branding.yaml
+    let branding = resolve_branding(&workspace_root, &workspace_id, &folder_path, &folder_abs, &code);
 
     // Determine active lesson
     let active_lesson_path = q.path.clone().or_else(|| {
@@ -208,6 +321,7 @@ async fn course_viewer_handler(
         active_lesson_path,
         raw_markdown,
         lesson_folder,
+        branding,
     };
 
     let html = tmpl.render().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;

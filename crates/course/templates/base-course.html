@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}{{ branding.name }}{% endblock %}</title>
+    <link rel="icon" type="image/webp" href="/static/icon.webp" />
+    <link rel="stylesheet" href="/static/css/tailwind.css" />
+    <script src="/static/vendor/lucide.min.js"></script>
+    {% block extra_head %}{% endblock %}
+    <script>
+        const _saved = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', _saved);
+        {% if let Some(color) = branding.primary_color %}
+        document.addEventListener('DOMContentLoaded', function () {
+            const s = document.createElement('style');
+            s.textContent = ':root { --brand-primary: {{ color }}; } .btn-primary { background-color: {{ color }} !important; border-color: {{ color }} !important; }';
+            document.head.appendChild(s);
+        });
+        {% endif %}
+    </script>
+</head>
+<body class="bg-base-100 min-h-screen flex flex-col">
+
+    <!-- Slim branded header — no internal nav links -->
+    <header class="h-14 shrink-0 bg-base-100 border-b border-base-300 flex items-center px-4 gap-3">
+        <!-- Logo or icon -->
+        {% if let Some(logo) = branding.logo_url %}
+        <img src="{{ logo }}" alt="{{ branding.name }}" class="h-8 w-auto max-w-[8rem] object-contain" />
+        {% else %}
+        <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-500/15">
+            <i data-lucide="graduation-cap" class="w-4 h-4 text-amber-600"></i>
+        </div>
+        {% endif %}
+
+        <span class="font-semibold text-sm truncate flex-1">{{ branding.name }}</span>
+
+        <div class="flex items-center gap-2">
+            {% if let Some(support) = branding.support_url %}
+            <a href="{{ support }}" target="_blank" rel="noopener"
+               class="btn btn-ghost btn-xs gap-1 text-base-content/60 hover:text-base-content">
+                <i data-lucide="life-buoy" class="w-3.5 h-3.5"></i>
+                <span class="hidden sm:inline">Support</span>
+            </a>
+            {% endif %}
+            <!-- Theme toggle -->
+            <button onclick="toggleTheme()" class="btn btn-ghost btn-xs btn-circle" title="Toggle theme">
+                <i data-lucide="moon" class="w-3.5 h-3.5 theme-moon-icon"></i>
+                <i data-lucide="sun"  class="w-3.5 h-3.5 theme-sun-icon hidden"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main content — fills remaining height; overflow control left to child blocks -->
+    <main class="flex-1 flex flex-col overflow-hidden">{% block content %}{% endblock %}</main>
+
+    <!-- Footer -->
+    <footer class="shrink-0 border-t border-base-300 py-3 px-4 text-xs text-base-content/40 flex justify-center gap-6">
+        <span>{% block footer_company %}© jueewo ventures GmbH{% endblock %}</span>
+        <a href="/impressum" class="hover:text-base-content transition-colors">Impressum</a>
+        <a href="/privacy"   class="hover:text-base-content transition-colors">Datenschutz</a>
+    </footer>
+
+    {% block extra_scripts %}{% endblock %}
+
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const next = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            updateThemeIcons(next);
+        }
+        function updateThemeIcons(theme) {
+            document.querySelectorAll('.theme-moon-icon').forEach(el => el.classList.toggle('hidden', theme === 'dark'));
+            document.querySelectorAll('.theme-sun-icon').forEach(el => el.classList.toggle('hidden', theme !== 'dark'));
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+            updateThemeIcons(localStorage.getItem('theme') || 'light');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        });
+    </script>
+</body>
+</html>

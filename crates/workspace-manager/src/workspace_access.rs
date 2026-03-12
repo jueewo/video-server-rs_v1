@@ -6,7 +6,8 @@
 //! Auth-required endpoints (session):
 //!   POST   /api/workspace-access-codes            — create
 //!   GET    /api/workspace-access-codes            — list codes created by current user
-//!   DELETE /api/workspace-access-codes/{code}     — deactivate (owner only)
+//!   PATCH  /api/workspace-access-codes/{code}     — update description/expires_at/is_active (owner only)
+//!   DELETE /api/workspace-access-codes/{code}     — permanently delete (owner only)
 //!   POST   /api/workspace-access-codes/claim      — claim a code
 //!   DELETE /api/workspace-access-codes/{code}/claim — unclaim
 //!
@@ -123,6 +124,7 @@ pub struct ClaimCodeRequest {
 pub struct UpdateAccessCodeRequest {
     pub description: Option<String>,
     pub expires_at: Option<String>,
+    pub is_active: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -355,7 +357,7 @@ pub async fn list_workspace_access_codes(
 
 /// PATCH /api/workspace-access-codes/{code}
 ///
-/// Updates description and/or expires_at. Owner only.
+/// Updates description, expires_at, and/or is_active. Owner only.
 pub async fn update_workspace_access_code(
     user_ext: Option<Extension<AuthenticatedUser>>,
     session: Session,
@@ -366,19 +368,36 @@ pub async fn update_workspace_access_code(
     check_scope(&user_ext, "write")?;
     let user_id = require_auth_user(&session).await?;
 
-    let rows = sqlx::query(
-        "UPDATE workspace_access_codes
-         SET description = ?, expires_at = ?
-         WHERE code = ? AND created_by = ?",
-    )
-    .bind(body.description.as_deref())
-    .bind(body.expires_at.as_deref())
-    .bind(&code)
-    .bind(&user_id)
-    .execute(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-    .rows_affected();
+    let rows = if let Some(active) = body.is_active {
+        sqlx::query(
+            "UPDATE workspace_access_codes
+             SET description = ?, expires_at = ?, is_active = ?
+             WHERE code = ? AND created_by = ?",
+        )
+        .bind(body.description.as_deref())
+        .bind(body.expires_at.as_deref())
+        .bind(active as i64)
+        .bind(&code)
+        .bind(&user_id)
+        .execute(&state.pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .rows_affected()
+    } else {
+        sqlx::query(
+            "UPDATE workspace_access_codes
+             SET description = ?, expires_at = ?
+             WHERE code = ? AND created_by = ?",
+        )
+        .bind(body.description.as_deref())
+        .bind(body.expires_at.as_deref())
+        .bind(&code)
+        .bind(&user_id)
+        .execute(&state.pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .rows_affected()
+    };
 
     if rows == 0 {
         Err(StatusCode::NOT_FOUND)
@@ -389,8 +408,8 @@ pub async fn update_workspace_access_code(
 
 /// DELETE /api/workspace-access-codes/{code}
 ///
-/// Deactivates a code (sets is_active = 0). Owner only.
-pub async fn deactivate_workspace_access_code(
+/// Permanently deletes a code and all its folder grants. Owner only.
+pub async fn delete_workspace_access_code(
     user_ext: Option<Extension<AuthenticatedUser>>,
     session: Session,
     Path(code): Path<String>,
@@ -399,24 +418,50 @@ pub async fn deactivate_workspace_access_code(
     check_scope(&user_ext, "write")?;
     let user_id = require_auth_user(&session).await?;
 
-    let result = sqlx::query(
-        "UPDATE workspace_access_codes SET is_active = 0
-         WHERE code = ? AND created_by = ?",
+    // Verify ownership and get id (folder grants cascade-delete via FK)
+    let code_id: Option<i64> = sqlx::query_scalar(
+        "SELECT id FROM workspace_access_codes WHERE code = ? AND created_by = ?",
     )
     .bind(&code)
     .bind(&user_id)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let code_id = code_id.ok_or(StatusCode::NOT_FOUND)?;
+
+    // Delete folder grants first (in case no ON DELETE CASCADE is set)
+    sqlx::query("DELETE FROM workspace_access_code_folders WHERE workspace_access_code_id = ?")
+        .bind(code_id)
+        .execute(&state.pool)
+        .await
+        .map_err(|e| {
+            warn!("Failed to delete folder grants: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    // Delete any claims
+    sqlx::query(
+        "DELETE FROM user_claimed_workspace_codes WHERE workspace_access_code_id = ?",
+    )
+    .bind(code_id)
     .execute(&state.pool)
     .await
     .map_err(|e| {
-        warn!("Failed to deactivate workspace access code: {}", e);
+        warn!("Failed to delete code claims: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    if result.rows_affected() == 0 {
-        Err(StatusCode::NOT_FOUND)
-    } else {
-        Ok(StatusCode::NO_CONTENT)
-    }
+    sqlx::query("DELETE FROM workspace_access_codes WHERE id = ?")
+        .bind(code_id)
+        .execute(&state.pool)
+        .await
+        .map_err(|e| {
+            warn!("Failed to delete workspace access code: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// POST /api/workspace-access-codes/claim
@@ -566,6 +611,53 @@ pub async fn add_folder_to_access_code(
     })?;
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// DELETE /api/workspace-access-codes/{code}/folders
+///
+/// Removes a specific folder grant from a code. Owner only.
+/// Body: `{ workspace_id, folder_path }`
+pub async fn remove_folder_from_access_code(
+    user_ext: Option<Extension<AuthenticatedUser>>,
+    session: Session,
+    Path(code): Path<String>,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(grant): Json<FolderGrant>,
+) -> Result<StatusCode, StatusCode> {
+    check_scope(&user_ext, "write")?;
+    let user_id = require_auth_user(&session).await?;
+
+    let code_id: Option<i64> = sqlx::query_scalar(
+        "SELECT id FROM workspace_access_codes WHERE code = ? AND created_by = ?",
+    )
+    .bind(&code)
+    .bind(&user_id)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let code_id = code_id.ok_or(StatusCode::NOT_FOUND)?;
+
+    let rows = sqlx::query(
+        "DELETE FROM workspace_access_code_folders
+         WHERE workspace_access_code_id = ? AND workspace_id = ? AND folder_path = ?",
+    )
+    .bind(code_id)
+    .bind(&grant.workspace_id)
+    .bind(&grant.folder_path)
+    .execute(&state.pool)
+    .await
+    .map_err(|e| {
+        warn!("Failed to remove folder grant: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?
+    .rows_affected();
+
+    if rows == 0 {
+        Err(StatusCode::NOT_FOUND)
+    } else {
+        Ok(StatusCode::NO_CONTENT)
+    }
 }
 
 // ── Public endpoint ───────────────────────────────────────────────────────────

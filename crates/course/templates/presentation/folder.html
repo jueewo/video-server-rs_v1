@@ -5,7 +5,7 @@
 
     <!-- Header -->
     <div class="page-header mb-6">
-        <div class="min-w-0">
+        <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2 text-sm text-base-content/50 mb-1 flex-wrap">
                 <a href="/workspaces/{{ workspace_id }}/browse" class="hover:text-primary transition-colors flex items-center gap-1">
                     <i data-lucide="folder-open" class="w-3.5 h-3.5"></i> {{ workspace_name }}
@@ -17,12 +17,12 @@
                 <i data-lucide="chevron-right" class="w-3.5 h-3.5 shrink-0"></i>
                 <span>{{ folder_name }}</span>
             </div>
-            <h1 class="page-header-title flex items-center gap-3 min-w-0">
+            <h1 class="page-header-title flex items-center gap-3">
                 <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl shrink-0"
                       style="background: linear-gradient(135deg, #7C3AED, #5b21b6); box-shadow: 0 4px 12px rgba(124,58,237,0.35);">
                     <i data-lucide="presentation" class="w-5 h-5 text-white"></i>
                 </span>
-                <span class="truncate">{{ title }}</span>
+                <span>{{ title }}</span>
             </h1>
             <div class="flex items-center gap-2 mt-1">
                 <span class="badge badge-sm badge-ghost font-mono">{{ theme }}</span>
@@ -44,20 +44,27 @@
                 </button>
             </div>
             {% endif %}
-            <button onclick="syncPresentationYaml()" class="btn btn-ghost btn-sm gap-2" title="Create or update presentation.yaml">
-                <i data-lucide="refresh-cw" class="w-4 h-4"></i> Sync YAML
-            </button>
-            <button onclick="generateFromCourse()" class="btn btn-ghost btn-sm gap-2" title="Generate slides.md from a course folder">
-                <i data-lucide="wand-2" class="w-4 h-4"></i> Generate from Course
-            </button>
-            <a href="/workspaces/{{ workspace_id }}/edit?file={{ folder_path }}/slides.md"
-               class="btn btn-ghost btn-sm gap-2">
-                <i data-lucide="file-text" class="w-4 h-4"></i> Edit slides.md
-            </a>
             <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}?files=1"
                class="btn btn-ghost btn-sm gap-2">
                 <i data-lucide="folder-open" class="w-4 h-4"></i> Files
             </a>
+            <!-- More actions dropdown -->
+            <div class="dropdown dropdown-end">
+                <button tabindex="0" class="btn btn-ghost btn-sm btn-square" title="More options">
+                    <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+                </button>
+                <ul tabindex="0" class="dropdown-content menu bg-base-200 rounded-box shadow-lg w-52 p-1 z-50">
+                    <li><button onclick="syncPresentationYaml()" class="gap-2 text-sm">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Sync YAML
+                    </button></li>
+                    <li><button onclick="generateFromCourse()" class="gap-2 text-sm">
+                        <i data-lucide="wand-2" class="w-4 h-4"></i> Generate from Course
+                    </button></li>
+                    <li><a href="/workspaces/{{ workspace_id }}/edit?file={{ folder_path }}/slides.md" class="gap-2 text-sm">
+                        <i data-lucide="file-text" class="w-4 h-4"></i> Edit slides.md
+                    </a></li>
+                </ul>
+            </div>
         </div>
     </div>
 

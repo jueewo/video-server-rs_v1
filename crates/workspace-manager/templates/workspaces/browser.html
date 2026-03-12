@@ -13,30 +13,34 @@
     </div>
 
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div class="flex items-center gap-3 flex-wrap">
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+        <div class="flex flex-col gap-1.5 min-w-0">
             <h1 class="text-2xl font-bold">
                 <i data-lucide="folder-open" class="w-7 h-7 inline-block align-middle mr-1"></i>{% if current_path.is_empty() %}{{ workspace_name }}{% else %}{{ current_path }}{% endif %}
             </h1>
-            {% if let Some(type_name) = &current_type_name %}
-            {% if let Some(color) = &current_type_color %}
-            <span class="text-sm px-2 py-0.5 rounded font-normal"
-                  style="background:{{ color }}22; color:{{ color }}; border: 1px solid {{ color }}44;">
-                {{ type_name }}
-            </span>
-            {% else %}
-            <span class="badge badge-ghost font-normal">{{ type_name }}</span>
-            {% endif %}
-            {% endif %}
-            {% for (label, url) in &current_type_apps %}
-            <a href="{{ url }}" class="btn btn-sm btn-outline gap-1">
-                <i data-lucide="play" class="w-3 h-3"></i> {{ label }}
-            </a>
-            {% endfor %}
-            {% if let Some(_) = &current_type_id %}
-            {% if !current_path.is_empty() %}
-            <button onclick="openPublishAsAppModal()" class="btn btn-sm btn-success gap-1"><i data-lucide="rocket" class="w-4 h-4"></i> Publish</button>
-            {% endif %}
+            {% if current_type_name.is_some() || !current_type_apps.is_empty() %}
+            <div class="flex items-center gap-2 flex-wrap">
+                {% if let Some(type_name) = &current_type_name %}
+                {% if let Some(color) = &current_type_color %}
+                <span class="text-sm px-2 py-0.5 rounded font-normal"
+                      style="background:{{ color }}22; color:{{ color }}; border: 1px solid {{ color }}44;">
+                    {{ type_name }}
+                </span>
+                {% else %}
+                <span class="badge badge-ghost font-normal">{{ type_name }}</span>
+                {% endif %}
+                {% endif %}
+                {% for (label, url) in &current_type_apps %}
+                <a href="{{ url }}" class="btn btn-xs btn-outline gap-1">
+                    <i data-lucide="play" class="w-3 h-3"></i> {{ label }}
+                </a>
+                {% endfor %}
+                {% if let Some(_) = &current_type_id %}
+                {% if !current_path.is_empty() %}
+                <button onclick="openPublishAsAppModal()" class="btn btn-xs btn-success gap-1"><i data-lucide="rocket" class="w-3 h-3"></i> Publish</button>
+                {% endif %}
+                {% endif %}
+            </div>
             {% endif %}
         </div>
         <div class="flex gap-2 flex-wrap items-center">

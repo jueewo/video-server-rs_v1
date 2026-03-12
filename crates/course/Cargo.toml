@@ -17,6 +17,6 @@ sqlx = { workspace = true }
 tracing = { workspace = true }
 async-trait = { workspace = true }
 urlencoding = { workspace = true }
-pulldown-cmark = "0.9"
+pulldown-cmark = "0.13"
 walkdir = "2.5"
 anyhow = { workspace = true }

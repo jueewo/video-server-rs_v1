@@ -1,6 +1,7 @@
 {% extends "base-course.html" %}
 {% block title %}{{ course.title }} — {{ branding.name }}{% endblock %}
 {% block extra_head %}
+<link rel="stylesheet" href="/static/vendor/katex/katex.min.css">
 <style>
 .markdown-body { color: var(--color-base-content, #1f2937); line-height: 1.7; }
 .markdown-body h1 { font-size: 1.875rem; font-weight: 700; margin: 1.5rem 0 1rem; line-height: 1.25; }
@@ -23,6 +24,11 @@
 .markdown-body td { padding: 0.5rem 0.75rem; border: 1px solid oklch(var(--b3)); }
 .markdown-body tr:nth-child(even) td { background: oklch(var(--b2)/.5); }
 .markdown-body hr { border: none; border-top: 1px solid oklch(var(--b3)); margin: 2rem 0; }
+/* Mermaid diagrams */
+.mermaid { margin: 1.5rem 0; text-align: center; }
+/* KaTeX math */
+.math-inline { font-size: 1.05em; }
+.math-display { margin: 1.25rem 0; overflow-x: auto; text-align: center; }
 /* App embed */
 .app-embed-container { border: 1px solid oklch(var(--b3)); border-radius: 0.75rem; overflow: hidden; margin: 1.5rem 0; background: oklch(var(--b1)); }
 .app-embed-header { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.45rem 0.875rem; background: oklch(var(--b2)); border-bottom: 1px solid oklch(var(--b3)); }
@@ -129,6 +135,9 @@
 {% block extra_scripts %}
 {% if raw_markdown.is_some() %}
 <script src="/static/vendor/marked.min.js"></script>
+<script src="/static/vendor/katex/katex.min.js"></script>
+<script src="/static/vendor/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: false, theme: 'neutral' });</script>
 <script>
 (function () {
     const el = document.getElementById('lesson-content');
@@ -258,7 +267,22 @@ loading="lazy" allowfullscreen></iframe>
 </div>`;
     }
 
-    const processed = raw.textContent
+    // Extract $$...$$ and $...$ math blocks BEFORE marked.js sees the text.
+    // marked.js would consume \\ (LaTeX line breaks) as markdown escape sequences,
+    // mangling multi-line aligned blocks. We store raw LaTeX in data-k (base64)
+    // and render with katex.render() after marked.parse().
+    function b64e(s) { return btoa(unescape(encodeURIComponent(s))); }
+    const mathExtracted = raw.textContent
+        // Display math $$...$$ — multiline, protect LaTeX from markdown
+        .replace(/\$\$([\s\S]+?)\$\$/g, (_, l) =>
+            `<div class="math-display-pending" data-k="${b64e(l.trim())}"></div>`)
+        // Inline math $...$ — single line, not preceded by backslash (currency uses \$)
+        .replace(/(?<!\\)\$(?!\$)([^$\n]+?)\$(?!\$)/g, (_, l) =>
+            `<span class="math-inline-pending" data-k="${b64e(l)}"></span>`);
+
+    const processed = mathExtracted
+        .replace(/```mermaid[^\n]*\n([\s\S]*?)```/g, (_, diagram) =>
+            `<div class="mermaid">${diagram.trim()}</div>`)
         .replace(/```app-embed([^\n]*)\n([\s\S]*?)```/g, (_, langOpts, content) => buildAppEmbed(langOpts, content))
         .replace(/```media-image([^\n]*)\n([\s\S]*?)```/g, (_, langOpts, slug) => buildMediaImage(langOpts, slug))
         .replace(/```media-video([^\n]*)\n([\s\S]*?)```/g, (_, langOpts, slug) => buildMediaVideo(langOpts, slug))
@@ -270,6 +294,26 @@ loading="lazy" allowfullscreen></iframe>
 
     marked.use({ breaks: false, gfm: true });
     el.innerHTML = marked.parse(processed);
+
+    // Render math — find the pending placeholders inserted before marked ran
+    const b64d = s => decodeURIComponent(escape(atob(s)));
+    el.querySelectorAll('.math-display-pending, .math-inline-pending').forEach(node => {
+        const isDisplay = node.classList.contains('math-display-pending');
+        try {
+            katex.render(b64d(node.dataset.k), node, { displayMode: isDisplay, throwOnError: false });
+        } catch(e) {
+            node.textContent = b64d(node.dataset.k);
+        }
+        node.className = isDisplay ? 'math-display' : 'math-inline';
+        delete node.dataset.k;
+    });
+    // Unwrap any display math that marked wrapped in a <p> (invalid nesting)
+    el.querySelectorAll('p > .math-display').forEach(div => div.parentElement.replaceWith(div));
+
+    // Render mermaid diagrams
+    if (typeof mermaid !== 'undefined') {
+        mermaid.run({ nodes: el.querySelectorAll('.mermaid') });
+    }
 
     initVideoPlayers();
 

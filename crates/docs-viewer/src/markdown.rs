@@ -23,16 +23,9 @@ impl MarkdownRenderer {
         // Replace custom fenced blocks before pulldown_cmark sees them
         let preprocessed = expand_custom_blocks(markdown, workspace_id, file_dir);
 
-        let mut options = Options::empty();
-        options.insert(Options::ENABLE_TABLES);
-        options.insert(Options::ENABLE_FOOTNOTES);
-        options.insert(Options::ENABLE_STRIKETHROUGH);
-        options.insert(Options::ENABLE_TASKLISTS);
-        options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
+        let parser = Parser::new_ext(&preprocessed, md_options());
 
-        let parser = Parser::new_ext(&preprocessed, options);
-
-        // Rewrite relative image src URLs
+        // Rewrite relative image src URLs + convert math events to HTML
         let events: Vec<Event> = parser
             .map(|event| match event {
                 Event::Start(Tag::Image { link_type, dest_url, title, id }) => {
@@ -44,7 +37,7 @@ impl MarkdownRenderer {
                         id,
                     })
                 }
-                other => other,
+                ev => map_math_event(ev),
             })
             .collect();
 
@@ -54,17 +47,12 @@ impl MarkdownRenderer {
     }
 
     pub fn render(&self, markdown: &str) -> String {
-        let mut options = Options::empty();
-        options.insert(Options::ENABLE_TABLES);
-        options.insert(Options::ENABLE_FOOTNOTES);
-        options.insert(Options::ENABLE_STRIKETHROUGH);
-        options.insert(Options::ENABLE_TASKLISTS);
-        options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
+        let parser = Parser::new_ext(markdown, md_options());
 
-        let parser = Parser::new_ext(markdown, options);
+        let events: Vec<Event> = parser.map(map_math_event).collect();
 
         let mut html_output = String::new();
-        html::push_html(&mut html_output, parser);
+        html::push_html(&mut html_output, events.into_iter());
 
         // Apply syntax highlighting to code blocks
         self.highlight_code_blocks(&html_output)
@@ -106,6 +94,36 @@ impl MarkdownRenderer {
         }
 
         result
+    }
+}
+
+/// Common pulldown-cmark options used for all renders.
+fn md_options() -> Options {
+    let mut opts = Options::empty();
+    opts.insert(Options::ENABLE_TABLES);
+    opts.insert(Options::ENABLE_FOOTNOTES);
+    opts.insert(Options::ENABLE_STRIKETHROUGH);
+    opts.insert(Options::ENABLE_TASKLISTS);
+    opts.insert(Options::ENABLE_HEADING_ATTRIBUTES);
+    opts.insert(Options::ENABLE_MATH);
+    opts
+}
+
+/// Convert InlineMath / DisplayMath events to HTML spans/divs for KaTeX auto-render.
+/// Uses \(...\) / \[...\] delimiters (unambiguous, no $ escaping issues).
+fn map_math_event(event: Event) -> Event {
+    match event {
+        Event::InlineMath(content) => {
+            Event::Html(CowStr::from(format!(
+                r#"<span class="math-inline">\({content}\)</span>"#
+            )))
+        }
+        Event::DisplayMath(content) => {
+            Event::Html(CowStr::from(format!(
+                r#"<div class="math-display">\[{content}\]</div>"#
+            )))
+        }
+        other => other,
     }
 }
 
@@ -167,7 +185,7 @@ fn expand_custom_blocks(markdown: &str, workspace_id: &str, file_dir: &str) -> S
                 .unwrap_or((lang_opts, ""));
 
             match lang {
-                "media-image" | "media-video" | "workspace-video" | "app-embed" => {
+                "mermaid" | "media-image" | "media-video" | "workspace-video" | "app-embed" => {
                     // Collect body lines until closing ```
                     let mut body_lines: Vec<&str> = Vec::new();
                     i += 1;
@@ -209,6 +227,11 @@ fn render_custom_block(lang: &str, opts: &str, body: &str, workspace_id: &str, f
     let esc = |s: &str| s.replace('"', "&quot;");
 
     match lang {
+        "mermaid" => {
+            // Use <pre> (CommonMark type-1 block) so pulldown_cmark does not
+            // terminate the HTML block at the first blank line inside the diagram.
+            format!("<pre class=\"mermaid\">\n{}\n</pre>", body.trim())
+        }
         "media-image" => {
             let slug = body.trim();
             let src = format!("/media/{}/image.webp", esc(slug));

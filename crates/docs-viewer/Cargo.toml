@@ -14,7 +14,7 @@ tower-sessions = { workspace = true }
 askama = { workspace = true, features = ["serde_json"] }
 
 # Markdown rendering
-pulldown-cmark = "0.11"
+pulldown-cmark = "0.13"
 syntect = "5.2"
 
 # Async

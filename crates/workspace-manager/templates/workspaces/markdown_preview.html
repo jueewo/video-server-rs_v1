@@ -108,7 +108,13 @@
     .markdown-content pre code {
         display: block;
     }
+    /* Mermaid diagrams */
+    .mermaid { margin: 1.5rem 0; text-align: center; background: none; border: none; padding: 0; font-family: inherit; }
+    /* KaTeX math */
+    .math-inline { font-size: 1.05em; }
+    .math-display { margin: 1.25rem 0; overflow-x: auto; text-align: center; }
 </style>
+<link rel="stylesheet" href="/static/vendor/katex/katex.min.css">
 {% endblock %}
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-5xl">
@@ -140,6 +146,25 @@
 </div>
 {% endblock %}
 {% block extra_scripts %}
+<script src="/static/vendor/katex/katex.min.js"></script>
+<script src="/static/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="/static/vendor/mermaid.min.js"></script>
+<script>
+    if (typeof mermaid !== 'undefined') {
+        mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
+    }
+    renderMathInElement(document.getElementById('rendered'), {
+        delimiters: [
+            {left: '\\[', right: '\\]', display: true},
+            {left: '\\(', right: '\\)', display: false}
+        ],
+        throwOnError: false
+    });
+    const _md = document.querySelectorAll('.mermaid');
+    if (_md.length && typeof mermaid !== 'undefined') {
+        mermaid.run({nodes: _md});
+    }
+</script>
 <script>
     function toggleRaw() {
         const rendered = document.getElementById('rendered');

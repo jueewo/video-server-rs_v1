@@ -19,6 +19,8 @@ The integrated markdown documentation viewer allows you to browse, view, and upl
   - Strikethrough
   - Task lists
   - Heading attributes
+  - **Math / LaTeX** (`$...$` inline, `$$...$$` display) via KaTeX
+  - **Mermaid diagrams** (` ```mermaid ` fenced blocks)
 - Syntax highlighting for code blocks using syntect
 - Dark theme for code blocks (base16-ocean.dark)
 - Toggle between rendered and raw markdown views
@@ -140,6 +142,8 @@ Enabled features (in `crates/docs-viewer/src/markdown.rs`):
 - Strikethrough
 - Task lists
 - Heading attributes
+- Math (`ENABLE_MATH` — `InlineMath`/`DisplayMath` events → KaTeX HTML via auto-render)
+- Mermaid (preprocessed in `expand_custom_blocks()` before pulldown-cmark; rendered as `<pre class="mermaid">` — a CommonMark type-1 HTML block — so blank lines inside diagrams don't prematurely terminate the block)
 
 ## API Endpoints
 
@@ -153,10 +157,14 @@ All routes under `/docs`:
 ## Implementation Details
 
 ### Dependencies
-- `pulldown-cmark` - Markdown parsing and rendering
+- `pulldown-cmark 0.13` - Markdown parsing and rendering (including math events)
 - `syntect` - Syntax highlighting
 - `walkdir` - File system traversal
 - `askama` - Template rendering
+- KaTeX 0.16 (vendored at `static/vendor/katex/`) - Math rendering
+- Mermaid (vendored at `static/vendor/mermaid.min.js`) - Diagram rendering
+
+See [MARKDOWN_MATH_DIAGRAMS.md](../../user/MARKDOWN_MATH_DIAGRAMS.md) for authoring guide.
 
 ### Crate Structure
 \`\`\`

@@ -42,6 +42,12 @@ This folder contains documentation for **end users** - how to use the media serv
   - Code expiration and limits
   - Use cases
 
+### Content Authoring
+- **[MARKDOWN_MATH_DIAGRAMS.md](MARKDOWN_MATH_DIAGRAMS.md)** - Math and diagrams in markdown
+  - LaTeX / KaTeX formulas (inline and display)
+  - Mermaid diagrams (flowcharts, sequence, ER, state, Gantt)
+  - Works in docs viewer, media markdown files, and course lessons
+
 ### Advanced Features
 - **[VAULT_MANAGEMENT_FEATURE.md](VAULT_MANAGEMENT_FEATURE.md)** - Vault storage system
   - Privacy-preserving storage

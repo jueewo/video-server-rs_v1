@@ -13,10 +13,10 @@ pub fn render_lesson(
     options.insert(Options::ENABLE_TABLES);
     options.insert(Options::ENABLE_TASKLISTS);
     let parser = Parser::new_ext(markdown, options).map(|event| match event {
-        Event::Start(Tag::Image(link_type, dest_url, title)) => {
+        Event::Start(Tag::Image { link_type, dest_url, title, id }) => {
             let rewritten =
                 rewrite_url(&dest_url, workspace_id, folder_path, lesson_folder, code);
-            Event::Start(Tag::Image(link_type, CowStr::from(rewritten), title))
+            Event::Start(Tag::Image { link_type, dest_url: CowStr::from(rewritten), title, id })
         }
         other => other,
     });

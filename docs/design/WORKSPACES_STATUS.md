@@ -215,11 +215,15 @@ The `workspace.yaml` file serves as a **live manifest** and **metadata store** f
 | Type | Purpose | Status |
 |------|---------|--------|
 | `plain` | Regular file storage | ✅ Implemented |
+| `course` | Structured course with modules/lessons | ✅ Implemented |
+| `presentation` | Reveal.js slideshow from Markdown | ✅ Implemented |
+| `bpmn-simulator` | Process diagram execution | ✅ Renderer implemented |
+| `media-server` | Vault-backed media folder | ✅ Implemented |
 | `static-site` | Static website projects | 🔲 Processor placeholder |
-| `bpmn-simulator` | Process diagram execution | 🔲 Processor placeholder |
 | `agent-collection` | AI agent definitions | 🔲 Processor placeholder |
 | `documentation` | Docs projects (mdBook, etc.) | 🔲 Future |
 | `data-pipeline` | ETL workflows | 🔲 Future |
+| `js-tool` | JavaScript tool runner | 🔲 Processor placeholder |
 
 ### Example workspace.yaml
 

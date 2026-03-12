@@ -140,6 +140,14 @@ pub struct RenameFileRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct CopyFileRequest {
+    /// Source workspace-relative path (file or directory).
+    pub from: String,
+    /// Destination workspace-relative path.
+    pub to: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct CreateFileRequest {
     pub path: String,
     pub content: Option<String>,
@@ -942,6 +950,64 @@ pub async fn rename_file(
         warn!("Failed to rename file {:?} -> {:?}: {}", from, to, e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// POST /api/workspaces/{workspace_id}/files/copy
+///
+/// Copies a single file or directory within the workspace. `from` and `to` are
+/// workspace-relative paths. Directories are copied recursively.
+pub async fn copy_file(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(request): Json<CopyFileRequest>,
+) -> Result<StatusCode, StatusCode> {
+    check_scope(&user, "write")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let from = file_editor::safe_resolve_pub(&workspace_root, &request.from)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    let to = file_editor::safe_resolve_pub(&workspace_root, &request.to)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    if !from.exists() {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    if to.exists() {
+        return Err(StatusCode::CONFLICT);
+    }
+
+    if from.is_dir() {
+        // Recursive directory copy
+        for entry in walkdir::WalkDir::new(&from).into_iter().filter_map(|e| e.ok()) {
+            let rel = entry.path().strip_prefix(&from).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let dest = to.join(rel);
+            if entry.file_type().is_dir() {
+                std::fs::create_dir_all(&dest).map_err(|e| {
+                    warn!("Failed to create dir {:?}: {}", dest, e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+            } else {
+                std::fs::copy(entry.path(), &dest).map_err(|e| {
+                    warn!("Failed to copy {:?} -> {:?}: {}", entry.path(), dest, e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+            }
+        }
+    } else {
+        if let Some(parent) = to.parent() {
+            std::fs::create_dir_all(parent).ok();
+        }
+        std::fs::copy(&from, &to).map_err(|e| {
+            warn!("Failed to copy {:?} -> {:?}: {}", from, to, e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    }
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -3618,6 +3684,10 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         .route(
             "/api/workspaces/{workspace_id}/files/rename",
             post(rename_file),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/files/copy",
+            post(copy_file),
         )
         .route(
             "/api/workspaces/{workspace_id}/dirs",

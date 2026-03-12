@@ -236,6 +236,7 @@
     <ul class="menu menu-xs p-0">
         <li><a id="ctx-rename" class="gap-2"><i data-lucide="pencil" class="w-3 h-3"></i> Rename</a></li>
         <li><a id="ctx-move" class="gap-2"><i data-lucide="folder-input" class="w-3 h-3"></i> Move</a></li>
+        <li><a id="ctx-copy" class="gap-2"><i data-lucide="copy" class="w-3 h-3"></i> Copy</a></li>
         <li id="ctx-media-li"><a id="ctx-media" class="gap-2"><i data-lucide="library" class="w-3 h-3"></i> → Media</a></li>
         <li><a id="ctx-delete" class="gap-2 text-error"><i data-lucide="trash-2" class="w-3 h-3"></i> Delete</a></li>
     </ul>
@@ -246,6 +247,9 @@
     <span id="bulk-count" class="text-sm font-medium text-base-content/70"></span>
     <button onclick="openBulkMoveModal()" class="btn btn-sm btn-outline gap-1">
         <i data-lucide="folder-input" class="w-4 h-4"></i> Move
+    </button>
+    <button onclick="openBulkCopyModal()" class="btn btn-sm btn-outline gap-1">
+        <i data-lucide="copy" class="w-4 h-4"></i> Copy
     </button>
     <button onclick="bulkDelete()" class="btn btn-sm btn-error btn-outline gap-1">
         <i data-lucide="trash-2" class="w-4 h-4"></i> Delete
@@ -386,19 +390,23 @@
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
-<!-- Move File Modal -->
+<!-- Move / Copy File Modal (shared) -->
 <dialog id="move-file-modal" class="modal">
     <div class="modal-box max-w-sm">
-        <h3 class="font-bold text-lg mb-1 flex items-center gap-2"><i data-lucide="folder-input" class="w-5 h-5"></i> <span id="move-modal-title">Move File</span></h3>
+        <h3 class="font-bold text-lg mb-1 flex items-center gap-2">
+            <i id="move-modal-icon" data-lucide="folder-input" class="w-5 h-5"></i>
+            <span id="move-modal-title">Move File</span>
+        </h3>
         <p id="move-file-label" class="text-sm text-base-content/60 mb-3"></p>
         <input type="hidden" id="move-file-path" />
         <input type="hidden" id="move-file-name" />
+        <input type="hidden" id="move-file-operation" value="move" />
         <div class="text-xs text-base-content/50 mb-1">Select destination folder:</div>
         <div id="move-dir-list" class="flex flex-col gap-1 max-h-60 overflow-y-auto border border-base-300 rounded-lg p-1 mb-3"></div>
         <div id="move-file-error" class="hidden alert alert-error mb-3 text-sm"></div>
         <div class="modal-action">
             <button onclick="document.getElementById('move-file-modal').close()" class="btn btn-ghost btn-sm">Cancel</button>
-            <button onclick="submitMove()" class="btn btn-primary btn-sm">Move</button>
+            <button id="move-modal-submit" onclick="submitMove()" class="btn btn-primary btn-sm">Move</button>
         </div>
     </div>
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
@@ -820,6 +828,7 @@
 
         document.getElementById('ctx-rename').onclick = () => openRenameModal(ctxPath, ctxName);
         document.getElementById('ctx-move').onclick   = () => openMoveModal(ctxPath, ctxName);
+        document.getElementById('ctx-copy').onclick   = () => openCopyModal(ctxPath, ctxName);
         document.getElementById('ctx-media').onclick  = () => openSendToMediaModal(ctxPath, ctxName);
         document.getElementById('ctx-delete').onclick = () => deleteItem(ctxPath, false);
     })();
@@ -865,13 +874,23 @@
         }
     }
 
-    // ── Move ─────────────────────────────────────────────────────────────────
+    // ── Move / Copy ───────────────────────────────────────────────────────────
 
     let _moveSelectedDir = null;
 
-    async function openMoveModal(filePath, fileName) {
+    function _setModalOperation(op) {
+        document.getElementById('move-file-operation').value = op;
+        const isCopy = op === 'copy';
+        document.getElementById('move-modal-icon').setAttribute('data-lucide', isCopy ? 'copy' : 'folder-input');
+        document.getElementById('move-modal-submit').textContent = isCopy ? 'Copy' : 'Move';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    async function _openMoveOrCopyModal(op, filePath, fileName, excludeFilter) {
         _moveSelectedDir = null;
-        document.getElementById('move-modal-title').textContent = 'Move File';
+        _setModalOperation(op);
+        const verb = op === 'copy' ? 'Copy' : 'Move';
+        document.getElementById('move-modal-title').textContent = `${verb} File`;
         document.getElementById('move-file-path').value = filePath;
         document.getElementById('move-file-name').value = fileName;
         document.getElementById('move-file-label').textContent = fileName;
@@ -885,14 +904,9 @@
         if (!r.ok) { list.innerHTML = '<div class="text-xs text-error p-2">Failed to load folders.</div>'; return; }
         const dirs = await r.json();
 
-        // Current dir of the file (exclude as destination)
-        const currentDir = filePath.includes('/')
-            ? filePath.substring(0, filePath.lastIndexOf('/'))
-            : '';
-
         list.innerHTML = '';
         dirs.forEach(d => {
-            if (d.path === currentDir) return; // skip current location
+            if (excludeFilter && excludeFilter(d.path)) return;
             const btn = document.createElement('button');
             btn.className = 'btn btn-xs btn-ghost justify-start text-left w-full font-mono';
             btn.textContent = d.path === '' ? '/ (root)' : '/' + d.path;
@@ -905,13 +919,25 @@
         });
     }
 
+    function openMoveModal(filePath, fileName) {
+        const currentDir = filePath.includes('/') ? filePath.substring(0, filePath.lastIndexOf('/')) : '';
+        _openMoveOrCopyModal('move', filePath, fileName, d => d === currentDir);
+    }
+
+    function openCopyModal(filePath, fileName) {
+        // Copy can go anywhere — no exclusion needed
+        _openMoveOrCopyModal('copy', filePath, fileName, null);
+    }
+
     async function openMoveFolderModal(folderPath, folderName) {
-        _moveSelectedDir = null;
+        const currentParent = folderPath.includes('/') ? folderPath.substring(0, folderPath.lastIndexOf('/')) : '';
+        _setModalOperation('move');
         document.getElementById('move-modal-title').textContent = 'Move Folder';
         document.getElementById('move-file-path').value = folderPath;
         document.getElementById('move-file-name').value = folderName;
         document.getElementById('move-file-label').textContent = folderName;
         document.getElementById('move-file-error').classList.add('hidden');
+        _moveSelectedDir = null;
 
         const list = document.getElementById('move-dir-list');
         list.innerHTML = '<div class="text-xs text-base-content/40 p-2">Loading…</div>';
@@ -921,16 +947,11 @@
         if (!r.ok) { list.innerHTML = '<div class="text-xs text-error p-2">Failed to load folders.</div>'; return; }
         const dirs = await r.json();
 
-        // Current parent of the folder
-        const currentParent = folderPath.includes('/')
-            ? folderPath.substring(0, folderPath.lastIndexOf('/'))
-            : '';
-
         list.innerHTML = '';
         dirs.forEach(d => {
-            if (d.path === currentParent) return;          // already here
-            if (d.path === folderPath) return;             // itself
-            if (d.path.startsWith(folderPath + '/')) return; // descendant
+            if (d.path === currentParent) return;
+            if (d.path === folderPath) return;
+            if (d.path.startsWith(folderPath + '/')) return;
             const btn = document.createElement('button');
             btn.className = 'btn btn-xs btn-ghost justify-start text-left w-full font-mono';
             btn.textContent = d.path === '' ? '/ (root)' : '/' + d.path;
@@ -947,13 +968,13 @@
         if (_moveSelectedDir === null) return;
         const fromPath = document.getElementById('move-file-path').value;
         const fileName = document.getElementById('move-file-name').value;
+        const op       = document.getElementById('move-file-operation').value;
         const errEl    = document.getElementById('move-file-error');
 
-        const toPath = _moveSelectedDir === ''
-            ? fileName
-            : _moveSelectedDir + '/' + fileName;
+        const toPath = _moveSelectedDir === '' ? fileName : _moveSelectedDir + '/' + fileName;
+        const endpoint = op === 'copy' ? 'copy' : 'rename';
 
-        const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/rename`, {
+        const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/${endpoint}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ from: fromPath, to: toPath }),
@@ -962,9 +983,10 @@
             document.getElementById('move-file-modal').close();
             location.reload();
         } else {
+            const verb = op === 'copy' ? 'Copy' : 'Move';
             const msg = r.status === 409 ? 'A file with that name already exists there.'
                       : r.status === 404 ? 'File not found.'
-                      : `Move failed (${r.status}).`;
+                      : `${verb} failed (${r.status}).`;
             errEl.textContent = msg;
             errEl.classList.remove('hidden');
         }
@@ -1816,6 +1838,7 @@
     async function openBulkMoveModal() {
         if (_selected.size === 0) return;
         _moveSelectedDir = null;
+        _setModalOperation('move');
         document.getElementById('move-modal-title').textContent = `Move ${_selected.size} file${_selected.size > 1 ? 's' : ''}`;
         document.getElementById('move-file-path').value = '__bulk__';
         document.getElementById('move-file-name').value = '';
@@ -1844,21 +1867,55 @@
         });
     }
 
+    async function openBulkCopyModal() {
+        if (_selected.size === 0) return;
+        _moveSelectedDir = null;
+        document.getElementById('move-modal-title').textContent = `Copy ${_selected.size} file${_selected.size > 1 ? 's' : ''}`;
+        document.getElementById('move-file-path').value = '__bulk_copy__';
+        document.getElementById('move-file-name').value = '';
+        document.getElementById('move-file-label').textContent = `${_selected.size} selected file${_selected.size > 1 ? 's' : ''}`;
+        document.getElementById('move-file-error').classList.add('hidden');
+        _setModalOperation('copy');
+
+        const list = document.getElementById('move-dir-list');
+        list.innerHTML = '<div class="text-xs text-base-content/40 p-2">Loading…</div>';
+        document.getElementById('move-file-modal').showModal();
+
+        const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/dirs`);
+        if (!r.ok) { list.innerHTML = '<div class="text-xs text-error p-2">Failed to load folders.</div>'; return; }
+        const dirs = await r.json();
+
+        list.innerHTML = '';
+        dirs.forEach(d => {
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-xs btn-ghost justify-start text-left w-full font-mono';
+            btn.textContent = d.path === '' ? '/ (root)' : '/' + d.path;
+            btn.onclick = () => {
+                list.querySelectorAll('button').forEach(b => b.classList.remove('btn-active'));
+                btn.classList.add('btn-active');
+                _moveSelectedDir = d.path;
+            };
+            list.appendChild(btn);
+        });
+    }
+
     // Patch submitMove to handle bulk mode
     const _origSubmitMove = submitMove;
     submitMove = async function () {
         const fromPath = document.getElementById('move-file-path').value;
-        if (fromPath !== '__bulk__') { return _origSubmitMove(); }
+        const isBulkMove = fromPath === '__bulk__';
+        const isBulkCopy = fromPath === '__bulk_copy__';
+        if (!isBulkMove && !isBulkCopy) { return _origSubmitMove(); }
         if (_moveSelectedDir === null) return;
 
-        const errEl = document.getElementById('move-file-error');
         const paths = Array.from(_selected);
         let failed = 0;
+        const endpoint = isBulkCopy ? 'copy' : 'rename';
 
         for (const p of paths) {
             const fileName = p.includes('/') ? p.substring(p.lastIndexOf('/') + 1) : p;
             const toPath = _moveSelectedDir === '' ? fileName : _moveSelectedDir + '/' + fileName;
-            const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/rename`, {
+            const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ from: p, to: toPath }),
@@ -1868,7 +1925,8 @@
 
         document.getElementById('move-file-modal').close();
         if (failed > 0) {
-            alert(`${failed} file(s) could not be moved (conflict or error).`);
+            const verb = isBulkCopy ? 'copied' : 'moved';
+            alert(`${failed} file(s) could not be ${verb} (conflict or error).`);
         }
         location.reload();
     };

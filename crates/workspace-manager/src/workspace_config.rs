@@ -131,13 +131,36 @@ impl WorkspaceConfig {
         }
     }
 
-    /// Rename a folder (updates the key in folders map)
+    /// Rename a folder (updates the exact key in folders map)
     pub fn rename_folder(&mut self, old_path: &str, new_path: String) -> bool {
         if let Some(config) = self.folders.remove(old_path) {
             self.folders.insert(new_path, config);
             true
         } else {
             false
+        }
+    }
+
+    /// Rename a folder and update all sub-folder entries whose paths start with
+    /// `old_path/`. This handles both direct renames and moves of parent folders.
+    pub fn rename_folder_prefix(&mut self, old_path: &str, new_path: &str) {
+        let prefix = format!("{}/", old_path);
+        let keys: Vec<String> = self
+            .folders
+            .keys()
+            .filter(|k| *k == old_path || k.starts_with(&prefix))
+            .cloned()
+            .collect();
+
+        for old_key in keys {
+            if let Some(config) = self.folders.remove(&old_key) {
+                let new_key = if old_key == old_path {
+                    new_path.to_string()
+                } else {
+                    format!("{}/{}", new_path, &old_key[old_path.len() + 1..])
+                };
+                self.folders.insert(new_key, config);
+            }
         }
     }
 

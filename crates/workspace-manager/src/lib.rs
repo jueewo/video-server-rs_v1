@@ -831,15 +831,25 @@ pub async fn delete_file(
         StatusCode::BAD_REQUEST
     })?;
 
-    // If it was a directory, remove from workspace.yaml
+    // If it was a directory, remove from workspace.yaml and access codes
     if is_dir {
         if let Ok(mut config) = WorkspaceConfig::load(&workspace_root) {
             config.remove_folder(&query.path);
             if let Err(e) = config.save(&workspace_root) {
                 warn!("Failed to update workspace.yaml: {}", e);
-                // Don't fail the request - file/folder is already deleted
             }
         }
+        sqlx::query(
+            "DELETE FROM workspace_access_code_folders
+             WHERE workspace_id = ?
+               AND (folder_path = ? OR folder_path LIKE ? || '/%')",
+        )
+        .bind(&workspace_id)
+        .bind(&query.path)
+        .bind(&query.path)
+        .execute(&state.pool)
+        .await
+        .ok();
     }
 
     Ok(StatusCode::NO_CONTENT)
@@ -946,10 +956,48 @@ pub async fn rename_file(
         return Err(StatusCode::CONFLICT);
     }
 
+    let is_dir = from.is_dir();
+
     std::fs::rename(&from, &to).map_err(|e| {
         warn!("Failed to rename file {:?} -> {:?}: {}", from, to, e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
+
+    // Update workspace.yaml and access code folder paths when a directory is moved/renamed
+    if is_dir {
+        if let Ok(mut config) = WorkspaceConfig::load(&workspace_root) {
+            config.rename_folder_prefix(&request.from, &request.to);
+            if let Err(e) = config.save(&workspace_root) {
+                warn!("Failed to update workspace.yaml after rename: {}", e);
+            }
+        }
+
+        let old = &request.from;
+        let new = &request.to;
+        sqlx::query(
+            "UPDATE workspace_access_code_folders
+             SET folder_path = ?
+             WHERE workspace_id = ? AND folder_path = ?",
+        )
+        .bind(new)
+        .bind(&workspace_id)
+        .bind(old)
+        .execute(&state.pool)
+        .await
+        .ok();
+        sqlx::query(
+            "UPDATE workspace_access_code_folders
+             SET folder_path = ? || substr(folder_path, ? + 1)
+             WHERE workspace_id = ? AND folder_path LIKE ? || '/%'",
+        )
+        .bind(new)
+        .bind(old.len() as i64)
+        .bind(&workspace_id)
+        .bind(old)
+        .execute(&state.pool)
+        .await
+        .ok();
+    }
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -1261,9 +1309,37 @@ pub async fn update_folder_metadata(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    // If we renamed, update the config key
+    // If we renamed, update the config key and access code folder paths
     if final_path != request.path {
-        config.rename_folder(&request.path, final_path.clone());
+        config.rename_folder_prefix(&request.path, &final_path);
+
+        let old = &request.path;
+        let new = &final_path;
+        // Exact match
+        sqlx::query(
+            "UPDATE workspace_access_code_folders
+             SET folder_path = ?
+             WHERE workspace_id = ? AND folder_path = ?",
+        )
+        .bind(new)
+        .bind(&workspace_id)
+        .bind(old)
+        .execute(&state.pool)
+        .await
+        .ok();
+        // Sub-paths: replace old prefix with new prefix
+        sqlx::query(
+            "UPDATE workspace_access_code_folders
+             SET folder_path = ? || substr(folder_path, ? + 1)
+             WHERE workspace_id = ? AND folder_path LIKE ? || '/%'",
+        )
+        .bind(new)
+        .bind(old.len() as i64)
+        .bind(&workspace_id)
+        .bind(old)
+        .execute(&state.pool)
+        .await
+        .ok();
     }
 
     // Update folder type

@@ -59,10 +59,6 @@ cp "$NM/react-dom/umd/react-dom.production.min.js"                            "$
 # which sets window.React / window.ReactDOM / window.ExcalidrawLib globals.
 echo "📦 Building excalidraw bundle (Preact/compat)..."
 cat > "$TEMP_DIR/excalidraw-entry.js" << 'ENTRY_EOF'
-// Shim process for dependencies that reference it at runtime (e.g. debug libs)
-if (typeof window !== 'undefined' && typeof window.process === 'undefined') {
-    window.process = { env: { NODE_ENV: 'production' }, browser: true, versions: { node: '0.0.0' }, argv: [], exit: () => {}, on: () => {} };
-}
 import * as React from 'preact/compat';
 import { createRoot } from 'preact/compat/client';
 import * as ExcalidrawLib from '@excalidraw/excalidraw';
@@ -71,11 +67,9 @@ window.ReactDOM = { createRoot };
 window.ExcalidrawLib = ExcalidrawLib;
 ENTRY_EOF
 bun build "$TEMP_DIR/excalidraw-entry.js" \
-    --bundle --target browser --format iife \
+    --bundle --target browser --format esm \
     --define 'process.env.IS_PREACT="true"' \
     --define 'process.env.NODE_ENV="production"' \
-    --define 'import.meta.env={"MODE":"production","DEV":false,"PROD":true}' \
-    --define 'import.meta.url=""' \
     --outfile "$VENDOR_DIR/excalidraw.production.min.js"
 # Fonts: v0.18 ships them under dist/prod/fonts/{Family}/Name-Regular.woff2.
 # EXCALIDRAW_ASSET_PATH is set to /static/vendor/excalidraw-assets/ in the

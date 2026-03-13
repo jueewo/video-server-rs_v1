@@ -71,12 +71,19 @@ var BACK_URL  = '{{ back_url }}';
 </script>
 
 <!-- Excalidraw asset path: fonts live at .../excalidraw-assets/fonts/{Family}/Name.woff2 -->
-<script>window.EXCALIDRAW_ASSET_PATH = "/static/vendor/excalidraw-assets/";</script>
-
-<!-- Excalidraw IIFE bundle (includes Preact/compat; sets React/ReactDOM/ExcalidrawLib globals) -->
-<script src="/static/vendor/excalidraw.production.min.js"></script>
-
 <script>
+window.EXCALIDRAW_ASSET_PATH = "/static/vendor/excalidraw-assets/";
+// process shim — must run before the ESM module loads (imports are hoisted)
+if (typeof window.process === 'undefined') {
+    window.process = { env: { NODE_ENV: 'production' }, browser: true, versions: { node: '0.0.0' }, argv: [], exit: () => {}, on: () => {} };
+}
+</script>
+
+<!-- Excalidraw ESM bundle (includes Preact/compat; sets React/ReactDOM/ExcalidrawLib globals) -->
+<script type="module" src="/static/vendor/excalidraw.production.min.js"></script>
+
+<!-- Editor logic as type="module" so it defers until after the excalidraw module above -->
+<script type="module">
 // ── Set container height based on actual layout (not guessed constants) ────
 function fitWrap() {
     const toolbar = document.getElementById('excalidraw-toolbar');

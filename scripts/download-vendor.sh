@@ -54,28 +54,12 @@ cp "$NM/mermaid/dist/mermaid.min.js"                                          "$
 cp "$NM/react/umd/react.production.min.js"                                    "$VENDOR_DIR/react.production.min.js"
 cp "$NM/react-dom/umd/react-dom.production.min.js"                            "$VENDOR_DIR/react-dom.production.min.js"
 
-# ── Excalidraw (bundled IIFE via bun + Preact/compat) ─────────────────────
-# 0.18.0 is ESM-only; we build a self-contained IIFE with Preact (IS_PREACT=true)
-# which sets window.React / window.ReactDOM / window.ExcalidrawLib globals.
-echo "📦 Building excalidraw bundle (Preact/compat)..."
-cat > "$TEMP_DIR/excalidraw-entry.js" << 'ENTRY_EOF'
-import * as React from 'react';
-import { createRoot } from 'react-dom/client';
-import * as ExcalidrawLib from '@excalidraw/excalidraw';
-window.React = React;
-window.ReactDOM = { createRoot };
-window.ExcalidrawLib = ExcalidrawLib;
-ENTRY_EOF
-bun build "$TEMP_DIR/excalidraw-entry.js" \
-    --bundle --target browser --format esm \
-    --define 'process.env.NODE_ENV="production"' \
-    --outfile "$VENDOR_DIR/excalidraw.production.min.js"
-# Fonts: v0.18 ships them under dist/prod/fonts/{Family}/Name-Regular.woff2.
-# EXCALIDRAW_ASSET_PATH is set to /static/vendor/excalidraw-assets/ in the
-# template so the bundle resolves fonts at .../excalidraw-assets/fonts/...
+cp "$NM/@excalidraw/excalidraw/dist/excalidraw.production.min.js"             "$VENDOR_DIR/excalidraw.production.min.js"
+# Excalidraw lazy-loads fonts + assets from excalidraw-assets/.
+# The template sets window.EXCALIDRAW_ASSET_PATH="/static/vendor/" so the
+# bundle reads them from here instead of falling back to unpkg.com.
 rm -rf "$VENDOR_DIR/excalidraw-assets"
-mkdir -p "$VENDOR_DIR/excalidraw-assets"
-cp -r "$NM/@excalidraw/excalidraw/dist/prod/fonts" "$VENDOR_DIR/excalidraw-assets/"
+cp -r  "$NM/@excalidraw/excalidraw/dist/excalidraw-assets"                    "$VENDOR_DIR/excalidraw-assets"
 cp "$NM/hls.js/dist/hls.min.js"                                               "$VENDOR_DIR/hls.min.js"
 cp "$NM/marked/lib/marked.umd.js"                                              "$VENDOR_DIR/marked.min.js"
 cp "$NM/daisyui/daisyui.css"                                                   "$VENDOR_DIR/daisyui.min.css"

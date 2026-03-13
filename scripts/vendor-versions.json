@@ -7,7 +7,7 @@
     "mermaid":                    "11.13.0",
     "react":                      "18.3.1",
     "react-dom":                  "18.3.1",
-    "@excalidraw/excalidraw":     "0.18.0",
+    "@excalidraw/excalidraw":     "0.17.6",
     "hls.js":                     "1.6.15",
     "marked":                     "17.0.4",
     "bpmn-js":                    "18.13.1",
@@ -18,7 +18,7 @@
   },
   "notes": {
     "react + react-dom": "Stuck at 18 — React 19 dropped UMD builds; excalidraw_editor.html loads React via UMD <script> tags and uses React.createElement/ReactDOM.createRoot globals.",
-    "@excalidraw/excalidraw": "0.18.0 is ESM-only; bundled into a single ESM file via bun build in download-vendor.sh using React 18. IS_PREACT caused btoa errors in font subsetting.",
+    "@excalidraw/excalidraw": "Stuck at 0.17.6 — 0.18.0 has unfixed regressions (canvas size overflow, btoa font subsetting errors) and dropped UMD bundle requiring complex bun build workarounds.",
     "pdfjs-dist": "Pinned to exact version; worker and main module must match exactly.",
     "bpmn-js": "Major bumps often include breaking API changes in the modeler.",
     "mermaid": "v10→v11 had rendering engine changes; test diagrams after major bump.",

@@ -33,9 +33,9 @@ Podman 5.x ships in the default Rocky 10 repos — no extra repo needed:
 ```bash
 sudo dnf install -y podman
 
-# podman-compose is not in the default repos on Rocky 10 — install via pip
-sudo dnf install -y python3-pip
-pip3 install podman-compose --user
+# podman-compose is in EPEL
+sudo dnf install -y epel-release
+sudo dnf install -y podman-compose
 
 # Allow rootless binding of ports 80 and 443
 echo "net.ipv4.ip_unprivileged_port_start=80" | sudo tee /etc/sysctl.d/99-podman-ports.conf

@@ -49,7 +49,7 @@
     <script src="/static/vendor/mermaid.min.js"></script>
     <script>
         if (typeof mermaid !== 'undefined') {
-            mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
+            mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
         }
     </script>
     <script type="module">
@@ -88,20 +88,27 @@
         });
 
         // Replace mermaid-ref code blocks with rendered diagrams.
-        // div.textContent keeps <br/> as literal chars — exactly what mermaid expects.
+        // Use mermaid.render() with the source string directly (same approach as the mermaid editor)
+        // to avoid ambiguity in how mermaid.run() reads innerHTML vs textContent from the DOM.
         if (typeof mermaid !== 'undefined' && mermaidDiagrams.length) {
-            const nodes = [];
+            const replacements = [];
             document.querySelectorAll('code[class*="mermaid-ref"]').forEach(code => {
                 const idx = parseInt(code.textContent.trim(), 10);
                 const source = mermaidDiagrams[idx];
                 if (source == null) return;
-                const div = document.createElement('div');
-                div.className = 'mermaid';
-                div.textContent = source;
-                (code.closest('pre') ?? code).replaceWith(div);
-                nodes.push(div);
+                const placeholder = code.closest('pre') ?? code;
+                replacements.push({ placeholder, source, idx });
             });
-            if (nodes.length) mermaid.run({ nodes });
+            for (const { placeholder, source, idx } of replacements) {
+                try {
+                    const { svg } = await mermaid.render(`mermaid-diagram-${idx}`, source);
+                    const div = document.createElement('div');
+                    div.innerHTML = svg;
+                    placeholder.replaceWith(div);
+                } catch (err) {
+                    console.error('Mermaid render error for diagram', idx, ':', err);
+                }
+            }
         }
     </script>
 </body>

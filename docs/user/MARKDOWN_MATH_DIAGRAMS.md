@@ -187,7 +187,7 @@ gantt
 | Media markdown view | Same | Same |
 | Workspace file preview (`/workspaces/…/edit?file=*.md`) | Same | Same |
 | Course lesson | Same | Same |
-| Presentation slides | Same (Reveal.js math plugin) | Not yet supported |
+| Presentation slides | Same (Reveal.js math plugin) | ` ```mermaid ` fenced block |
 
 ## Related
 

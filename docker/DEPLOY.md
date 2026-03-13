@@ -1,7 +1,11 @@
 # Deployment Guide
 
 Step-by-step instructions for running the media server on a Linux server using
-Docker or Podman. Tested on Rocky Linux 9.
+Docker or Podman. Tested on **Rocky Linux 10**.
+
+> Rocky Linux 10 uses **DNF5** — `yum-config-manager` is gone, use
+> `dnf config-manager` instead. It also ships with **Podman 5.x** which has
+> improved compose support.
 
 ---
 
@@ -9,9 +13,11 @@ Docker or Podman. Tested on Rocky Linux 9.
 
 ### Docker
 
+Rocky Linux 10 is RHEL 10 compatible. Docker CE supports it via the RHEL repo:
+
 ```bash
-sudo dnf install -y yum-utils
-sudo yum-config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+# DNF5 — use config-manager directly (no yum-utils needed)
+sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
 sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 sudo systemctl enable --now docker
 
@@ -20,14 +26,27 @@ sudo usermod -aG docker $USER
 newgrp docker
 ```
 
-### Podman (alternative to Docker)
+### Podman (recommended on Rocky Linux 10)
+
+Podman 5.x ships in the default Rocky 10 repos — no extra repo needed:
 
 ```bash
-sudo dnf install -y podman podman-compose
+sudo dnf install -y podman
+
+# podman-compose is not in the default repos on Rocky 10 — install via pip
+sudo dnf install -y python3-pip
+pip3 install podman-compose --user
 
 # Allow rootless binding of ports 80 and 443
 echo "net.ipv4.ip_unprivileged_port_start=80" | sudo tee /etc/sysctl.d/99-podman-ports.conf
 sudo sysctl --system
+```
+
+Verify:
+
+```bash
+podman --version        # should show 5.x
+podman-compose version
 ```
 
 > **Note:** `podman-compose` ignores `depends_on: condition: service_healthy` — services

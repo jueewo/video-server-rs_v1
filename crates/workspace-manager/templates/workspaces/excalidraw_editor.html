@@ -26,12 +26,12 @@
        internal isLoading state after these fonts are fully loaded. */
     @font-face {
         font-family: 'Virgil';
-        src: url('/static/vendor/excalidraw-assets/Virgil.woff2') format('woff2');
+        src: url('/static/vendor/excalidraw-assets/fonts/Virgil/Virgil-Regular.woff2') format('woff2');
         font-display: block;
     }
     @font-face {
         font-family: 'Cascadia';
-        src: url('/static/vendor/excalidraw-assets/Cascadia.woff2') format('woff2');
+        src: url('/static/vendor/excalidraw-assets/fonts/Cascadia/CascadiaCode-Regular.woff2') format('woff2');
         font-display: block;
     }
 </style>
@@ -70,12 +70,10 @@ var SAVE_URL  = '{{ save_url }}';
 var BACK_URL  = '{{ back_url }}';
 </script>
 
-<!-- Tell Excalidraw where to find self-hosted fonts and lazy chunks -->
-<script>window.EXCALIDRAW_ASSET_PATH = "/static/vendor/";</script>
+<!-- Excalidraw asset path: fonts live at .../excalidraw-assets/fonts/{Family}/Name.woff2 -->
+<script>window.EXCALIDRAW_ASSET_PATH = "/static/vendor/excalidraw-assets/";</script>
 
-<!-- React + Excalidraw (self-hosted UMD bundles) -->
-<script src="/static/vendor/react.production.min.js"></script>
-<script src="/static/vendor/react-dom.production.min.js"></script>
+<!-- Excalidraw IIFE bundle (includes Preact/compat; sets React/ReactDOM/ExcalidrawLib globals) -->
 <script src="/static/vendor/excalidraw.production.min.js"></script>
 
 <script>

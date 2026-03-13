@@ -2,7 +2,7 @@
 import MainLayout from "../../../layouts/main.astro";
 import ElementRenderer from "../../../components/page-renderer/ElementRenderer.astro";
 import CardDefault2 from "../../../components/CardDefault2.astro";
-import { getCollection, getEntry } from "astro:content";
+import { getCollection } from "astro:content";
 import CardInfo from "../../../components/CardInfo.astro";
 import TitleAlertBanner from "../../../components/page-elements/TitleAlertBanner.astro";
 import Config from "../../../website.config.cjs";

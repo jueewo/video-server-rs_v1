@@ -1,5 +1,5 @@
 ---
-import { getCollection } from "astro:content";
+import { getCollection, render } from "astro:content";
 import type { MarkdownHeading } from "astro";
 import ContentLayout from "../../../layouts/contentlayout.astro";
 
@@ -10,20 +10,20 @@ const { lang } = Astro.params;
 export async function getStaticPaths() {
     const entries = await getCollection("{{collection}}");
 
-    var res: string[] = [];
+    const res: any[] = [];
     for (const l of {{langarray}}) {
-        const tmp: any = entries.map((entry) => ({
-            params: { lang: l, slug: entry.slug },
+        const tmp = entries.map((entry) => ({
+            params: { lang: l, slug: entry.id },
             props: entry,
         }));
-        res = res.concat(tmp);
+        res.push(...tmp);
     }
 
     return res;
 }
 
 const entry = Astro.props;
-const { Content, headings } = await entry.render();
+const { Content, headings } = await render(entry);
 
 const collection = "{{collection}}";
 ---

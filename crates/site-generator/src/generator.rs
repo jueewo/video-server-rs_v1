@@ -8,6 +8,7 @@ use crate::schema::SiteDef;
 
 const TEMPLATE_INDEX: &str = include_str!("templates/pages_index.astro.txt");
 const TEMPLATE_SLUG: &str = include_str!("templates/pages_slug.astro.txt");
+const TEMPLATE_CONTENT_CONFIG: &str = include_str!("templates/content_config.ts.txt");
 
 /// Configuration for a generation run.
 pub struct GeneratorConfig {
@@ -41,6 +42,7 @@ pub fn generate(config: &GeneratorConfig) -> Result<()> {
     copy_data(&sitedef, &config.source_dir, out)?;
     copy_content(&sitedef, &config.source_dir, out)?;
     write_website_config(&sitedef, out)?;
+    write_content_config(&sitedef, out)?;
 
     info!("Generation complete → {}", out.display());
     Ok(())
@@ -246,6 +248,66 @@ fn build_header_nav(sitedef: &SiteDef) -> serde_json::Value {
         })
         .collect();
     json!(items)
+}
+
+// ── content.config.ts (Astro 6 content layer) ─────────────────────────────────
+
+fn write_content_config(sitedef: &SiteDef, out: &Path) -> Result<()> {
+    // One defineCollection block per page (JSON element files)
+    let page_collections: String = sitedef
+        .pages
+        .iter()
+        .map(|p| {
+            let name = format!("page_{}", p.slug);
+            format!(
+                "const {name} = defineCollection({{\n  \
+                 loader: glob({{ pattern: \"**/*.json\", base: \"./data/{name}\" }}),\n  \
+                 schema: pageElementSchema,\n}});\n"
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    // One defineCollection block per MDX content collection
+    let content_collections: String = sitedef
+        .collections
+        .iter()
+        .map(|c| {
+            format!(
+                "const {name} = defineCollection({{\n  \
+                 loader: glob({{ pattern: \"**/*.mdx\", base: \"./content/{name}\" }}),\n  \
+                 schema: mdxSchema,\n}});\n",
+                name = c.name
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    // Build the export map
+    let exports: String = sitedef
+        .pages
+        .iter()
+        .map(|p| format!("    page_{},\n", p.slug))
+        .chain(
+            sitedef
+                .collections
+                .iter()
+                .map(|c| format!("    {},\n", c.name)),
+        )
+        .collect();
+
+    let config = apply_template(
+        TEMPLATE_CONTENT_CONFIG,
+        &[
+            ("page_collections", page_collections),
+            ("content_collections", content_collections),
+            ("collection_exports", exports),
+        ],
+    );
+
+    std::fs::write(out.join("content.config.ts"), config)?;
+    info!("Written content.config.ts");
+    Ok(())
 }
 
 // ── Filesystem helpers ─────────────────────────────────────────────────────────

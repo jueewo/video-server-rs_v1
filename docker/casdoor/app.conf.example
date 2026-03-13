@@ -1,0 +1,22 @@
+appname = casdoor
+httpport = 8000
+runmode = prod
+SessionOn = true
+copyrequestbody = true
+
+# Database — SQLite (simple self-hosted setup)
+driverName = sqlite3
+dataSourceName = file:/data/casdoor.db
+dbName = casdoor
+
+# Set this to your public auth URL, e.g. https://auth.example.com
+# This is used as the OIDC issuer URL and must match OIDC_ISSUER_URL in .env
+origin = https://auth.example.com
+
+# Leave empty unless you need Redis for sessions
+redisEndpoint =
+
+# Leave empty for default
+defaultStorageProvider =
+isCloudIntranet = false
+authState = casdoor

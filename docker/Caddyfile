@@ -1,0 +1,67 @@
+# Caddyfile for Docker deployment
+# Environment variables are injected by docker-compose:
+#   DOMAIN      — main app domain, e.g. app.example.com
+#   AUTH_DOMAIN — Casdoor OIDC domain, e.g. auth.example.com
+
+# ============================================================
+# Main application
+# ============================================================
+{$DOMAIN} {
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # HLS streaming — no buffering
+    @hls {
+        path /hls/* /live/*
+    }
+    handle @hls {
+        header Cache-Control "no-cache, no-store, must-revalidate"
+        reverse_proxy mediamtx:8888 {
+            flush_interval -1
+        }
+    }
+
+    # WebRTC signaling
+    @webrtc {
+        path /whip/* /whep/*
+    }
+    handle @webrtc {
+        reverse_proxy mediamtx:8889
+    }
+
+    # Main app
+    reverse_proxy media-server:3000 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        health_uri /health
+        health_interval 10s
+        health_timeout 5s
+    }
+
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 100mb
+            roll_keep 10
+        }
+        format json
+    }
+}
+
+# ============================================================
+# Casdoor — OIDC / SSO
+# ============================================================
+{$AUTH_DOMAIN} {
+    reverse_proxy casdoor:8000 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}

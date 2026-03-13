@@ -1,7 +1,7 @@
 # OpenTelemetry Collector configuration (TD-018)
 #
 # Pipeline:
-#   media-server ──OTLP/gRPC:4317──► otel-collector ──► prometheus (scrape :8889)
+#   media-server ──OTLP/gRPC:4317──► otel-collector ──► prometheus (scrape :8890)
 #                                                    └──► debug (console, dev only)
 #
 # Grafana connects to Prometheus as a data source.
@@ -36,9 +36,10 @@ processors:
     send_batch_size: 512
 
 exporters:
-  # Exposes Prometheus metrics on :8889/metrics for Prometheus to scrape
+  # Exposes Prometheus metrics on :8890/metrics for Prometheus to scrape
+  # Note: port 8889 is reserved for MediaMTX WebRTC
   prometheus:
-    endpoint: "0.0.0.0:8889"
+    endpoint: "0.0.0.0:8890"
     namespace: media_server
     send_timestamps: true
     enable_open_metrics: true

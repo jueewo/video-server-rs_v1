@@ -1,18 +1,72 @@
 version: "3.8"
 
+# Copy .env.example to .env and fill in your values before running.
+# Start: docker compose up -d
+# Logs:  docker compose logs -f media-server
+
 services:
-  # MediaMTX - Streaming server
+
+  # ============================================================
+  # Caddy — reverse proxy + automatic HTTPS (Let's Encrypt)
+  # ============================================================
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"    # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+      - AUTH_DOMAIN=${AUTH_DOMAIN:-auth.localhost}
+    depends_on:
+      - media-server
+      - casdoor
+    networks:
+      - media-network
+
+  # ============================================================
+  # Casdoor — OIDC / SSO identity provider
+  # ============================================================
+  # First-time setup:
+  #   1. Copy docker/casdoor/app.conf.example → docker/casdoor/app.conf
+  #      and set the origin to your public auth domain.
+  #   2. Start the stack: docker compose up -d casdoor
+  #   3. Visit http://<server>:8000 (or https://auth.yourdomain.com after Caddy is up)
+  #   4. Log in with admin / 123456 — change the password immediately.
+  #   5. Create an Organization, an Application (OIDC), and your user account.
+  #   6. Copy the Client ID / Secret into .env, then restart: docker compose up -d
+  casdoor:
+    image: casbin/casdoor:latest
+    container_name: casdoor
+    restart: unless-stopped
+    ports:
+      - "8000:8000"    # direct access for initial setup (can remove after Caddy is up)
+    volumes:
+      - ./casdoor/app.conf:/app/conf/app.conf:ro
+      - casdoor_data:/data
+    networks:
+      - media-network
+
+  # ============================================================
+  # MediaMTX — RTMP ingest + HLS/WebRTC streaming
+  # ============================================================
   mediamtx:
     image: bluenviron/mediamtx:latest
     container_name: mediamtx
     restart: unless-stopped
     ports:
-      - "1935:1935" # RTMP ingest
-      - "8888:8888" # HLS output
-      - "8889:8889" # WebRTC
-      - "8554:8554" # RTSP
-      - "9997:9997" # API
-      - "9998:9998" # Metrics
+      - "1935:1935"    # RTMP ingest
+      - "8888:8888"    # HLS output
+      - "8889:8889"    # WebRTC
+      - "8554:8554"    # RTSP
+      - "9997:9997"    # API
+      - "9998:9998"    # Metrics (scraped by Prometheus)
     volumes:
       - ../mediamtx.yml:/mediamtx.yml:ro
       - ../livestreams:/recordings
@@ -20,15 +74,7 @@ services:
       - MTX_PROTOCOLS=tcp
       - MTX_LOGLEVEL=info
     healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:9997/v3/config/get",
-        ]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9997/v3/config/get"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -36,7 +82,9 @@ services:
     networks:
       - media-network
 
-  # Media Server - Rust application
+  # ============================================================
+  # Media Server — main Rust application
+  # ============================================================
   media-server:
     build:
       context: ..
@@ -44,83 +92,62 @@ services:
     container_name: media-server
     restart: unless-stopped
     ports:
-      - "3000:3000" # HTTP server
+      - "3000:3000"    # direct access (Caddy proxies this in production)
     volumes:
-      # Persist storage
       - ../storage:/app/storage
-      # Persist database
       - ../media.db:/app/media.db
-      # Optional: Live reload templates (development)
-      # - ./templates:/app/templates:ro
     environment:
-      - RUST_LOG=info
+      - RUST_LOG=${RUST_LOG:-info}
       - DATABASE_URL=sqlite:media.db
+      - STORAGE_DIR=/app/storage
+      - RUN_MODE=${RUN_MODE:-production}
 
-      # MediaMTX connection (internal network)
+      # MediaMTX (internal network)
       - MEDIAMTX_HOST=mediamtx
       - MEDIAMTX_API_PORT=9997
       - MEDIAMTX_HLS_PORT=8888
 
-      # Observability — OTLP to collector (TD-018)
+      # OIDC — point at Casdoor (internal network for token validation)
+      - OIDC_ISSUER_URL=http://casdoor:8000
+      - OIDC_CLIENT_ID=${OIDC_CLIENT_ID}
+      - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}
+      # Redirect URI must match what you configured in Casdoor (public URL)
+      - OIDC_REDIRECT_URL=https://${DOMAIN:-localhost}/auth/callback
+
+      # Platform admin — set to your Casdoor user UUID (visible on /profile)
+      - PLATFORM_ADMIN_ID=${PLATFORM_ADMIN_ID}
+
+      # OpenTelemetry
       - ENABLE_OTLP=true
       - OTLP_ENDPOINT=http://otel-collector:4317
       - OTEL_SERVICE_NAME=media-server
 
-      # Optional: OIDC configuration
-      # - OIDC_ISSUER_URL=https://your-oidc-provider.com
-      # - OIDC_CLIENT_ID=your-client-id
-      # - OIDC_CLIENT_SECRET=your-client-secret
-      # - OIDC_REDIRECT_URL=https://yourdomain.com/auth/callback
-
-      # Optional: Emergency login (disable in production!)
-      # - ENABLE_EMERGENCY_LOGIN=false
+      # Emergency login — enable only for initial setup, disable in production
+      # - ENABLE_EMERGENCY_LOGIN=true
       # - SU_USER=admin
       # - SU_PWD=changeme
     depends_on:
       mediamtx:
         condition: service_healthy
+      casdoor:
+        condition: service_started
       otel-collector:
         condition: service_started
     healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:3000/health",
-        ]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
       interval: 30s
       timeout: 3s
-      start-period: 10s
+      start_period: 15s
       retries: 3
     networks:
       - media-network
 
-  # Media MCP - AI Assistant Integration Server
-  # Enables Claude Desktop and other AI tools to interact with the media library
-  #
-  # To connect Claude Desktop:
-  # 1. Edit: ~/Library/Application Support/Claude/claude_desktop_config.json (macOS)
-  #          %APPDATA%\Claude\claude_desktop_config.json (Windows)
-  #          ~/.config/Claude/claude_desktop_config.json (Linux)
-  #
-  # 2. Add this configuration:
-  #    {
-  #      "mcpServers": {
-  #        "media-server": {
-  #          "command": "docker",
-  #          "args": ["compose", "exec", "-T", "media-mcp", "/app/media-mcp"],
-  #          "cwd": "/path/to/your/media-server/docker"
-  #        }
-  #      }
-  #    }
-  #
-  # 3. Restart Claude Desktop
-  #
-  # Alternative: Run MCP server outside Docker and connect to shared volumes
-  # See: crates/standalone/media-mcp/README.md for details
+  # ============================================================
+  # Media MCP — AI assistant integration (Claude Desktop)
+  # ============================================================
+  # Connect Claude Desktop:
+  #   "command": "docker", "args": ["compose", "exec", "-T", "media-mcp", "/app/media-mcp"]
+  #   "cwd": "/path/to/your/media-server/docker"
   media-mcp:
     build:
       context: ..
@@ -128,9 +155,7 @@ services:
     container_name: media-mcp
     restart: unless-stopped
     volumes:
-      # Shared database with media-server
       - ../media.db:/app/media.db
-      # Shared storage with media-server
       - ../storage:/app/storage
     environment:
       - DATABASE_PATH=/app/media.db
@@ -138,7 +163,6 @@ services:
       - MCP_LOG_LEVEL=info
       - MCP_READ_ONLY=false
       - RUST_LOG=info
-    # MCP communicates via stdio, so we need these for proper I/O
     stdin_open: true
     tty: true
     depends_on:
@@ -146,33 +170,10 @@ services:
         condition: service_healthy
     networks:
       - media-network
-    # Note: This service runs in background. Access is via Claude Desktop or MCP clients,
-    # not via HTTP endpoints. See comments above for connection instructions.
 
-  # Optional: Reverse proxy with automatic HTTPS (Caddy)
-  # Uncomment to enable
-  # caddy:
-  #   image: caddy:2-alpine
-  #   container_name: caddy
-  #   restart: unless-stopped
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #     - "443:443/udp"  # HTTP/3
-  #   volumes:
-  #     - ../Caddyfile:/etc/caddy/Caddyfile:ro
-  #     - caddy_data:/data
-  #     - caddy_config:/config
-  #   environment:
-  #     - DOMAIN=yourdomain.com
-  #     - EMAIL=you@example.com
-  #   depends_on:
-  #     - media-server
-  #   networks:
-  #     - media-network
-
-  # OpenTelemetry Collector (TD-018)
-  # Receives OTLP from media-server, exposes Prometheus scrape endpoint
+  # ============================================================
+  # OpenTelemetry Collector
+  # ============================================================
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
     container_name: otel-collector
@@ -181,13 +182,15 @@ services:
     volumes:
       - ./otel-collector-config.yml:/etc/otel/config.yml:ro
     ports:
-      - "4317:4317"   # OTLP gRPC (media-server → collector)
-      - "4318:4318"   # OTLP HTTP
-      - "8889:8889"   # Prometheus scrape endpoint (collector → prometheus)
+      - "4317:4317"    # OTLP gRPC (media-server → collector)
+      - "4318:4318"    # OTLP HTTP
+      - "8890:8890"    # Prometheus scrape endpoint (note: 8889 is MediaMTX WebRTC)
     networks:
       - media-network
 
-  # Prometheus — scrapes metrics from OTel Collector + MediaMTX
+  # ============================================================
+  # Prometheus
+  # ============================================================
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -206,7 +209,9 @@ services:
     networks:
       - media-network
 
-  # Grafana — dashboards over Prometheus data source
+  # ============================================================
+  # Grafana
+  # ============================================================
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -218,9 +223,9 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=changeme   # override with GF_SECURITY_ADMIN_PASSWORD env var
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-changeme}
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_SERVER_ROOT_URL=https://${DOMAIN:-localhost}/grafana
     depends_on:
       - prometheus
     networks:
@@ -233,5 +238,6 @@ networks:
 volumes:
   caddy_data:
   caddy_config:
+  casdoor_data:
   prometheus_data:
   grafana_data:

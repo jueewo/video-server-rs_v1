@@ -7,29 +7,33 @@
 #   media,course — combine as needed
 ARG FEATURES=full
 
-FROM rust:1.75-alpine AS builder
+# Pull bun binary from official image
+FROM oven/bun:1-alpine AS bun
+
+FROM rust:1.85-alpine AS builder
+
+# Copy bun binary from official image
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 
 # Install build dependencies
 RUN apk add --no-cache \
     musl-dev \
     openssl-dev \
-    pkgconfig \
-    nodejs \
-    npm
+    pkgconfig
 
 # Set working directory
 WORKDIR /app
 
 # Copy package files for CSS build
-COPY package.json package-lock.json* ./
+COPY package.json bun.lock* ./
 COPY tailwind.config.ts postcss.config.cjs ./
 
 # Copy static CSS source
 COPY static/css/input.css static/css/
 
 # Install Node dependencies and build CSS
-RUN npm install && \
-    npm run build:css
+RUN bun install && \
+    bun run build:css
 
 # Copy Cargo files
 COPY Cargo.toml Cargo.lock ./
@@ -47,7 +51,7 @@ RUN cargo build --release --no-default-features --features "${FEATURES}"
 # ============================================================================
 # Final stage - Runtime image
 # ============================================================================
-FROM alpine:3.19
+FROM alpine:3.21
 
 # Install runtime dependencies
 RUN apk add --no-cache \

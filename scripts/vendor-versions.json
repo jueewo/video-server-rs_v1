@@ -10,7 +10,7 @@
     "@excalidraw/excalidraw":     "0.17.6",
     "hls.js":                     "1.6.15",
     "marked":                     "9.1.6",
-    "bpmn-js":                    "17.11.1",
+    "bpmn-js":                    "18.13.1",
     "pdfjs-dist":                 "5.5.207",
     "monaco-editor":              "0.45.0",
     "daisyui":                    "5.5.19",

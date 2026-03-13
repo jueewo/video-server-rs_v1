@@ -13,7 +13,7 @@
     "bpmn-js":                    "17.11.1",
     "pdfjs-dist":                 "5.5.207",
     "monaco-editor":              "0.45.0",
-    "daisyui":                    "4.12.23",
+    "daisyui":                    "5.5.19",
     "reveal.js":                  "6.0.0"
   },
   "notes": {

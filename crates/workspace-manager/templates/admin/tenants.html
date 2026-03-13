@@ -116,18 +116,18 @@
 
         <div class="grid grid-cols-[7rem_1fr] items-center gap-x-4 gap-y-4 mb-6">
             <label class="label py-0 justify-end">
-                <span class="label-text font-semibold text-right">ID <span class="text-error">*</span></span>
+                <span class="font-semibold text-right">ID <span class="text-error">*</span></span>
             </label>
             <div>
-                <input type="text" id="create-id" class="input input-bordered w-full font-mono"
+                <input type="text" id="create-id" class="input w-full font-mono"
                        placeholder="acme" maxlength="64" />
                 <p class="text-xs text-base-content/40 mt-1">Slug, no spaces. Cannot be changed.</p>
             </div>
 
             <label class="label py-0 justify-end">
-                <span class="label-text font-semibold text-right">Name <span class="text-error">*</span></span>
+                <span class="font-semibold text-right">Name <span class="text-error">*</span></span>
             </label>
-            <input type="text" id="create-name" class="input input-bordered w-full"
+            <input type="text" id="create-name" class="input w-full"
                    placeholder="Acme Corp" maxlength="128" />
         </div>
 
@@ -153,9 +153,9 @@
 
         <div class="grid grid-cols-[8rem_1fr] items-center gap-x-4 gap-y-4 mb-6">
             <label class="label py-0 justify-end">
-                <span class="label-text font-semibold text-right">User ID <span class="text-error">*</span></span>
+                <span class="font-semibold text-right">User ID <span class="text-error">*</span></span>
             </label>
-            <input type="text" id="assign-user-id" class="input input-bordered w-full font-mono text-sm"
+            <input type="text" id="assign-user-id" class="input w-full font-mono text-sm"
                    placeholder="user-sub from OIDC" />
         </div>
 
@@ -181,9 +181,9 @@
             <span id="invite-error-msg"></span>
         </div>
 
-        <div class="form-control mb-6">
-            <label class="label py-1"><span class="label-text font-semibold">Email address <span class="text-error">*</span></span></label>
-            <input type="email" id="invite-email" class="input input-bordered w-full"
+        <div class="mb-6">
+            <label class="label py-1"><span class="font-semibold">Email address <span class="text-error">*</span></span></label>
+            <input type="email" id="invite-email" class="input w-full"
                    placeholder="user@company.com" />
         </div>
 
@@ -209,27 +209,27 @@
         </div>
 
         <div class="space-y-4 mb-6">
-            <div class="form-control">
-                <label class="label py-1"><span class="label-text font-semibold">Display Name</span></label>
-                <input type="text" id="branding-name" class="input input-bordered w-full"
+            <div >
+                <label class="label py-1"><span class="font-semibold">Display Name</span></label>
+                <input type="text" id="branding-name" class="input w-full"
                        placeholder="Acme Knowledge Hub" maxlength="128" />
             </div>
-            <div class="form-control">
-                <label class="label py-1"><span class="label-text font-semibold">Logo URL</span></label>
-                <input type="text" id="branding-logo" class="input input-bordered w-full font-mono text-sm"
+            <div >
+                <label class="label py-1"><span class="font-semibold">Logo URL</span></label>
+                <input type="text" id="branding-logo" class="input w-full font-mono text-sm"
                        placeholder="/static/custom/acme-logo.webp" />
             </div>
-            <div class="form-control">
-                <label class="label py-1"><span class="label-text font-semibold">Primary Color</span></label>
+            <div >
+                <label class="label py-1"><span class="font-semibold">Primary Color</span></label>
                 <div class="flex gap-2 items-center">
                     <input type="color" id="branding-color-picker" class="w-10 h-10 rounded cursor-pointer border border-base-300" />
-                    <input type="text" id="branding-primary-color" class="input input-bordered flex-1 font-mono text-sm"
+                    <input type="text" id="branding-primary-color" class="input flex-1 font-mono text-sm"
                            placeholder="#0057b7" maxlength="9" />
                 </div>
             </div>
-            <div class="form-control">
-                <label class="label py-1"><span class="label-text font-semibold">Support Email</span></label>
-                <input type="email" id="branding-support-email" class="input input-bordered w-full"
+            <div >
+                <label class="label py-1"><span class="font-semibold">Support Email</span></label>
+                <input type="email" id="branding-support-email" class="input w-full"
                        placeholder="support@acme.com" />
             </div>
         </div>

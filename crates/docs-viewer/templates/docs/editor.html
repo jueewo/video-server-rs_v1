@@ -146,7 +146,7 @@
                 </h3>
 
                 <!-- Tabs -->
-                <div class="tabs tabs-bordered tabs-sm mb-3">
+                <div class="tabs tabs-border tabs-sm mb-3">
                     <a class="tab tab-active" id="tab-media" onclick="switchTab('media')">Media</a>
                     <a class="tab" id="tab-files" onclick="switchTab('files')">Files</a>
                     <a class="tab" id="tab-apps" onclick="switchTab('apps')">Apps</a>
@@ -158,11 +158,11 @@
                         type="text"
                         id="media-search"
                         placeholder="Search media..."
-                        class="input input-bordered input-xs w-full mb-2"
+                        class="input input-xs w-full mb-2"
                         oninput="debounceMediaSearch(this.value)"
                     />
                     <div class="flex gap-1 mb-2">
-                        <select id="media-type-filter" class="select select-bordered select-xs flex-1" onchange="loadMedia()">
+                        <select id="media-type-filter" class="select select-xs flex-1" onchange="loadMedia()">
                             <option value="">All types</option>
                             <option value="image">Images</option>
                             <option value="video">Videos</option>

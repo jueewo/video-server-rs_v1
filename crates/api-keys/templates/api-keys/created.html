@@ -24,9 +24,9 @@
             <h2 class="card-title text-2xl mb-4">{{ name }}</h2>
 
             <!-- The Key -->
-            <div class="form-control">
+            <div >
                 <label class="label">
-                    <span class="label-text font-bold text-lg">Your API Key:</span>
+                    <span class="font-bold text-lg">Your API Key:</span>
                 </label>
                 <div class="join w-full">
                     <input
@@ -34,7 +34,7 @@
                         value="{{ key }}"
                         id="api-key-input"
                         readonly
-                        class="input input-bordered join-item w-full font-mono text-sm select-all"
+                        class="input join-item w-full font-mono text-sm select-all"
                     />
                     <button class="btn btn-primary join-item gap-1" onclick="copyKey()">
                         <i data-lucide="copy" class="w-5 h-5"></i>
@@ -42,7 +42,7 @@
                     </button>
                 </div>
                 <label class="label">
-                    <span class="label-text-alt">Key Prefix: <code class="bg-base-300 px-2 py-1 rounded">{{ key_prefix }}</code></span>
+                    <span >Key Prefix: <code class="bg-base-300 px-2 py-1 rounded">{{ key_prefix }}</code></span>
                 </label>
             </div>
 

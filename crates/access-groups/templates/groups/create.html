@@ -47,9 +47,9 @@ Server{% endblock %} {% block content %}
     >
         <div class="card-body">
             <!-- Group Name -->
-            <div class="form-control mb-4">
+            <div class="mb-4">
                 <label class="label">
-                    <span class="label-text font-semibold">
+                    <span class="font-semibold">
                         Group Name
                         <span class="text-error">*</span>
                     </span>
@@ -59,30 +59,30 @@ Server{% endblock %} {% block content %}
                     name="name"
                     id="groupName"
                     placeholder="e.g., Marketing Team, Project Apollo, Sales Department"
-                    class="input input-bordered w-full"
+                    class="input w-full"
                     required
                     minlength="3"
                     maxlength="100"
                     autocomplete="off"
                 />
                 <label class="label">
-                    <span class="label-text-alt text-base-content/60">
+                    <span class="text-base-content/60">
                         <span id="nameLength">0</span>/100 characters
                     </span>
-                    <span class="label-text-alt text-base-content/60">
+                    <span class="text-base-content/60">
                         A unique name for your group
                     </span>
                 </label>
                 <label class="label hidden" id="nameError">
-                    <span class="label-text-alt text-error"></span>
+                    <span class="text-error"></span>
                 </label>
             </div>
 
             <!-- Group Description -->
-            <div class="form-control mb-6">
+            <div class="mb-6">
                 <label class="label">
-                    <span class="label-text font-semibold">Description</span>
-                    <span class="label-text-alt text-base-content/60"
+                    <span class="font-semibold">Description</span>
+                    <span class="text-base-content/60"
                         >(Optional)</span
                     >
                 </label>
@@ -90,14 +90,14 @@ Server{% endblock %} {% block content %}
                     name="description"
                     id="groupDescription"
                     placeholder="What is this group for? What will you collaborate on?"
-                    class="textarea textarea-bordered h-24 w-full"
+                    class="textarea h-24 w-full"
                     maxlength="500"
                 ></textarea>
                 <label class="label">
-                    <span class="label-text-alt text-base-content/60">
+                    <span class="text-base-content/60">
                         <span id="descLength">0</span>/500 characters
                     </span>
-                    <span class="label-text-alt text-base-content/60">
+                    <span class="text-base-content/60">
                         Help members understand the purpose
                     </span>
                 </label>
@@ -191,7 +191,7 @@ Server{% endblock %} {% block content %}
 
         function showNameError(message) {
             nameError.classList.remove("hidden");
-            nameError.querySelector(".label-text-alt").textContent = message;
+            nameError.querySelector("span").textContent = message;
             nameInput.classList.add("input-error");
         }
 

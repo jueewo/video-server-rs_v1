@@ -231,10 +231,10 @@
 <dialog id="new-file-modal" class="modal">
     <div class="modal-box">
         <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="file-plus" class="w-5 h-5"></i> New File</h3>
-        <div class="form-control mb-4">
-            <label class="label"><span class="label-text">File path (relative to workspace root)</span></label>
-            <input type="text" id="new-file-path" placeholder="e.g. notes/meeting.md" class="input input-bordered" />
-            <label class="label"><span class="label-text-alt text-base-content/50">Use / for subdirectories. Extension determines type.</span></label>
+        <div class="mb-4">
+            <label class="label"><span >File path (relative to workspace root)</span></label>
+            <input type="text" id="new-file-path" placeholder="e.g. notes/meeting.md" class="input" />
+            <label class="label"><span class="text-base-content/50">Use / for subdirectories. Extension determines type.</span></label>
         </div>
         <div class="modal-action">
             <button onclick="document.getElementById('new-file-modal').close()" class="btn btn-ghost">Cancel</button>
@@ -248,9 +248,9 @@
 <dialog id="new-folder-modal" class="modal">
     <div class="modal-box">
         <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="folder-plus" class="w-5 h-5"></i> New Folder</h3>
-        <div class="form-control mb-4">
-            <label class="label"><span class="label-text">Folder path (relative to workspace root)</span></label>
-            <input type="text" id="new-folder-path" placeholder="e.g. designs" class="input input-bordered" />
+        <div class="mb-4">
+            <label class="label"><span >Folder path (relative to workspace root)</span></label>
+            <input type="text" id="new-folder-path" placeholder="e.g. designs" class="input" />
         </div>
         <div class="modal-action">
             <button onclick="document.getElementById('new-folder-modal').close()" class="btn btn-ghost">Cancel</button>

@@ -135,62 +135,62 @@
                 <h2 class="card-title text-2xl mb-4">Basic Information</h2>
 
                 <!-- Title -->
-                <div class="form-control">
+                <div >
                     <label class="label">
-                        <span class="label-text font-semibold">Title *</span>
-                        <span class="label-text-alt" x-text="formData.title.length + '/100'"></span>
+                        <span class="font-semibold">Title *</span>
+                        <span  x-text="formData.title.length + '/100'"></span>
                     </label>
                     <input
                         type="text"
                         x-model="formData.title"
                         placeholder="Enter video title"
-                        class="input input-bordered w-full"
+                        class="input w-full"
                         maxlength="100"
                         required
                     >
                 </div>
 
                 <!-- Slug (read-only) -->
-                <div class="form-control">
+                <div >
                     <label class="label">
-                        <span class="label-text font-semibold">URL Slug</span>
-                        <span class="label-text-alt text-warning">Cannot be changed</span>
+                        <span class="font-semibold">URL Slug</span>
+                        <span class="text-warning">Cannot be changed</span>
                     </label>
                     <input
                         type="text"
                         value="{{ video.slug }}"
-                        class="input input-bordered w-full"
+                        class="input w-full"
                         disabled
                     >
                     <label class="label">
-                        <span class="label-text-alt">Accessible at: /media/{{ video.slug }}</span>
+                        <span >Accessible at: /media/{{ video.slug }}</span>
                     </label>
                 </div>
 
                 <!-- Short Description -->
-                <div class="form-control">
+                <div >
                     <label class="label">
-                        <span class="label-text font-semibold">Short Description</span>
-                        <span class="label-text-alt" x-text="formData.shortDescription.length + '/200'"></span>
+                        <span class="font-semibold">Short Description</span>
+                        <span  x-text="formData.shortDescription.length + '/200'"></span>
                     </label>
                     <input
                         type="text"
                         x-model="formData.shortDescription"
                         placeholder="Brief description for preview cards"
-                        class="input input-bordered w-full"
+                        class="input w-full"
                         maxlength="200"
                     >
                 </div>
 
                 <!-- Full Description -->
-                <div class="form-control">
+                <div >
                     <label class="label">
-                        <span class="label-text font-semibold">Full Description</span>
-                        <span class="label-text-alt" x-text="formData.description.length + '/2000'"></span>
+                        <span class="font-semibold">Full Description</span>
+                        <span  x-text="formData.description.length + '/2000'"></span>
                     </label>
                     <textarea
                         x-model="formData.description"
-                        class="textarea textarea-bordered h-32"
+                        class="textarea h-32"
                         placeholder="Detailed description..."
                         maxlength="2000"
                     ></textarea>
@@ -203,10 +203,10 @@
             <div class="card-body">
                 <h2 class="card-title text-2xl mb-4">Tags</h2>
 
-                <div class="form-control tag-input-wrapper">
+                <div class="tag-input-wrapper">
                     <label class="label">
-                        <span class="label-text font-semibold">Manage Tags</span>
-                        <span class="label-text-alt">Help others discover your video</span>
+                        <span class="font-semibold">Manage Tags</span>
+                        <span >Help others discover your video</span>
                     </label>
                     <div class="flex gap-2">
                         <input
@@ -215,7 +215,7 @@
                             @input="searchTags"
                             @keydown.enter.prevent="addTag"
                             placeholder="Type to search or create tags..."
-                            class="input input-bordered flex-1"
+                            class="input flex-1"
                         >
                         <button type="button" @click="addTag" class="btn btn-primary">Add</button>
                     </div>
@@ -255,11 +255,11 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <!-- Category -->
-                    <div class="form-control">
+                    <div >
                         <label class="label">
-                            <span class="label-text font-semibold">Category</span>
+                            <span class="font-semibold">Category</span>
                         </label>
-                        <select x-model="formData.category" class="select select-bordered">
+                        <select x-model="formData.category" class="select">
                             <option value="">Select category...</option>
                             <option value="education">Education</option>
                             <option value="entertainment">Entertainment</option>
@@ -275,11 +275,11 @@
                     </div>
 
                     <!-- Language -->
-                    <div class="form-control">
+                    <div >
                         <label class="label">
-                            <span class="label-text font-semibold">Language</span>
+                            <span class="font-semibold">Language</span>
                         </label>
-                        <select x-model="formData.language" class="select select-bordered">
+                        <select x-model="formData.language" class="select">
                             <option value="en">English</option>
                             <option value="es">Spanish</option>
                             <option value="fr">French</option>
@@ -295,11 +295,11 @@
                     </div>
 
                     <!-- Status -->
-                    <div class="form-control">
+                    <div >
                         <label class="label">
-                            <span class="label-text font-semibold">Status</span>
+                            <span class="font-semibold">Status</span>
                         </label>
-                        <select x-model="formData.status" class="select select-bordered">
+                        <select x-model="formData.status" class="select">
                             <option value="draft">Draft</option>
                             <option value="active">Active</option>
                             <option value="processing">Processing</option>
@@ -311,51 +311,51 @@
                 <!-- Checkboxes -->
                 <div class="divider"></div>
                 <div class="space-y-3">
-                    <div class="form-control">
+                    <div >
                         <label class="label cursor-pointer justify-start gap-4">
                             <input type="checkbox" x-model="formData.isPublic" class="checkbox checkbox-primary">
                             <div></div>
-                                <span class="label-text font-semibold">Make Public</span>
+                                <span class="font-semibold">Make Public</span>
                                 <p class="text-xs text-base-content/60">Anyone can view this video</p>
                             </div>
                         </label>
                     </div>
 
-                    <div class="form-control">
+                    <div >
                         <label class="label cursor-pointer justify-start gap-4">
                             <input type="checkbox" x-model="formData.featured" class="checkbox checkbox-secondary">
                             <div>
-                                <span class="label-text font-semibold">Featured Video</span>
+                                <span class="font-semibold">Featured Video</span>
                                 <p class="text-xs text-base-content/60">Highlight this video on the homepage</p>
                             </div>
                         </label>
                     </div>
 
-                    <div class="form-control">
+                    <div >
                         <label class="label cursor-pointer justify-start gap-4">
                             <input type="checkbox" x-model="formData.allowComments" class="checkbox checkbox-accent">
                             <div>
-                                <span class="label-text font-semibold">Allow Comments</span>
+                                <span class="font-semibold">Allow Comments</span>
                                 <p class="text-xs text-base-content/60">Users can comment on this video</p>
                             </div>
                         </label>
                     </div>
 
-                    <div class="form-control">
+                    <div >
                         <label class="label cursor-pointer justify-start gap-4">
                             <input type="checkbox" x-model="formData.allowDownload" class="checkbox">
                             <div>
-                                <span class="label-text font-semibold">Allow Download</span>
+                                <span class="font-semibold">Allow Download</span>
                                 <p class="text-xs text-base-content/60">Users can download this video</p>
                             </div>
                         </label>
                     </div>
 
-                    <div class="form-control">
+                    <div >
                         <label class="label cursor-pointer justify-start gap-4">
                             <input type="checkbox" x-model="formData.matureContent" class="checkbox checkbox-warning">
                             <div>
-                                <span class="label-text font-semibold">Mature Content</span>
+                                <span class="font-semibold">Mature Content</span>
                                 <p class="text-xs text-base-content/60">This video contains mature content</p>
                             </div>
                         </label>
@@ -371,21 +371,21 @@
                 <h2 class="card-title text-2xl mb-4">Access & Sharing</h2>
 
                 <!-- Group Assignment -->
-                <div class="form-control">
+                <div >
                     <label class="label">
-                        <span class="label-text font-semibold">Assign to Group</span>
-                        <span class="label-text-alt text-base-content/60">Optional - Share with a team</span>
+                        <span class="font-semibold">Assign to Group</span>
+                        <span class="text-base-content/60">Optional - Share with a team</span>
                     </label>
                     <select
                         x-model="formData.groupId"
-                        class="select select-bordered"
+                        class="select"
                         :disabled="loadingGroups"
                         x-ref="groupSelect"
                     >
                         <option value="">No group (Private)</option>
                     </select>
                     <label class="label">
-                        <span class="label-text-alt text-base-content/60">
+                        <span class="text-base-content/60">
                             <template x-if="loadingGroups">
                                 <span class="loading loading-spinner loading-xs"></span>
                                 <span class="ml-2">Loading groups...</span>
@@ -441,47 +441,47 @@
             </div>
             <div class="collapse-content space-y-4">
                 <!-- SEO Title -->
-                <div class="form-control">
+                <div >
                     <label class="label">
-                        <span class="label-text font-semibold">SEO Title</span>
-                        <span class="label-text-alt" x-text="formData.seoTitle.length + '/60'"></span>
+                        <span class="font-semibold">SEO Title</span>
+                        <span  x-text="formData.seoTitle.length + '/60'"></span>
                     </label>
                     <input
                         type="text"
                         x-model="formData.seoTitle"
                         placeholder="Custom title for search engines"
-                        class="input input-bordered w-full"
+                        class="input w-full"
                         maxlength="60"
                     >
                 </div>
 
                 <!-- SEO Description -->
-                <div class="form-control">
+                <div >
                     <label class="label">
-                        <span class="label-text font-semibold">SEO Description</span>
-                        <span class="label-text-alt" x-text="formData.seoDescription.length + '/160'"></span>
+                        <span class="font-semibold">SEO Description</span>
+                        <span  x-text="formData.seoDescription.length + '/160'"></span>
                     </label>
                     <textarea
                         x-model="formData.seoDescription"
-                        class="textarea textarea-bordered h-24"
+                        class="textarea h-24"
                         placeholder="Description for search engines (160 chars max)"
                         maxlength="160"
                     ></textarea>
                 </div>
 
                 <!-- SEO Keywords -->
-                <div class="form-control">
+                <div >
                     <label class="label">
-                        <span class="label-text font-semibold">SEO Keywords</span>
+                        <span class="font-semibold">SEO Keywords</span>
                     </label>
                     <input
                         type="text"
                         x-model="formData.seoKeywords"
                         placeholder="Comma-separated keywords"
-                        class="input input-bordered w-full"
+                        class="input w-full"
                     >
                     <label class="label">
-                        <span class="label-text-alt">Separate multiple keywords with commas</span>
+                        <span >Separate multiple keywords with commas</span>
                     </label>
                 </div>
             </div>

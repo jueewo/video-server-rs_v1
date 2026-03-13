@@ -109,22 +109,22 @@
 
                 <div class="grid gap-4">
                     <!-- Title -->
-                    <div class="form-control">
-                        <label class="label"><span class="label-text font-semibold">Title</span></label>
-                        <input type="text" x-model="title" class="input input-bordered w-full" placeholder="Video title" required>
+                    <div >
+                        <label class="label"><span class="font-semibold">Title</span></label>
+                        <input type="text" x-model="title" class="input w-full" placeholder="Video title" required>
                     </div>
 
                     <!-- Slug -->
-                    <div class="form-control">
-                        <label class="label"><span class="label-text font-semibold">URL Slug</span></label>
-                        <input type="text" x-model="slug" class="input input-bordered w-full" placeholder="video-url-slug">
-                        <label class="label"><span class="label-text-alt text-base-content/50">Letters, numbers, and hyphens only</span></label>
+                    <div >
+                        <label class="label"><span class="font-semibold">URL Slug</span></label>
+                        <input type="text" x-model="slug" class="input w-full" placeholder="video-url-slug">
+                        <label class="label"><span class="text-base-content/50">Letters, numbers, and hyphens only</span></label>
                     </div>
 
                     <!-- Vault -->
-                    <div class="form-control">
-                        <label class="label"><span class="label-text font-semibold">Storage Vault</span></label>
-                        <select x-model="vaultId" class="select select-bordered w-full" required>
+                    <div >
+                        <label class="label"><span class="font-semibold">Storage Vault</span></label>
+                        <select x-model="vaultId" class="select w-full" required>
                             <option value="">Select a vault</option>
                             <template x-for="vault in vaults" :key="vault.vault_id">
                                 <option :value="vault.vault_id" x-text="vault.vault_name"></option>
@@ -133,9 +133,9 @@
                     </div>
 
                     <!-- Group -->
-                    <div class="form-control">
-                        <label class="label"><span class="label-text font-semibold">Access Group</span></label>
-                        <select x-model="groupId" class="select select-bordered w-full">
+                    <div >
+                        <label class="label"><span class="font-semibold">Access Group</span></label>
+                        <select x-model="groupId" class="select w-full">
                             <option value="">Public (No Group)</option>
                             <template x-for="group in groups" :key="group.id">
                                 <option :value="group.id" x-text="group.name"></option>
@@ -144,9 +144,9 @@
                     </div>
 
                     <!-- Description -->
-                    <div class="form-control">
-                        <label class="label"><span class="label-text font-semibold">Description</span></label>
-                        <textarea x-model="description" class="textarea textarea-bordered w-full" rows="3" placeholder="Optional description"></textarea>
+                    <div >
+                        <label class="label"><span class="font-semibold">Description</span></label>
+                        <textarea x-model="description" class="textarea w-full" rows="3" placeholder="Optional description"></textarea>
                     </div>
                 </div>
             </div>

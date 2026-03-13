@@ -24,7 +24,7 @@
             </h2>
             <p class="text-sm text-base-content/60 mb-3">Enter a code shared with you to access shared folders.</p>
             <div class="flex gap-2 items-center">
-                <input type="text" id="claim-code-input" placeholder="e.g. myproject2024" class="input input-bordered input-sm flex-1 max-w-xs font-mono" />
+                <input type="text" id="claim-code-input" placeholder="e.g. myproject2024" class="input input-sm flex-1 max-w-xs font-mono" />
                 <button onclick="claimCode()" class="btn btn-sm btn-primary gap-1">
                     <i data-lucide="plus" class="w-3 h-3"></i> Claim
                 </button>
@@ -288,7 +288,7 @@
 
         // Replace with inline input
         container.innerHTML = `
-            <input type="text" class="input input-bordered input-xs flex-1 min-w-0" value="${current.replace(/"/g, '&quot;')}" maxlength="200" placeholder="Description…" />
+            <input type="text" class="input input-xs flex-1 min-w-0" value="${current.replace(/"/g, '&quot;')}" maxlength="200" placeholder="Description…" />
             <button onclick="saveDescription(this, '${code}')" class="btn btn-xs btn-primary gap-1">
                 <i data-lucide="check" class="w-3 h-3"></i>
             </button>

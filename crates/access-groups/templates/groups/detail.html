@@ -48,7 +48,7 @@
     </div>
 
     <!-- Tabs -->
-    <div role="tablist" class="tabs tabs-lifted tabs-lg mb-6">
+    <div role="tablist" class="tabs tabs-lift tabs-lg mb-6">
         <input type="radio" name="group_tabs" role="tab" class="tab" aria-label="Resources" checked />
         <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-6">
             <!-- Header with count and Add button -->
@@ -260,17 +260,17 @@
     <div class="modal-box">
         <h3 class="font-bold text-lg mb-4">Invite Member to {{ group.name }}</h3>
         <form id="inviteForm" class="space-y-4">
-            <div class="form-control">
+            <div >
                 <label class="label">
-                    <span class="label-text">Email Address</span>
+                    <span >Email Address</span>
                 </label>
-                <input type="email" name="email" placeholder="member@example.com" class="input input-bordered" required />
+                <input type="email" name="email" placeholder="member@example.com" class="input" required />
             </div>
-            <div class="form-control">
+            <div >
                 <label class="label">
-                    <span class="label-text">Role</span>
+                    <span >Role</span>
                 </label>
-                <select name="role" class="select select-bordered" required>
+                <select name="role" class="select" required>
                     <option value="viewer">Viewer - Read only</option>
                     <option value="contributor">Contributor - Can upload</option>
                     <option value="editor" selected>Editor - Can upload and edit</option>

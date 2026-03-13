@@ -60,20 +60,20 @@ endblock %} {% block content %}
 
                     <div
                         x-show="availableFolders.length > 0"
-                        class="form-control"
+                        
                     >
                         <label class="label">
-                            <span class="label-text font-semibold"
+                            <span class="font-semibold"
                                 >Select Folder *</span
                             >
                             <span
-                                class="label-text-alt"
+                                
                                 x-text="availableFolders.length + ' available'"
                             ></span>
                         </label>
                         <select
                             x-model="formData.slug"
-                            class="select select-bordered w-full"
+                            class="select w-full"
                             required
                         >
                             <option value="">Choose a video folder...</option>
@@ -133,11 +133,11 @@ endblock %} {% block content %}
                 <h2 class="card-title text-2xl mb-4">Basic Information</h2>
 
                 <!-- Title -->
-                <div class="form-control">
+                <div >
                     <label class="label">
-                        <span class="label-text font-semibold">Title *</span>
+                        <span class="font-semibold">Title *</span>
                         <span
-                            class="label-text-alt"
+                            
                             x-text="formData.title.length + '/100'"
                         ></span>
                     </label>
@@ -145,33 +145,33 @@ endblock %} {% block content %}
                         type="text"
                         x-model="formData.title"
                         placeholder="Enter video title"
-                        class="input input-bordered w-full"
+                        class="input w-full"
                         maxlength="100"
                         required
                     />
                 </div>
 
                 <!-- Description -->
-                <div class="form-control">
+                <div >
                     <label class="label">
-                        <span class="label-text font-semibold"
+                        <span class="font-semibold"
                             >Description</span
                         >
                         <span
-                            class="label-text-alt"
+                            
                             x-text="formData.description.length + '/2000'"
                         ></span>
                     </label>
                     <textarea
                         x-model="formData.description"
-                        class="textarea textarea-bordered h-24"
+                        class="textarea h-24"
                         placeholder="Describe the video content..."
                         maxlength="2000"
                     ></textarea>
                 </div>
 
                 <!-- Visibility -->
-                <div class="form-control mt-2">
+                <div class="mt-2">
                     <label class="label cursor-pointer justify-start gap-4">
                         <input
                             type="checkbox"
@@ -179,7 +179,7 @@ endblock %} {% block content %}
                             class="checkbox checkbox-primary"
                         />
                         <div>
-                            <span class="label-text font-semibold"
+                            <span class="font-semibold"
                                 >Make Public</span
                             >
                             <p class="text-xs text-base-content/60">
@@ -196,18 +196,18 @@ endblock %} {% block content %}
             <div class="card-body">
                 <h2 class="card-title text-2xl mb-4">Access & Sharing</h2>
 
-                <div class="form-control">
+                <div >
                     <label class="label">
-                        <span class="label-text font-semibold"
+                        <span class="font-semibold"
                             >Assign to Group</span
                         >
-                        <span class="label-text-alt text-base-content/60"
+                        <span class="text-base-content/60"
                             >Optional</span
                         >
                     </label>
                     <select
                         x-model="formData.groupId"
-                        class="select select-bordered w-full"
+                        class="select w-full"
                         :disabled="loadingGroups"
                     >
                         <option value="">No group (Private to me only)</option>
@@ -219,7 +219,7 @@ endblock %} {% block content %}
                         </template>
                     </select>
                     <label class="label">
-                        <span class="label-text-alt"
+                        <span 
                             >Assign this video to a group for team
                             collaboration</span
                         >
@@ -245,10 +245,10 @@ endblock %} {% block content %}
             <div class="card-body">
                 <h2 class="card-title text-2xl mb-4">Tags</h2>
 
-                <div class="form-control">
+                <div >
                     <label class="label">
-                        <span class="label-text font-semibold">Add Tags</span>
-                        <span class="label-text-alt"
+                        <span class="font-semibold">Add Tags</span>
+                        <span 
                             >Help others discover your video</span
                         >
                     </label>
@@ -258,7 +258,7 @@ endblock %} {% block content %}
                             x-model="tagInput"
                             @keydown.enter.prevent="addTag"
                             placeholder="Type tag name and press Enter..."
-                            class="input input-bordered flex-1"
+                            class="input flex-1"
                         />
                         <button
                             type="button"

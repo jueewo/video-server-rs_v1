@@ -24,7 +24,7 @@
                         type="text"
                         id="searchInput"
                         placeholder="Search access codes..."
-                        class="input input-bordered w-full"
+                        class="input w-full"
                     />
                 </div>
 
@@ -32,7 +32,7 @@
                 <div class="w-full md:w-48">
                     <select
                         id="statusFilter"
-                        class="select select-bordered w-full"
+                        class="select w-full"
                     >
                         <option value="all">All Status</option>
                         <option value="active">Active</option>
@@ -42,7 +42,7 @@
 
                 <!-- Sort -->
                 <div class="w-full md:w-48">
-                    <select id="sortBy" class="select select-bordered w-full">
+                    <select id="sortBy" class="select w-full">
                         <option value="created_desc">Newest First</option>
                         <option value="created_asc">Oldest First</option>
                         <option value="usage_desc">Most Used</option>
@@ -238,7 +238,7 @@
                                         type="text"
                                         value="{{ base_url }}/access/preview?code={{ code.code }}"
                                         readonly
-                                        class="input input-sm input-bordered flex-1 text-xs"
+                                        class="input input-sm flex-1 text-xs"
                                         id="url-{{ code.code }}"
                                     />
                                     <button

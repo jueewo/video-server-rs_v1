@@ -225,17 +225,17 @@
                     <h2 class="card-title text-xl md:text-2xl mb-4">Basic Information</h2>
 
                     <!-- Title -->
-                    <div class="form-control">
+                    <div >
                         <label class="label">
-                            <span class="label-text font-semibold">Title <span class="text-error">*</span></span>
-                            <span class="label-text-alt" x-text="`${formData.title.length}/100`"></span>
+                            <span class="font-semibold">Title <span class="text-error">*</span></span>
+                            <span  x-text="`${formData.title.length}/100`"></span>
                         </label>
                         <input
                             type="text"
                             x-model="formData.title"
                             placeholder="Enter video title"
                             maxlength="100"
-                            class="input input-bordered w-full"
+                            class="input w-full"
                             :class="{ 'field-invalid': validationErrors.title, 'field-valid': formData.title.length > 0 && !validationErrors.title }"
                             @input="validateField('title')"
                         >
@@ -243,21 +243,21 @@
                     </div>
 
                     <!-- Slug -->
-                    <div class="form-control">
+                    <div >
                         <label class="label">
-                            <span class="label-text font-semibold">URL Slug <span class="text-error">*</span></span>
-                            <span class="label-text-alt text-xs">Auto-generated, edit if needed</span>
+                            <span class="font-semibold">URL Slug <span class="text-error">*</span></span>
+                            <span class="text-xs">Auto-generated, edit if needed</span>
                         </label>
                         <input
                             type="text"
                             x-model="formData.slug"
                             placeholder="video-url-slug"
-                            class="input input-bordered w-full font-mono text-sm"
+                            class="input w-full font-mono text-sm"
                             :class="{ 'field-invalid': validationErrors.slug, 'field-valid': formData.slug.length > 0 && !validationErrors.slug }"
                             @input="validateField('slug')"
                         >
                         <label class="label">
-                            <span class="label-text-alt text-xs">
+                            <span class="text-xs">
                                 URL: <span class="font-mono" x-text="`/media/${formData.slug || 'your-slug'}`"></span>
                             </span>
                         </label>
@@ -265,32 +265,32 @@
                     </div>
 
                     <!-- Short Description -->
-                    <div class="form-control">
+                    <div >
                         <label class="label">
-                            <span class="label-text font-semibold">Short Description</span>
-                            <span class="label-text-alt" x-text="`${formData.shortDescription.length}/200`"></span>
+                            <span class="font-semibold">Short Description</span>
+                            <span  x-text="`${formData.shortDescription.length}/200`"></span>
                         </label>
                         <input
                             type="text"
                             x-model="formData.shortDescription"
                             placeholder="Brief description for thumbnails and previews"
                             maxlength="200"
-                            class="input input-bordered w-full"
+                            class="input w-full"
                         >
                     </div>
 
                     <!-- Full Description -->
-                    <div class="form-control">
+                    <div >
                         <label class="label">
-                            <span class="label-text font-semibold">Full Description</span>
-                            <span class="label-text-alt" x-text="`${formData.description.length}/5000`"></span>
+                            <span class="font-semibold">Full Description</span>
+                            <span  x-text="`${formData.description.length}/5000`"></span>
                         </label>
                         <textarea
                             x-model="formData.description"
                             placeholder="Detailed description of your video content..."
                             rows="6"
                             maxlength="5000"
-                            class="textarea textarea-bordered w-full"
+                            class="textarea w-full"
                         ></textarea>
                     </div>
                 </div>
@@ -302,10 +302,10 @@
                     <h2 class="card-title text-xl md:text-2xl mb-4">Tags & Categories</h2>
 
                     <!-- Tags Input -->
-                    <div class="form-control tag-input-wrapper">
+                    <div class="tag-input-wrapper">
                         <label class="label">
-                            <span class="label-text font-semibold">Tags</span>
-                            <span class="label-text-alt" x-text="`${formData.tags.length} tags`"></span>
+                            <span class="font-semibold">Tags</span>
+                            <span  x-text="`${formData.tags.length} tags`"></span>
                         </label>
                         <div class="flex gap-2">
                             <input
@@ -314,7 +314,7 @@
                                 @input="searchTags"
                                 @keydown.enter.prevent="addTag"
                                 placeholder="Type a tag and press Enter"
-                                class="input input-bordered flex-1"
+                                class="input flex-1"
                             >
                             <button type="button" @click="addTag" class="btn btn-primary">Add</button>
                         </div>
@@ -343,11 +343,11 @@
 
                     <!-- Category and Language -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                        <div class="form-control">
+                        <div >
                             <label class="label">
-                                <span class="label-text font-semibold">Category</span>
+                                <span class="font-semibold">Category</span>
                             </label>
-                            <select x-model="formData.category" class="select select-bordered w-full">
+                            <select x-model="formData.category" class="select w-full">
                                 <option value="">Select category</option>
                                 <option value="education">Education</option>
                                 <option value="entertainment">Entertainment</option>
@@ -362,11 +362,11 @@
                             </select>
                         </div>
 
-                        <div class="form-control">
+                        <div >
                             <label class="label">
-                                <span class="label-text font-semibold">Language</span>
+                                <span class="font-semibold">Language</span>
                             </label>
-                            <select x-model="formData.language" class="select select-bordered w-full">
+                            <select x-model="formData.language" class="select w-full">
                                 <option value="en">English</option>
                                 <option value="es">Spanish</option>
                                 <option value="fr">French</option>
@@ -389,11 +389,11 @@
                     <h2 class="card-title text-xl md:text-2xl mb-4">Settings</h2>
 
                     <!-- Vault Selection -->
-                    <div class="form-control mb-6">
+                    <div class="mb-6">
                         <label class="label">
-                            <span class="label-text font-semibold">Storage Vault</span>
+                            <span class="font-semibold">Storage Vault</span>
                         </label>
-                        <select x-model="formData.vaultId" class="select select-bordered w-full">
+                        <select x-model="formData.vaultId" class="select w-full">
                             <option value="">Select a vault</option>
                             <template x-for="vault in vaults" :key="vault.vault_id">
                                 <option :value="vault.vault_id" x-text="vault.vault_name"></option>
@@ -403,7 +403,7 @@
 
                     <div class="space-y-3 opacity-50 pointer-events-none">
                         <!-- Visibility (Disabled) -->
-                        <div class="form-control">
+                        <div >
                             <label class="label cursor-pointer justify-start gap-4">
                                 <input type="checkbox" x-model="formData.isPublic" class="toggle toggle-primary" disabled>
                                 <div></div>
@@ -414,7 +414,7 @@
                         </div>
 
                         <!-- Featured (Disabled) -->
-                        <div class="form-control">
+                        <div >
                             <label class="label cursor-pointer justify-start gap-4">
                                 <input type="checkbox" x-model="formData.featured" class="toggle toggle-secondary" disabled>
                                 <div>
@@ -425,7 +425,7 @@
                         </div>
 
                         <!-- Comments (Disabled) -->
-                        <div class="form-control">
+                        <div >
                             <label class="label cursor-pointer justify-start gap-4">
                                 <input type="checkbox" x-model="formData.allowComments" class="toggle toggle-accent" disabled>
                                 <div>
@@ -436,7 +436,7 @@
                         </div>
 
                         <!-- Download (Disabled) -->
-                        <div class="form-control">
+                        <div >
                             <label class="label cursor-pointer justify-start gap-4">
                                 <input type="checkbox" x-model="formData.allowDownload" class="toggle toggle-info" disabled>
                                 <div>
@@ -459,12 +459,12 @@
                 <div class="card-body">
                     <h2 class="card-title text-xl md:text-2xl mb-4">Access Control</h2>
 
-                    <div class="form-control">
+                    <div >
                         <label class="label">
-                            <span class="label-text font-semibold">Access Group</span>
-                            <span class="label-text-alt text-xs">Optional - restrict access to group members</span>
+                            <span class="font-semibold">Access Group</span>
+                            <span class="text-xs">Optional - restrict access to group members</span>
                         </label>
-                        <select x-model="formData.groupId" class="select select-bordered w-full">
+                        <select x-model="formData.groupId" class="select w-full">
                             <option value="">Public (No Group)</option>
                             <template x-for="group in groups" :key="group.id">
                                 <option :value="group.id" x-text="group.name"></option>

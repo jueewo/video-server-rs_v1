@@ -188,53 +188,53 @@
                 <div class="divider"></div>
 
                 <!-- Title -->
-                <div class="form-control mb-4">
+                <div class="mb-4">
                     <label class="label" for="title">
-                        <span class="label-text font-semibold">Title</span>
+                        <span class="font-semibold">Title</span>
                     </label>
                     <input
                         type="text"
                         id="title"
                         name="title"
-                        class="input input-bordered w-full"
+                        class="input w-full"
                         placeholder="Enter a descriptive title"
                         required
                     />
                     <label class="label">
-                        <span class="label-text-alt text-base-content/50"
+                        <span class="text-base-content/50"
                             >A clear, searchable title for your media</span
                         >
                     </label>
                 </div>
 
                 <!-- Description -->
-                <div class="form-control mb-4">
+                <div class="mb-4">
                     <label class="label" for="description">
-                        <span class="label-text font-semibold"
+                        <span class="font-semibold"
                             >Description</span
                         >
-                        <span class="label-text-alt">optional</span>
+                        <span >optional</span>
                     </label>
                     <textarea
                         id="description"
                         name="description"
-                        class="textarea textarea-bordered w-full"
+                        class="textarea w-full"
                         rows="3"
                         placeholder="Add a detailed description..."
                     ></textarea>
                 </div>
 
                 <!-- Category -->
-                <div class="form-control mb-4">
+                <div class="mb-4">
                     <label class="label" for="category">
-                        <span class="label-text font-semibold">Category</span>
-                        <span class="label-text-alt">optional</span>
+                        <span class="font-semibold">Category</span>
+                        <span >optional</span>
                     </label>
                     <input
                         type="text"
                         id="category"
                         name="category"
-                        class="input input-bordered w-full"
+                        class="input w-full"
                         placeholder="e.g., Tutorial, Documentation, Presentation"
                     />
                 </div>
@@ -244,22 +244,22 @@
                 {% when Some with (vid) %}
                 <input type="hidden" id="vault_id" name="vault_id" value="{{ vid }}" />
                 {% when None %}
-                <div class="form-control mb-4">
+                <div class="mb-4">
                     <label class="label" for="vault_id">
-                        <span class="label-text font-semibold"
+                        <span class="font-semibold"
                             >Storage Vault</span
                         >
                     </label>
                     <select
                         id="vault_id"
                         name="vault_id"
-                        class="select select-bordered w-full"
+                        class="select w-full"
                         required
                     >
                         <option value="">Loading vaults...</option>
                     </select>
                     <label class="label">
-                        <span class="label-text-alt text-base-content/50"
+                        <span class="text-base-content/50"
                             >Select the vault where your media will be
                             stored</span
                         >
@@ -268,29 +268,29 @@
                 {% endmatch %}
 
                 <!-- Access Group -->
-                <div class="form-control mb-4">
+                <div class="mb-4">
                     <label class="label" for="group_id">
-                        <span class="label-text font-semibold"
+                        <span class="font-semibold"
                             >Access Group</span
                         >
-                        <span class="label-text-alt">optional</span>
+                        <span >optional</span>
                     </label>
                     <select
                         id="group_id"
                         name="group_id"
-                        class="select select-bordered w-full"
+                        class="select w-full"
                     >
                         <option value="">No Group (Private)</option>
                     </select>
                     <label class="label">
-                        <span class="label-text-alt text-base-content/50"
+                        <span class="text-base-content/50"
                             >Assign to a group for shared access control</span
                         >
                     </label>
                 </div>
 
                 <!-- Public checkbox -->
-                <div class="form-control mb-4">
+                <div class="mb-4">
                     <label class="label cursor-pointer justify-start gap-3">
                         <input
                             type="checkbox"
@@ -299,14 +299,14 @@
                             value="true"
                             class="checkbox"
                         />
-                        <span class="label-text"
+                        <span 
                             >Make this media publicly accessible</span
                         >
                     </label>
                 </div>
 
                 <!-- Keep original checkbox (image only) -->
-                <div class="form-control mb-4" id="keepOriginalSection" style="display: none;">
+                <div class="mb-4" id="keepOriginalSection" style="display: none;">
                     <label class="label cursor-pointer justify-start gap-3">
                         <input
                             type="checkbox"
@@ -316,20 +316,20 @@
                             class="checkbox checkbox-secondary"
                             checked
                         />
-                        <div class="label-text">
+                        <div >
                             <span class="font-semibold">Keep original image file</span>
                             <span class="text-sm text-base-content/60 block">Save both original and WebP version</span>
                         </div>
                     </label>
                     <label class="label">
-                        <span class="label-text-alt text-base-content/50"
+                        <span class="text-base-content/50"
                             >Uncheck to save only WebP (reduces storage by ~30-50%)</span
                         >
                     </label>
                 </div>
 
                 <!-- Transcode checkbox (video only) -->
-                <div class="form-control mb-6" id="transcodeSection" style="display: none;">
+                <div class="mb-6" id="transcodeSection" style="display: none;">
                     <label class="label cursor-pointer justify-start gap-3">
                         <input
                             type="checkbox"
@@ -339,13 +339,13 @@
                             class="checkbox checkbox-primary"
                             checked
                         />
-                        <div class="label-text">
+                        <div >
                             <span class="font-semibold">Transcode for streaming</span>
                             <span class="text-sm text-base-content/60 block">Convert to HLS for adaptive quality (slower upload)</span>
                         </div>
                     </label>
                     <label class="label">
-                        <span class="label-text-alt text-base-content/50"
+                        <span class="text-base-content/50"
                             >Uncheck to upload as MP4 (faster, direct playback)</span
                         >
                     </label>

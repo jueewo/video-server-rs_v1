@@ -41,12 +41,12 @@ endblock %} {% block content %}
                 <h2 class="card-title text-2xl mb-4">1. Basic Information</h2>
 
                 <!-- Code Name -->
-                <div class="form-control">
+                <div >
                     <div class="flex items-baseline justify-between mb-1">
-                        <span class="label-text font-semibold"
+                        <span class="font-semibold"
                             >Code Name *</span
                         >
-                        <span class="label-text-alt text-base-content/60"
+                        <span class="text-base-content/60"
                             >Required</span
                         >
                     </div>
@@ -55,18 +55,18 @@ endblock %} {% block content %}
                         id="codeName"
                         name="code"
                         placeholder="e.g., website-2024, course-preview, client-demo"
-                        class="input input-bordered w-full"
+                        class="input w-full"
                         required
                         maxlength="50"
                         pattern="[a-zA-Z0-9_-]+"
                     />
                     <div class="flex items-start justify-between mt-1">
-                        <span class="label-text-alt text-base-content/60">
+                        <span class="text-base-content/60">
                             Letters, numbers, hyphens, and underscores only. Max
                             50 characters.
                         </span>
                         <span
-                            class="label-text-alt whitespace-nowrap ml-2"
+                            class="whitespace-nowrap ml-2"
                             id="codeNameCount"
                             >0/50</span
                         >
@@ -74,12 +74,12 @@ endblock %} {% block content %}
                 </div>
 
                 <!-- Description -->
-                <div class="form-control">
+                <div >
                     <div class="flex items-baseline justify-between mb-1">
-                        <span class="label-text font-semibold"
+                        <span class="font-semibold"
                             >Description</span
                         >
-                        <span class="label-text-alt text-base-content/60"
+                        <span class="text-base-content/60"
                             >Optional</span
                         >
                     </div>
@@ -87,15 +87,15 @@ endblock %} {% block content %}
                         id="description"
                         name="description"
                         placeholder="Brief description of what this access code is for..."
-                        class="textarea textarea-bordered h-24"
+                        class="textarea h-24"
                         maxlength="500"
                     ></textarea>
                     <div class="flex items-start justify-between mt-1">
-                        <span class="label-text-alt text-base-content/60"
+                        <span class="text-base-content/60"
                             >Help you remember the purpose of this code.</span
                         >
                         <span
-                            class="label-text-alt whitespace-nowrap ml-2"
+                            class="whitespace-nowrap ml-2"
                             id="descriptionCount"
                             >0/500</span
                         >
@@ -103,9 +103,9 @@ endblock %} {% block content %}
                 </div>
 
                 <!-- Expiration -->
-                <div class="form-control">
+                <div >
                     <label class="label">
-                        <span class="label-text font-semibold">Expiration</span>
+                        <span class="font-semibold">Expiration</span>
                     </label>
                     <div class="flex flex-col md:flex-row gap-4">
                         <label class="cursor-pointer flex items-center gap-2">
@@ -116,7 +116,7 @@ endblock %} {% block content %}
                                 class="radio radio-primary"
                                 checked
                             />
-                            <span class="label-text">Never expires</span>
+                            <span >Never expires</span>
                         </label>
                         <label class="cursor-pointer flex items-center gap-2">
                             <input
@@ -125,15 +125,15 @@ endblock %} {% block content %}
                                 value="date"
                                 class="radio radio-primary"
                             />
-                            <span class="label-text">Set expiration date</span>
+                            <span >Set expiration date</span>
                         </label>
                     </div>
                 </div>
 
                 <!-- Expiration Date (conditional) -->
-                <div id="expirationDateSection" class="form-control hidden">
+                <div id="expirationDateSection" class="hidden">
                     <label class="label">
-                        <span class="label-text font-semibold"
+                        <span class="font-semibold"
                             >Expiration Date & Time</span
                         >
                     </label>
@@ -142,18 +142,18 @@ endblock %} {% block content %}
                             type="date"
                             id="expirationDate"
                             name="expirationDate"
-                            class="input input-bordered flex-1"
+                            class="input flex-1"
                         />
                         <input
                             type="time"
                             id="expirationTime"
                             name="expirationTime"
                             value="23:59"
-                            class="input input-bordered sm:w-32 w-full"
+                            class="input sm:w-32 w-full"
                         />
                     </div>
                     <label class="label">
-                        <span class="label-text-alt text-base-content/60">
+                        <span class="text-base-content/60">
                             After this date, the access code will no longer
                             work.
                         </span>
@@ -315,12 +315,12 @@ endblock %} {% block content %}
                             type="text"
                             id="resourceSearch"
                             placeholder="Search your resources..."
-                            class="input input-bordered w-full"
+                            class="input w-full"
                         />
                     </div>
                     <select
                         id="resourceTypeFilter"
-                        class="select select-bordered w-full md:w-48"
+                        class="select w-full md:w-48"
                     >
                         <option value="all">All Types</option>
                         <option value="video">Videos Only</option>
@@ -735,7 +735,7 @@ endblock %} {% block content %}
                 : "";
 
             return `
-                <label class="flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer hover:bg-base-200 transition-colors ${isSelected ? "border-primary bg-primary/10" : "border-base-300"}">
+                <label class="flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer hover:bg-base-200 transition-colors ${isSelected ?"border-primary bg-primary/10" : "border-base-300"}">
                     <input type="checkbox" class="checkbox checkbox-primary" ${isSelected ? "checked" : ""}
                         data-slug="${resource.slug}" data-type="${resource.type}" />
                     <div class="relative w-12 h-12 rounded flex-shrink-0 overflow-hidden">
@@ -842,7 +842,7 @@ endblock %} {% block content %}
                         type="text"
                         value="${url}"
                         readonly
-                        class="input input-sm input-bordered flex-1 text-xs"
+                        class="input input-sm flex-1 text-xs"
                     />
                     <button
                         type="button"

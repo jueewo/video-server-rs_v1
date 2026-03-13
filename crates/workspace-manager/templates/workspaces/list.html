@@ -41,13 +41,13 @@
                     <!-- Keyword search -->
                     <div class="mb-4">
                         <label class="label pb-1 pt-0">
-                            <span class="label-text text-xs font-medium text-base-content/60 uppercase tracking-wide">Keyword</span>
+                            <span class="text-xs font-medium text-base-content/60 uppercase tracking-wide">Keyword</span>
                         </label>
                         <div class="relative">
                             <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-base-content/40 pointer-events-none"></i>
                             <input id="filter-keyword" type="text" placeholder="Search name or description…"
                                    oninput="applyFilters()"
-                                   class="input input-sm input-bordered w-full pl-8 text-sm" />
+                                   class="input input-sm w-full pl-8 text-sm" />
                         </div>
                     </div>
 
@@ -55,7 +55,7 @@
                     <!-- Tag filter -->
                     <div>
                         <div class="flex items-center justify-between pb-2 pt-0">
-                            <span class="label-text text-xs font-medium text-base-content/60 uppercase tracking-wide">Tags</span>
+                            <span class="text-xs font-medium text-base-content/60 uppercase tracking-wide">Tags</span>
                             <div class="join" id="tag-mode-toggle">
                                 <button id="tag-mode-or" onclick="setTagMode('or')"
                                         class="join-item btn btn-xs btn-active">OR</button>
@@ -224,11 +224,11 @@
         </h3>
         <p class="text-sm text-base-content/60 mb-4">Mount this workspace in Finder or any WebDAV client.</p>
 
-        <div class="form-control mb-2">
-            <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wide text-base-content/50">URL</span></label>
+        <div class="mb-2">
+            <label class="label py-1"><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">URL</span></label>
             <div class="join w-full">
                 <input id="webdav-url" type="text" readonly
-                       class="input input-bordered join-item w-full font-mono text-sm" />
+                       class="input join-item w-full font-mono text-sm" />
                 <button onclick="copyWebdavUrl()" class="btn btn-primary join-item gap-1">
                     <i data-lucide="copy" class="w-4 h-4"></i>
                 </button>

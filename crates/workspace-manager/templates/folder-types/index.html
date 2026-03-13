@@ -52,14 +52,14 @@
                 <tr>
                     <td class="py-2 pr-4 pt-3 text-base-content/70 font-medium whitespace-nowrap">ID <span class="text-error">*</span></td>
                     <td class="py-2">
-                        <input id="ft-id" type="text" placeholder="my-type" class="input input-bordered input-sm w-full" />
-                        <label class="label pt-1"><span class="label-text-alt text-xs">Lowercase, hyphens. Fixed after creation.</span></label>
+                        <input id="ft-id" type="text" placeholder="my-type" class="input input-sm w-full" />
+                        <label class="label pt-1"><span class="text-xs">Lowercase, hyphens. Fixed after creation.</span></label>
                     </td>
                 </tr>
                 <tr>
                     <td class="py-2 pr-4 pt-3 text-base-content/70 font-medium whitespace-nowrap">Name <span class="text-error">*</span></td>
                     <td class="py-2">
-                        <input id="ft-name" type="text" placeholder="My Custom Type" class="input input-bordered input-sm w-full" />
+                        <input id="ft-name" type="text" placeholder="My Custom Type" class="input input-sm w-full" />
                     </td>
                 </tr>
                 <tr>
@@ -76,7 +76,7 @@
                                     class="btn btn-sm btn-outline gap-1">
                                 <i data-lucide="grid-2x2" class="w-3.5 h-3.5"></i> Pick
                             </button>
-                            <input id="ft-icon" type="text" placeholder="folder" class="input input-bordered input-sm flex-1"
+                            <input id="ft-icon" type="text" placeholder="folder" class="input input-sm flex-1"
                                    oninput="updateIconPreview(this.value)" />
                         </div>
                     </td>
@@ -86,21 +86,21 @@
                     <td class="py-2">
                         <div class="flex gap-2 items-center">
                             <input id="ft-color" type="color" value="#607D8B" class="w-9 h-9 rounded border border-base-300 cursor-pointer p-0.5 shrink-0" />
-                            <input id="ft-color-text" type="text" value="#607D8B" class="input input-bordered input-sm w-32" placeholder="#4CAF50" />
+                            <input id="ft-color-text" type="text" value="#607D8B" class="input input-sm w-32" placeholder="#4CAF50" />
                         </div>
                     </td>
                 </tr>
                 <tr>
                     <td class="py-2 pr-4 pt-3 text-base-content/70 font-medium whitespace-nowrap">Description</td>
                     <td class="py-2">
-                        <input id="ft-description" type="text" placeholder="Short description" class="input input-bordered input-sm w-full" />
+                        <input id="ft-description" type="text" placeholder="Short description" class="input input-sm w-full" />
                     </td>
                 </tr>
                 <tr>
                     <td class="py-2 pr-4 pt-3 text-base-content/70 font-medium whitespace-nowrap">Git template <span class="text-base-content/40 font-normal">(optional)</span></td>
                     <td class="py-2">
-                        <input id="ft-git-template" type="text" placeholder="https://github.com/example/template-repo" class="input input-bordered input-sm w-full" />
-                        <label class="label pt-1"><span class="label-text-alt text-xs">When set, users can clone this repo into a new folder of this type.</span></label>
+                        <input id="ft-git-template" type="text" placeholder="https://github.com/example/template-repo" class="input input-sm w-full" />
+                        <label class="label pt-1"><span class="text-xs">When set, users can clone this repo into a new folder of this type.</span></label>
                     </td>
                 </tr>
             </tbody>
@@ -271,18 +271,18 @@ function appendSchemaRow(field) {
     row.innerHTML = `
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
             <div>
-                <label class="label py-0.5"><span class="label-text text-xs">Key</span></label>
-                <input type="text" class="input input-bordered input-xs w-full schema-key"
+                <label class="label py-0.5"><span class="text-xs">Key</span></label>
+                <input type="text" class="input input-xs w-full schema-key"
                        value="${escHtml(f.key)}" placeholder="my_field" />
             </div>
             <div>
-                <label class="label py-0.5"><span class="label-text text-xs">Label</span></label>
-                <input type="text" class="input input-bordered input-xs w-full schema-label"
+                <label class="label py-0.5"><span class="text-xs">Label</span></label>
+                <input type="text" class="input input-xs w-full schema-label"
                        value="${escHtml(f.label)}" placeholder="My Field" />
             </div>
             <div>
-                <label class="label py-0.5"><span class="label-text text-xs">Type</span></label>
-                <select class="select select-bordered select-xs w-full schema-type"
+                <label class="label py-0.5"><span class="text-xs">Type</span></label>
+                <select class="select select-xs w-full schema-type"
                         onchange="onTypeChange(this, ${idx})">
                     ${['string','number','boolean','enum','multiline'].map(t =>
                         `<option value="${t}"${t === f.field_type ? ' selected':''}>${t}</option>`
@@ -290,14 +290,14 @@ function appendSchemaRow(field) {
                 </select>
             </div>
             <div>
-                <label class="label py-0.5"><span class="label-text text-xs">Default</span></label>
-                <input type="text" class="input input-bordered input-xs w-full schema-default"
+                <label class="label py-0.5"><span class="text-xs">Default</span></label>
+                <input type="text" class="input input-xs w-full schema-default"
                        value="${escHtml(defVal)}" placeholder="(empty)" />
             </div>
         </div>
         <div id="enum-values-row-${idx}" class="${f.field_type === 'enum' ? '' : 'hidden'} mb-2">
-            <label class="label py-0.5"><span class="label-text text-xs">Values (comma-separated)</span></label>
-            <input type="text" class="input input-bordered input-xs w-full schema-values"
+            <label class="label py-0.5"><span class="text-xs">Values (comma-separated)</span></label>
+            <input type="text" class="input input-xs w-full schema-values"
                    value="${escHtml(valuesStr)}" placeholder="option1, option2, option3" />
         </div>
         <div class="flex items-center justify-between">

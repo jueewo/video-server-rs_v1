@@ -49,67 +49,67 @@ Settings{% endblock %} {% block content %}
 
                 <form @submit.prevent="handleSubmit">
                     <!-- Group Name -->
-                    <div class="form-control mb-4">
+                    <div class="mb-4">
                         <label class="label">
-                            <span class="label-text font-semibold"
+                            <span class="font-semibold"
                                 >Group Name</span
                             >
                         </label>
                         <input
                             type="text"
                             x-model="formData.name"
-                            class="input input-bordered"
+                            class="input"
                             required
                             maxlength="100"
                         />
                     </div>
 
                     <!-- Group Slug -->
-                    <div class="form-control mb-4">
+                    <div class="mb-4">
                         <label class="label">
-                            <span class="label-text font-semibold"
+                            <span class="font-semibold"
                                 >Group Slug</span
                             >
-                            <span class="label-text-alt text-warning"
+                            <span class="text-warning"
                                 >Cannot be changed</span
                             >
                         </label>
                         <input
                             type="text"
                             value="{{ group.slug }}"
-                            class="input input-bordered"
+                            class="input"
                             disabled
                         />
                     </div>
 
                     <!-- Description -->
-                    <div class="form-control mb-4">
+                    <div class="mb-4">
                         <label class="label">
-                            <span class="label-text font-semibold"
+                            <span class="font-semibold"
                                 >Description</span
                             >
                         </label>
                         <textarea
                             x-model="formData.description"
-                            class="textarea textarea-bordered h-24"
+                            class="textarea h-24"
                             placeholder="Describe this group..."
                         ></textarea>
                     </div>
 
                     <!-- Status -->
-                    <div class="form-control mb-4">
+                    <div class="mb-4">
                         <label class="label">
-                            <span class="label-text font-semibold">Status</span>
+                            <span class="font-semibold">Status</span>
                         </label>
                         <select
                             x-model="formData.is_active"
-                            class="select select-bordered"
+                            class="select"
                         >
                             <option value="1">Active</option>
                             <option value="0">Inactive</option>
                         </select>
                         <label class="label">
-                            <span class="label-text-alt"
+                            <span 
                                 >Inactive groups cannot be accessed by
                                 members</span
                             >

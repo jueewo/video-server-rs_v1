@@ -45,7 +45,7 @@
     <!-- Search -->
     <div class="mb-6">
         <input type="search" id="diagramSearch" placeholder="Filter diagrams…"
-               class="input input-bordered input-sm w-full max-w-xs"
+               class="input input-sm w-full max-w-xs"
                oninput="filterDiagrams(this.value)" />
     </div>
 
@@ -110,14 +110,14 @@
         <h3 class="font-bold text-lg mb-1">Diagram settings</h3>
         <p id="fileSettingsName" class="text-sm text-base-content/50 mb-4 truncate"></p>
 
-        <div class="form-control mb-4">
-            <label class="label"><span class="label-text font-medium">Rename</span></label>
+        <div class="mb-4">
+            <label class="label"><span class="font-medium">Rename</span></label>
             <div class="join w-full">
-                <input id="fileRenameInput" type="text" class="input input-bordered input-sm join-item flex-1"
+                <input id="fileRenameInput" type="text" class="input input-sm join-item flex-1"
                        placeholder="new-name" />
                 <span class="join-item flex items-center px-3 bg-base-200 border border-base-300 text-base-content/50 text-sm">.bpmn</span>
             </div>
-            <label class="label"><span class="label-text-alt text-base-content/40">Renames the .md doc file too if it exists</span></label>
+            <label class="label"><span class="text-base-content/40">Renames the .md doc file too if it exists</span></label>
         </div>
         <button onclick="renameFile()" class="btn btn-sm btn-primary w-full mb-4">Rename</button>
 

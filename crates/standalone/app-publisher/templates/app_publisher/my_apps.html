@@ -114,30 +114,30 @@
     <div class="modal-box">
         <h3 class="font-bold text-lg mb-4">Edit App</h3>
         <input type="hidden" id="edit-app-id" />
-        <div class="form-control mb-3">
-            <label class="label"><span class="label-text">Title</span></label>
-            <input type="text" id="edit-title" class="input input-bordered" />
+        <div class="mb-3">
+            <label class="label"><span >Title</span></label>
+            <input type="text" id="edit-title" class="input" />
         </div>
-        <div class="form-control mb-3">
-            <label class="label"><span class="label-text">Description</span></label>
-            <textarea id="edit-description" class="textarea textarea-bordered" rows="2"></textarea>
+        <div class="mb-3">
+            <label class="label"><span >Description</span></label>
+            <textarea id="edit-description" class="textarea" rows="2"></textarea>
         </div>
-        <div class="form-control mb-3">
-            <label class="label"><span class="label-text">Access</span></label>
-            <select id="edit-access" class="select select-bordered">
+        <div class="mb-3">
+            <label class="label"><span >Access</span></label>
+            <select id="edit-access" class="select">
                 <option value="public">Public</option>
                 <option value="code">Code</option>
                 <option value="private">Private</option>
             </select>
         </div>
-        <div class="form-control mb-4">
+        <div class="mb-4">
             <label class="label cursor-pointer justify-start gap-3">
                 <input type="checkbox" id="edit-regen-code" class="checkbox checkbox-sm" />
-                <span class="label-text">Regenerate access code</span>
+                <span >Regenerate access code</span>
             </label>
         </div>
-        <div class="form-control mb-4">
-            <label class="label"><span class="label-text">Thumbnail</span></label>
+        <div class="mb-4">
+            <label class="label"><span >Thumbnail</span></label>
             <div class="flex items-center gap-3">
                 <img id="edit-thumb-preview" src="" class="hidden w-16 h-12 object-cover rounded" alt="Thumbnail preview" />
                 <label class="btn btn-sm btn-outline cursor-pointer">

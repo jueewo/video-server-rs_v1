@@ -27,23 +27,23 @@
             {% endif %}
 
             <form action="/docs/upload" method="post" enctype="multipart/form-data" class="space-y-4">
-                <div class="form-control">
+                <div >
                     <label class="label">
-                        <span class="label-text">Select Markdown File (.md)</span>
+                        <span >Select Markdown File (.md)</span>
                     </label>
                     <input
                         type="file"
                         name="markdown_file"
                         accept=".md,.markdown"
                         required
-                        class="file-input file-input-bordered w-full"
+                        class="file-input w-full"
                     />
                     <label class="label">
-                        <span class="label-text-alt">Only .md files are accepted</span>
+                        <span >Only .md files are accepted</span>
                     </label>
                 </div>
 
-                <div class="form-control mt-6">
+                <div class="mt-6">
                     <button type="submit" class="btn btn-primary gap-2">
                         <i data-lucide="upload" class="w-5 h-5"></i>
                         Upload File

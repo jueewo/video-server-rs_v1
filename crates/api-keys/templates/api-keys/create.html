@@ -30,9 +30,9 @@ Server{% endblock %} {% block content %}
     >
         <div class="card-body">
             <!-- Name -->
-            <div class="form-control">
+            <div >
                 <label class="label">
-                    <span class="label-text font-semibold"
+                    <span class="font-semibold"
                         >Name <span class="text-error">*</span></span
                     >
                 </label>
@@ -40,35 +40,35 @@ Server{% endblock %} {% block content %}
                     type="text"
                     name="name"
                     placeholder="e.g., Delete Script, CLI Tool, MCP Server"
-                    class="input input-bordered"
+                    class="input"
                     required
                 />
                 <label class="label">
-                    <span class="label-text-alt"
+                    <span 
                         >Give this key a memorable name</span
                     >
                 </label>
             </div>
 
             <!-- Description -->
-            <div class="form-control">
+            <div >
                 <label class="label">
-                    <span class="label-text font-semibold"
+                    <span class="font-semibold"
                         >Description (Optional)</span
                     >
                 </label>
                 <textarea
                     name="description"
                     placeholder="Optional notes about this key's purpose..."
-                    class="textarea textarea-bordered"
+                    class="textarea"
                     rows="2"
                 ></textarea>
             </div>
 
             <!-- Scopes -->
-            <div class="form-control">
+            <div >
                 <label class="label">
-                    <span class="label-text font-semibold"
+                    <span class="font-semibold"
                         >Scopes <span class="text-error">*</span></span
                     >
                 </label>
@@ -82,7 +82,7 @@ Server{% endblock %} {% block content %}
                             checked
                         />
                         <div>
-                            <span class="label-text font-semibold">Read</span>
+                            <span class="font-semibold">Read</span>
                             <p class="text-xs text-base-content/60">
                                 View videos, images, and metadata (GET requests)
                             </p>
@@ -96,7 +96,7 @@ Server{% endblock %} {% block content %}
                             class="checkbox checkbox-primary"
                         />
                         <div>
-                            <span class="label-text font-semibold">Write</span>
+                            <span class="font-semibold">Write</span>
                             <p class="text-xs text-base-content/60">
                                 Create and update resources (POST/PUT requests)
                             </p>
@@ -110,7 +110,7 @@ Server{% endblock %} {% block content %}
                             class="checkbox checkbox-primary"
                         />
                         <div>
-                            <span class="label-text font-semibold">Delete</span>
+                            <span class="font-semibold">Delete</span>
                             <p class="text-xs text-base-content/60">
                                 Delete resources (DELETE requests)
                             </p>
@@ -124,7 +124,7 @@ Server{% endblock %} {% block content %}
                             class="checkbox checkbox-primary"
                         />
                         <div>
-                            <span class="label-text font-semibold">Admin</span>
+                            <span class="font-semibold">Admin</span>
                             <p class="text-xs text-base-content/60">
                                 Full access including user management
                             </p>
@@ -132,20 +132,20 @@ Server{% endblock %} {% block content %}
                     </label>
                 </div>
                 <label class="label">
-                    <span class="label-text-alt"
+                    <span 
                         >Select one or more permissions</span
                     >
                 </label>
             </div>
 
             <!-- Expiration -->
-            <div class="form-control">
+            <div >
                 <label class="label">
-                    <span class="label-text font-semibold">Expiration</span>
+                    <span class="font-semibold">Expiration</span>
                 </label>
                 <select
                     name="expiration"
-                    class="select select-bordered"
+                    class="select"
                     id="expiration-select"
                 >
                     <option value="never" selected>
@@ -160,10 +160,10 @@ Server{% endblock %} {% block content %}
                     type="date"
                     name="custom_expiration"
                     id="custom-expiration"
-                    class="input input-bordered mt-2 hidden"
+                    class="input mt-2 hidden"
                 />
                 <label class="label">
-                    <span class="label-text-alt"
+                    <span 
                         >Keys can be set to expire automatically</span
                     >
                 </label>

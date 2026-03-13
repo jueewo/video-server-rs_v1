@@ -25,9 +25,9 @@
         <div class="card-body gap-6">
 
             <!-- Vault Name -->
-            <div class="form-control">
+            <div >
                 <label class="label" for="vault_name">
-                    <span class="label-text font-semibold">
+                    <span class="font-semibold">
                         Vault Name <span class="text-error">*</span>
                     </span>
                 </label>
@@ -35,48 +35,48 @@
                     type="text"
                     id="vault_name"
                     name="vault_name"
-                    class="input input-bordered"
+                    class="input"
                     placeholder="e.g., Work Projects, Personal Photos, Client Assets"
                     required
                     maxlength="100"
                 />
                 <label class="label">
-                    <span class="label-text-alt text-base-content/60">
+                    <span class="text-base-content/60">
                         A friendly name to identify this vault (max 100 characters)
                     </span>
                 </label>
             </div>
 
             <!-- Custom Vault Code Toggle -->
-            <div class="form-control">
+            <div >
                 <label class="label cursor-pointer justify-start gap-3">
                     <input
                         type="checkbox"
                         id="use_custom_code"
                         class="checkbox checkbox-primary"
                     />
-                    <span class="label-text font-semibold">
+                    <span class="font-semibold">
                         Use custom vault code (optional)
                     </span>
                 </label>
             </div>
 
             <!-- Custom Vault Code Input (hidden by default) -->
-            <div class="form-control" id="customCodeGroup" style="display: none;">
+            <div  id="customCodeGroup" style="display: none;">
                 <label class="label" for="vault_code">
-                    <span class="label-text font-semibold">Vault Code</span>
+                    <span class="font-semibold">Vault Code</span>
                 </label>
                 <input
                     type="text"
                     id="vault_code"
                     name="vault_code"
-                    class="input input-bordered font-mono"
+                    class="input font-mono"
                     placeholder="e.g., work-2024, client-abc"
                     pattern="[a-zA-Z0-9_-]+"
                     maxlength="50"
                 />
                 <label class="label">
-                    <span class="label-text-alt text-base-content/60">
+                    <span class="text-base-content/60">
                         Alphanumeric characters, dashes, and underscores only. Leave empty for auto-generated code.
                     </span>
                 </label>

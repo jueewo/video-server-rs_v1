@@ -64,20 +64,20 @@
                         <!-- Search -->
                         <div class="mb-4">
                             <label class="label pb-1 pt-0">
-                                <span class="label-text text-xs font-medium text-base-content/60 uppercase tracking-wide">Search</span>
+                                <span class="text-xs font-medium text-base-content/60 uppercase tracking-wide">Search</span>
                             </label>
                             <div class="relative">
                                 <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-base-content/40 pointer-events-none"></i>
                                 <input type="text" name="q" placeholder="Title, description, category, tags…"
                                        value="{% match search_query %}{% when Some with (q) %}{{ q }}{% when None %}{% endmatch %}"
-                                       class="input input-sm input-bordered w-full pl-8 text-sm" />
+                                       class="input input-sm w-full pl-8 text-sm" />
                             </div>
                         </div>
 
                         <!-- Type filter -->
                         <div class="mb-4">
                             <label class="label pb-1 pt-0">
-                                <span class="label-text text-xs font-medium text-base-content/60 uppercase tracking-wide">Type</span>
+                                <span class="text-xs font-medium text-base-content/60 uppercase tracking-wide">Type</span>
                             </label>
                             <div class="flex flex-wrap gap-1.5">
                                 <button type="submit" name="type_filter" value=""
@@ -104,9 +104,9 @@
                         {% if !all_vaults.is_empty() %}
                         <div class="mb-3">
                             <label class="label pb-1 pt-0">
-                                <span class="label-text text-xs font-medium text-base-content/60 uppercase tracking-wide">Vault</span>
+                                <span class="text-xs font-medium text-base-content/60 uppercase tracking-wide">Vault</span>
                             </label>
-                            <select name="vault_id" class="select select-bordered select-sm w-full">
+                            <select name="vault_id" class="select select-sm w-full">
                                 <option value="">All Vaults</option>
                                 {% for (vid, vname) in &all_vaults %}
                                 <option value="{{ vid }}" {% if vault_filter.as_deref() == Some(vid.as_str()) %}selected{% endif %}>{{ vname }}</option>
@@ -118,9 +118,9 @@
                         {% if !all_tags.is_empty() %}
                         <div class="mb-3">
                             <label class="label pb-1 pt-0">
-                                <span class="label-text text-xs font-medium text-base-content/60 uppercase tracking-wide">Tag</span>
+                                <span class="text-xs font-medium text-base-content/60 uppercase tracking-wide">Tag</span>
                             </label>
-                            <select name="tag" class="select select-bordered select-sm w-full">
+                            <select name="tag" class="select select-sm w-full">
                                 <option value="">All Tags</option>
                                 {% for t in &all_tags %}
                                 <option value="{{ t }}" {% if tag_filter.as_deref() == Some(t.as_str()) %}selected{% endif %}>{{ t }}</option>
@@ -132,9 +132,9 @@
                         {% if !all_groups.is_empty() %}
                         <div class="mb-3">
                             <label class="label pb-1 pt-0">
-                                <span class="label-text text-xs font-medium text-base-content/60 uppercase tracking-wide">Group</span>
+                                <span class="text-xs font-medium text-base-content/60 uppercase tracking-wide">Group</span>
                             </label>
-                            <select name="group_id" class="select select-bordered select-sm w-full">
+                            <select name="group_id" class="select select-sm w-full">
                                 <option value="">All Groups</option>
                                 {% for (gid, gname) in &all_groups %}
                                 <option value="{{ gid }}" {% if group_filter.as_deref() == Some(gid.as_str()) %}selected{% endif %}>{{ gname }}</option>
@@ -406,32 +406,32 @@
                     <tr>
                         <td class="py-2 pr-4 text-base-content/70 font-medium whitespace-nowrap pt-3">Title</td>
                         <td class="py-2">
-                            <input type="text" id="edit_title" name="title" class="input input-bordered input-sm w-full" required>
+                            <input type="text" id="edit_title" name="title" class="input input-sm w-full" required>
                         </td>
                     </tr>
                     <tr>
                         <td class="py-2 pr-4 text-base-content/70 font-medium whitespace-nowrap pt-3">Description</td>
                         <td class="py-2">
-                            <textarea id="edit_description" name="description" class="textarea textarea-bordered textarea-sm w-full h-20"></textarea>
+                            <textarea id="edit_description" name="description" class="textarea textarea-sm w-full h-20"></textarea>
                         </td>
                     </tr>
                     <tr>
                         <td class="py-2 pr-4 text-base-content/70 font-medium whitespace-nowrap pt-3">Tags</td>
                         <td class="py-2">
-                            <input type="text" id="edit_tags" name="tags" class="input input-bordered input-sm w-full" placeholder="tag1, tag2, tag3">
+                            <input type="text" id="edit_tags" name="tags" class="input input-sm w-full" placeholder="tag1, tag2, tag3">
                             <span class="text-xs text-base-content/50 mt-1 block">Comma-separated</span>
                         </td>
                     </tr>
                     <tr>
                         <td class="py-2 pr-4 text-base-content/70 font-medium whitespace-nowrap pt-3">Category</td>
                         <td class="py-2">
-                            <input type="text" id="edit_category" name="category" class="input input-bordered input-sm w-full" placeholder="Optional">
+                            <input type="text" id="edit_category" name="category" class="input input-sm w-full" placeholder="Optional">
                         </td>
                     </tr>
                     <tr>
                         <td class="py-2 pr-4 text-base-content/70 font-medium whitespace-nowrap pt-3">Group</td>
                         <td class="py-2">
-                            <select id="edit_group_id" class="select select-bordered select-sm w-full">
+                            <select id="edit_group_id" class="select select-sm w-full">
                                 <option value="">— No group —</option>
                                 <!-- populated by JS on modal open -->
                             </select>

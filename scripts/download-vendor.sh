@@ -60,7 +60,7 @@ cp "$NM/@excalidraw/excalidraw/dist/excalidraw.production.min.js"             "$
 rm -rf "$VENDOR_DIR/excalidraw-assets"
 cp -r  "$NM/@excalidraw/excalidraw/dist/excalidraw-assets"                    "$VENDOR_DIR/excalidraw-assets"
 cp "$NM/hls.js/dist/hls.min.js"                                               "$VENDOR_DIR/hls.min.js"
-cp "$NM/marked/marked.min.js"                                                  "$VENDOR_DIR/marked.min.js"
+cp "$NM/marked/lib/marked.umd.js"                                              "$VENDOR_DIR/marked.min.js"
 cp "$NM/daisyui/daisyui.css"                                                   "$VENDOR_DIR/daisyui.min.css"
 
 # ── Reveal.js (presentation framework) ────────────────────────────────────

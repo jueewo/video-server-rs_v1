@@ -9,7 +9,7 @@
     "react-dom":                  "18.3.1",
     "@excalidraw/excalidraw":     "0.17.6",
     "hls.js":                     "1.6.15",
-    "marked":                     "9.1.6",
+    "marked":                     "17.0.4",
     "bpmn-js":                    "18.13.1",
     "pdfjs-dist":                 "5.5.207",
     "monaco-editor":              "0.45.0",
@@ -17,8 +17,8 @@
     "reveal.js":                  "6.0.0"
   },
   "notes": {
-    "react + react-dom": "Must stay in sync; Excalidraw requires React 18 — do not bump to 19 until Excalidraw supports it.",
-    "@excalidraw/excalidraw": "Peer-depends on react@18 + react-dom@18.",
+    "react + react-dom": "Stuck at 18 — React 19 dropped UMD builds; excalidraw_editor.html loads React via UMD <script> tags and uses React.createElement/ReactDOM.createRoot globals.",
+    "@excalidraw/excalidraw": "Stuck at 0.17.6 — 0.18.0 dropped UMD bundle (ESM-only + multi-chunk); excalidraw_editor.html needs a full ESM rewrite before upgrading.",
     "pdfjs-dist": "Pinned to exact version; worker and main module must match exactly.",
     "bpmn-js": "Major bumps often include breaking API changes in the modeler.",
     "mermaid": "v10→v11 had rendering engine changes; test diagrams after major bump.",

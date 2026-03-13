@@ -1165,6 +1165,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/apps", get(apps_handler))
         .route("/settings", get(settings_handler))
         .route("/admin", get(admin_index_handler))
+        .route("/admin/", get(admin_index_handler))
         .route("/3d-viewer", get(d3_viewer_handler))
 
         .route("/demo", get(demo_handler))

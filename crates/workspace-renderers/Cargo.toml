@@ -7,6 +7,7 @@ edition = "2021"
 bpmn-viewer    = { path = "../bpmn-viewer" }
 media-viewer   = { path = "../media-viewer" }
 course         = { path = "../course" }
+site-overview  = { path = "../site-overview" }
 workspace-manager = { path = "../workspace-manager" }
 common         = { path = "../common" }
 sqlx           = { workspace = true }

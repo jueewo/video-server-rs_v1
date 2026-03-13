@@ -3947,7 +3947,7 @@ pub async fn me_branding_handler(
 
 #[derive(Deserialize)]
 pub struct GenerateSiteRequest {
-    /// Workspace-relative path to the website-gen folder (e.g. "websites/minimal")
+    /// Workspace-relative path to the yhm-site-data folder (e.g. "websites/minimal")
     pub folder_path: String,
     /// Optional: server path to the Astro components/layouts directory
     pub components_dir: Option<String>,
@@ -3962,7 +3962,7 @@ pub struct GenerateSiteResponse {
 /// POST /api/workspaces/{workspace_id}/site/generate
 ///
 /// Generates the merged Astro project from the sitedef.yaml + data files in the
-/// specified website-gen folder. Output is written to storage/site-builds/.
+/// specified yhm-site-data folder. Output is written to storage/site-builds/.
 pub async fn generate_site_handler(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
@@ -3993,7 +3993,7 @@ pub async fn generate_site_handler(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
     let folder_config = config.get_folder(&request.folder_path).ok_or(StatusCode::NOT_FOUND)?;
-    if folder_config.folder_type.as_str() != "website-gen" {
+    if folder_config.folder_type.as_str() != "yhm-site-data" {
         return Err(StatusCode::BAD_REQUEST);
     }
 

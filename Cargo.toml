@@ -30,6 +30,7 @@ members = [
     "crates/workspace-renderers",
     "crates/site-generator",
     "crates/site-publisher",
+    "crates/site-overview",
 ]
 resolver = "2"
 

@@ -1,5 +1,5 @@
-id: website-gen
-name: "YHM Website"
+id: yhm-site-data
+name: "YHM Site Data"
 icon: globe
 description: "Static website project — edit data files and generate the Astro site"
 color: "#0EA5E9"

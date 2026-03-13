@@ -37,7 +37,7 @@
                 {% endfor %}
                 {% if let Some(tid) = &current_type_id %}
                 {% if !current_path.is_empty() %}
-                {% if tid == "website-gen" %}
+                {% if tid == "yhm-site-data" %}
                 <button onclick="generateSite()" id="generate-site-btn" class="btn btn-xs btn-primary gap-1">
                     <i data-lucide="globe" class="w-3 h-3"></i> Publish Site
                 </button>

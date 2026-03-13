@@ -4,7 +4,7 @@
 
 ## Overview
 
-The `website-gen` folder type turns a workspace folder into a static website publishing
+The `yhm-site-data` folder type turns a workspace folder into a static website publishing
 pipeline. Users keep all site data (page definitions, content, assets) in the platform,
 edit files through the Monaco-based workspace editor, and click **Publish Site** to
 generate and deploy the Astro static site to Forgejo.
@@ -14,9 +14,27 @@ Like `course` and `media-server`, the folder type is the pipeline declaration.
 
 ---
 
+## Folder Overview Page
+
+Opening a `yhm-site-data` folder shows a custom dashboard (not the generic file list):
+
+- **Site identity** — title, mantra, base URL, themes
+- **Stats row** — page count, collection count, language count
+- **Pages table** — per-page element counts per locale (green = has content)
+- **Collections table** — per-collection article counts per locale
+- **Languages** — locale badges (default language starred)
+- **Navigation preview** — flattened menu with submenu indentation
+- **Forgejo panel** — repo URL + branch if configured, "Connected" badge
+- **Quick links** — Browse Files, Edit sitedef.yaml, Page Elements, Content
+- **Publish Site button** — triggers `POST /api/workspaces/{id}/site/generate`
+
+Implemented in `crates/site-overview` (`SiteOverviewRenderer`), registered in `crates/workspace-renderers`.
+
+---
+
 ## User Flow
 
-1. Create a workspace folder, set type to **YHM Website** in folder settings
+1. Create a workspace folder, set type to **YHM Site Data** in folder settings
 2. Add/edit `sitedef.yaml` — defines pages, collections, menu, languages, social media
 3. Edit page element JSON files (`data/page_{slug}/{locale}/*.json`) to control layout
 4. Edit markdown content (`content/{collection}/{locale}/*.mdx`) for articles

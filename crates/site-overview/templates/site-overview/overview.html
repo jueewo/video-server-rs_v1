@@ -1,0 +1,321 @@
+{% extends "base-tailwind.html" %}
+{% block title %}{{ folder_name }} — {{ workspace_name }}{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-6xl">
+
+    <!-- Breadcrumbs -->
+    <div class="text-sm breadcrumbs mb-4">
+        <ul>
+            <li><a href="/workspaces">Workspaces</a></li>
+            <li><a href="/workspaces/{{ workspace_id }}/browse">{{ workspace_name }}</a></li>
+            <li>{{ folder_name }}</li>
+        </ul>
+    </div>
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+        <div>
+            <div class="flex items-center gap-3 mb-1">
+                <h1 class="text-2xl font-bold">{{ site_title }}</h1>
+                <span class="badge badge-outline text-xs" style="border-color:#0EA5E9;color:#0EA5E9;">YHM Site Data</span>
+            </div>
+            {% if !site_mantra.is_empty() %}
+            <p class="text-base-content/60 text-sm italic">{{ site_mantra }}</p>
+            {% endif %}
+            {% if !base_url.is_empty() %}
+            <p class="text-xs text-base-content/40 mt-1">
+                <i data-lucide="link" class="w-3 h-3 inline"></i>
+                <a href="{{ base_url }}" target="_blank" class="link link-hover">{{ base_url }}</a>
+            </p>
+            {% endif %}
+        </div>
+        <div class="flex gap-2 flex-shrink-0">
+            <button onclick="publishSite()" id="publish-btn" class="btn btn-sm btn-primary gap-1">
+                <i data-lucide="rocket" class="w-4 h-4"></i> Publish Site
+            </button>
+            <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}"
+               class="btn btn-sm btn-ghost gap-1">
+                <i data-lucide="folder-open" class="w-4 h-4"></i> Browse Files
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div class="stat bg-base-200 rounded-box p-3">
+            <div class="stat-title text-xs">Pages</div>
+            <div class="stat-value text-2xl">{{ pages.len() }}</div>
+        </div>
+        <div class="stat bg-base-200 rounded-box p-3">
+            <div class="stat-title text-xs">Collections</div>
+            <div class="stat-value text-2xl">{{ collections.len() }}</div>
+        </div>
+        <div class="stat bg-base-200 rounded-box p-3">
+            <div class="stat-title text-xs">Languages</div>
+            <div class="stat-value text-2xl">{{ languages.len() }}</div>
+        </div>
+        <div class="stat bg-base-200 rounded-box p-3">
+            <div class="stat-title text-xs">Themes</div>
+            <div class="stat-value text-xs pt-2">
+                <span class="badge badge-ghost badge-sm">{{ theme_dark }}</span>
+                <span class="badge badge-ghost badge-sm">{{ theme_light }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Left column: pages + collections -->
+        <div class="lg:col-span-2 space-y-6">
+
+            <!-- Pages -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="card-title text-base">
+                            <i data-lucide="layout" class="w-4 h-4"></i> Pages
+                        </h2>
+                        <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}/data"
+                           class="btn btn-xs btn-ghost">Browse →</a>
+                    </div>
+                    {% if pages.is_empty() %}
+                    <p class="text-sm text-base-content/50">No pages defined yet. Add them to <code>sitedef.yaml</code>.</p>
+                    {% else %}
+                    <div class="overflow-x-auto">
+                        <table class="table table-xs w-full">
+                            <thead>
+                                <tr>
+                                    <th>Slug</th>
+                                    <th>Title</th>
+                                    {% for lang in &languages %}
+                                    <th class="text-center">{{ lang }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for page in &pages %}
+                                <tr class="hover">
+                                    <td class="font-mono text-xs text-base-content/60">{{ page.slug }}</td>
+                                    <td class="font-medium">{{ page.title }}</td>
+                                    {% for (_locale, count) in &page.elements_per_locale %}
+                                    <td class="text-center">
+                                        {% if *count > 0 %}
+                                        <span class="badge badge-xs badge-success">{{ count }}</span>
+                                        {% else %}
+                                        <span class="badge badge-xs badge-ghost">—</span>
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Collections -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="card-title text-base">
+                            <i data-lucide="book-open" class="w-4 h-4"></i> Collections
+                        </h2>
+                        <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}/content"
+                           class="btn btn-xs btn-ghost">Browse →</a>
+                    </div>
+                    {% if collections.is_empty() %}
+                    <p class="text-sm text-base-content/50">No collections defined yet.</p>
+                    {% else %}
+                    <div class="overflow-x-auto">
+                        <table class="table table-xs w-full">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Search</th>
+                                    {% for lang in &languages %}
+                                    <th class="text-center">{{ lang }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for col in &collections %}
+                                <tr class="hover">
+                                    <td class="font-medium">{{ col.name }}</td>
+                                    <td class="font-mono text-xs text-base-content/60">{{ col.coltype }}</td>
+                                    <td>
+                                        {% if col.searchable %}
+                                        <i data-lucide="check" class="w-3 h-3 text-success"></i>
+                                        {% else %}
+                                        <span class="text-base-content/30">—</span>
+                                        {% endif %}
+                                    </td>
+                                    {% for (_locale, count) in &col.articles_per_locale %}
+                                    <td class="text-center">
+                                        {% if *count > 0 %}
+                                        <span class="badge badge-xs badge-info">{{ count }}</span>
+                                        {% else %}
+                                        <span class="badge badge-xs badge-ghost">—</span>
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right column: info panels -->
+        <div class="space-y-4">
+
+            <!-- Languages -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-sm mb-2">
+                        <i data-lucide="globe" class="w-4 h-4"></i> Languages
+                    </h2>
+                    <div class="flex flex-wrap gap-2">
+                        {% for lang in &languages %}
+                        <span class="badge {% if lang == &default_language %}badge-primary{% else %}badge-outline{% endif %}">
+                            {{ lang }}{% if lang == &default_language %} ★{% endif %}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation preview -->
+            {% if !nav_preview.is_empty() %}
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-sm mb-2">
+                        <i data-lucide="menu" class="w-4 h-4"></i> Navigation
+                    </h2>
+                    <ul class="text-sm space-y-1">
+                        {% for label in &nav_preview %}
+                        <li class="text-base-content/70 font-mono text-xs whitespace-pre">{{ label }}</li>
+                        {% endfor %}
+                    </ul>
+                    <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}/sitedef.yaml"
+                       class="btn btn-xs btn-ghost mt-2 gap-1">
+                        <i data-lucide="edit-3" class="w-3 h-3"></i> Edit sitedef.yaml
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Git connection -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-sm mb-2">
+                        <i data-lucide="git-branch" class="w-4 h-4"></i> Forgejo
+                    </h2>
+                    {% if has_git %}
+                    <div class="space-y-1 text-xs">
+                        <div class="flex gap-2">
+                            <span class="text-base-content/50 w-14 flex-shrink-0">Repo</span>
+                            <span class="font-mono break-all text-base-content/80">{{ forgejo_repo }}</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <span class="text-base-content/50 w-14 flex-shrink-0">Branch</span>
+                            <span class="badge badge-ghost badge-xs">{{ forgejo_branch }}</span>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <span class="badge badge-success badge-sm gap-1">
+                            <i data-lucide="check-circle" class="w-3 h-3"></i> Connected
+                        </span>
+                    </div>
+                    {% else %}
+                    <p class="text-xs text-base-content/50">
+                        No Forgejo repo configured. Publish will generate files locally only.
+                    </p>
+                    <p class="text-xs text-base-content/40 mt-1">
+                        Set <code>forgejo_repo</code> in folder settings to enable git push.
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick links -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-sm mb-2">
+                        <i data-lucide="zap" class="w-4 h-4"></i> Quick Links
+                    </h2>
+                    <div class="flex flex-col gap-1">
+                        <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}"
+                           class="btn btn-xs btn-ghost justify-start gap-2">
+                            <i data-lucide="folder" class="w-3 h-3"></i> Browse Files
+                        </a>
+                        <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}/sitedef.yaml"
+                           class="btn btn-xs btn-ghost justify-start gap-2">
+                            <i data-lucide="file-code" class="w-3 h-3"></i> Edit sitedef.yaml
+                        </a>
+                        <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}/data"
+                           class="btn btn-xs btn-ghost justify-start gap-2">
+                            <i data-lucide="layout-grid" class="w-3 h-3"></i> Page Elements
+                        </a>
+                        <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}/content"
+                           class="btn btn-xs btn-ghost justify-start gap-2">
+                            <i data-lucide="file-text" class="w-3 h-3"></i> Content
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<!-- Publish result toast -->
+<div id="publish-toast" class="toast toast-top toast-end hidden z-50">
+    <div id="publish-toast-msg" class="alert shadow-lg max-w-sm"></div>
+</div>
+
+<script>
+async function publishSite() {
+    const btn = document.getElementById('publish-btn');
+    const toast = document.getElementById('publish-toast');
+    const msg = document.getElementById('publish-toast-msg');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Publishing…';
+
+    try {
+        const res = await fetch('/api/workspaces/{{ workspace_id }}/site/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folder_path: '{{ folder_path }}' }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+            msg.className = 'alert alert-success shadow-lg max-w-sm';
+            msg.innerHTML = `<i data-lucide="check-circle" class="w-5 h-5"></i><span>${data.message || 'Site published!'}</span>`;
+        } else {
+            msg.className = 'alert alert-error shadow-lg max-w-sm';
+            msg.innerHTML = `<i data-lucide="x-circle" class="w-5 h-5"></i><span>${data.error || 'Publish failed'}</span>`;
+        }
+    } catch (e) {
+        msg.className = 'alert alert-error shadow-lg max-w-sm';
+        msg.innerHTML = `<i data-lucide="x-circle" class="w-5 h-5"></i><span>Network error</span>`;
+    }
+
+    toast.classList.remove('hidden');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="rocket" class="w-4 h-4"></i> Publish Site';
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    setTimeout(() => toast.classList.add('hidden'), 6000);
+}
+</script>
+{% endblock %}

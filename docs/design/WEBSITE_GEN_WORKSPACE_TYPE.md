@@ -1,13 +1,13 @@
 # YHM Website Generator — Workspace Folder Type
 
-**Type ID:** `website-gen`
+**Type ID:** `yhm-site-data`
 **Status:** ✅ Implemented (2026-03-13) | Git push to Forgejo implemented
 
 ---
 
 ## What It Is
 
-`website-gen` is a **typed workspace folder**, not a standalone app. It follows the same
+`yhm-site-data` is a **typed workspace folder**, not a standalone app. It follows the same
 pattern as `course` and `media-server`: dropping a folder into this type unlocks a
 pipeline action — in this case, **Publish Site** generates and pushes a static Astro
 website to a Forgejo git repository, which triggers CI to build and deploy it.
@@ -27,7 +27,7 @@ Edit `sitedef.yaml` or any page element JSON, click Publish — the rest is auto
 | `{sitename}-site` | Complete merged Astro project, ready to build | Platform → `site-publisher` on publish |
 | `astro-components` | Shared layouts, components, template files | Developer, versioned separately |
 
-### Two Rust Crates
+### Three Rust Crates
 
 **`crates/site-generator`** — pure Rust, no external runtime:
 - Parses `sitedef.yaml` via `serde_yaml` + typed structs (replaces Deno/Zod)
@@ -41,6 +41,12 @@ Edit `sitedef.yaml` or any page element JSON, click Publish — the rest is auto
 - `publish_and_push(PublishConfig, GitPushConfig)` — generate + git push to Forgejo
 - Git operations via `git2` (vendored libgit2, no system git required)
 - Persistent clone cache at `storage/site-repos/{workspace_id}/{folder_slug}/`
+
+**`crates/site-overview`** — custom folder view (`FolderTypeRenderer` for `yhm-site-data`):
+- Reads `sitedef.yaml` and counts element JSON files + MDX articles per locale
+- Renders a dashboard: site identity, stats, pages table, collections table, language badges, nav preview, Forgejo connection status, quick links
+- Registered in `crates/workspace-renderers` — the workspace browser delegates to it when a `yhm-site-data` folder is opened
+- **Publish Site** button on the overview calls `POST /api/workspaces/{id}/site/generate`
 
 ### Publish Flow
 
@@ -70,7 +76,7 @@ Forgejo Actions (in {sitename}-site repo)
 ## Folder Structure (Source Data)
 
 ```
-websites/minimal/               ← workspace folder, type: website-gen
+websites/minimal/               ← workspace folder, type: yhm-site-data
 ├── sitedef.yaml                ← site definition (pages, collections, menu, languages…)
 ├── data/
 │   └── page_{slug}/
@@ -142,7 +148,7 @@ website.config.cjs     ← generated (navigation, languages, social, legal, data
 ```yaml
 folders:
   websites/minimal:
-    type: website-gen
+    type: yhm-site-data
     metadata:
       components_dir: /path/to/astro-components   # optional: static Astro files
       forgejo_repo: https://forgejo.example.com/user/mysite-site.git
@@ -176,7 +182,7 @@ Content-Type: application/json
 }
 ```
 
-Requires session auth + workspace ownership. The folder must have `type: website-gen`
+Requires session auth + workspace ownership. The folder must have `type: yhm-site-data`
 in workspace.yaml or the request returns 400.
 
 ---
@@ -228,10 +234,10 @@ Each JSON file in `data/page_{slug}/{locale}/` defines one UI element:
 |---|---|---|
 | `media-server` | Upload → transcode → vault | Served media files |
 | `course` | Sync YAML → publish | Course viewer manifest |
-| `website-gen` | Publish Site → git push | Astro project in Forgejo → static site |
+| `yhm-site-data` | Publish Site → git push | Astro project in Forgejo → static site |
 | `static-site` | (plain HTML, no pipeline) | Served as-is |
 
-`website-gen` is the only type that pushes to an external git repository.
+`yhm-site-data` is the only type that pushes to an external git repository.
 
 ---
 

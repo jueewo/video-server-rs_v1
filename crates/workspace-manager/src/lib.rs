@@ -503,6 +503,17 @@ async fn require_auth(session: &Session) -> Result<String, StatusCode> {
     Ok(user_id)
 }
 
+/// Platform-admin guard: only the user whose id matches the PLATFORM_ADMIN_ID env var
+/// (default "jueewo") may access tenant-admin endpoints.
+async fn require_platform_admin(session: &Session) -> Result<String, StatusCode> {
+    let user_id = require_auth(session).await?;
+    let admin_id = std::env::var("PLATFORM_ADMIN_ID").unwrap_or_else(|_| "jueewo".to_string());
+    if user_id != admin_id {
+        return Err(StatusCode::FORBIDDEN);
+    }
+    Ok(user_id)
+}
+
 /// Verify that `workspace_id` belongs to `user_id`. Returns the workspace (name, description).
 async fn verify_workspace_ownership(
     pool: &SqlitePool,
@@ -3621,7 +3632,7 @@ pub async fn list_tenants_handler(
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<Json<Vec<TenantResponse>>, StatusCode> {
-    require_auth(&session).await?;
+    require_platform_admin(&session).await?;
 
     let rows: Vec<(String, String, Option<String>, String)> = sqlx::query_as(
         "SELECT id, name, branding, created_at FROM tenants ORDER BY created_at ASC",
@@ -3649,7 +3660,7 @@ pub async fn create_tenant_handler(
     State(state): State<Arc<WorkspaceManagerState>>,
     Json(req): Json<CreateTenantRequest>,
 ) -> Result<Json<TenantResponse>, StatusCode> {
-    require_auth(&session).await?;
+    require_platform_admin(&session).await?;
 
     if req.id.trim().is_empty() || req.name.trim().is_empty() {
         return Err(StatusCode::BAD_REQUEST);
@@ -3684,7 +3695,7 @@ pub async fn list_tenant_users_handler(
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<Json<Vec<TenantUserResponse>>, StatusCode> {
-    require_auth(&session).await?;
+    require_platform_admin(&session).await?;
 
     let rows: Vec<(String, String, Option<String>, String)> = sqlx::query_as(
         "SELECT id, email, name, tenant_id FROM users WHERE tenant_id = ? ORDER BY email ASC",
@@ -3713,7 +3724,7 @@ pub async fn assign_user_tenant_handler(
     State(state): State<Arc<WorkspaceManagerState>>,
     Json(req): Json<AssignTenantRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    require_auth(&session).await?;
+    require_platform_admin(&session).await?;
 
     let rows_updated = sqlx::query("UPDATE users SET tenant_id = ? WHERE id = ?")
         .bind(&req.tenant_id)
@@ -3736,7 +3747,7 @@ pub async fn update_tenant_branding_handler(
     State(state): State<Arc<WorkspaceManagerState>>,
     Json(branding): Json<serde_json::Value>,
 ) -> Result<StatusCode, StatusCode> {
-    require_auth(&session).await?;
+    require_platform_admin(&session).await?;
 
     let branding_json = serde_json::to_string(&branding)
         .map_err(|_| StatusCode::BAD_REQUEST)?;
@@ -3760,16 +3771,7 @@ pub async fn tenant_admin_page(
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<Response, StatusCode> {
-    let authenticated: bool = session
-        .get("authenticated")
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or(false);
-
-    if !authenticated {
-        return Ok(Redirect::to("/login").into_response());
-    }
+    require_platform_admin(&session).await?;
 
     let rows: Vec<(String, String, Option<String>, String)> = sqlx::query_as(
         "SELECT id, name, branding, created_at FROM tenants ORDER BY created_at ASC",

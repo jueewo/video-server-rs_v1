@@ -276,8 +276,9 @@ loading="lazy" allowfullscreen></iframe>
         // Display math $$...$$ — multiline, protect LaTeX from markdown
         .replace(/\$\$([\s\S]+?)\$\$/g, (_, l) =>
             `<div class="math-display-pending" data-k="${b64e(l.trim())}"></div>`)
-        // Inline math $...$ — single line, not preceded by backslash (currency uses \$)
-        .replace(/(?<!\\)\$(?!\$)([^$\n]+?)\$(?!\$)/g, (_, l) =>
+        // Inline math $...$ — single line, not preceded by backslash.
+        // (?!\d) prevents bare currency like $27 or $10 from being treated as math.
+        .replace(/(?<!\\)\$(?!\$)(?!\d)([^$\n]+?)\$(?!\$)/g, (_, l) =>
             `<span class="math-inline-pending" data-k="${b64e(l)}"></span>`);
 
     const processed = mathExtracted

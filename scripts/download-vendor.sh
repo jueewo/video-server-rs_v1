@@ -63,6 +63,21 @@ cp "$NM/hls.js/dist/hls.min.js"                                               "$
 cp "$NM/marked/marked.min.js"                                                  "$VENDOR_DIR/marked.min.js"
 cp "$NM/daisyui/dist/full.css"                                                 "$VENDOR_DIR/daisyui.min.css"
 
+# ── Reveal.js (presentation framework) ────────────────────────────────────
+mkdir -p "$VENDOR_DIR/reveal/dist/theme"
+mkdir -p "$VENDOR_DIR/reveal/plugin/highlight"
+mkdir -p "$VENDOR_DIR/reveal/plugin/markdown"
+mkdir -p "$VENDOR_DIR/reveal/plugin/notes"
+cp "$NM/reveal.js/dist/reveal.css"                                             "$VENDOR_DIR/reveal/dist/"
+cp "$NM/reveal.js/dist/reset.css"                                              "$VENDOR_DIR/reveal/dist/"
+cp "$NM/reveal.js/dist/reveal.mjs"                                             "$VENDOR_DIR/reveal/dist/"
+cp "$NM/reveal.js/dist/theme/"*.css                                            "$VENDOR_DIR/reveal/dist/theme/"
+cp "$NM/reveal.js/dist/plugin/highlight.mjs"                                   "$VENDOR_DIR/reveal/plugin/highlight/"
+cp "$NM/reveal.js/dist/plugin/highlight/monokai.css"                           "$VENDOR_DIR/reveal/plugin/highlight/"
+cp "$NM/reveal.js/dist/plugin/highlight/zenburn.css"                           "$VENDOR_DIR/reveal/plugin/highlight/"
+cp "$NM/reveal.js/dist/plugin/markdown.mjs"                                    "$VENDOR_DIR/reveal/plugin/markdown/"
+cp "$NM/reveal.js/dist/plugin/notes.mjs"                                       "$VENDOR_DIR/reveal/plugin/notes/"
+
 # ── bpmn-js (JS + CSS + bpmn-font) ────────────────────────────────────────
 mkdir -p "$VENDOR_DIR/bpmn-js"
 cp "$NM/bpmn-js/dist/bpmn-modeler.production.min.js"                          "$VENDOR_DIR/bpmn-js/bpmn-modeler.min.js"

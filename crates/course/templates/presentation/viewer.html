@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ title }}</title>
     <link rel="icon" type="image/webp" href="/static/icon.webp" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/theme/{{ theme }}.css" id="reveal-theme">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/highlight/monokai.css">
+    <link rel="stylesheet" href="/static/vendor/reveal/dist/reveal.css">
+    <link rel="stylesheet" href="/static/vendor/reveal/dist/theme/{{ theme }}.css" id="reveal-theme">
+    <link rel="stylesheet" href="/static/vendor/reveal/plugin/highlight/monokai.css">
     <style>
         html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
         .reveal .slides { text-align: left; }
@@ -44,15 +44,28 @@
         <a href="/privacy" target="_blank" rel="noopener">Datenschutz</a>
     </div>
 
+    <!-- Mermaid diagram sources extracted server-side; JSON-encoded to survive HTML parsing -->
+    <script type="application/json" id="mermaid-data">{{ mermaid_diagrams_json|safe }}</script>
+    <script src="/static/vendor/mermaid.min.js"></script>
+    <script>
+        if (typeof mermaid !== 'undefined') {
+            mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
+        }
+    </script>
     <script type="module">
-        import Reveal from 'https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.esm.js';
-        import RevealMarkdown from 'https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/markdown/markdown.esm.js';
-        import RevealHighlight from 'https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/highlight/highlight.esm.js';
-        import RevealNotes from 'https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/notes/notes.esm.js';
+        import Reveal from '/static/vendor/reveal/dist/reveal.mjs';
+        import RevealMarkdown from '/static/vendor/reveal/plugin/markdown/markdown.mjs';
+        import RevealHighlight from '/static/vendor/reveal/plugin/highlight/highlight.mjs';
+        import RevealNotes from '/static/vendor/reveal/plugin/notes/notes.mjs';
 
         const WORKSPACE_ID = '{{ workspace_id }}';
         const FOLDER_PATH  = '{{ folder_path }}';
         const CODE         = '{{ code }}';
+
+        // Mermaid sources are JSON-encoded server-side; slides use ```mermaid-ref\n{idx}\n```
+        const mermaidDiagrams = JSON.parse(
+            document.getElementById('mermaid-data').textContent
+        );
 
         const deck = new Reveal({
             plugins: [RevealMarkdown, RevealHighlight, RevealNotes],
@@ -63,18 +76,33 @@
             loop: {{ loop_ }},
             autoSlide: {{ auto_slide }},
         });
-        deck.initialize();
+        await deck.initialize();
 
         // Rewrite relative image paths → workspace file serve URLs
-        deck.on('ready', () => {
-            const BASE = `/api/workspaces/${WORKSPACE_ID}/files/serve`;
-            document.querySelectorAll('.slides img').forEach(img => {
-                const src = img.getAttribute('src');
-                if (src && !src.startsWith('http') && !src.startsWith('/') && !src.startsWith('data:')) {
-                    img.src = `${BASE}?path=${encodeURIComponent(FOLDER_PATH + '/' + src)}&code=${encodeURIComponent(CODE)}`;
-                }
-            });
+        const BASE = `/api/workspaces/${WORKSPACE_ID}/files/serve`;
+        document.querySelectorAll('.slides img').forEach(img => {
+            const src = img.getAttribute('src');
+            if (src && !src.startsWith('http') && !src.startsWith('/') && !src.startsWith('data:')) {
+                img.src = `${BASE}?path=${encodeURIComponent(FOLDER_PATH + '/' + src)}&code=${encodeURIComponent(CODE)}`;
+            }
         });
+
+        // Replace mermaid-ref code blocks with rendered diagrams.
+        // div.textContent keeps <br/> as literal chars — exactly what mermaid expects.
+        if (typeof mermaid !== 'undefined' && mermaidDiagrams.length) {
+            const nodes = [];
+            document.querySelectorAll('code[class*="mermaid-ref"]').forEach(code => {
+                const idx = parseInt(code.textContent.trim(), 10);
+                const source = mermaidDiagrams[idx];
+                if (source == null) return;
+                const div = document.createElement('div');
+                div.className = 'mermaid';
+                div.textContent = source;
+                (code.closest('pre') ?? code).replaceWith(div);
+                nodes.push(div);
+            });
+            if (nodes.length) mermaid.run({ nodes });
+        }
     </script>
 </body>
 </html>

@@ -22,7 +22,10 @@ pub struct PresentationData {
     pub show_slide_number: String,
     pub loop_: bool,
     pub auto_slide: u32,
+    /// Slide markdown with mermaid blocks replaced by ```mermaid-ref\n{idx}\n```
     pub raw_slides: String,
+    /// JSON array of mermaid diagram sources extracted from raw_slides
+    pub mermaid_diagrams_json: String,
     pub slide_count: usize,
 }
 
@@ -34,11 +37,15 @@ pub fn load_presentation(folder_abs: &Path) -> anyhow::Result<PresentationData> 
         .unwrap_or_default();
 
     // Load slides content
-    let raw_slides = if folder_abs.join("slides.md").exists() {
+    let slides_raw = if folder_abs.join("slides.md").exists() {
         std::fs::read_to_string(folder_abs.join("slides.md"))?
     } else {
         discover_slides(folder_abs)
     };
+
+    // Extract mermaid blocks so they never touch the HTML parser.
+    // Replace each ```mermaid block with a ```mermaid-ref\n{idx}\n``` marker.
+    let (raw_slides, mermaid_diagrams_json) = extract_mermaid_blocks(&slides_raw);
 
     let slide_count = raw_slides.split("\n---\n").count();
 
@@ -60,8 +67,40 @@ pub fn load_presentation(folder_abs: &Path) -> anyhow::Result<PresentationData> 
         loop_: config.loop_,
         auto_slide: config.auto_slide.unwrap_or(0),
         raw_slides,
+        mermaid_diagrams_json,
         slide_count,
     })
+}
+
+/// Extract ```mermaid fenced blocks from markdown, replacing each with a
+/// ```mermaid-ref\n{idx}\n``` marker. Returns (processed_markdown, json_array_of_sources).
+/// The JSON array is safe to embed in a <script type="application/json"> element.
+fn extract_mermaid_blocks(markdown: &str) -> (String, String) {
+    let mut diagrams: Vec<String> = Vec::new();
+    let mut out = String::with_capacity(markdown.len());
+    let lines: Vec<&str> = markdown.lines().collect();
+    let mut i = 0;
+    while i < lines.len() {
+        let trimmed = lines[i].trim_start();
+        if trimmed.starts_with("```mermaid") {
+            let mut body: Vec<&str> = Vec::new();
+            i += 1;
+            while i < lines.len() && lines[i].trim() != "```" {
+                body.push(lines[i]);
+                i += 1;
+            }
+            let idx = diagrams.len();
+            diagrams.push(body.join("\n").trim().to_string());
+            out.push_str(&format!("```mermaid-ref\n{idx}\n```\n"));
+            i += 1; // skip closing ```
+        } else {
+            out.push_str(lines[i]);
+            out.push('\n');
+            i += 1;
+        }
+    }
+    let json = serde_json::to_string(&diagrams).unwrap_or_else(|_| "[]".to_string());
+    (out, json)
 }
 
 /// Walk all `.md` files alphabetically; top-level subfolders become section title slides.

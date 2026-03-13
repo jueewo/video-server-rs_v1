@@ -6,7 +6,7 @@
 #   --apply      — update patch/minor versions in vendor-versions.json, then re-download
 #   --allow-major — like --apply but also applies major version bumps (manual review advised)
 #
-# Requirements: bun, jq
+# Requirements: npm, jq
 # Usage:
 #   bash scripts/update-vendor.sh               # check only
 #   bash scripts/update-vendor.sh --apply        # apply safe (patch/minor) updates
@@ -43,9 +43,23 @@ else
 fi
 
 # semver helpers
+normalize_ver() {
+    # Strip any "pkgname@" prefix, return the bare semver
+    echo "$1" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+([.-][a-zA-Z0-9]+)?' | head -1
+}
 major() { echo "$1" | cut -d. -f1; }
 minor() { echo "$1" | cut -d. -f2; }
 patch() { echo "$1" | cut -d. -f3 | cut -d- -f1; }
+
+# Build the "same major" range, handling major=0 (where ^0.0.0 is too broad)
+same_major_range() {
+    local ver="$1" maj="$2"
+    if [ "$maj" = "0" ]; then
+        echo "^0.$(minor "$ver").0"
+    else
+        echo "^${maj}.0.0"
+    fi
+}
 
 semver_gt() {
     # returns 0 (true) if $1 > $2
@@ -54,18 +68,15 @@ semver_gt() {
 }
 
 fetch_latest_in_major() {
-    local pkg="$1" current_major="$2"
-    # Ask npm for the latest version that satisfies the same major
-    bun pm info "${pkg}@^${current_major}.0.0" version 2>/dev/null \
-        || npm view "${pkg}@^${current_major}.0.0" version 2>/dev/null \
-        || echo ""
+    local pkg="$1" range="$2"
+    npm view "${pkg}@${range}" version --json 2>/dev/null \
+        | jq -r 'if type == "array" then last else . end' 2>/dev/null || echo ""
 }
 
 fetch_latest_overall() {
     local pkg="$1"
-    bun pm info "${pkg}" version 2>/dev/null \
-        || npm view "${pkg}" version 2>/dev/null \
-        || echo ""
+    npm view "${pkg}" version --json 2>/dev/null \
+        | jq -r 'if type == "array" then last else . end' 2>/dev/null || echo ""
 }
 
 echo ""
@@ -80,14 +91,15 @@ COUPLED_PACKAGES=("react" "react-dom" "@excalidraw/excalidraw")
 
 HAS_SAFE_UPDATE=false
 HAS_MAJOR_UPDATE=false
-declare -A NEW_VERSIONS  # pkg -> new version to apply
+NEW_VERSIONS_FILE="$(mktemp)"  # pkg=version lines (bash 3 compatible)
 
 while IFS= read -r pkg; do
-    current=$(jq -r --arg p "$pkg" '.dependencies[$p]' "$VERSIONS_FILE")
+    current=$(normalize_ver "$(jq -r --arg p "$pkg" '.dependencies[$p]' "$VERSIONS_FILE")")
     cur_major=$(major "$current")
+    cur_range=$(same_major_range "$current" "$cur_major")
 
     # Query npm (in parallel would be nicer but keep it simple)
-    latest_same=$(fetch_latest_in_major "$pkg" "$cur_major")
+    latest_same=$(fetch_latest_in_major "$pkg" "$cur_range")
     latest_all=$(fetch_latest_overall "$pkg")
 
     # Normalise empties
@@ -110,7 +122,7 @@ while IFS= read -r pkg; do
         status="${RED}⚠ major bump (manual review)${RESET}"
         HAS_MAJOR_UPDATE=true
         if $ALLOW_MAJOR && ! $is_coupled; then
-            NEW_VERSIONS["$pkg"]="$latest_all"
+            echo "$pkg=$latest_all" >> "$NEW_VERSIONS_FILE"
         elif $ALLOW_MAJOR && $is_coupled; then
             status="${RED}⚠ major + coupled (edit manually)${RESET}"
         fi
@@ -118,7 +130,7 @@ while IFS= read -r pkg; do
         status="${YELLOW}patch/minor available${RESET}"
         HAS_SAFE_UPDATE=true
         if $APPLY; then
-            NEW_VERSIONS["$pkg"]="$latest_same"
+            echo "$pkg=$latest_same" >> "$NEW_VERSIONS_FILE"
         fi
     else
         status="${GREEN}up to date${RESET}"
@@ -132,32 +144,33 @@ done < <(jq -r '.dependencies | keys[]' "$VERSIONS_FILE")
 echo ""
 
 # ── Apply updates ──────────────────────────────────────────────────────────
-if $APPLY && [ ${#NEW_VERSIONS[@]} -gt 0 ]; then
+NEW_VERSIONS_COUNT=$(wc -l < "$NEW_VERSIONS_FILE" | tr -d ' ')
+if $APPLY && [ "$NEW_VERSIONS_COUNT" -gt 0 ]; then
     echo -e "${BOLD}Applying updates to $VERSIONS_FILE ...${RESET}"
 
-    UPDATED_JSON="$VERSIONS_FILE"
     TMP_JSON="$(mktemp)"
     cp "$VERSIONS_FILE" "$TMP_JSON"
 
-    for pkg in "${!NEW_VERSIONS[@]}"; do
-        new_ver="${NEW_VERSIONS[$pkg]}"
+    while IFS='=' read -r pkg new_ver; do
         echo "  $pkg: $(jq -r --arg p "$pkg" '.dependencies[$p]' "$VERSIONS_FILE") → $new_ver"
         jq --arg p "$pkg" --arg v "$new_ver" \
             '.dependencies[$p] = $v' "$TMP_JSON" > "${TMP_JSON}.new" \
             && mv "${TMP_JSON}.new" "$TMP_JSON"
-    done
+    done < "$NEW_VERSIONS_FILE"
 
     mv "$TMP_JSON" "$VERSIONS_FILE"
+    rm -f "$NEW_VERSIONS_FILE"
     echo ""
     echo -e "${GREEN}✓ vendor-versions.json updated.${RESET}"
     echo ""
     echo "Re-downloading vendor files..."
     bash "$DOWNLOAD_SCRIPT"
 
-elif $APPLY && [ ${#NEW_VERSIONS[@]} -eq 0 ]; then
+elif $APPLY && [ "$NEW_VERSIONS_COUNT" -eq 0 ]; then
     echo -e "${GREEN}✓ Nothing to update.${RESET}"
 
 else
+    rm -f "$NEW_VERSIONS_FILE"
     # Advice
     if $HAS_SAFE_UPDATE; then
         echo -e "Run ${CYAN}bash scripts/update-vendor.sh --apply${RESET} to apply patch/minor updates."

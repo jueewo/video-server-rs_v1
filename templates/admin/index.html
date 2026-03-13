@@ -1,0 +1,210 @@
+{% extends "base-tailwind.html" %}
+{% block title %}Admin — Platform Management{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-5xl">
+
+    <!-- Page Header -->
+    <div class="page-header mb-8">
+        <div>
+            <h1 class="page-header-title flex items-center gap-3">
+                <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl shrink-0"
+                      style="background: linear-gradient(135deg, #f093fb, #f5576c); box-shadow: 0 4px 12px rgba(245,87,108,0.35);">
+                    <i data-lucide="shield-alert" class="w-5 h-5 text-white"></i>
+                </span>
+                <span class="text-gradient">Platform Admin</span>
+            </h1>
+            <p class="page-header-subtitle">System management — restricted to platform administrators</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Tenants & Users -->
+        <div class="card bg-base-100 border border-base-300 shadow-sm">
+            <div class="card-body p-5">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
+                          style="background: linear-gradient(135deg, #f093fb, #f5576c); box-shadow: 0 3px 8px rgba(245,87,108,0.3);">
+                        <i data-lucide="building-2" class="w-4 h-4 text-white"></i>
+                    </span>
+                    <h2 class="font-semibold text-base">Tenants &amp; Users</h2>
+                </div>
+                <ul class="space-y-1">
+                    <li>
+                        <a href="/admin/tenants" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="building-2" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">Tenants</div>
+                                <div class="text-xs text-base-content/50">Create and manage tenants, assign users, update branding</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg opacity-50 cursor-not-allowed">
+                            <i data-lucide="users" class="w-4 h-4 text-base-content/40 shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium flex items-center gap-2">
+                                    User Management
+                                    <span class="badge badge-xs badge-ghost">planned</span>
+                                </div>
+                                <div class="text-xs text-base-content/50">List all users, deactivate accounts, reset sessions</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg opacity-50 cursor-not-allowed">
+                            <i data-lucide="mail" class="w-4 h-4 text-base-content/40 shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium flex items-center gap-2">
+                                    Invitations
+                                    <span class="badge badge-xs badge-ghost">planned</span>
+                                </div>
+                                <div class="text-xs text-base-content/50">Manage pending tenant invitations</div>
+                            </div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Media & Storage -->
+        <div class="card bg-base-100 border border-base-300 shadow-sm">
+            <div class="card-body p-5">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
+                          style="background: linear-gradient(135deg, #f093fb, #f5576c); box-shadow: 0 3px 8px rgba(245,87,108,0.3);">
+                        <i data-lucide="hard-drive" class="w-4 h-4 text-white"></i>
+                    </span>
+                    <h2 class="font-semibold text-base">Media &amp; Storage</h2>
+                </div>
+                <ul class="space-y-1">
+                    <li>
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg opacity-50 cursor-not-allowed">
+                            <i data-lucide="film" class="w-4 h-4 text-base-content/40 shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium flex items-center gap-2">
+                                    Media Moderation
+                                    <span class="badge badge-xs badge-ghost">planned</span>
+                                </div>
+                                <div class="text-xs text-base-content/50">View and remove any user's media across all vaults</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg opacity-50 cursor-not-allowed">
+                            <i data-lucide="package" class="w-4 h-4 text-base-content/40 shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium flex items-center gap-2">
+                                    Vault Admin
+                                    <span class="badge badge-xs badge-ghost">planned</span>
+                                </div>
+                                <div class="text-xs text-base-content/50">List all vaults, inspect storage usage per vault/tenant</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg opacity-50 cursor-not-allowed">
+                            <i data-lucide="key" class="w-4 h-4 text-base-content/40 shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium flex items-center gap-2">
+                                    API Key Admin
+                                    <span class="badge badge-xs badge-ghost">planned</span>
+                                </div>
+                                <div class="text-xs text-base-content/50">Revoke any user's API key platform-wide</div>
+                            </div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Observability -->
+        <div class="card bg-base-100 border border-base-300 shadow-sm">
+            <div class="card-body p-5">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
+                          style="background: linear-gradient(135deg, #f093fb, #f5576c); box-shadow: 0 3px 8px rgba(245,87,108,0.3);">
+                        <i data-lucide="activity" class="w-4 h-4 text-white"></i>
+                    </span>
+                    <h2 class="font-semibold text-base">Observability</h2>
+                </div>
+                <ul class="space-y-1">
+                    <li>
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg opacity-50 cursor-not-allowed">
+                            <i data-lucide="bar-chart-2" class="w-4 h-4 text-base-content/40 shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium flex items-center gap-2">
+                                    System Stats
+                                    <span class="badge badge-xs badge-ghost">planned</span>
+                                </div>
+                                <div class="text-xs text-base-content/50">User count, media totals, storage usage across the platform</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg opacity-50 cursor-not-allowed">
+                            <i data-lucide="scroll-text" class="w-4 h-4 text-base-content/40 shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium flex items-center gap-2">
+                                    Audit Log
+                                    <span class="badge badge-xs badge-ghost">planned</span>
+                                </div>
+                                <div class="text-xs text-base-content/50">Who did what — logins, uploads, tenant changes</div>
+                            </div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- System -->
+        <div class="card bg-base-100 border border-base-300 shadow-sm">
+            <div class="card-body p-5">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
+                          style="background: linear-gradient(135deg, #f093fb, #f5576c); box-shadow: 0 3px 8px rgba(245,87,108,0.3);">
+                        <i data-lucide="server" class="w-4 h-4 text-white"></i>
+                    </span>
+                    <h2 class="font-semibold text-base">System</h2>
+                </div>
+                <ul class="space-y-1">
+                    <li>
+                        <a href="/health" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="heart-pulse" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">Health Check</div>
+                                <div class="text-xs text-base-content/50">Server and database status</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg opacity-50 cursor-not-allowed">
+                            <i data-lucide="database" class="w-4 h-4 text-base-content/40 shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium flex items-center gap-2">
+                                    DB Maintenance
+                                    <span class="badge badge-xs badge-ghost">planned</span>
+                                </div>
+                                <div class="text-xs text-base-content/50">Run migrations, vacuum, integrity checks</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg opacity-50 cursor-not-allowed">
+                            <i data-lucide="settings-2" class="w-4 h-4 text-base-content/40 shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium flex items-center gap-2">
+                                    Platform Config
+                                    <span class="badge badge-xs badge-ghost">planned</span>
+                                </div>
+                                <div class="text-xs text-base-content/50">Feature flags, rate limits, global defaults</div>
+                            </div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

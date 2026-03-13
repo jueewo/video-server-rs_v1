@@ -192,6 +192,7 @@ struct UserProfileTemplate {
     provider: String,
     last_login_at: String,
     tenant_id: String,
+    is_admin: bool,
 }
 
 // -------------------------------
@@ -257,6 +258,9 @@ pub async fn user_profile_handler(
 
     let last_login_at = last_login_at.unwrap_or_else(|| "—".to_string());
 
+    let admin_id = std::env::var("PLATFORM_ADMIN_ID").unwrap_or_else(|_| "jueewo".to_string());
+    let is_admin = user_id == admin_id;
+
     let template = UserProfileTemplate {
         authenticated: true,
         user_id,
@@ -266,6 +270,7 @@ pub async fn user_profile_handler(
         provider,
         last_login_at,
         tenant_id,
+        is_admin,
     };
 
     Ok(Html(template.render().unwrap()))

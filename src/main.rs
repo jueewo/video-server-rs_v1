@@ -386,6 +386,13 @@ struct SettingsTemplate {
 
 #[allow(dead_code)]
 #[derive(Template)]
+#[template(path = "admin/index.html")]
+struct AdminIndexTemplate {
+    authenticated: bool,
+}
+
+#[allow(dead_code)]
+#[derive(Template)]
 #[template(path = "apps.html")]
 struct AppsTemplate {
     authenticated: bool,
@@ -522,6 +529,22 @@ async fn settings_handler(
         .flatten()
         .unwrap_or(false);
     Ok(Html(SettingsTemplate { authenticated }.render().unwrap()))
+}
+
+async fn admin_index_handler(
+    session: Session,
+) -> Result<Html<String>, StatusCode> {
+    let user_id: String = session
+        .get("user_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+    let admin_id = std::env::var("PLATFORM_ADMIN_ID").unwrap_or_else(|_| "jueewo".to_string());
+    if user_id != admin_id {
+        return Err(StatusCode::FORBIDDEN);
+    }
+    Ok(Html(AdminIndexTemplate { authenticated: true }.render().unwrap()))
 }
 
 #[tracing::instrument(skip(session, state))]
@@ -1141,6 +1164,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/home", get(home_handler))
         .route("/apps", get(apps_handler))
         .route("/settings", get(settings_handler))
+        .route("/admin", get(admin_index_handler))
         .route("/3d-viewer", get(d3_viewer_handler))
 
         .route("/demo", get(demo_handler))

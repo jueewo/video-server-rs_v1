@@ -270,9 +270,97 @@ docker compose exec media-server sqlite3 /app/media.db < /app/migrations/XXXX_na
 
 ## Updating
 
+### Option A — pull from Harbor (recommended for production)
+
+```bash
+cd docker
+podman compose pull        # pull latest image from Harbor
+podman compose up -d       # recreate changed containers
+```
+
+### Option B — build from source (local / no Harbor)
+
 ```bash
 git pull
-docker compose up -d --build
+podman compose up -d --build
+```
+
+---
+
+## Harbor image registry
+
+Instead of building Rust on the server, build once on your dev machine (or via
+Forgejo CI) and push to Harbor. The server only needs to pull and run.
+
+### One-time Harbor setup
+
+1. Log in to your Harbor instance
+2. Create a project — e.g. `media-server`
+3. Create a robot account with push access to that project
+4. Note the robot username and secret
+
+### Add Harbor vars to `.env`
+
+```env
+MEDIA_SERVER_IMAGE=harbor.example.com/media-server/app:latest
+HARBOR_URL=harbor.example.com
+HARBOR_PROJECT=media-server
+HARBOR_USER=robot$media-server
+HARBOR_PASSWORD=<robot-secret>
+```
+
+`MEDIA_SERVER_IMAGE` tells `podman compose` to pull the pre-built image instead
+of building from source. The `HARBOR_*` vars are only needed for the build
+machine and CI — the server only needs `MEDIA_SERVER_IMAGE`.
+
+### Manual build & push (from your dev machine)
+
+```bash
+cd docker
+
+# Build and push :latest + :<git-sha>
+./build-push.sh
+
+# Build and push a versioned release
+./build-push.sh 1.2.0
+```
+
+### Forgejo CI — automatic builds
+
+The workflow at `.forgejo/workflows/docker-build.yml` triggers in two ways:
+
+**Manual** (recommended — build when you decide it's ready):
+
+1. Forgejo → your repo → Actions → **Build & Push to Harbor** → Run workflow
+2. Optionally enter a version tag and feature set
+3. The action builds, pushes to Harbor, and prints the deploy command
+
+**On git tag**:
+
+```bash
+git tag v1.2.0
+git push origin v1.2.0   # triggers the workflow automatically
+```
+
+**Required Forgejo secrets / variables** (repo or org level):
+
+| Type | Name | Example |
+|------|------|---------|
+| Variable | `HARBOR_URL` | `harbor.example.com` |
+| Variable | `HARBOR_PROJECT` | `media-server` |
+| Secret | `HARBOR_USER` | `robot$media-server` |
+| Secret | `HARBOR_PASSWORD` | robot account secret |
+
+Set them at: Forgejo → repo → Settings → Secrets and Variables
+
+### Deploy after a new build
+
+```bash
+cd docker
+
+# Pull the new image and restart only the affected container
+podman compose pull media-server
+podman compose up -d media-server
 ```
 
 ---

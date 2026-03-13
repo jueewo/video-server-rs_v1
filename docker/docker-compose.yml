@@ -85,7 +85,10 @@ services:
   # ============================================================
   # Media Server — main Rust application
   # ============================================================
+  # Production: set MEDIA_SERVER_IMAGE in .env to pull from Harbor.
+  # Local dev:  leave MEDIA_SERVER_IMAGE unset — image is built from source.
   media-server:
+    image: ${MEDIA_SERVER_IMAGE:-media-server:local}
     build:
       context: ..
       dockerfile: docker/Dockerfile

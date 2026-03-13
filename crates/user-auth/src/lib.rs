@@ -258,7 +258,7 @@ pub async fn user_profile_handler(
 
     let last_login_at = last_login_at.unwrap_or_else(|| "—".to_string());
 
-    let admin_id = std::env::var("PLATFORM_ADMIN_ID").unwrap_or_else(|_| "jueewo".to_string());
+    let admin_id = std::env::var("PLATFORM_ADMIN_ID").unwrap_or_else(|_| "7bda815e-729a-49ea-88c5-3ca59b9ce487".to_string());
     let is_admin = user_id == admin_id;
 
     let template = UserProfileTemplate {

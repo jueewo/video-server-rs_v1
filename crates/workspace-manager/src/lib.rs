@@ -504,10 +504,10 @@ async fn require_auth(session: &Session) -> Result<String, StatusCode> {
 }
 
 /// Platform-admin guard: only the user whose id matches the PLATFORM_ADMIN_ID env var
-/// (default "jueewo") may access tenant-admin endpoints.
+/// (default "7bda815e-729a-49ea-88c5-3ca59b9ce487") may access tenant-admin endpoints.
 async fn require_platform_admin(session: &Session) -> Result<String, StatusCode> {
     let user_id = require_auth(session).await?;
-    let admin_id = std::env::var("PLATFORM_ADMIN_ID").unwrap_or_else(|_| "jueewo".to_string());
+    let admin_id = std::env::var("PLATFORM_ADMIN_ID").unwrap_or_else(|_| "7bda815e-729a-49ea-88c5-3ca59b9ce487".to_string());
     if user_id != admin_id {
         return Err(StatusCode::FORBIDDEN);
     }

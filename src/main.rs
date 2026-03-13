@@ -540,8 +540,9 @@ async fn admin_index_handler(
         .ok()
         .flatten()
         .unwrap_or_default();
-    let admin_id = std::env::var("PLATFORM_ADMIN_ID").unwrap_or_else(|_| "jueewo".to_string());
+    let admin_id = std::env::var("PLATFORM_ADMIN_ID").unwrap_or_else(|_| "7bda815e-729a-49ea-88c5-3ca59b9ce487".to_string());
     if user_id != admin_id {
+        tracing::warn!("admin access denied: user_id={:?} expected={:?}", user_id, admin_id);
         return Err(StatusCode::FORBIDDEN);
     }
     Ok(Html(AdminIndexTemplate { authenticated: true }.render().unwrap()))

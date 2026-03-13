@@ -1,0 +1,45 @@
+# Optional override — adds a local Casdoor instance to the stack.
+#
+# Use this if you don't have a central Casdoor and want to run one locally.
+#
+# Usage:
+#   podman compose -f docker-compose.yml -f docker-compose.casdoor.yml up -d
+#
+# First-time setup:
+#   1. cp casdoor/app.conf.example casdoor/app.conf
+#      Set origin = https://<your-domain> in app.conf
+#   2. Start Casdoor: podman compose -f docker-compose.yml -f docker-compose.casdoor.yml up -d casdoor
+#   3. Visit http://<server>:8000 — log in with admin / 123456
+#   4. Change the password, create an Organisation, Application, and your user
+#   5. Copy Client ID / Secret into .env, set OIDC_ISSUER_URL=http://casdoor:8000
+#   6. Start the full stack
+
+services:
+
+  casdoor:
+    image: casbin/casdoor:latest
+    container_name: casdoor
+    restart: unless-stopped
+    ports:
+      - "8000:8000"    # direct access for initial setup
+    volumes:
+      - ./casdoor/app.conf:/app/conf/app.conf:ro
+      - casdoor_data:/data
+    networks:
+      - media-network
+
+  # Override media-server to depend on local casdoor
+  media-server:
+    depends_on:
+      casdoor:
+        condition: service_started
+
+  # Override Caddy to also proxy the Casdoor auth domain
+  caddy:
+    environment:
+      - AUTH_DOMAIN=${AUTH_DOMAIN}
+    volumes:
+      - ./Caddyfile.casdoor:/etc/caddy/Caddyfile:ro
+
+volumes:
+  casdoor_data:

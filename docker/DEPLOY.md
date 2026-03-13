@@ -98,21 +98,6 @@ AUTH_DOMAIN=auth.example.com
 GRAFANA_PASSWORD=<strong-password>
 ```
 
-Leave `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, and `PLATFORM_ADMIN_ID` blank for now —
-you will fill them in after Casdoor is configured (step 5).
-
-**Casdoor config:**
-
-```bash
-cp casdoor/app.conf.example casdoor/app.conf
-```
-
-Edit `casdoor/app.conf` and set the `origin` to your public auth URL:
-
-```ini
-origin = https://auth.example.com
-```
-
 **Create required data files and directories:**
 
 ```bash
@@ -122,72 +107,43 @@ mkdir -p ../storage ../livestreams
 
 ---
 
-## 4. Start Casdoor for initial setup
+## 4. Configure OIDC (Casdoor)
 
-```bash
-# Docker
-docker compose up -d casdoor
+The stack uses your **existing central Casdoor instance** — no Casdoor container
+is included by default.
 
-# Podman
-podman compose up -d casdoor
-```
-
-Wait a few seconds, then visit `http://<server-ip>:8000` in your browser.
-
-> Caddy is not running yet, so use the direct port for this step.
-
----
-
-## 5. Configure Casdoor
-
-1. Log in with the default credentials: **admin / 123456**
-2. **Change the admin password immediately** — top-right menu → Manage My Account
-
-**Create an Organization:**
-
-- Left menu → Organizations → Add
-- Name: `my-org` (or anything you like)
-
-**Create an Application:**
+In your central Casdoor, create an Application for this media server:
 
 - Left menu → Applications → Add
 - Name: `media-server`
-- Organization: select the one you just created
-- Client ID / Client Secret: note these down — you will add them to `.env`
-- Redirect URLs: add `https://app.example.com/auth/callback`
-- Save
+- Redirect URLs: `https://app.example.com/auth/callback`
+- Note the **Client ID** and **Client Secret**
 
-**Create your user account:**
+To find your **User ID** (UUID needed for `PLATFORM_ADMIN_ID`):
+- Left menu → Users → click your user → note the ID field
 
-- Left menu → Users → Add
-- Fill in your username and email
-- Set a password
-- Note the **User ID** (UUID) shown in the user detail page — you need this for `PLATFORM_ADMIN_ID`
-
----
-
-## 6. Fill in the remaining .env values
+Fill in `.env`:
 
 ```env
-OIDC_CLIENT_ID=<Client ID from Casdoor>
-OIDC_CLIENT_SECRET=<Client Secret from Casdoor>
-PLATFORM_ADMIN_ID=<your User UUID from Casdoor>
+OIDC_ISSUER_URL=https://your-central-casdoor.example.com
+OIDC_CLIENT_ID=<Client ID>
+OIDC_CLIENT_SECRET=<Client Secret>
+PLATFORM_ADMIN_ID=<your User UUID>
 ```
+
+> **No central Casdoor?** Run one locally using the optional override:
+> see [Local Casdoor](#local-casdoor-optional) at the bottom of this guide.
 
 ---
 
-## 7. Start the full stack
+## 5. Start the stack
 
 ```bash
-# Docker
-docker compose up -d
-
-# Podman
 podman compose up -d
 ```
 
-Caddy will automatically obtain TLS certificates for both domains on first start.
-This requires ports 80 and 443 to be reachable from the internet.
+Caddy will automatically obtain a TLS certificate for `DOMAIN` on first start.
+This requires port 80 and 443 to be reachable from the internet.
 
 Check that everything came up:
 
@@ -211,7 +167,7 @@ Visit `https://app.example.com` — you should be redirected to Casdoor to log i
 
 ---
 
-## 8. Verify admin access
+## 6. Verify admin access
 
 After logging in, visit `/profile` — your **User ID** should match the
 `PLATFORM_ADMIN_ID` you set. If it does, the **Platform Admin** card appears
@@ -235,7 +191,6 @@ The following ports are internal (not exposed to the internet):
 | Port | Service |
 |------|---------|
 | 3000 | media-server (proxied by Caddy) |
-| 8000 | Casdoor (proxied by Caddy) |
 | 8888 | MediaMTX HLS |
 | 8889 | MediaMTX WebRTC |
 | 9090 | Prometheus |
@@ -391,3 +346,40 @@ podman compose up -d media-server
 echo "net.ipv4.ip_unprivileged_port_start=80" | sudo tee /etc/sysctl.d/99-podman-ports.conf
 sudo sysctl --system
 ```
+
+---
+
+## Local Casdoor (optional)
+
+Only needed if you don't have a central Casdoor instance.
+
+**1. Prepare Casdoor config:**
+
+```bash
+cp casdoor/app.conf.example casdoor/app.conf
+# Edit casdoor/app.conf — set origin = https://auth.example.com
+```
+
+**2. Add to `.env`:**
+
+```env
+AUTH_DOMAIN=auth.example.com
+OIDC_ISSUER_URL=http://casdoor:8000
+```
+
+**3. Start with the Casdoor override:**
+
+```bash
+# Start Casdoor first for initial setup
+podman compose -f docker-compose.yml -f docker-compose.casdoor.yml up -d casdoor
+
+# Visit http://<server>:8000 — log in with admin / 123456
+# Change the password, create an Organisation, Application, and your user.
+# Copy Client ID / Secret into .env.
+
+# Then start the full stack
+podman compose -f docker-compose.yml -f docker-compose.casdoor.yml up -d
+```
+
+The override adds the `casdoor` container and switches Caddy to `Caddyfile.casdoor`
+which also proxies `AUTH_DOMAIN` → `casdoor:8000`.

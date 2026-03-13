@@ -1,9 +1,10 @@
-# Caddyfile for Docker deployment
-# Environment variables injected by docker-compose:
-#   DOMAIN — main app domain, e.g. app.example.com
+# Caddyfile used when running with docker-compose.casdoor.yml (local Casdoor).
+# Proxies both the main app and the Casdoor auth domain.
+# Environment variables:
+#   DOMAIN      — main app domain, e.g. app.example.com
+#   AUTH_DOMAIN — Casdoor domain,   e.g. auth.example.com
 
 {$DOMAIN} {
-    # Security headers
     header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
         X-Frame-Options "SAMEORIGIN"
@@ -13,7 +14,6 @@
         -Server
     }
 
-    # HLS streaming — no buffering
     @hls {
         path /hls/* /live/*
     }
@@ -24,7 +24,6 @@
         }
     }
 
-    # WebRTC signaling
     @webrtc {
         path /whip/* /whep/*
     }
@@ -32,7 +31,6 @@
         reverse_proxy mediamtx:8889
     }
 
-    # Main app
     reverse_proxy media-server:3000 {
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}
@@ -48,5 +46,14 @@
             roll_keep 10
         }
         format json
+    }
+}
+
+# Local Casdoor OIDC provider
+{$AUTH_DOMAIN} {
+    reverse_proxy casdoor:8000 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
     }
 }

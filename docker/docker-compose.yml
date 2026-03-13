@@ -1,8 +1,11 @@
 version: "3.8"
 
 # Copy .env.example to .env and fill in your values before running.
-# Start: docker compose up -d
-# Logs:  docker compose logs -f media-server
+# Start: podman compose up -d
+# Logs:  podman compose logs -f media-server
+#
+# Local Casdoor: if you don't have a central Casdoor instance, add it with:
+#   podman compose -f docker-compose.yml -f docker-compose.casdoor.yml up -d
 
 services:
 
@@ -23,33 +26,8 @@ services:
       - caddy_config:/config
     environment:
       - DOMAIN=${DOMAIN:-localhost}
-      - AUTH_DOMAIN=${AUTH_DOMAIN:-auth.localhost}
     depends_on:
       - media-server
-      - casdoor
-    networks:
-      - media-network
-
-  # ============================================================
-  # Casdoor — OIDC / SSO identity provider
-  # ============================================================
-  # First-time setup:
-  #   1. Copy docker/casdoor/app.conf.example → docker/casdoor/app.conf
-  #      and set the origin to your public auth domain.
-  #   2. Start the stack: docker compose up -d casdoor
-  #   3. Visit http://<server>:8000 (or https://auth.yourdomain.com after Caddy is up)
-  #   4. Log in with admin / 123456 — change the password immediately.
-  #   5. Create an Organization, an Application (OIDC), and your user account.
-  #   6. Copy the Client ID / Secret into .env, then restart: docker compose up -d
-  casdoor:
-    image: casbin/casdoor:latest
-    container_name: casdoor
-    restart: unless-stopped
-    ports:
-      - "8000:8000"    # direct access for initial setup (can remove after Caddy is up)
-    volumes:
-      - ./casdoor/app.conf:/app/conf/app.conf:ro
-      - casdoor_data:/data
     networks:
       - media-network
 
@@ -127,11 +105,10 @@ services:
       - MEDIAMTX_API_PORT=9997
       - MEDIAMTX_HLS_PORT=8888
 
-      # OIDC — point at Casdoor (internal network for token validation)
-      - OIDC_ISSUER_URL=http://casdoor:8000
+      # OIDC — point at your central Casdoor instance
+      - OIDC_ISSUER_URL=${OIDC_ISSUER_URL}
       - OIDC_CLIENT_ID=${OIDC_CLIENT_ID}
       - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}
-      # Redirect URI must match what you configured in Casdoor (public URL)
       - OIDC_REDIRECT_URL=https://${DOMAIN:-localhost}/auth/callback
 
       # Platform admin — set to your Casdoor user UUID (visible on /profile)
@@ -149,8 +126,6 @@ services:
     depends_on:
       mediamtx:
         condition: service_healthy
-      casdoor:
-        condition: service_started
       otel-collector:
         condition: service_started
     healthcheck:
@@ -258,6 +233,5 @@ networks:
 volumes:
   caddy_data:
   caddy_config:
-  casdoor_data:
   prometheus_data:
   grafana_data:

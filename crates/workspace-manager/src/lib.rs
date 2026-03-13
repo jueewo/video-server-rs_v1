@@ -3832,7 +3832,7 @@ pub async fn create_invitation_handler(
     State(state): State<Arc<WorkspaceManagerState>>,
     Json(req): Json<InviteUserRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    require_auth(&session).await?;
+    require_platform_admin(&session).await?;
 
     let email = req.email.trim().to_lowercase();
     if email.is_empty() {
@@ -3856,7 +3856,7 @@ pub async fn list_invitations_handler(
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<Json<Vec<InvitationResponse>>, StatusCode> {
-    require_auth(&session).await?;
+    require_platform_admin(&session).await?;
 
     let rows: Vec<(String, String, String)> = sqlx::query_as(
         "SELECT email, tenant_id, invited_at FROM tenant_invitations WHERE tenant_id = ? ORDER BY invited_at DESC",
@@ -3882,7 +3882,7 @@ pub async fn delete_invitation_handler(
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<StatusCode, StatusCode> {
-    require_auth(&session).await?;
+    require_platform_admin(&session).await?;
 
     let decoded_email = urlencoding::decode(&email)
         .map(|s| s.into_owned())

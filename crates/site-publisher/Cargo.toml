@@ -1,0 +1,11 @@
+[package]
+name = "site-publisher"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+site-generator = { path = "../site-generator" }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+git2 = { version = "0.20", features = ["vendored-libgit2"] }
+chrono = { workspace = true }

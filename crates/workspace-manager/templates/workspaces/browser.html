@@ -35,9 +35,15 @@
                     <i data-lucide="play" class="w-3 h-3"></i> {{ label }}
                 </a>
                 {% endfor %}
-                {% if let Some(_) = &current_type_id %}
+                {% if let Some(tid) = &current_type_id %}
                 {% if !current_path.is_empty() %}
+                {% if tid == "website-gen" %}
+                <button onclick="generateSite()" id="generate-site-btn" class="btn btn-xs btn-primary gap-1">
+                    <i data-lucide="globe" class="w-3 h-3"></i> Publish Site
+                </button>
+                {% else %}
                 <button onclick="openPublishAsAppModal()" class="btn btn-xs btn-success gap-1"><i data-lucide="rocket" class="w-3 h-3"></i> Publish</button>
+                {% endif %}
                 {% endif %}
                 {% endif %}
             </div>
@@ -1662,6 +1668,38 @@
                 }
             })
             .catch(() => {});
+    }
+
+    // ── Site Generator ──────────────────────────────────────────────────────
+
+    async function generateSite() {
+        const btn = document.getElementById('generate-site-btn');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Publishing...';
+
+        try {
+            const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/site/generate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ folder_path: CURRENT_PATH }),
+            });
+
+            if (!r.ok) {
+                const msg = await r.text();
+                showToast('Generation failed: ' + (msg || r.status), 'error');
+                return;
+            }
+
+            const data = await r.json();
+            showToast(data.message || 'Site generated!', 'success');
+        } catch (e) {
+            showToast('Generation failed: ' + e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
     }
 
     // Stores the existing app_id if one was found for the current folder

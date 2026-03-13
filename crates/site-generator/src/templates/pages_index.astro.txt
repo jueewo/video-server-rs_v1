@@ -1,0 +1,83 @@
+---
+import MainLayout from "../../../layouts/main.astro";
+import ElementRenderer from "../../../components/page-renderer/ElementRenderer.astro";
+import CardDefault2 from "../../../components/CardDefault2.astro";
+import { getCollection, getEntry } from "astro:content";
+import CardInfo from "../../../components/CardInfo.astro";
+import TitleAlertBanner from "../../../components/page-elements/TitleAlertBanner.astro";
+import Config from "../../../website.config.cjs";
+
+export const prerender = true;
+
+const { lang } = Astro.params;
+
+export function getStaticPaths() {
+    return {{langstaticarray}};
+}
+
+let page_metatags = {
+    title: "{{metatag_title}}",
+    description: "{{metatag_description}}",
+    keywords: "{{metatag_keywords}}",
+    author: "{{metatag_author}}",
+};
+
+const title = "{{title}}";
+const collection_name = "{{collection_name}}";
+
+const page_elements = (await getCollection(collection_name))
+    .filter((a) => !a.data.draft)
+    .sort((a, b) => a.data.weight - b.data.weight);
+
+let page_elements_actlang = page_elements.filter(
+    (a) => a.id.split("/")[0] == lang,
+);
+
+let metatags_element_index = page_elements_actlang.findIndex(
+    (a) => a.data.element == "Page-Metatags",
+);
+if (metatags_element_index > -1) {
+    let metatags_element = page_elements_actlang.splice(metatags_element_index, 1)[0];
+    if (metatags_element) {
+        page_metatags = {
+            title: metatags_element.data.props.title,
+            description: metatags_element.data.props.description,
+            keywords: metatags_element.data.props.keywords,
+            author: metatags_element.data.props.author,
+        };
+    }
+}
+
+let showing_default_language = false;
+const default_lang = Config.defaultLanguage.locale;
+if (page_elements_actlang.length == 0) {
+    showing_default_language = true;
+    page_elements_actlang = page_elements.filter(
+        (a) => a.id.split("/")[0] == default_lang,
+    );
+}
+
+let info = {
+    draft: true,
+    weight: 0,
+    element: "TitleAlertBanner",
+    slot: null,
+    wrapper: null,
+    content: {
+        title: "This page is not available in your selected language => showing " + Config.defaultLanguage.language,
+        desc: null,
+    },
+    props: { id: "introhero", h2: true, draft: false },
+};
+---
+
+<MainLayout title={title} page_metatags={page_metatags}>
+    {showing_default_language && (
+        <div class="">
+            <ElementRenderer element={info} index={1} />
+        </div>
+    )}
+    {page_elements_actlang.map((page_element, index) => (
+        <ElementRenderer element={page_element.data} index={index} />
+    ))}
+</MainLayout>

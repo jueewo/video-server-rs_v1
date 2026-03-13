@@ -3942,6 +3942,151 @@ pub async fn me_branding_handler(
 }
 
 // ============================================================================
+// Site generator handler
+// ============================================================================
+
+#[derive(Deserialize)]
+pub struct GenerateSiteRequest {
+    /// Workspace-relative path to the website-gen folder (e.g. "websites/minimal")
+    pub folder_path: String,
+    /// Optional: server path to the Astro components/layouts directory
+    pub components_dir: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct GenerateSiteResponse {
+    pub output_dir: String,
+    pub message: String,
+}
+
+/// POST /api/workspaces/{workspace_id}/site/generate
+///
+/// Generates the merged Astro project from the sitedef.yaml + data files in the
+/// specified website-gen folder. Output is written to storage/site-builds/.
+pub async fn generate_site_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(request): Json<GenerateSiteRequest>,
+) -> Result<Json<GenerateSiteResponse>, StatusCode> {
+    check_scope(&user, "write")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    // Validate and resolve source path
+    let clean = request.folder_path.trim_start_matches('/');
+    for seg in clean.split('/') {
+        if seg == ".." || seg == "." {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+    }
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let source_dir = workspace_root.join(clean);
+    if !source_dir.exists() || !source_dir.is_dir() {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    // Verify the folder is typed as website-gen
+    let config = WorkspaceConfig::load(&workspace_root).map_err(|e| {
+        warn!("Failed to load workspace config: {e}");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    let folder_config = config.get_folder(&request.folder_path).ok_or(StatusCode::NOT_FOUND)?;
+    if folder_config.folder_type.as_str() != "website-gen" {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    // Determine components dir: request override → folder metadata → env var
+    let components_dir = request
+        .components_dir
+        .as_deref()
+        .filter(|s: &&str| !s.is_empty())
+        .map(std::path::PathBuf::from)
+        .or_else(|| {
+            folder_config
+                .metadata
+                .get("components_dir")
+                .and_then(|v: &serde_yaml::Value| v.as_str())
+                .filter(|s: &&str| !s.is_empty())
+                .map(std::path::PathBuf::from)
+        })
+        .or_else(|| std::env::var("SITE_COMPONENTS_DIR").ok().map(Into::into));
+
+    // Output path: storage/site-builds/{workspace_id}/{folder_slug}
+    let folder_slug = clean.replace('/', "_");
+    let output_dir = state
+        .storage
+        .base_dir()
+        .join("site-builds")
+        .join(&workspace_id)
+        .join(&folder_slug);
+
+    // Pull git config from folder metadata
+    let meta_str = |key: &str| -> Option<String> {
+        folder_config
+            .metadata
+            .get(key)
+            .and_then(|v: &serde_yaml::Value| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string())
+    };
+    let forgejo_repo = meta_str("forgejo_repo");
+    let forgejo_branch = meta_str("forgejo_branch").unwrap_or_else(|| "main".into());
+    let forgejo_token = meta_str("forgejo_token")
+        .or_else(|| std::env::var("FORGEJO_TOKEN").ok());
+
+    // Persistent repo cache: storage/site-repos/{workspace_id}/{folder_slug}
+    let repo_cache_dir = state
+        .storage
+        .base_dir()
+        .join("site-repos")
+        .join(&workspace_id)
+        .join(&folder_slug);
+
+    // Run publish (and optional git push) in a blocking thread
+    let publish_config = site_publisher::PublishConfig {
+        source_dir,
+        output_dir: output_dir.clone(),
+        components_dir,
+    };
+
+    let git_config = forgejo_repo.as_ref().and_then(|repo_url| {
+        let token = forgejo_token.clone()?;
+        Some(site_publisher::GitPushConfig {
+            repo_url: repo_url.clone(),
+            branch: forgejo_branch.clone(),
+            token,
+            author_name: "YHM Site Generator".into(),
+            author_email: "generator@yhm.local".into(),
+            source_dir: output_dir.clone(),
+            repo_cache_dir: repo_cache_dir.clone(),
+        })
+    });
+
+    let message = tokio::task::spawn_blocking(move || {
+        if let Some(git) = git_config {
+            site_publisher::publish_and_push(&publish_config, &git)
+        } else {
+            site_publisher::publish(&publish_config)?;
+            Ok(format!("Site generated at {folder_slug} (no Forgejo repo configured)"))
+        }
+    })
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .map_err(|e| {
+        warn!("Site publish failed: {e:#}");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    info!("Site published: {}", output_dir.display());
+    Ok(Json(GenerateSiteResponse {
+        output_dir: output_dir.display().to_string(),
+        message,
+    }))
+}
+
+// ============================================================================
 // Router
 // ============================================================================
 
@@ -4017,6 +4162,10 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         .route(
             "/api/workspaces/{workspace_id}/course/publish",
             post(publish_course),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/site/generate",
+            post(generate_site_handler),
         )
         .route(
             "/api/workspaces/{workspace_id}/presentation/sync-yaml",

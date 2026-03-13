@@ -28,6 +28,8 @@ members = [
     "crates/standalone/webdav",
     "crates/workspace-apps",
     "crates/workspace-renderers",
+    "crates/site-generator",
+    "crates/site-publisher",
 ]
 resolver = "2"
 

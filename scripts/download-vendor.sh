@@ -74,6 +74,8 @@ bun build "$TEMP_DIR/excalidraw-entry.js" \
     --bundle --target browser --format iife \
     --define 'process.env.IS_PREACT="true"' \
     --define 'process.env.NODE_ENV="production"' \
+    --define 'import.meta.env={"MODE":"production","DEV":false,"PROD":true}' \
+    --define 'import.meta.url=""' \
     --outfile "$VENDOR_DIR/excalidraw.production.min.js"
 # Fonts: v0.18 ships them under dist/prod/fonts/{Family}/Name-Regular.woff2.
 # EXCALIDRAW_ASSET_PATH is set to /static/vendor/excalidraw-assets/ in the

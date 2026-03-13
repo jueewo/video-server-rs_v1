@@ -189,14 +189,17 @@ struct UserProfileTemplate {
     name: String,
     email: String,
     avatar_url: String,
+    provider: String,
+    last_login_at: String,
+    tenant_id: String,
 }
 
 // -------------------------------
 // User Profile Handler
 // -------------------------------
-#[tracing::instrument(skip(_state, session))]
+#[tracing::instrument(skip(state, session))]
 pub async fn user_profile_handler(
-    State(_state): State<Arc<AuthState>>,
+    State(state): State<Arc<AuthState>>,
     session: Session,
 ) -> Result<Html<String>, StatusCode> {
     // Check if authenticated
@@ -233,12 +236,36 @@ pub async fn user_profile_handler(
         .flatten()
         .unwrap_or_else(|| String::new());
 
+    let tenant_id: String = session
+        .get("tenant_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "platform".to_string());
+
+    // Fetch provider and last_login_at from DB
+    let (provider, last_login_at) = sqlx::query_as::<_, (String, Option<String>)>(
+        "SELECT provider, last_login_at FROM users WHERE id = ? LIMIT 1",
+    )
+    .bind(&user_id)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten()
+    .map(|(p, l)| (p, l))
+    .unwrap_or_else(|| ("oidc".to_string(), None));
+
+    let last_login_at = last_login_at.unwrap_or_else(|| "—".to_string());
+
     let template = UserProfileTemplate {
-        authenticated: true, // User must be authenticated to see profile
+        authenticated: true,
         user_id,
         name,
         email,
         avatar_url,
+        provider,
+        last_login_at,
+        tenant_id,
     };
 
     Ok(Html(template.render().unwrap()))

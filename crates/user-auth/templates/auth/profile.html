@@ -1,6 +1,7 @@
 {% extends "base-tailwind.html" %} {% block title %}Profile - Media Server{%
 endblock %} {% block content %}
-<div class="container mx-auto px-4 py-8 max-w-4xl">
+<div class="container mx-auto px-4 py-8 max-w-5xl">
+
     <!-- Page Header -->
     <div class="page-header mb-8">
         <div>
@@ -9,349 +10,123 @@ endblock %} {% block content %}
                       style="background: linear-gradient(135deg, #a18cd1, #fbc2eb); box-shadow: 0 4px 12px rgba(161,140,209,0.35);">
                     <i data-lucide="user" class="w-5 h-5 text-white"></i>
                 </span>
-                <span class="text-gradient">My Profile</span>
+                <span class="text-gradient">Profile</span>
             </h1>
-            <p class="page-header-subtitle">Manage your account and preferences</p>
+            <p class="page-header-subtitle">Your account details and settings</p>
         </div>
     </div>
 
-    <!-- Profile Card -->
-    <div class="card bg-base-200 shadow-xl mb-6">
-        <div class="card-body">
-            <div class="flex items-center gap-4 mb-6">
-                <div class="avatar">
-                    <div class="w-20 h-20 rounded-full">
-                        {% if !avatar_url.is_empty() %}
-                        <img
-                            src="{{ avatar_url }}"
-                            alt="{{ name }}"
-                            class="rounded-full"
-                        />
-                        {% else %}
-                        <div
-                            class="bg-primary text-primary-content rounded-full w-20 h-20 flex items-center justify-center"
-                        >
-                            <i data-lucide="user" class="w-12 h-12"></i>
-                        </div>
-                        {% endif %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Identity -->
+        <div class="card bg-base-100 border border-base-300 shadow-sm">
+            <div class="card-body p-5">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
+                          style="background: linear-gradient(135deg, #a18cd1, #fbc2eb); box-shadow: 0 3px 8px rgba(161,140,209,0.3);">
+                        <i data-lucide="circle-user" class="w-4 h-4 text-white"></i>
+                    </span>
+                    <h2 class="font-semibold text-base">Identity</h2>
+                </div>
+
+                <!-- Avatar + name -->
+                <div class="flex items-center gap-4 px-3 mb-3">
+                    {% if !avatar_url.is_empty() %}
+                    <img src="{{ avatar_url }}" alt="{{ name }}" class="w-14 h-14 rounded-full shrink-0 ring-2 ring-base-300" />
+                    {% else %}
+                    <div class="w-14 h-14 rounded-full bg-base-300 flex items-center justify-center shrink-0">
+                        <i data-lucide="user" class="w-7 h-7 text-base-content/40"></i>
+                    </div>
+                    {% endif %}
+                    <div>
+                        <div class="font-semibold">{{ name }}</div>
+                        <span class="badge badge-sm badge-ghost mt-1">Standard User</span>
                     </div>
                 </div>
-                <div>
-                    <h2 class="card-title text-2xl">{{ name }}</h2>
-                    <p class="text-base-content/70">{{ email }}</p>
-                </div>
-            </div>
 
-            <div class="divider"></div>
-
-            <!-- User Details Table -->
-            <div class="overflow-x-auto">
-                <table class="table">
-                    <tbody>
-                        <tr>
-                            <td class="font-semibold w-1/3">Full Name</td>
-                            <td>{{ name }}</td>
-                        </tr>
-                        <tr>
-                            <td class="font-semibold">Email Address</td>
-                            <td>{{ email }}</td>
-                        </tr>
-                        <tr>
-                            <td class="font-semibold">User ID</td>
-                            <td class="font-mono text-sm">{{ user_id }}</td>
-                        </tr>
-                        <tr>
-                            <td class="font-semibold">Account Type</td>
-                            <td>
-                                <span class="badge badge-primary"
-                                    >Standard User</span
-                                >
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                <ul class="space-y-1">
+                    <li class="flex items-start gap-3 px-3 py-2 rounded-lg">
+                        <i data-lucide="mail" class="w-4 h-4 text-base-content/40 mt-0.5 shrink-0"></i>
+                        <div>
+                            <div class="text-xs text-base-content/50">Email</div>
+                            <div class="text-sm font-medium">{{ email }}</div>
+                        </div>
+                    </li>
+                    <li class="flex items-start gap-3 px-3 py-2 rounded-lg">
+                        <i data-lucide="fingerprint" class="w-4 h-4 text-base-content/40 mt-0.5 shrink-0"></i>
+                        <div>
+                            <div class="text-xs text-base-content/50">User ID</div>
+                            <div class="text-sm font-medium font-mono">{{ user_id }}</div>
+                        </div>
+                    </li>
+                    <li class="flex items-start gap-3 px-3 py-2 rounded-lg">
+                        <i data-lucide="shield" class="w-4 h-4 text-base-content/40 mt-0.5 shrink-0"></i>
+                        <div>
+                            <div class="text-xs text-base-content/50">Auth method</div>
+                            <div class="text-sm font-medium">{{ provider }}</div>
+                        </div>
+                    </li>
+                    <li class="flex items-start gap-3 px-3 py-2 rounded-lg">
+                        <i data-lucide="building-2" class="w-4 h-4 text-base-content/40 mt-0.5 shrink-0"></i>
+                        <div>
+                            <div class="text-xs text-base-content/50">Tenant</div>
+                            <div class="text-sm font-medium font-mono">{{ tenant_id }}</div>
+                        </div>
+                    </li>
+                    <li class="flex items-start gap-3 px-3 py-2 rounded-lg">
+                        <i data-lucide="clock" class="w-4 h-4 text-base-content/40 mt-0.5 shrink-0"></i>
+                        <div>
+                            <div class="text-xs text-base-content/50">Last login</div>
+                            <div class="text-sm font-medium">{{ last_login_at }}</div>
+                        </div>
+                    </li>
+                </ul>
             </div>
         </div>
-    </div>
 
-    <!-- Quick Stats -->
-    <div class="stats shadow-xl mb-6 w-full bg-base-200">
-        <div class="stat">
-            <div class="stat-figure text-primary">
-                <i data-lucide="layout-grid" class="w-8 h-8"></i>
-            </div>
-            <div class="stat-title">Total Media</div>
-            <div class="stat-value text-primary">0</div>
-            <div class="stat-desc">Images, videos, documents</div>
-        </div>
-
-        <div class="stat">
-            <div class="stat-figure text-secondary">
-                <i data-lucide="folder" class="w-8 h-8"></i>
-            </div>
-            <div class="stat-title">Workspaces</div>
-            <div class="stat-value text-secondary">0</div>
-            <div class="stat-desc">Active workspaces</div>
-        </div>
-
-        <div class="stat">
-            <div class="stat-figure text-accent">
-                <i data-lucide="lock" class="w-8 h-8"></i>
-            </div>
-            <div class="stat-title">Vaults</div>
-            <div class="stat-value text-accent">0</div>
-            <div class="stat-desc">Private & shared</div>
-        </div>
-
-        <div class="stat">
-            <div class="stat-figure text-warning">
-                <i data-lucide="key" class="w-8 h-8"></i>
-            </div>
-            <div class="stat-title">Access Codes</div>
-            <div class="stat-value text-warning">0</div>
-            <div class="stat-desc">Active sharing codes</div>
-        </div>
-    </div>
-
-    <!-- Workspaces, Vaults & Apps -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <!-- Vaults Card -->
-        <div
-            class="card bg-gradient-to-br from-secondary/10 to-secondary/5 shadow-xl"
-        >
-            <div class="card-body">
+        <!-- Account -->
+        <div class="card bg-base-100 border border-base-300 shadow-sm">
+            <div class="card-body p-5">
                 <div class="flex items-center gap-3 mb-4">
-                    <i data-lucide="lock" class="w-8 h-8 text-secondary"></i>
-                    <h3 class="card-title">Vaults</h3>
+                    <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
+                          style="background: linear-gradient(135deg, #556270, #4ecdc4); box-shadow: 0 3px 8px rgba(78,205,196,0.3);">
+                        <i data-lucide="settings-2" class="w-4 h-4 text-white"></i>
+                    </span>
+                    <h2 class="font-semibold text-base">Account</h2>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="table table-sm">
-                        <tbody>
-                            <tr>
-                                <td class="font-semibold">Private Vaults</td>
-                                <td class="text-right">
-                                    <span class="badge badge-secondary">0</span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="font-semibold">Shared Vaults</td>
-                                <td class="text-right">
-                                    <span class="badge badge-ghost">0</span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="font-semibold">Storage Used</td>
-                                <td class="text-right">0 MB</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="card-actions justify-end mt-2">
-                    <a href="/vaults" class="btn btn-secondary btn-sm gap-2">
-                        <i data-lucide="file" class="w-4 h-4"></i>
-                        Manage Vaults
-                    </a>
-                </div>
-            </div>
-        </div>
+                <ul class="space-y-1">
+                    <li>
+                        <a href="/profile/api-keys" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="key" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">API Keys</div>
+                                <div class="text-xs text-base-content/50">Keys for scripts and automation</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/settings" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="settings" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">Settings</div>
+                                <div class="text-xs text-base-content/50">Manage workspaces, media, and apps</div>
+                            </div>
+                        </a>
+                    </li>
+                </ul>
 
-        <!-- Workspaces Card -->
-        <div
-            class="card bg-gradient-to-br from-primary/10 to-primary/5 shadow-xl"
-        >
-            <div class="card-body">
-                <div class="flex items-center gap-3 mb-4">
-                    <i data-lucide="folder" class="w-8 h-8 text-primary"></i>
-                    <h3 class="card-title">Workspaces</h3>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="table table-sm">
-                        <tbody>
-                            <tr>
-                                <td class="font-semibold">Active Workspaces</td>
-                                <td class="text-right">
-                                    <span class="badge badge-primary">0</span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="font-semibold">Shared Workspaces</td>
-                                <td class="text-right">
-                                    <span class="badge badge-ghost">0</span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="font-semibold">Total Items</td>
-                                <td class="text-right">0</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="card-actions justify-end mt-2">
-                    <a href="/workspaces" class="btn btn-primary btn-sm gap-2">
-                        <i data-lucide="clipboard" class="w-4 h-4"></i>
-                        Manage Workspaces
-                    </a>
-                </div>
-            </div>
-        </div>
+                <div class="divider my-2"></div>
 
-        <!-- Apps Card -->
-        <div
-            class="card bg-gradient-to-br from-accent/10 to-accent/5 shadow-xl"
-        >
-            <div class="card-body">
-                <div class="flex items-center gap-3 mb-4">
-                    <i data-lucide="layout-grid" class="w-8 h-8 text-accent"></i>
-                    <h3 class="card-title">Apps</h3>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="table table-sm">
-                        <tbody>
-                            <tr>
-                                <td class="font-semibold">3D Gallery</td>
-                                <td class="text-right">
-                                    <span class="badge badge-accent"
-                                        >Available</span
-                                    >
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="font-semibold">Course Viewer</td>
-                                <td class="text-right">
-                                    <span class="badge badge-ghost"
-                                        >Coming Soon</span
-                                    >
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="font-semibold">Media CLI</td>
-                                <td class="text-right">
-                                    <span class="badge badge-ghost"
-                                        >Coming Soon</span
-                                    >
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="card-actions justify-end mt-2">
-                    <a href="/apps" class="btn btn-accent btn-sm gap-2">
-                        <i data-lucide="layout-grid" class="w-4 h-4"></i>
-                        Browse Apps
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Quick Actions -->
-    <div class="mb-6">
-        <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
-            <i data-lucide="zap" class="w-6 h-6"></i>
-            Quick Actions
-        </h2>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <a
-            href="/media"
-            class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
-        >
-            <div class="card-body items-center text-center">
-                <i data-lucide="server" class="w-12 h-12 text-secondary mb-2"></i>
-                <h3 class="card-title text-lg">All Media</h3>
-                <p class="text-sm text-base-content/70">
-                    Global view across all vaults
-                </p>
-            </div>
-        </a>
-
-        <a
-            href="/videos"
-            class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
-        >
-            <div class="card-body items-center text-center">
-                <i data-lucide="video" class="w-12 h-12 text-error mb-2"></i>
-                <h3 class="card-title text-lg">Videos (legacy)</h3>
-                <p class="text-sm text-base-content/70">
-                    Legacy video list view</p>
-            </div>
-        </a>
-
-        <a
-            href="/media/upload"
-            class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
-        >
-            <div class="card-body items-center text-center">
-                <i data-lucide="upload" class="w-12 h-12 text-success mb-2"></i>
-                <h3 class="card-title text-lg">Upload Media</h3>
-                <p class="text-sm text-base-content/70">Add new content</p>
-            </div>
-        </a>
-
-        <a
-            href="/groups"
-            class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
-        >
-            <div class="card-body items-center text-center">
-                <i data-lucide="users" class="w-12 h-12 text-accent mb-2"></i>
-                <h3 class="card-title text-lg">Groups</h3>
-                <p class="text-sm text-base-content/70">Manage access groups</p>
-            </div>
-        </a>
-
-        <a
-            href="/access/codes"
-            class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
-        >
-            <div class="card-body items-center text-center">
-                <i data-lucide="key" class="w-12 h-12 text-warning mb-2"></i>
-                <h3 class="card-title text-lg">Access Codes</h3>
-                <p class="text-sm text-base-content/70">Share media securely</p>
-            </div>
-        </a>
-
-        <a
-            href="/profile/api-keys"
-            class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
-        >
-            <div class="card-body items-center text-center">
-                <i data-lucide="lock" class="w-12 h-12 text-error mb-2"></i>
-                <h3 class="card-title text-lg">API Keys</h3>
-                <p class="text-sm text-base-content/70">API automation</p>
-            </div>
-        </a>
-
-        <a
-            href="/docs"
-            class="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
-        >
-            <div class="card-body items-center text-center">
-                <i data-lucide="file-text" class="w-12 h-12 text-purple-500 mb-2"></i>
-                <h3 class="card-title text-lg">Documentation</h3>
-                <p class="text-sm text-base-content/70">View docs</p>
-            </div>
-        </a>
-    </div>
-
-    <!-- Account Actions -->
-    <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-            <h3 class="card-title mb-4">Account Actions</h3>
-            <div class="flex flex-wrap gap-3">
-                <a href="/" class="btn btn-primary gap-2">
-                    <i data-lucide="home" class="w-5 h-5"></i>
-                    Back to Home
-                </a>
-                <a href="/logout" class="btn btn-error gap-2">
-                    <i data-lucide="log-out" class="w-5 h-5"></i>
-                    Logout
+                <a href="/logout" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-error/10 transition-colors group">
+                    <i data-lucide="log-out" class="w-4 h-4 text-base-content/40 group-hover:text-error shrink-0"></i>
+                    <div>
+                        <div class="text-sm font-medium group-hover:text-error transition-colors">Sign out</div>
+                        <div class="text-xs text-base-content/50">End your current session</div>
+                    </div>
                 </a>
             </div>
         </div>
+
     </div>
 </div>
-{% endblock %} {% block extra_scripts %}
-<script>
-    console.log("Profile page loaded");
-</script>
 {% endblock %}

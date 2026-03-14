@@ -48,6 +48,8 @@ struct SiteOverviewTemplate {
     languages: Vec<String>,
     // Navigation preview (flat label list)
     nav_preview: Vec<String>,
+    // Full path breadcrumbs: (label, url) — excludes the root "Workspaces" entry
+    breadcrumbs: Vec<(String, String)>,
     // Forgejo connection
     forgejo_repo: String,
     forgejo_branch: String,
@@ -170,6 +172,25 @@ fn build_template_data(
 
     let nav_preview = nav_labels(&sitedef.menu, 8);
 
+    // Build breadcrumbs from folder_path segments, e.g. "websites/minimal"
+    // → [("Getting famous", /workspaces/{id}/browse), ("websites", .../websites), ("minimal", current)]
+    let mut breadcrumbs: Vec<(String, String)> = vec![(
+        ctx.workspace_name.clone(),
+        format!("/workspaces/{}/browse", ctx.workspace_id),
+    )];
+    {
+        let mut acc = String::new();
+        for segment in ctx.folder_path.split('/') {
+            if segment.is_empty() { continue; }
+            if !acc.is_empty() { acc.push('/'); }
+            acc.push_str(segment);
+            breadcrumbs.push((
+                segment.to_string(),
+                format!("/workspaces/{}/browse/{}", ctx.workspace_id, acc),
+            ));
+        }
+    }
+
     let forgejo_repo = ctx.meta_str("forgejo_repo").unwrap_or("").to_string();
     let forgejo_branch = ctx
         .meta_str("forgejo_branch")
@@ -197,6 +218,7 @@ fn build_template_data(
         collections,
         languages: locales,
         nav_preview,
+        breadcrumbs,
         forgejo_repo,
         forgejo_branch,
         has_git,

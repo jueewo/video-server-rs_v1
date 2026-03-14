@@ -1,0 +1,827 @@
+{% extends "base-tailwind.html" %}
+{% block title %}Element Editor — {{ folder_name }} — {{ workspace_name }}{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-6xl">
+
+    <!-- Breadcrumbs -->
+    <div class="text-sm breadcrumbs mb-4">
+        <ul>
+            <li><a href="/workspaces">Workspaces</a></li>
+            {% for (label, url) in breadcrumbs %}
+            {% if !loop.last %}
+            <li><a href="{{ url }}">{{ label }}</a></li>
+            {% else %}
+            <li>{{ label }}</li>
+            {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <div class="flex items-center gap-3 mb-1">
+                <h1 class="text-2xl font-bold">Page Element Editor</h1>
+                <span class="badge badge-outline text-xs" style="border-color:#0EA5E9;color:#0EA5E9;">{{ folder_name }}</span>
+            </div>
+            <p class="text-base-content/60 text-sm">Drag to reorder • Sections expand to show nested elements</p>
+        </div>
+        <div class="flex gap-2 flex-shrink-0">
+            <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}" class="btn btn-sm btn-ghost gap-1">
+                <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Overview
+            </a>
+            <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}?files=1" class="btn btn-sm btn-ghost gap-1">
+                <i data-lucide="folder-open" class="w-4 h-4"></i> Files
+            </a>
+        </div>
+    </div>
+
+    <!-- Page / Language selectors -->
+    <div class="flex flex-wrap gap-3 mb-6 items-center">
+        <form method="get" action="/workspaces/{{ workspace_id }}/site-editor" class="flex gap-2 items-center flex-wrap">
+            <input type="hidden" name="path" value="{{ folder_path }}">
+            <label class="text-sm font-medium">Page:</label>
+            <select name="page" class="select select-sm select-bordered" onchange="this.form.submit()">
+                {% for pg in &pages %}
+                <option value="{{ pg }}" {% if pg == &selected_page %}selected{% endif %}>{{ pg }}</option>
+                {% endfor %}
+            </select>
+            <label class="text-sm font-medium ml-2">Language:</label>
+            <select name="lang" class="select select-sm select-bordered" onchange="this.form.submit()">
+                {% for lc in &languages %}
+                <option value="{{ lc }}" {% if lc == &selected_lang %}selected{% endif %}>{{ lc }}</option>
+                {% endfor %}
+            </select>
+            <button type="button" onclick="showAddModal(null)" class="btn btn-sm btn-primary gap-1">
+                <i data-lucide="plus" class="w-4 h-4"></i> Add Element
+            </button>
+        </form>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+        <!-- Element list -->
+        <div class="lg:col-span-3">
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-base mb-3">
+                        <i data-lucide="list" class="w-4 h-4"></i>
+                        Elements — <span class="font-mono text-sm text-base-content/60">{{ selected_page }}/{{ selected_lang }}</span>
+                    </h2>
+                    <ul id="element-list" class="space-y-2">
+                        <!-- rendered by JS -->
+                    </ul>
+                    <p id="empty-msg" class="hidden text-sm text-base-content/50 py-4 text-center">
+                        No elements yet. Click "Add Element" to create the first one.
+                    </p>
+                    <div class="mt-3 text-xs text-base-content/40">
+                        Drag to reorder. Changes save automatically.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Editor panel -->
+        <div class="lg:col-span-2">
+            <div class="card bg-base-100 border border-base-300 shadow-sm sticky top-4">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-base" id="editor-title">
+                        <i data-lucide="code" class="w-4 h-4"></i> Select an element
+                    </h2>
+                    <p class="text-xs text-base-content/50 mb-2" id="editor-subtitle">Click the pencil icon on any element.</p>
+
+                    <div id="editor-form" class="hidden">
+                        <div role="tablist" class="tabs tabs-bordered mb-4">
+                            <button role="tab" id="tab-form" class="tab tab-active text-sm" onclick="switchTab('form')">Form</button>
+                            <button role="tab" id="tab-json" class="tab text-sm" onclick="switchTab('json')">JSON</button>
+                        </div>
+
+                        <!-- Form view -->
+                        <div id="form-view">
+                            <div class="grid grid-cols-2 gap-3 mb-4 pb-4 border-b border-base-200">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" id="field-draft" class="checkbox checkbox-sm">
+                                    <span class="text-xs font-medium">Draft (hidden)</span>
+                                </label>
+                            </div>
+                            <div id="form-fields" class="space-y-3 max-h-96 overflow-y-auto pr-1"></div>
+                        </div>
+
+                        <!-- JSON view -->
+                        <div id="json-view" class="hidden">
+                            <textarea id="json-editor" class="textarea textarea-bordered font-mono text-xs w-full" rows="22" spellcheck="false"></textarea>
+                        </div>
+
+                        <div class="flex gap-2 mt-4">
+                            <button onclick="saveElement()" class="btn btn-sm btn-primary gap-1">
+                                <i data-lucide="save" class="w-3 h-3"></i> Save
+                            </button>
+                            <button onclick="closeEditor()" class="btn btn-sm btn-ghost">Cancel</button>
+                        </div>
+                        <div id="editor-status" class="text-xs mt-1"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Element Modal -->
+<dialog id="add-modal" class="modal">
+    <div class="modal-box">
+        <h3 id="add-modal-title" class="font-bold text-lg mb-4">Add Element</h3>
+        <div class="space-y-3">
+            <div>
+                <label class="label py-0 pb-1"><span class="label-text text-sm">Element Type</span></label>
+                <select id="new-element-type" class="select select-bordered w-full select-sm">
+                    <optgroup label="Layout">
+                        <option value="Section">Section</option>
+                    </optgroup>
+                    <optgroup label="Heroes">
+                        <option value="Hero" selected>Hero</option>
+                        <option value="Hero2">Hero2</option>
+                        <option value="TitleHero">TitleHero</option>
+                        <option value="TitleAlertBanner">TitleAlertBanner</option>
+                    </optgroup>
+                    <optgroup label="Content">
+                        <option value="Collection">Collection</option>
+                        <option value="MdText">MdText</option>
+                        <option value="NewsBanner">NewsBanner</option>
+                        <option value="Carousel">Carousel</option>
+                        <option value="StatData">StatData</option>
+                        <option value="SlidingGallery">SlidingGallery</option>
+                        <option value="TeamGrid">TeamGrid</option>
+                    </optgroup>
+                    <optgroup label="Media / Interactive">
+                        <option value="Video">Video</option>
+                        <option value="Presentation">Presentation</option>
+                        <option value="Process">Process</option>
+                        <option value="CTARemote">CTARemote</option>
+                        <option value="CTA">CTA</option>
+                        <option value="LikeButton">LikeButton</option>
+                        <option value="Hello">Hello</option>
+                    </optgroup>
+                    <optgroup label="Meta">
+                        <option value="Page-Metatags">Page-Metatags</option>
+                    </optgroup>
+                </select>
+            </div>
+        </div>
+        <div class="modal-action">
+            <button onclick="doAddElement()" class="btn btn-primary btn-sm">Add</button>
+            <button onclick="document.getElementById('add-modal').close()" class="btn btn-ghost btn-sm">Cancel</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Delete Modal -->
+<dialog id="delete-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold">Delete element?</h3>
+        <p class="text-sm text-base-content/60 mt-2"><span id="delete-desc" class="font-mono text-xs"></span></p>
+        <p class="text-sm text-error mt-1">This cannot be undone.</p>
+        <div class="modal-action">
+            <button onclick="doDelete()" class="btn btn-error btn-sm">Delete</button>
+            <button onclick="document.getElementById('delete-modal').close()" class="btn btn-ghost btn-sm">Cancel</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Toast -->
+<div id="toast" class="toast toast-top toast-end hidden z-50">
+    <div id="toast-msg" class="alert shadow-lg max-w-sm"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
+<script src="/static/js/json-form-editor.js"></script>
+<script>
+var WORKSPACE_ID = '{{ workspace_id }}';
+var FOLDER_PATH  = '{{ folder_path }}';
+var PAGE         = '{{ selected_page }}';
+var LANG         = '{{ selected_lang }}';
+
+// The full page data — single source of truth
+var pageData = {{ page_json|safe }};
+
+// currentEdit: null | { outer: null|number, idx: number }
+var currentEdit = null;
+var pendingDelete = null; // same structure
+var addTarget = null;  // null = top-level, number = section's outer index
+var jfe = null;
+
+// ── Field schemas ─────────────────────────────────────────────────────────────
+var FIELD_SCHEMAS = {
+    'Page-Metatags': [
+        { path: 'content.title',        type: 'text',     label: 'Page title' },
+        { path: 'content.description',  type: 'text',     label: 'Description' },
+        { path: 'content.keywords',     type: 'text',     label: 'Keywords' },
+        { path: 'content.author',       type: 'text',     label: 'Author' },
+    ],
+    Hero: [
+        { path: 'content.title',        type: 'text',       label: 'Title' },
+        { path: 'content.desc',         type: 'text-array', label: 'Description' },
+        { path: 'content.button',       type: 'text',       label: 'Button text' },
+        { path: 'content.image',        type: 'text',       label: 'Image path' },
+        { path: 'props.link.path',      type: 'text',       label: 'Button link' },
+        { path: 'props.link.label',     type: 'text',       label: 'Link aria-label' },
+        { path: 'props.fullscreen',     type: 'boolean',    label: 'Full screen' },
+        { path: 'props.image_zoomable', type: 'boolean',    label: 'Zoomable image' },
+        { path: 'props.ext',            type: 'boolean',    label: 'External link' },
+    ],
+    Hero2: [
+        { path: 'content.title',        type: 'text',       label: 'Title' },
+        { path: 'content.desc',         type: 'text-array', label: 'Description' },
+        { path: 'content.button',       type: 'text',       label: 'Button text' },
+        { path: 'content.image',        type: 'text',       label: 'Image path' },
+        { path: 'content.image_alt',    type: 'text',       label: 'Image alt text' },
+        { path: 'content.bgimage',      type: 'text',       label: 'Background image' },
+        { path: 'content.bgimage_alt',  type: 'text',       label: 'Background image alt' },
+        { path: 'content.tags',         type: 'text-array', label: 'Tags' },
+        { path: 'props.link.path',      type: 'text',       label: 'Button link' },
+        { path: 'props.link.label',     type: 'text',       label: 'Link aria-label' },
+        { path: 'props.fullscreen',     type: 'boolean',    label: 'Full screen' },
+    ],
+    Section: [
+        { path: 'props.styleclass',     type: 'text',       label: 'CSS class' },
+        { path: 'props.alt',            type: 'boolean',    label: 'Alternate layout' },
+        { path: 'props.parallax',       type: 'boolean',    label: 'Parallax' },
+    ],
+    TitleHero: [
+        { path: 'content.title',        type: 'text',       label: 'Title' },
+        { path: 'content.desc',         type: 'text-array', label: 'Description' },
+        { path: 'content.image',        type: 'text',       label: 'Image path' },
+        { path: 'props.h1',             type: 'boolean',    label: 'Render as H1' },
+    ],
+    TitleAlertBanner: [
+        { path: 'content.title',        type: 'text',       label: 'Title' },
+        { path: 'content.desc',         type: 'text-array', label: 'Description' },
+        { path: 'props.h2',             type: 'boolean',    label: 'Render as H2' },
+    ],
+    Carousel:      [],
+    StatData:      [],
+    SlidingGallery:[],
+    Collection: [
+        { path: 'content.title',              type: 'text',    label: 'Title' },
+        { path: 'content.desc',               type: 'text',    label: 'Description' },
+        { path: 'content.button',             type: 'text',    label: 'Button text' },
+        { path: 'props.collection',           type: 'text',    label: 'Collection name' },
+        { path: 'props.card',                 type: 'text',    label: 'Card style (default / blog / info)' },
+        { path: 'props.link.path',            type: 'text',    label: 'Button link' },
+        { path: 'props.link.label',           type: 'text',    label: 'Link aria-label' },
+        { path: 'props.show_default_lang',    type: 'boolean', label: 'Show default lang items' },
+        { path: 'props.filter_by_featured',   type: 'boolean', label: 'Filter by featured' },
+        { path: 'props.filter_by_filtertag',  type: 'boolean', label: 'Filter by tag' },
+        { path: 'props.filter_filtertag',     type: 'text',    label: 'Filter tag value' },
+    ],
+    MdText: [
+        { path: 'content.mdcollslug',   type: 'text', label: 'MDX collection slug' },
+    ],
+    TeamGrid: [
+        { path: 'content.title',        type: 'text', label: 'Title' },
+        { path: 'props.filter',         type: 'text', label: 'Filter tag' },
+    ],
+    NewsBanner: [
+        { path: 'content.title',        type: 'text',    label: 'Title' },
+        { path: 'content.desc',         type: 'text',    label: 'Description' },
+        { path: 'props.showbuttons',    type: 'boolean', label: 'Show buttons' },
+    ],
+    Presentation: [
+        { path: 'content.title',        type: 'text', label: 'Title' },
+        { path: 'content.desc',         type: 'text', label: 'Description' },
+        { path: 'props.datafile',       type: 'text', label: 'Slide file (.md)' },
+    ],
+    Process: [
+        { path: 'content.title',        type: 'text', label: 'Title' },
+        { path: 'content.desc',         type: 'text', label: 'Description' },
+        { path: 'props.datafile',       type: 'text', label: 'BPMN file (.bpmn)' },
+    ],
+    Video: [
+        { path: 'content.title',        type: 'text', label: 'Title' },
+        { path: 'props.videoUrl',       type: 'text', label: 'Video URL (.m3u8 or .mp4)' },
+        { path: 'props.posterImage',    type: 'text', label: 'Poster image path' },
+    ],
+    CTA:      [],
+    CTARemote: [
+        { path: 'props.surveyid',          type: 'text', label: 'Survey ID' },
+        { path: 'props.sourceid',          type: 'text', label: 'Source ID' },
+        { path: 'props.title',             type: 'text', label: 'Form title' },
+        { path: 'props.submitbuttontxt',   type: 'text', label: 'Submit button text' },
+        { path: 'props.thankyoumessage',   type: 'text', label: 'Thank-you message' },
+    ],
+    LikeButton: [
+        { path: 'props.sourceid',       type: 'text', label: 'Source ID' },
+    ],
+    Hello: [],
+};
+var COMPLEX_NOTE_TYPES = ['Carousel', 'StatData', 'SlidingGallery', 'CTA'];
+
+// ── Path helpers ──────────────────────────────────────────────────────────────
+function getElement(edit) {
+    if (edit.outer === null || edit.outer === undefined) {
+        return pageData.elements[edit.idx];
+    }
+    return pageData.elements[edit.outer].elements[edit.idx];
+}
+
+function setElement(edit, value) {
+    if (edit.outer === null || edit.outer === undefined) {
+        pageData.elements[edit.idx] = value;
+    } else {
+        pageData.elements[edit.outer].elements[edit.idx] = value;
+    }
+}
+
+function getArray(outerIdx) {
+    if (outerIdx === null || outerIdx === undefined) return pageData.elements;
+    return pageData.elements[outerIdx].elements || (pageData.elements[outerIdx].elements = []);
+}
+
+// ── Save page.json ────────────────────────────────────────────────────────────
+var PAGE_FILE_PATH = FOLDER_PATH + '/data/page_' + PAGE + '/' + LANG + '/page.json';
+
+async function savePage() {
+    var res = await fetch(
+        '/api/workspaces/' + WORKSPACE_ID + '/files/save-text?path=' + encodeURIComponent(PAGE_FILE_PATH),
+        { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: JSON.stringify(pageData, null, 2) }) }
+    );
+    return res;
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function showToast(msg, type) {
+    var toast = document.getElementById('toast');
+    var el = document.getElementById('toast-msg');
+    el.className = 'alert ' + (type === 'error' ? 'alert-error' : 'alert-success') + ' shadow-lg max-w-sm';
+    el.textContent = msg;
+    toast.classList.remove('hidden');
+    setTimeout(function() { toast.classList.add('hidden'); }, 3500);
+}
+
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function switchTab(tab) { if (jfe) jfe.switchTab(tab); }
+
+// ── Element display label ─────────────────────────────────────────────────────
+function getElementLabel(el) {
+    if (el.content) {
+        if (el.content.title)      return el.content.title;
+        if (el.content.mdcollslug) return el.content.mdcollslug;
+    }
+    if (el.props) {
+        if (el.props.collection)   return el.props.collection;
+        if (el.props.datafile)     return el.props.datafile;
+        if (el.props.surveyid)     return el.props.surveyid;
+        if (el.props.sourceid)     return el.props.sourceid;
+        if (el.props.videoUrl)     return el.props.videoUrl;
+        if (el.props.data && el.props.data.length) return el.props.data.length + ' items';
+        if (el.props.items && el.props.items.length) return el.props.items.length + ' items';
+    }
+    return '';
+}
+
+// ── Render element list ───────────────────────────────────────────────────────
+function renderElementList() {
+    var list = document.getElementById('element-list');
+    var empty = document.getElementById('empty-msg');
+    list.innerHTML = '';
+
+    var elements = pageData.elements || [];
+    if (elements.length === 0) {
+        empty.classList.remove('hidden');
+        return;
+    }
+    empty.classList.add('hidden');
+
+    elements.forEach(function(el, idx) {
+        list.appendChild(buildTopLevelItem(el, idx));
+    });
+
+    initTopSortable(list);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function buildTopLevelItem(el, idx) {
+    var isSection = el.element === 'Section';
+    var li = document.createElement('li');
+    li.className = 'element-item rounded border border-base-200 hover:border-base-300 bg-base-50';
+    li.dataset.idx = idx;
+
+    var row = document.createElement('div');
+    row.className = 'flex items-center gap-3 p-2';
+
+    // Drag handle
+    var handle = document.createElement('span');
+    handle.className = 'cursor-grab text-base-content/30 hover:text-base-content/60 drag-handle flex-shrink-0';
+    handle.innerHTML = '<i data-lucide="grip-vertical" class="w-4 h-4"></i>';
+
+    // Position badge
+    var posBadge = document.createElement('span');
+    posBadge.className = 'badge badge-ghost badge-xs font-mono w-6 text-center pos-badge flex-shrink-0';
+    posBadge.textContent = idx + 1;
+
+    // Type badge
+    var typeBadge = document.createElement('span');
+    typeBadge.className = 'badge badge-outline badge-sm flex-shrink-0';
+    typeBadge.textContent = el.element || '?';
+
+    // Title
+    var titleSpan = document.createElement('span');
+    titleSpan.className = 'text-xs text-base-content/60 flex-1 truncate min-w-0';
+    titleSpan.textContent = getElementLabel(el);
+
+    var actions = document.createElement('div');
+    actions.className = 'flex gap-1 flex-shrink-0';
+
+    if (isSection) {
+        var toggleBtn = document.createElement('button');
+        toggleBtn.className = 'btn btn-xs btn-ghost section-toggle';
+        toggleBtn.title = 'Expand/collapse nested elements';
+        toggleBtn.innerHTML = '<i data-lucide="chevron-right" class="w-3 h-3"></i>';
+        actions.appendChild(toggleBtn);
+    }
+
+    if (el.draft) {
+        var db = document.createElement('span');
+        db.className = 'badge badge-warning badge-xs flex-shrink-0';
+        db.textContent = 'draft';
+        row.appendChild(handle); row.appendChild(posBadge); row.appendChild(typeBadge);
+        row.appendChild(titleSpan); row.appendChild(db); row.appendChild(actions);
+    } else {
+        row.appendChild(handle); row.appendChild(posBadge); row.appendChild(typeBadge);
+        row.appendChild(titleSpan); row.appendChild(actions);
+    }
+
+    var editBtn = document.createElement('button');
+    editBtn.className = 'btn btn-xs btn-ghost';
+    editBtn.title = 'Edit';
+    editBtn.innerHTML = '<i data-lucide="edit-3" class="w-3 h-3"></i>';
+    editBtn.addEventListener('click', function() { openEditor({ outer: null, idx: parseInt(li.dataset.idx, 10) }); });
+
+    var delBtn = document.createElement('button');
+    delBtn.className = 'btn btn-xs btn-ghost text-error';
+    delBtn.title = 'Delete';
+    delBtn.innerHTML = '<i data-lucide="trash-2" class="w-3 h-3"></i>';
+    delBtn.addEventListener('click', function() { confirmDelete({ outer: null, idx: parseInt(li.dataset.idx, 10) }, el.element || 'element'); });
+
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+
+    li.appendChild(row);
+
+    // Section nested area
+    if (isSection) {
+        var area = buildNestedArea(idx);
+        area.classList.add('hidden');
+        li.appendChild(area);
+
+        var toggleBtn2 = li.querySelector('.section-toggle');
+        if (toggleBtn2) {
+            toggleBtn2.addEventListener('click', function() {
+                area.classList.toggle('hidden');
+                var icon = toggleBtn2.querySelector('i');
+                if (icon) {
+                    icon.setAttribute('data-lucide', area.classList.contains('hidden') ? 'chevron-right' : 'chevron-down');
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                }
+            });
+        }
+    }
+
+    return li;
+}
+
+function buildNestedArea(outerIdx) {
+    var area = document.createElement('div');
+    area.className = 'nested-area ml-7 mb-2 pl-3 border-l-2 border-primary/25';
+    area.dataset.outerIdx = outerIdx;
+
+    var children = (pageData.elements[outerIdx] && pageData.elements[outerIdx].elements) || [];
+
+    var ul = document.createElement('ul');
+    ul.className = 'nested-list space-y-1 my-2';
+    ul.dataset.outerIdx = outerIdx;
+
+    if (children.length === 0) {
+        var empty = document.createElement('p');
+        empty.className = 'text-xs text-base-content/40 py-1 italic';
+        empty.textContent = 'No nested elements';
+        ul.appendChild(empty);
+    } else {
+        children.forEach(function(el, idx) {
+            ul.appendChild(buildNestedItem(outerIdx, el, idx));
+        });
+    }
+
+    area.appendChild(ul);
+    initNestedSortable(ul, outerIdx);
+
+    var addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn btn-xs btn-ghost gap-1 mb-1';
+    addBtn.innerHTML = '<i data-lucide="plus" class="w-3 h-3"></i> Add inside section';
+    addBtn.addEventListener('click', function() { showAddModal(outerIdx); });
+    area.appendChild(addBtn);
+
+    return area;
+}
+
+function buildNestedItem(outerIdx, el, idx) {
+    var li = document.createElement('li');
+    li.className = 'nested-item flex items-center gap-2 p-1.5 rounded bg-base-200/50';
+    li.dataset.nestedIdx = idx;
+
+    var handle = document.createElement('span');
+    handle.className = 'nested-drag-handle cursor-grab text-base-content/30 hover:text-base-content/60 flex-shrink-0';
+    handle.innerHTML = '<i data-lucide="grip-vertical" class="w-3 h-3"></i>';
+
+    var posBadge = document.createElement('span');
+    posBadge.className = 'nested-pos-badge badge badge-ghost badge-xs font-mono w-5 text-center flex-shrink-0';
+    posBadge.textContent = idx + 1;
+
+    var typeBadge = document.createElement('span');
+    typeBadge.className = 'badge badge-outline badge-xs flex-shrink-0';
+    typeBadge.textContent = el.element || '?';
+
+    var titleSpan = document.createElement('span');
+    titleSpan.className = 'text-xs text-base-content/60 flex-1 truncate min-w-0';
+    titleSpan.textContent = getElementLabel(el);
+
+    var actions = document.createElement('div');
+    actions.className = 'flex gap-1 flex-shrink-0';
+
+    var editBtn = document.createElement('button');
+    editBtn.className = 'btn btn-xs btn-ghost';
+    editBtn.title = 'Edit';
+    editBtn.innerHTML = '<i data-lucide="edit-3" class="w-3 h-3"></i>';
+    editBtn.addEventListener('click', function() {
+        openEditor({ outer: outerIdx, idx: parseInt(li.dataset.nestedIdx, 10) });
+    });
+
+    var delBtn = document.createElement('button');
+    delBtn.className = 'btn btn-xs btn-ghost text-error';
+    delBtn.title = 'Delete';
+    delBtn.innerHTML = '<i data-lucide="trash-2" class="w-3 h-3"></i>';
+    delBtn.addEventListener('click', function() {
+        confirmDelete({ outer: outerIdx, idx: parseInt(li.dataset.nestedIdx, 10) }, el.element || 'element');
+    });
+
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+
+    li.appendChild(handle); li.appendChild(posBadge); li.appendChild(typeBadge);
+    li.appendChild(titleSpan);
+    if (el.draft) {
+        var db = document.createElement('span');
+        db.className = 'badge badge-warning badge-xs flex-shrink-0';
+        db.textContent = 'draft';
+        li.appendChild(db);
+    }
+    li.appendChild(actions);
+
+    return li;
+}
+
+// ── Sortable ──────────────────────────────────────────────────────────────────
+function initTopSortable(list) {
+    if (typeof Sortable === 'undefined') return;
+    Sortable.create(list, {
+        handle: '.drag-handle',
+        animation: 150,
+        onEnd: async function() {
+            var items = list.querySelectorAll(':scope > .element-item');
+            var newElements = [];
+            items.forEach(function(item, i) {
+                var oldIdx = parseInt(item.dataset.idx, 10);
+                newElements.push(pageData.elements[oldIdx]);
+            });
+            pageData.elements = newElements;
+            // Re-index
+            items.forEach(function(item, i) { item.dataset.idx = i; });
+            // Update pos badges
+            items.forEach(function(item, i) {
+                var badge = item.querySelector('.pos-badge');
+                if (badge) badge.textContent = i + 1;
+            });
+            var res = await savePage();
+            if (res && res.ok) showToast('Order saved', 'success');
+        }
+    });
+}
+
+function initNestedSortable(ul, outerIdx) {
+    if (typeof Sortable === 'undefined') return;
+    Sortable.create(ul, {
+        handle: '.nested-drag-handle',
+        animation: 150,
+        onEnd: async function() {
+            var items = ul.querySelectorAll('.nested-item');
+            var oldElements = (pageData.elements[outerIdx].elements || []).slice();
+            var newElements = [];
+            items.forEach(function(item) {
+                newElements.push(oldElements[parseInt(item.dataset.nestedIdx, 10)]);
+            });
+            pageData.elements[outerIdx].elements = newElements;
+            items.forEach(function(item, i) {
+                item.dataset.nestedIdx = i;
+                var badge = item.querySelector('.nested-pos-badge');
+                if (badge) badge.textContent = i + 1;
+            });
+            var res = await savePage();
+            if (res && res.ok) showToast('Order saved', 'success');
+        }
+    });
+}
+
+// ── Editor open/close ─────────────────────────────────────────────────────────
+function openEditor(edit) {
+    currentEdit = edit;
+    var el = getElement(edit);
+    if (!el) return;
+
+    if (!jfe) {
+        jfe = new JsonFormEditor({
+            fieldsContainer: document.getElementById('form-fields'),
+            jsonTextarea:    document.getElementById('json-editor'),
+            tabForm:         document.getElementById('tab-form'),
+            tabJson:         document.getElementById('tab-json'),
+            formView:        document.getElementById('form-view'),
+            jsonView:        document.getElementById('json-view'),
+            schemas:         FIELD_SCHEMAS,
+            complexTypes:    COMPLEX_NOTE_TYPES,
+        });
+    }
+
+    var elementType = el.element || '';
+    var titleText = edit.outer !== null && edit.outer !== undefined
+        ? elementType + ' (nested #' + (edit.idx + 1) + ')'
+        : elementType + ' #' + (edit.idx + 1);
+
+    document.getElementById('editor-title').innerHTML =
+        '<i data-lucide="edit-3" class="w-4 h-4 inline"></i> ' + escHtml(titleText);
+    document.getElementById('editor-subtitle').textContent =
+        '{{ selected_page }} / {{ selected_lang }}';
+    document.getElementById('editor-form').classList.remove('hidden');
+    document.getElementById('editor-status').textContent = '';
+    document.getElementById('field-draft').checked = !!el.draft;
+
+    jfe.open(JSON.parse(JSON.stringify(el)), elementType);
+    // Auto-switch to JSON tab for elements with no form fields
+    if (COMPLEX_NOTE_TYPES.indexOf(elementType) >= 0) {
+        jfe.switchTab('json');
+    }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function closeEditor() {
+    currentEdit = null;
+    document.getElementById('editor-form').classList.add('hidden');
+    document.getElementById('editor-title').innerHTML =
+        '<i data-lucide="code" class="w-4 h-4 inline"></i> Select an element';
+    document.getElementById('editor-subtitle').textContent = 'Click the pencil icon on any element.';
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// ── Save element ──────────────────────────────────────────────────────────────
+async function saveElement() {
+    if (!currentEdit || !jfe) return;
+
+    var saved;
+    try { saved = jfe.getData(); } catch(e) { showToast(e.message, 'error'); return; }
+    saved.draft = document.getElementById('field-draft').checked;
+
+    setElement(currentEdit, saved);
+
+    var res = await savePage();
+    if (res && res.ok) {
+        showToast('Saved', 'success');
+        renderElementList();
+    } else {
+        showToast('Save failed', 'error');
+    }
+}
+
+// ── Add element ───────────────────────────────────────────────────────────────
+function showAddModal(outerIdx) {
+    addTarget = (outerIdx !== null && outerIdx !== undefined) ? outerIdx : null;
+    document.getElementById('add-modal-title').textContent =
+        addTarget !== null ? 'Add Element inside Section' : 'Add Element';
+    document.getElementById('add-modal').showModal();
+}
+
+function makeTemplate(type) {
+    var templates = {
+        'Page-Metatags': { draft: false, element: 'Page-Metatags',
+            content: { title: '', description: '', keywords: '', author: '' }, props: {} },
+        Hero: { draft: false, element: 'Hero',
+            content: { title: '', desc: '', button: '', image: '' },
+            props: { link: { path: '', label: '' }, fullscreen: false, image_zoomable: false, ext: false } },
+        Hero2: { draft: false, element: 'Hero2',
+            content: { title: '', desc: '', button: '', image: '', image_alt: '', bgimage: '', bgimage_alt: '', tags: [] },
+            props: { link: { path: '', label: '' }, fullscreen: false } },
+        Section: { draft: false, element: 'Section',
+            content: {}, props: { alt: false, styleclass: '', parallax: false }, elements: [] },
+        TitleHero: { draft: false, element: 'TitleHero',
+            content: { title: '', desc: '', image: '' }, props: { h1: true } },
+        TitleAlertBanner: { draft: false, element: 'TitleAlertBanner',
+            content: { title: '', desc: '' }, props: { h2: false } },
+        Carousel: { draft: false, element: 'Carousel',
+            content: {}, props: { data: [{ title: '', desc: '', button: '', link: { path: '', label: '' }, image: '' }] } },
+        StatData: { draft: false, element: 'StatData',
+            content: {}, props: { data: [{ title: '', value: '', desc: '', figure: '' }] } },
+        Collection: { draft: false, element: 'Collection',
+            content: { title: '', desc: '', button: '' },
+            props: { collection: '', card: 'default', link: { path: '', label: '' },
+                     show_default_lang: false, filter_by_featured: false, filter_by_filtertag: false, filter_filtertag: '' } },
+        MdText: { draft: false, element: 'MdText', content: { mdcollslug: '' }, props: {} },
+        TeamGrid: { draft: false, element: 'TeamGrid', content: { title: '' }, props: { filter: '' } },
+        NewsBanner: { draft: false, element: 'NewsBanner',
+            content: { title: '', desc: '' }, props: { showbuttons: true } },
+        SlidingGallery: { draft: false, element: 'SlidingGallery',
+            content: {}, props: { items: [{ image: '', title: '', link: '' }] } },
+        Presentation: { draft: false, element: 'Presentation',
+            content: { title: '', desc: '' }, props: { datafile: '' } },
+        Process: { draft: false, element: 'Process',
+            content: { title: '', desc: '' }, props: { datafile: '' } },
+        Video: { draft: false, element: 'Video',
+            content: { title: '' }, props: { videoUrl: '', posterImage: '' } },
+        CTA: { draft: false, element: 'CTA', content: {}, props: { data: [] } },
+        CTARemote: { draft: false, element: 'CTARemote',
+            content: {}, props: { surveyid: '', sourceid: '', title: '', submitbuttontxt: 'Submit', thankyoumessage: 'Thank you!' } },
+        LikeButton: { draft: false, element: 'LikeButton', content: {}, props: { sourceid: '' } },
+        Hello: { draft: false, element: 'Hello', content: {}, props: {} },
+    };
+    return JSON.parse(JSON.stringify(templates[type] || { draft: false, element: type, content: {}, props: {} }));
+}
+
+async function doAddElement() {
+    var type = document.getElementById('new-element-type').value;
+    document.getElementById('add-modal').close();
+
+    var newEl = makeTemplate(type);
+    if (addTarget !== null) {
+        if (!pageData.elements[addTarget].elements) pageData.elements[addTarget].elements = [];
+        pageData.elements[addTarget].elements.push(newEl);
+    } else {
+        pageData.elements.push(newEl);
+    }
+
+    var res = await savePage();
+    if (res && res.ok) {
+        showToast('Added ' + type, 'success');
+        renderElementList();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    } else {
+        showToast('Save failed', 'error');
+    }
+    addTarget = null;
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+function confirmDelete(edit, typeLabel) {
+    pendingDelete = edit;
+    document.getElementById('delete-desc').textContent =
+        typeLabel + (edit.outer !== null && edit.outer !== undefined
+            ? ' (nested #' + (edit.idx + 1) + ')'
+            : ' #' + (edit.idx + 1));
+    document.getElementById('delete-modal').showModal();
+}
+
+async function doDelete() {
+    if (!pendingDelete) return;
+    document.getElementById('delete-modal').close();
+    var edit = pendingDelete;
+    pendingDelete = null;
+
+    getArray(edit.outer).splice(edit.idx, 1);
+
+    var res = await savePage();
+    if (res && res.ok) {
+        showToast('Deleted', 'success');
+        if (currentEdit && currentEdit.outer === edit.outer && currentEdit.idx === edit.idx) {
+            closeEditor();
+        }
+        renderElementList();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    } else {
+        showToast('Delete failed', 'error');
+    }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+    renderElementList();
+});
+
+document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (currentEdit) saveElement();
+    }
+});
+</script>
+{% endblock %}

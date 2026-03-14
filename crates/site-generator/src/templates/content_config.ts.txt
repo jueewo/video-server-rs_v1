@@ -3,17 +3,7 @@
 import { defineCollection, z } from "astro:content";
 import { glob } from "astro/loaders";
 
-// ── Page element collections (JSON) ──────────────────────────────────────────
-
-const pageElementSchema = z.object({
-    draft: z.boolean().optional().default(false),
-    weight: z.number().default(0),
-    element: z.string(),
-    slot: z.string().nullable().optional(),
-    wrapper: z.string().nullable().optional(),
-    content: z.record(z.any()).optional(),
-    props: z.record(z.any()).optional(),
-});
+// ── Page element collections (JSON, no schema — avoids Zod v4 _zod compat issue) ──
 
 {{page_collections}}
 

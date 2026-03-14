@@ -261,8 +261,7 @@ fn write_content_config(sitedef: &SiteDef, out: &Path) -> Result<()> {
             let name = format!("page_{}", p.slug);
             format!(
                 "const {name} = defineCollection({{\n  \
-                 loader: glob({{ pattern: \"**/*.json\", base: \"./data/{name}\" }}),\n  \
-                 schema: pageElementSchema,\n}});\n"
+                 loader: glob({{ pattern: \"**/*.json\", base: \"./data/{name}\" }}),\n}});\n"
             )
         })
         .collect::<Vec<_>>()

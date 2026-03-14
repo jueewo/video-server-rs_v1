@@ -233,22 +233,25 @@ pub fn publish_vitepress_and_push(
 
 /// Run `bun install && bun run docs:build` in the output directory.
 pub fn build_vitepress_docs(output_dir: &Path) -> Result<()> {
-    info!("Running bun install in {}", output_dir.display());
-    let status = std::process::Command::new("bun")
+    // Use npm install (not bun) — bun's hardlink-based node_modules causes vite
+    // to resolve VitePress internal component paths from the filesystem root,
+    // producing ENOENT on files like VPMenuGroup.vue.
+    info!("Running npm install in {}", output_dir.display());
+    let status = std::process::Command::new("npm")
         .args(["install"])
         .current_dir(output_dir)
         .status()?;
     if !status.success() {
-        anyhow::bail!("bun install failed");
+        anyhow::bail!("npm install failed");
     }
 
-    info!("Running bun run docs:build in {}", output_dir.display());
-    let status = std::process::Command::new("bun")
+    info!("Running npm run docs:build in {}", output_dir.display());
+    let status = std::process::Command::new("npm")
         .args(["run", "docs:build"])
         .current_dir(output_dir)
         .status()?;
     if !status.success() {
-        anyhow::bail!("bun run docs:build failed");
+        anyhow::bail!("npm run docs:build failed");
     }
 
     info!("VitePress build complete");

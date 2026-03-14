@@ -103,6 +103,7 @@ const sidebar = {sidebar_json}
 export default defineConfig({{
   title: {title_json},
   description: {description_json},
+  srcDir: 'docs',
   themeConfig: {{
     nav,
     sidebar,

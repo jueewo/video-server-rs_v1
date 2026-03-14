@@ -9,6 +9,10 @@ pub struct VitepressDef {
     /// Optional accent color applied via CSS variable override in the theme.
     #[serde(rename = "themeColor", default)]
     pub theme_color: Option<String>,
+    /// Path to favicon (e.g. "/favicon.ico" or "/logo.png"). Placed in public/ and
+    /// injected as <link rel="icon"> via the VitePress `head` option.
+    #[serde(default)]
+    pub favicon: Option<String>,
     /// Top navigation bar items.
     #[serde(default)]
     pub nav: Vec<NavItem>,

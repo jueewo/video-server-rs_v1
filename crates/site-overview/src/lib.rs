@@ -564,7 +564,7 @@ fn scaffold_vitepressdef_defaults(folder_dir: &Path, folder_name: &str) {
         .collect::<Vec<_>>()
         .join(" ");
 
-    let yaml = format!("title: \"{title}\"\ndescription: \"\"\nnav: []\nsidebar: []\n");
+    let yaml = format!("title: \"{title}\"\ndescription: \"\"\n# favicon: /favicon.ico   # place file in public/ and set path here\nnav: []\nsidebar: []\n");
     let _ = std::fs::create_dir_all(folder_dir);
     if let Ok(()) = std::fs::write(folder_dir.join("vitepressdef.yaml"), &yaml) {
         let docs_dir = folder_dir.join("docs");

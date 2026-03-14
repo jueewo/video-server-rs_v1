@@ -11,6 +11,9 @@ pub struct VitepressGeneratorConfig {
     pub source_dir: PathBuf,
     /// Output: where the assembled VitePress project is written
     pub output_dir: PathBuf,
+    /// Fallback favicon path (e.g. "/favicon.webp") used when vitepressdef.yaml
+    /// does not specify one. Ignored if the yaml already sets `favicon`.
+    pub default_favicon: Option<String>,
 }
 
 /// Parse and validate vitepressdef.yaml from the source directory.
@@ -27,8 +30,13 @@ pub fn load_vitepressdef(source_dir: &Path) -> Result<VitepressDef> {
 /// write .vitepress/config.ts, copy docs/ and public/.
 /// Returns the parsed VitepressDef so callers can inspect settings.
 pub fn generate_vitepress(config: &VitepressGeneratorConfig) -> Result<VitepressDef> {
-    let def = load_vitepressdef(&config.source_dir)?;
+    let mut def = load_vitepressdef(&config.source_dir)?;
     info!("Generating VitePress site: {}", def.title);
+
+    // Apply default favicon if the yaml doesn't override it
+    if def.favicon.is_none() {
+        def.favicon = config.default_favicon.clone();
+    }
 
     let out = &config.output_dir;
     std::fs::create_dir_all(out)?;
@@ -75,6 +83,24 @@ fn write_vitepress_config(def: &VitepressDef, out: &Path) -> Result<()> {
     let nav_json = serde_json::to_string_pretty(&def.nav)?;
     let sidebar_json = serde_json::to_string_pretty(&def.sidebar)?;
 
+    // Optional head entries for favicon
+    let head_block = if let Some(favicon) = &def.favicon {
+        let favicon_json = serde_json::to_string(favicon)?;
+        // Detect type from extension for the MIME hint
+        let mime = if favicon.ends_with(".svg") {
+            "image/svg+xml"
+        } else if favicon.ends_with(".png") {
+            "image/png"
+        } else {
+            "image/x-icon"
+        };
+        format!(
+            "  head: [['link', {{ rel: 'icon', type: '{mime}', href: {favicon_json} }}]],\n",
+        )
+    } else {
+        String::new()
+    };
+
     // Optional CSS variable block for custom theme color
     let custom_css = if let Some(color) = &def.theme_color {
         let color_json = serde_json::to_string(color)?;
@@ -104,7 +130,7 @@ export default defineConfig({{
   title: {title_json},
   description: {description_json},
   srcDir: 'docs',
-  themeConfig: {{
+{head_block}  themeConfig: {{
     nav,
     sidebar,
     search: {{
@@ -115,6 +141,7 @@ export default defineConfig({{
 }})
 "#,
         custom_css = custom_css,
+        head_block = head_block,
         nav_json = nav_json,
         sidebar_json = sidebar_json,
         title_json = title_json,

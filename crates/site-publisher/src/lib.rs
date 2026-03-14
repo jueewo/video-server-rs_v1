@@ -173,6 +173,10 @@ pub struct VitepressPublishConfig {
     pub output_dir: PathBuf,
     /// When true, run `bun install && bun run docs:build` after generation.
     pub build: bool,
+    /// Optional path to the platform's static/ directory. When set, `icon.webp`
+    /// is copied into the output public/ as `favicon.webp` and used as the site
+    /// favicon if none is configured in vitepressdef.yaml.
+    pub static_dir: Option<PathBuf>,
 }
 
 /// Assemble the VitePress project output directory:
@@ -184,9 +188,27 @@ pub fn publish_vitepress(config: &VitepressPublishConfig) -> Result<()> {
     }
     std::fs::create_dir_all(&config.output_dir)?;
 
+    // Copy platform favicon into public/ if available and not overridden by source
+    if let Some(static_dir) = &config.static_dir {
+        let src_icon = static_dir.join("icon.webp");
+        if src_icon.exists() {
+            let public_dir = config.output_dir.join("public");
+            std::fs::create_dir_all(&public_dir)?;
+            std::fs::copy(&src_icon, public_dir.join("favicon.webp"))?;
+            info!("Copied platform icon.webp → public/favicon.webp");
+        }
+    }
+
     let gen_config = site_generator::VitepressGeneratorConfig {
         source_dir: config.source_dir.clone(),
         output_dir: config.output_dir.clone(),
+        default_favicon: config.static_dir.as_ref().and_then(|d| {
+            if d.join("icon.webp").exists() {
+                Some("/favicon.webp".to_string())
+            } else {
+                None
+            }
+        }),
     };
     site_generator::generate_vitepress(&gen_config)?;
 

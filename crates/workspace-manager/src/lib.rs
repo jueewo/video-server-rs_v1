@@ -4117,10 +4117,12 @@ pub async fn generate_site_handler(
     let output_dir_log = output_dir.clone();
     let message = tokio::task::spawn_blocking(move || {
         if folder_type == "vitepress-docs" {
+            let static_dir = std::env::current_dir().ok().map(|d| d.join("static"));
             let vp_config = site_publisher::VitepressPublishConfig {
                 source_dir,
                 output_dir: output_dir.clone(),
                 build: false,
+                static_dir,
             };
             if let Some(git) = git_config {
                 site_publisher::publish_vitepress_and_push(&vp_config, &git)

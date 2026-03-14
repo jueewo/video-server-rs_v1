@@ -122,10 +122,77 @@ fn copy_data(sitedef: &SiteDef, source: &Path, out: &Path) -> Result<()> {
                 .join(&lang.locale);
             if src.exists() {
                 copy_dir_all(&src, &dst)?;
+                // If source has no page.json, compile one from numbered element files
+                if !src.join("page.json").exists() {
+                    compile_page_json(&dst)?;
+                }
             }
         }
     }
     Ok(())
+}
+
+/// Compile individual numbered element JSON files (e.g. 1-hero.json, 2-carousel.json)
+/// into a single page.json expected by content.config.ts.
+/// Skips files starting with '_' (disabled) and draft-only markers.
+fn compile_page_json(dir: &Path) -> Result<()> {
+    let page_json_path = dir.join("page.json");
+
+    // Collect all *.json files except page.json itself, sorted by filename
+    let mut files: Vec<_> = std::fs::read_dir(dir)?
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            let name = e.file_name();
+            let s = name.to_string_lossy();
+            s.ends_with(".json") && s != "page.json" && !s.starts_with('_')
+        })
+        .map(|e| e.path())
+        .collect();
+
+    // Natural sort by filename so 1-hero < 2-carousel < 10-footer
+    files.sort_by(|a, b| {
+        let an = a.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let bn = b.file_name().unwrap_or_default().to_string_lossy().to_string();
+        natord_compare(&an, &bn)
+    });
+
+    let elements: Vec<serde_json::Value> = files
+        .iter()
+        .filter_map(|path| {
+            let text = std::fs::read_to_string(path).ok()?;
+            serde_json::from_str(&text).ok()
+        })
+        .collect();
+
+    let page = json!({ "elements": elements });
+    std::fs::write(&page_json_path, serde_json::to_string_pretty(&page)?)?;
+    info!("Compiled page.json from {} elements in {}", elements.len(), dir.display());
+    Ok(())
+}
+
+/// Simple natural-order comparison: splits strings into numeric and non-numeric runs.
+fn natord_compare(a: &str, b: &str) -> std::cmp::Ordering {
+    let mut ai = a.chars().peekable();
+    let mut bi = b.chars().peekable();
+    loop {
+        match (ai.peek(), bi.peek()) {
+            (None, None) => return std::cmp::Ordering::Equal,
+            (None, _) => return std::cmp::Ordering::Less,
+            (_, None) => return std::cmp::Ordering::Greater,
+            (Some(ac), Some(bc)) if ac.is_ascii_digit() && bc.is_ascii_digit() => {
+                let an: u64 = ai.by_ref().take_while(|c| c.is_ascii_digit()).collect::<String>().parse().unwrap_or(0);
+                let bn: u64 = bi.by_ref().take_while(|c| c.is_ascii_digit()).collect::<String>().parse().unwrap_or(0);
+                let ord = an.cmp(&bn);
+                if ord != std::cmp::Ordering::Equal { return ord; }
+            }
+            _ => {
+                let ac = ai.next().unwrap();
+                let bc = bi.next().unwrap();
+                let ord = ac.cmp(&bc);
+                if ord != std::cmp::Ordering::Equal { return ord; }
+            }
+        }
+    }
 }
 
 // ── Content (MDX) ──────────────────────────────────────────────────────────────

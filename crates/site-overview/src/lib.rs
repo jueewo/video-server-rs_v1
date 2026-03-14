@@ -52,6 +52,10 @@ struct SiteOverviewTemplate {
     forgejo_repo: String,
     forgejo_branch: String,
     has_git: bool,
+    // Last publish status (from workspace.yaml metadata)
+    last_publish_time: String,
+    last_publish_status: String,
+    last_publish_message: String,
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -173,6 +177,10 @@ fn build_template_data(
         .to_string();
     let has_git = !forgejo_repo.is_empty();
 
+    let last_publish_time = ctx.meta_str("last_publish_time").unwrap_or("").to_string();
+    let last_publish_status = ctx.meta_str("last_publish_status").unwrap_or("").to_string();
+    let last_publish_message = ctx.meta_str("last_publish_message").unwrap_or("").to_string();
+
     Ok(SiteOverviewTemplate {
         authenticated: true,
         workspace_id: ctx.workspace_id,
@@ -192,5 +200,8 @@ fn build_template_data(
         forgejo_repo,
         forgejo_branch,
         has_git,
+        last_publish_time,
+        last_publish_status,
+        last_publish_message,
     })
 }

@@ -4080,6 +4080,22 @@ pub async fn generate_site_handler(
     })?;
 
     info!("Site published: {}", output_dir.display());
+
+    // Persist publish status into workspace.yaml so the dashboard can show it.
+    let publish_status = if forgejo_repo.is_some() { "pushed" } else { "generated" };
+    let timestamp = chrono::Utc::now().to_rfc3339();
+    let folder_path_key = format!("/{}", clean);
+    {
+        let mut cfg = WorkspaceConfig::load(&workspace_root).unwrap_or_else(|_| {
+            WorkspaceConfig::new("Workspace".to_string(), String::new())
+        });
+        cfg.set_folder_metadata(&folder_path_key, "last_publish_time".into(), serde_yaml::Value::String(timestamp.clone()));
+        cfg.set_folder_metadata(&folder_path_key, "last_publish_status".into(), serde_yaml::Value::String(publish_status.to_string()));
+        cfg.set_folder_metadata(&folder_path_key, "last_publish_message".into(), serde_yaml::Value::String(message.clone()));
+        if let Err(e) = cfg.save(&workspace_root) {
+            warn!("Failed to save publish metadata to workspace.yaml: {e}");
+        }
+    }
     Ok(Json(GenerateSiteResponse {
         output_dir: output_dir.display().to_string(),
         message,

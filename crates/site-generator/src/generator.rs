@@ -8,7 +8,6 @@ use crate::schema::SiteDef;
 
 const TEMPLATE_INDEX: &str = include_str!("templates/pages_index.astro.txt");
 const TEMPLATE_SLUG: &str = include_str!("templates/pages_slug.astro.txt");
-const TEMPLATE_CONTENT_CONFIG: &str = include_str!("templates/content_config.ts.txt");
 
 /// Configuration for a generation run.
 pub struct GeneratorConfig {
@@ -42,7 +41,6 @@ pub fn generate(config: &GeneratorConfig) -> Result<()> {
     copy_data(&sitedef, &config.source_dir, out)?;
     copy_content(&sitedef, &config.source_dir, out)?;
     write_website_config(&sitedef, out)?;
-    write_content_config(&sitedef, out)?;
 
     info!("Generation complete → {}", out.display());
     Ok(())
@@ -55,7 +53,7 @@ fn generate_pages(sitedef: &SiteDef, locales: &[String], out: &Path) -> Result<(
     let lang_array = serde_json::to_string(locales)?;
 
     for page in &sitedef.pages {
-        let page_dir = out.join("pages").join("[lang]").join(&page.slug);
+        let page_dir = out.join("src").join("pages").join("[lang]").join(&page.slug);
         std::fs::create_dir_all(&page_dir)?;
 
         // index.astro
@@ -117,6 +115,7 @@ fn copy_data(sitedef: &SiteDef, source: &Path, out: &Path) -> Result<()> {
                 .join(format!("page_{}", page.slug))
                 .join(&lang.locale);
             let dst = out
+                .join("src")
                 .join("data")
                 .join(format!("page_{}", page.slug))
                 .join(&lang.locale);
@@ -134,7 +133,7 @@ fn copy_content(sitedef: &SiteDef, source: &Path, out: &Path) -> Result<()> {
     for collection in &sitedef.collections {
         // shared images at collection root
         let src_images = source.join("content").join(&collection.name).join("images");
-        let dst_images = out.join("content").join(&collection.name).join("images");
+        let dst_images = out.join("src").join("content").join(&collection.name).join("images");
         if src_images.exists() {
             copy_dir_all(&src_images, &dst_images)?;
         }
@@ -145,6 +144,7 @@ fn copy_content(sitedef: &SiteDef, source: &Path, out: &Path) -> Result<()> {
                 .join(&collection.name)
                 .join(&lang.locale);
             let dst = out
+                .join("src")
                 .join("content")
                 .join(&collection.name)
                 .join(&lang.locale);
@@ -217,7 +217,8 @@ fn write_website_config(sitedef: &SiteDef, out: &Path) -> Result<()> {
         searchable = serde_json::to_string_pretty(&searchable)?,
     );
 
-    std::fs::write(out.join("website.config.cjs"), config)?;
+    std::fs::create_dir_all(out.join("src"))?;
+    std::fs::write(out.join("src").join("website.config.cjs"), config)?;
     info!("Written website.config.cjs");
     Ok(())
 }
@@ -248,65 +249,6 @@ fn build_header_nav(sitedef: &SiteDef) -> serde_json::Value {
         })
         .collect();
     json!(items)
-}
-
-// ── content.config.ts (Astro 6 content layer) ─────────────────────────────────
-
-fn write_content_config(sitedef: &SiteDef, out: &Path) -> Result<()> {
-    // One defineCollection block per page (JSON element files)
-    let page_collections: String = sitedef
-        .pages
-        .iter()
-        .map(|p| {
-            let name = format!("page_{}", p.slug);
-            format!(
-                "const {name} = defineCollection({{\n  \
-                 loader: glob({{ pattern: \"**/*.json\", base: \"./data/{name}\" }}),\n}});\n"
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    // One defineCollection block per MDX content collection
-    let content_collections: String = sitedef
-        .collections
-        .iter()
-        .map(|c| {
-            format!(
-                "const {name} = defineCollection({{\n  \
-                 loader: glob({{ pattern: \"**/*.mdx\", base: \"./content/{name}\" }}),\n  \
-                 schema: mdxSchema,\n}});\n",
-                name = c.name
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    // Build the export map
-    let exports: String = sitedef
-        .pages
-        .iter()
-        .map(|p| format!("    page_{},\n", p.slug))
-        .chain(
-            sitedef
-                .collections
-                .iter()
-                .map(|c| format!("    {},\n", c.name)),
-        )
-        .collect();
-
-    let config = apply_template(
-        TEMPLATE_CONTENT_CONFIG,
-        &[
-            ("page_collections", page_collections),
-            ("content_collections", content_collections),
-            ("collection_exports", exports),
-        ],
-    );
-
-    std::fs::write(out.join("content.config.ts"), config)?;
-    info!("Written content.config.ts");
-    Ok(())
 }
 
 // ── Filesystem helpers ─────────────────────────────────────────────────────────

@@ -23,6 +23,10 @@ pub struct PublishConfig {
 /// 1. Copy static components/layouts (if configured)
 /// 2. Run the generator (sitedef.yaml → pages, data, content, website.config.cjs)
 pub fn publish(config: &PublishConfig) -> Result<()> {
+    // Clean output dir so stale files from a prior layout don't linger.
+    if config.output_dir.exists() {
+        std::fs::remove_dir_all(&config.output_dir)?;
+    }
     std::fs::create_dir_all(&config.output_dir)?;
 
     // Step 1: copy static Astro files (components, layouts, styles, etc.)

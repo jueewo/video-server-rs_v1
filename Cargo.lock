@@ -6699,6 +6699,7 @@ dependencies = [
  "askama",
  "axum",
  "bpmn-viewer",
+ "chrono",
  "common",
  "course-processor",
  "docs-viewer",

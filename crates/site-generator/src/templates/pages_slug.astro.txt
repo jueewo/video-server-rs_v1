@@ -5,16 +5,23 @@ import ContentLayout from "../../../layouts/contentlayout.astro";
 
 export const prerender = true;
 
-const { lang } = Astro.params;
+const { lang, slug } = Astro.params;
 
 export async function getStaticPaths() {
     const entries = await getCollection("{{collection}}");
 
+    const uniqueSlugs = [
+        ...new Set(
+            entries.map((e) =>
+                e.id.replace(/\.(md|mdx)$/, "").split("/").slice(1).join("/"),
+            ),
+        ),
+    ];
+
     const res: any[] = [];
     for (const l of {{langarray}}) {
-        const tmp = entries.map((entry) => ({
-            params: { lang: l, slug: entry.id },
-            props: entry,
+        const tmp = uniqueSlugs.map((slug) => ({
+            params: { lang: l, slug },
         }));
         res.push(...tmp);
     }
@@ -22,7 +29,23 @@ export async function getStaticPaths() {
     return res;
 }
 
-const entry = Astro.props;
+const entries = await getCollection("{{collection}}");
+let entry = entries.find(
+    (e) => e.id.replace(/\.(md|mdx)$/, "") === `${lang}/${slug}`,
+);
+if (!entry) {
+    // fallback: match by slug only (language fallback)
+    entry = entries.find(
+        (e) =>
+            e.id.replace(/\.(md|mdx)$/, "").split("/").slice(1).join("/") ===
+            slug,
+    );
+}
+
+if (!entry) {
+    return Astro.redirect(`/${lang}/{{collection}}`);
+}
+
 const { Content, headings } = await render(entry);
 
 const collection = "{{collection}}";

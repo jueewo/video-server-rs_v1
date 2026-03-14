@@ -165,17 +165,24 @@ vitepressdef.yaml   ← title, nav, sidebar</div>
 
 </div><!-- /container -->
 
-<div id="publish-toast" class="toast toast-end hidden">
-    <div class="alert" id="publish-alert">
-        <span id="publish-msg"></span>
-    </div>
+<div id="publish-toast" class="toast toast-top toast-end hidden" style="top:4.5rem;z-index:60">
+    <div class="alert shadow-lg max-w-sm" id="publish-alert"></div>
 </div>
 
 <script>
 async function publishDocs() {
-    const btns = document.querySelectorAll('#publish-btn, #publish-btn-2');
-    btns.forEach(b => { b.disabled = true; b.classList.add('loading'); });
+    const btn = document.getElementById('publish-btn');
+    const btn2 = document.getElementById('publish-btn-2');
+    const origHtml = btn.innerHTML;
+    const orig2Html = btn2.innerHTML;
+    btn.disabled = true;
+    btn2.disabled = true;
+    btn.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Publishing…';
+    btn2.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Publishing…';
 
+    const toast = document.getElementById('publish-toast');
+    const alert = document.getElementById('publish-alert');
+    let ok = false;
     try {
         const res = await fetch('/api/workspaces/{{ workspace_id }}/site/generate', {
             method: 'POST',
@@ -183,23 +190,27 @@ async function publishDocs() {
             body: JSON.stringify({ folder_path: '{{ folder_path }}' }),
         });
         const data = await res.json().catch(() => ({}));
-        showToast(res.ok, data.message || (res.ok ? 'Done' : 'Failed'));
-        if (res.ok) setTimeout(() => location.reload(), 1500);
+        ok = res.ok;
+        if (res.ok) {
+            alert.className = 'alert alert-success shadow-lg max-w-sm';
+            alert.innerHTML = `<i data-lucide="check-circle" class="w-5 h-5"></i><span>${data.message || 'Docs published!'}</span>`;
+        } else {
+            alert.className = 'alert alert-error shadow-lg max-w-sm';
+            alert.innerHTML = `<i data-lucide="x-circle" class="w-5 h-5"></i><span>${data.error || 'Publish failed'}</span>`;
+        }
     } catch (e) {
-        showToast(false, String(e));
-    } finally {
-        btns.forEach(b => { b.disabled = false; b.classList.remove('loading'); });
+        alert.className = 'alert alert-error shadow-lg max-w-sm';
+        alert.innerHTML = `<i data-lucide="x-circle" class="w-5 h-5"></i><span>${String(e)}</span>`;
     }
-}
-
-function showToast(ok, msg) {
-    const toast = document.getElementById('publish-toast');
-    const alert = document.getElementById('publish-alert');
-    const msgEl = document.getElementById('publish-msg');
-    alert.className = 'alert ' + (ok ? 'alert-success' : 'alert-error');
-    msgEl.textContent = msg;
     toast.classList.remove('hidden');
-    setTimeout(() => toast.classList.add('hidden'), 5000);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    btn.disabled = false;
+    btn2.disabled = false;
+    btn.innerHTML = origHtml;
+    btn2.innerHTML = orig2Html;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    if (ok) setTimeout(() => window.location.reload(), 2500);
+    else setTimeout(() => toast.classList.add('hidden'), 6000);
 }
 </script>
 {% endblock %}

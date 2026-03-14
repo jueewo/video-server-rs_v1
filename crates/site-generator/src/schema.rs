@@ -15,6 +15,12 @@ pub struct SiteDef {
     pub legal: Option<Vec<LegalLink>>,
     pub footercontent: Option<FooterContent>,
     pub datatool: Option<DataTool>,
+    /// Optional: vault ID whose media files are copied into public/ at build time.
+    #[serde(rename = "mediaVaultId", default)]
+    pub media_vault_id: Option<String>,
+    /// When true, copy vault media into public/media/ so the site works fully offline.
+    #[serde(rename = "inlineMedia", default)]
+    pub inline_media: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -39,6 +45,10 @@ pub struct SiteSettings {
     pub themedark: String,
     #[serde(default)]
     pub themelight: String,
+    /// Which component library to use (maps to `static_files_{lib}/` dir).
+    /// Defaults to "daisy-default" when absent.
+    #[serde(rename = "componentLib", default)]
+    pub component_lib: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

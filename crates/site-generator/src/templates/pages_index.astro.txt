@@ -1,10 +1,7 @@
 ---
 import MainLayout from "../../../layouts/main.astro";
 import ElementRenderer from "../../../components/page-renderer/ElementRenderer.astro";
-import CardDefault2 from "../../../components/CardDefault2.astro";
 import { getCollection } from "astro:content";
-import CardInfo from "../../../components/CardInfo.astro";
-import TitleAlertBanner from "../../../components/page-elements/TitleAlertBanner.astro";
 import Config from "../../../website.config.cjs";
 
 export const prerender = true;
@@ -24,50 +21,55 @@ let page_metatags = {
 
 const title = "{{title}}";
 const collection_name = "{{collection_name}}";
+const default_lang = Config.defaultLanguage.locale;
 
-const page_elements = (await getCollection(collection_name))
-    .filter((a) => !a.data.draft)
-    .sort((a, b) => a.data.weight - b.data.weight);
+// Each locale has one page.json file — Astro content id is "{locale}/page"
+const all_entries = await getCollection(collection_name);
+const find_entry = (l: string) => all_entries.find((e) => e.id === l + "/page");
 
-let page_elements_actlang = page_elements.filter(
-    (a) => a.id.split("/")[0] == lang,
+let lang_entry = find_entry(lang ?? default_lang);
+let showing_default_language = false;
+
+if (!lang_entry || !lang_entry.data?.elements?.length) {
+    lang_entry = find_entry(default_lang);
+    showing_default_language = !!lang_entry;
+}
+
+let page_elements: any[] = ((lang_entry?.data?.elements as any[]) ?? []).filter(
+    (el: any) => !el.draft,
 );
 
-let metatags_element_index = page_elements_actlang.findIndex(
-    (a) => a.data.element == "Page-Metatags",
+// Extract Page-Metatags element if present
+const metatags_idx = page_elements.findIndex(
+    (el: any) => el.element === "Page-Metatags",
 );
-if (metatags_element_index > -1) {
-    let metatags_element = page_elements_actlang.splice(metatags_element_index, 1)[0];
-    if (metatags_element) {
+if (metatags_idx > -1) {
+    const [metatags_el] = page_elements.splice(metatags_idx, 1);
+    // Read from content (canonical); fall back to props for legacy data
+    const src = metatags_el?.content ?? metatags_el?.props ?? {};
+    if (Object.keys(src).length) {
         page_metatags = {
-            title: metatags_element.data.props.title,
-            description: metatags_element.data.props.description,
-            keywords: metatags_element.data.props.keywords,
-            author: metatags_element.data.props.author,
+            title:       src.title       ?? page_metatags.title,
+            description: src.description ?? "",
+            keywords:    src.keywords    ?? "",
+            author:      src.author      ?? "",
         };
     }
 }
 
-let showing_default_language = false;
-const default_lang = Config.defaultLanguage.locale;
-if (page_elements_actlang.length == 0) {
-    showing_default_language = true;
-    page_elements_actlang = page_elements.filter(
-        (a) => a.id.split("/")[0] == default_lang,
-    );
-}
-
-let info = {
-    draft: true,
+const info = {
+    draft: false,
     weight: 0,
     element: "TitleAlertBanner",
     slot: null,
     wrapper: null,
     content: {
-        title: "This page is not available in your selected language => showing " + Config.defaultLanguage.language,
+        title:
+            "This page is not available in your selected language => showing " +
+            Config.defaultLanguage.language,
         desc: null,
     },
-    props: { id: "introhero", h2: true, draft: false },
+    props: { id: "introhero", h2: true },
 };
 ---
 
@@ -77,7 +79,7 @@ let info = {
             <ElementRenderer element={info} index={1} />
         </div>
     )}
-    {page_elements_actlang.map((page_element, index) => (
-        <ElementRenderer element={page_element.data} index={index} />
+    {page_elements.map((element: any, index: number) => (
+        <ElementRenderer element={element} index={index} />
     ))}
 </MainLayout>

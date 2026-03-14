@@ -17,6 +17,19 @@ Documentation about **how the system is designed** - architecture patterns, desi
   - ADR-005: MCP Server Integration
   - Design rationale and trade-offs
 
+### Website Generator
+- **[WEBSITE_GEN_WORKSPACE_TYPE.md](WEBSITE_GEN_WORKSPACE_TYPE.md)** - Complete reference for `yhm-site-data` folder type
+  - Publish flow, sitedef.yaml reference, element type registry, environment variables, API endpoints
+  - Inline tree editor UI, component library resolution, media vault inlining
+- **[WEBSITE_GEN_ROADMAP.md](WEBSITE_GEN_ROADMAP.md)** - Architecture concept and phased roadmap
+  - Core architectural decisions (canonical element registry, multi-library, site-cli, media inlining)
+  - Phase implementation status (Phases 1-4 complete)
+  - Future phases: rich field editor, AI agent content generation, alternative component libraries
+
+### Workspace Types
+- **[COURSE_WORKSPACE_TYPE.md](COURSE_WORKSPACE_TYPE.md)** - Course workspace type design
+- **[PRESENTATION_WORKSPACE_TYPE.md](PRESENTATION_WORKSPACE_TYPE.md)** - Presentation workspace type design
+
 ### Feature Design
 - **[GROUP_ACCESS_CODES.md](GROUP_ACCESS_CODES.md)** - Group access control design
   - Group-level access codes

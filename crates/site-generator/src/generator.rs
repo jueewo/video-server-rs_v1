@@ -28,7 +28,8 @@ pub fn load_sitedef(source_dir: &Path) -> Result<SiteDef> {
 }
 
 /// Run the full generation: read sitedef, generate pages, copy data/content, write config.
-pub fn generate(config: &GeneratorConfig) -> Result<()> {
+/// Returns the parsed SiteDef so callers can inspect settings (e.g. inline_media).
+pub fn generate(config: &GeneratorConfig) -> Result<SiteDef> {
     let sitedef = load_sitedef(&config.source_dir)?;
     info!("Generating site: {}", sitedef.title);
 
@@ -43,7 +44,7 @@ pub fn generate(config: &GeneratorConfig) -> Result<()> {
     write_website_config(&sitedef, out)?;
 
     info!("Generation complete → {}", out.display());
-    Ok(())
+    Ok(sitedef)
 }
 
 // ── Pages ─────────────────────────────────────────────────────────────────────
@@ -168,6 +169,13 @@ fn write_website_config(sitedef: &SiteDef, out: &Path) -> Result<()> {
 
     let header_nav = build_header_nav(sitedef);
 
+    let component_lib = sitedef
+        .settings
+        .component_lib
+        .as_deref()
+        .unwrap_or("daisy-default");
+    let component_lib_json = json!(component_lib);
+
     let config = format!(
         r#"export default {{
   baseURL: {base_url},
@@ -180,6 +188,7 @@ fn write_website_config(sitedef: &SiteDef, out: &Path) -> Result<()> {
   siteDescription: {site_description},
   themedark: {themedark},
   themelight: {themelight},
+  componentLib: {component_lib_json},
 
   languages: {languages},
   defaultLanguage: {default_language},
@@ -206,6 +215,7 @@ fn write_website_config(sitedef: &SiteDef, out: &Path) -> Result<()> {
         site_description = json!(sitedef.settings.site_description),
         themedark = json!(sitedef.settings.themedark),
         themelight = json!(sitedef.settings.themelight),
+        component_lib_json = component_lib_json,
         languages = serde_json::to_string_pretty(&sitedef.languages)?,
         default_language = serde_json::to_string_pretty(&sitedef.defaultlanguage)?,
         datatool = serde_json::to_string_pretty(&sitedef.datatool)?,

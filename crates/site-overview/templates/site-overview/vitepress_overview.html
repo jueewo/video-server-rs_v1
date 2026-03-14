@@ -1,0 +1,205 @@
+{% extends "base-tailwind.html" %}
+{% block title %}{{ folder_name }} — {{ workspace_name }}{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-6xl">
+
+    <!-- Breadcrumbs -->
+    <div class="text-sm breadcrumbs mb-4">
+        <ul>
+            <li><a href="/workspaces">Workspaces</a></li>
+            {% for (label, url) in breadcrumbs %}
+            {% if !loop.last %}
+            <li><a href="{{ url }}">{{ label }}</a></li>
+            {% else %}
+            <li>{{ label }}</li>
+            {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+        <div>
+            <div class="flex items-center gap-3 mb-1">
+                <h1 class="text-2xl font-bold">{{ site_title }}</h1>
+                <span class="badge badge-outline text-xs" style="border-color:#7c3aed;color:#7c3aed;">VitePress Docs</span>
+            </div>
+            {% if !site_description.is_empty() %}
+            <p class="text-base-content/60 text-sm italic">{{ site_description }}</p>
+            {% endif %}
+        </div>
+        <div class="flex gap-2 flex-shrink-0">
+            <button onclick="publishDocs()" id="publish-btn" class="btn btn-sm btn-primary gap-1">
+                <i data-lucide="rocket" class="w-4 h-4"></i> Publish Docs
+            </button>
+            <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}?files=1"
+               class="btn btn-sm btn-ghost gap-1">
+                <i data-lucide="folder-open" class="w-4 h-4"></i> Browse Files
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+        <div class="stat bg-base-200 rounded-box p-3">
+            <div class="stat-title text-xs">Doc files</div>
+            <div class="stat-value text-2xl">{{ doc_count }}</div>
+            <div class="stat-desc text-xs">.md / .mdx</div>
+        </div>
+        <div class="stat bg-base-200 rounded-box p-3">
+            <div class="stat-title text-xs">Nav items</div>
+            <div class="stat-value text-2xl">{{ nav_item_count }}</div>
+        </div>
+        <div class="stat bg-base-200 rounded-box p-3">
+            <div class="stat-title text-xs">Sidebar groups</div>
+            <div class="stat-value text-2xl">{{ sidebar_group_count }}</div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Left: config info -->
+        <div class="lg:col-span-2 space-y-6">
+
+            <!-- Quick start card -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-base mb-2">
+                        <i data-lucide="file-text" class="w-4 h-4"></i> Content Structure
+                    </h2>
+                    <p class="text-sm text-base-content/70 mb-3">
+                        Place Markdown files in the <code class="font-mono bg-base-200 px-1 rounded">docs/</code> directory.
+                        Configure navigation in <code class="font-mono bg-base-200 px-1 rounded">vitepressdef.yaml</code>.
+                    </p>
+                    <div class="font-mono text-xs bg-base-200 rounded p-3 whitespace-pre">docs/
+  index.md          ← home page
+  getting-started.md
+  guide/
+    installation.md
+public/             ← static assets (optional)
+vitepressdef.yaml   ← title, nav, sidebar</div>
+                </div>
+            </div>
+
+            <!-- vitepressdef.yaml edit shortcut -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h2 class="card-title text-base">
+                            <i data-lucide="settings" class="w-4 h-4"></i> Configuration
+                        </h2>
+                        <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}?files=1"
+                           class="btn btn-xs btn-ghost">Edit files →</a>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                            <span class="text-base-content/50 text-xs">Title</span>
+                            <p class="font-medium">{{ site_title }}</p>
+                        </div>
+                        {% if !site_description.is_empty() %}
+                        <div>
+                            <span class="text-base-content/50 text-xs">Description</span>
+                            <p class="font-medium">{{ site_description }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right: Publish / Git -->
+        <div class="space-y-4">
+
+            <!-- Publish card -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-sm mb-3">
+                        <i data-lucide="send" class="w-4 h-4"></i> Publish
+                    </h2>
+
+                    {% if has_git %}
+                    <div class="text-xs space-y-1 mb-3">
+                        <div class="flex items-start gap-1">
+                            <i data-lucide="git-branch" class="w-3 h-3 mt-0.5 shrink-0 text-base-content/50"></i>
+                            <span class="break-all">{{ forgejo_repo }}</span>
+                        </div>
+                        <div class="flex items-center gap-1 text-base-content/50">
+                            <i data-lucide="git-merge" class="w-3 h-3 shrink-0"></i>
+                            branch: {{ forgejo_branch }}
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-xs text-base-content/50 mb-3">No Forgejo repo configured. Click "Edit folder type" to add one.</p>
+                    {% endif %}
+
+                    <button onclick="publishDocs()" id="publish-btn-2" class="btn btn-sm btn-primary w-full gap-1">
+                        <i data-lucide="rocket" class="w-4 h-4"></i>
+                        {% if has_git %}Push to Forgejo{% else %}Generate{% endif %}
+                    </button>
+
+                    {% if !last_publish_time.is_empty() %}
+                    <div class="mt-3 text-xs">
+                        <div class="flex items-center gap-1 text-base-content/50">
+                            <i data-lucide="clock" class="w-3 h-3"></i>
+                            Last: {{ last_publish_time }}
+                        </div>
+                        {% if last_publish_status == "pushed" %}
+                        <div class="badge badge-success badge-sm mt-1">pushed</div>
+                        {% else if last_publish_status == "generated" %}
+                        <div class="badge badge-info badge-sm mt-1">generated</div>
+                        {% else if !last_publish_status.is_empty() %}
+                        <div class="badge badge-warning badge-sm mt-1">{{ last_publish_status }}</div>
+                        {% endif %}
+                        {% if !last_publish_message.is_empty() %}
+                        <p class="text-base-content/40 mt-1 break-all">{{ last_publish_message }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+
+    </div><!-- /grid -->
+
+</div><!-- /container -->
+
+<div id="publish-toast" class="toast toast-end hidden">
+    <div class="alert" id="publish-alert">
+        <span id="publish-msg"></span>
+    </div>
+</div>
+
+<script>
+async function publishDocs() {
+    const btns = document.querySelectorAll('#publish-btn, #publish-btn-2');
+    btns.forEach(b => { b.disabled = true; b.classList.add('loading'); });
+
+    try {
+        const res = await fetch('/api/workspaces/{{ workspace_id }}/site/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folder_path: '{{ folder_path }}' }),
+        });
+        const data = await res.json().catch(() => ({}));
+        showToast(res.ok, data.message || (res.ok ? 'Done' : 'Failed'));
+        if (res.ok) setTimeout(() => location.reload(), 1500);
+    } catch (e) {
+        showToast(false, String(e));
+    } finally {
+        btns.forEach(b => { b.disabled = false; b.classList.remove('loading'); });
+    }
+}
+
+function showToast(ok, msg) {
+    const toast = document.getElementById('publish-toast');
+    const alert = document.getElementById('publish-alert');
+    const msgEl = document.getElementById('publish-msg');
+    alert.className = 'alert ' + (ok ? 'alert-success' : 'alert-error');
+    msgEl.textContent = msg;
+    toast.classList.remove('hidden');
+    setTimeout(() => toast.classList.add('hidden'), 5000);
+}
+</script>
+{% endblock %}

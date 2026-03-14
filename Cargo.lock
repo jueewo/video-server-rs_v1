@@ -4614,6 +4614,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
 
 [[package]]
+name = "site-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "dotenvy",
+ "site-generator",
+ "site-publisher",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "site-generator"
 version = "0.1.0"
 dependencies = [
@@ -4632,6 +4646,7 @@ dependencies = [
  "askama",
  "async-trait",
  "axum",
+ "serde_json",
  "site-generator",
  "tokio",
  "tracing",
@@ -6709,6 +6724,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "site-overview",
  "site-publisher",
  "sqlx",
  "tempfile",

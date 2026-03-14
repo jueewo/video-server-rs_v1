@@ -31,6 +31,7 @@ members = [
     "crates/site-generator",
     "crates/site-publisher",
     "crates/site-overview",
+    "crates/standalone/site-cli",
 ]
 resolver = "2"
 

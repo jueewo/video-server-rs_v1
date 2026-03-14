@@ -6,7 +6,7 @@ use anyhow::Result;
 use tracing::info;
 
 pub use git::GitPushConfig;
-pub use site_generator::SiteDef;
+pub use site_generator::{SiteDef, VitepressDef};
 
 /// Configuration for a full publish run.
 pub struct PublishConfig {
@@ -17,12 +17,48 @@ pub struct PublishConfig {
     /// Optional: path to the static Astro components/layouts directory.
     /// When set, static files are copied first, then generated files are overlaid.
     pub components_dir: Option<PathBuf>,
+    /// When true, run `bun install && bun run build` after generation.
+    pub build: bool,
+}
+
+/// Resolve components_dir from a base directory and the component_lib name.
+///
+/// The convention is:
+///   `{components_base}/static_files/`           for "daisy-default" (or None)
+///   `{components_base}/static_files_{lib}/`     for any other lib name
+///
+/// Set `SITE_COMPONENTS_BASE` env var to the `generator/` directory.
+pub fn resolve_components_dir(components_base: &Path, component_lib: Option<&str>) -> PathBuf {
+    let lib = component_lib.unwrap_or("daisy-default");
+    let dir_name = if lib == "daisy-default" {
+        "static_files".to_string()
+    } else {
+        format!("static_files_{}", lib)
+    };
+    components_base.join(dir_name)
 }
 
 /// Assemble the Astro project output directory:
 /// 1. Copy static components/layouts (if configured)
 /// 2. Run the generator (sitedef.yaml → pages, data, content, website.config.cjs)
+/// 3. Optionally copy vault media into public/media/
+/// 4. Optionally run `bun install && bun run build`
 pub fn publish(config: &PublishConfig) -> Result<()> {
+    // Pre-load sitedef to resolve component_lib before copying static files
+    let sitedef_preview = site_generator::load_sitedef(&config.source_dir)?;
+    let component_lib = sitedef_preview.settings.component_lib.as_deref().unwrap_or("daisy-default");
+
+    // Resolve components_dir: explicit config → SITE_COMPONENTS_BASE + lib → SITE_COMPONENTS_DIR
+    let effective_components_dir: Option<PathBuf> = config.components_dir.clone().or_else(|| {
+        if let Ok(base) = std::env::var("SITE_COMPONENTS_BASE") {
+            let resolved = resolve_components_dir(Path::new(&base), Some(component_lib));
+            if resolved.exists() {
+                return Some(resolved);
+            }
+        }
+        std::env::var("SITE_COMPONENTS_DIR").ok().map(Into::into)
+    });
+
     // Clean output dir so stale files from a prior layout don't linger.
     if config.output_dir.exists() {
         std::fs::remove_dir_all(&config.output_dir)?;
@@ -30,7 +66,7 @@ pub fn publish(config: &PublishConfig) -> Result<()> {
     std::fs::create_dir_all(&config.output_dir)?;
 
     // Step 1: copy static Astro files (components, layouts, styles, etc.)
-    if let Some(components_dir) = &config.components_dir {
+    if let Some(ref components_dir) = effective_components_dir {
         if components_dir.exists() {
             info!("Copying static components from {}", components_dir.display());
             copy_dir_all(components_dir, &config.output_dir)?;
@@ -44,7 +80,19 @@ pub fn publish(config: &PublishConfig) -> Result<()> {
         source_dir: config.source_dir.clone(),
         output_dir: config.output_dir.clone(),
     };
-    site_generator::generate(&gen_config)?;
+    let sitedef = site_generator::generate(&gen_config)?;
+
+    // Step 3: inline media vault (optional)
+    if sitedef.inline_media.unwrap_or(false) {
+        if let Some(ref vault_id) = sitedef.media_vault_id {
+            inline_vault_media(vault_id, &config.output_dir)?;
+        }
+    }
+
+    // Step 4: bun build (optional)
+    if config.build {
+        build_astro(&config.output_dir)?;
+    }
 
     info!("Site assembled at {}", config.output_dir.display());
     Ok(())
@@ -56,6 +104,133 @@ pub fn publish_and_push(publish_config: &PublishConfig, git_config: &GitPushConf
     publish(publish_config)?;
     let message = git::push(git_config)?;
     Ok(message)
+}
+
+/// Copy vault media into `{output_dir}/public/media/` so the built site serves
+/// images at `/media/...` without needing the media-server at runtime.
+///
+/// Vault layout expected: `{STORAGE_DIR}/vaults/{vault_id}/media/`
+/// Output layout:         `{output_dir}/public/media/`
+///
+/// URL paths in page-element JSON (e.g. `/media/{slug}/image.webp`) remain
+/// unchanged; Astro serves `public/media/...` at `/media/...`.
+fn inline_vault_media(vault_id: &str, output_dir: &Path) -> Result<()> {
+    let storage_dir = std::env::var("STORAGE_DIR").unwrap_or_else(|_| "./storage".to_string());
+    let vault_media = PathBuf::from(&storage_dir)
+        .join("vaults")
+        .join(vault_id)
+        .join("media");
+
+    if !vault_media.exists() {
+        tracing::warn!(
+            "inlineMedia: vault media dir not found: {}",
+            vault_media.display()
+        );
+        return Ok(());
+    }
+
+    let public_media = output_dir.join("public").join("media");
+    info!(
+        "Inlining vault media {} → {}",
+        vault_media.display(),
+        public_media.display()
+    );
+    copy_dir_all(&vault_media, &public_media)?;
+    Ok(())
+}
+
+/// Run `bun install && bun run build` in the output directory.
+pub fn build_astro(output_dir: &Path) -> Result<()> {
+    info!("Running bun install in {}", output_dir.display());
+    let status = std::process::Command::new("bun")
+        .args(["install"])
+        .current_dir(output_dir)
+        .status()?;
+    if !status.success() {
+        anyhow::bail!("bun install failed");
+    }
+
+    info!("Running bun run build in {}", output_dir.display());
+    let status = std::process::Command::new("bun")
+        .args(["run", "build"])
+        .current_dir(output_dir)
+        .status()?;
+    if !status.success() {
+        anyhow::bail!("bun build failed");
+    }
+
+    info!("Astro build complete");
+    Ok(())
+}
+
+// ── VitePress publish ─────────────────────────────────────────────────────────
+
+/// Configuration for a full VitePress publish run.
+pub struct VitepressPublishConfig {
+    /// Source: workspace folder containing vitepressdef.yaml + docs/ + public/
+    pub source_dir: PathBuf,
+    /// Output: where the assembled VitePress project will be written
+    pub output_dir: PathBuf,
+    /// When true, run `bun install && bun run docs:build` after generation.
+    pub build: bool,
+}
+
+/// Assemble the VitePress project output directory:
+/// 1. Run the vitepress generator (vitepressdef.yaml → package.json, config.ts, docs/)
+/// 2. Optionally run `bun install && bun run docs:build`
+pub fn publish_vitepress(config: &VitepressPublishConfig) -> Result<()> {
+    if config.output_dir.exists() {
+        std::fs::remove_dir_all(&config.output_dir)?;
+    }
+    std::fs::create_dir_all(&config.output_dir)?;
+
+    let gen_config = site_generator::VitepressGeneratorConfig {
+        source_dir: config.source_dir.clone(),
+        output_dir: config.output_dir.clone(),
+    };
+    site_generator::generate_vitepress(&gen_config)?;
+
+    if config.build {
+        build_vitepress_docs(&config.output_dir)?;
+    }
+
+    info!("VitePress site assembled at {}", config.output_dir.display());
+    Ok(())
+}
+
+/// Generate the VitePress site locally, then push it to a Forgejo git repository.
+/// Returns a human-readable status message.
+pub fn publish_vitepress_and_push(
+    publish_config: &VitepressPublishConfig,
+    git_config: &GitPushConfig,
+) -> Result<String> {
+    publish_vitepress(publish_config)?;
+    let message = git::push(git_config)?;
+    Ok(message)
+}
+
+/// Run `bun install && bun run docs:build` in the output directory.
+pub fn build_vitepress_docs(output_dir: &Path) -> Result<()> {
+    info!("Running bun install in {}", output_dir.display());
+    let status = std::process::Command::new("bun")
+        .args(["install"])
+        .current_dir(output_dir)
+        .status()?;
+    if !status.success() {
+        anyhow::bail!("bun install failed");
+    }
+
+    info!("Running bun run docs:build in {}", output_dir.display());
+    let status = std::process::Command::new("bun")
+        .args(["run", "docs:build"])
+        .current_dir(output_dir)
+        .status()?;
+    if !status.success() {
+        anyhow::bail!("bun run docs:build failed");
+    }
+
+    info!("VitePress build complete");
+    Ok(())
 }
 
 fn copy_dir_all(src: &Path, dst: &Path) -> Result<()> {

@@ -16,7 +16,7 @@ use bpmn_viewer::BpmnFolderRenderer;
 use common::storage::UserStorageManager;
 use course::{CourseFolderRenderer, PresentationFolderRenderer};
 use media_viewer::MediaViewerRenderer;
-use site_overview::SiteOverviewRenderer;
+use site_overview::{SiteOverviewRenderer, VitepressOverviewRenderer};
 use sqlx::SqlitePool;
 use workspace_manager::WorkspaceManagerState;
 
@@ -33,4 +33,5 @@ pub fn register_all(
     state.register_renderer(Arc::new(CourseFolderRenderer { storage: user_storage.clone(), pool: pool.clone() }));
     state.register_renderer(Arc::new(PresentationFolderRenderer { storage: user_storage, pool }));
     state.register_renderer(Arc::new(SiteOverviewRenderer));
+    state.register_renderer(Arc::new(VitepressOverviewRenderer));
 }

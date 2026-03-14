@@ -1419,6 +1419,61 @@ pub async fn update_folder_metadata(
         }
     }
 
+    // Auto-scaffold vitepressdef.yaml when assigning the vitepress-docs folder type
+    if request.folder_type.as_str() == "vitepress-docs" {
+        let folder_dir = workspace_root.join(&final_path);
+        let config_file = folder_dir.join("vitepressdef.yaml");
+        if !config_file.exists() {
+            // Derive a human-readable title from the folder name
+            let raw = std::path::Path::new(&final_path)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(&final_path);
+            let title = raw
+                .replace('-', " ")
+                .replace('_', " ")
+                .split_whitespace()
+                .map(|w| {
+                    let mut c = w.chars();
+                    match c.next() {
+                        None => String::new(),
+                        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(" ");
+
+            // Emit minimal but valid vitepressdef.yaml
+            let yaml = format!(
+                "title: {}\ndescription: \"\"\nnav: []\nsidebar: []\n",
+                serde_yaml::to_value(&title)
+                    .ok()
+                    .and_then(|v| serde_yaml::to_string(&v).ok())
+                    .unwrap_or_else(|| format!("\"{}\"", title))
+                    .trim()
+                    .to_string()
+            );
+
+            let _ = std::fs::create_dir_all(&folder_dir);
+            match std::fs::write(&config_file, &yaml) {
+                Ok(()) => {
+                    // Also seed docs/ with a placeholder home page
+                    let docs_dir = folder_dir.join("docs");
+                    let _ = std::fs::create_dir_all(&docs_dir);
+                    let index_path = docs_dir.join("index.md");
+                    if !index_path.exists() {
+                        let index_md = format!(
+                            "---\nlayout: home\n\nhero:\n  name: \"{title}\"\n  tagline: Your tagline here.\n---\n\n# Welcome\n\nAdd Markdown files to `docs/` and update `vitepressdef.yaml` to configure navigation.\n"
+                        );
+                        let _ = std::fs::write(&index_path, index_md);
+                    }
+                    info!("Scaffolded vitepressdef.yaml for vitepress-docs folder '{}'", final_path);
+                }
+                Err(e) => warn!("Failed to scaffold vitepressdef.yaml for '{}': {}", final_path, e),
+            }
+        }
+    }
+
     // Save config
     config.save(&workspace_root).map_err(|e| {
         warn!("Failed to save workspace.yaml: {}", e);
@@ -3987,13 +4042,14 @@ pub async fn generate_site_handler(
         return Err(StatusCode::NOT_FOUND);
     }
 
-    // Verify the folder is typed as website-gen
+    // Verify the folder is typed as a publishable site type
     let config = WorkspaceConfig::load(&workspace_root).map_err(|e| {
         warn!("Failed to load workspace config: {e}");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
     let folder_config = config.get_folder(&request.folder_path).ok_or(StatusCode::NOT_FOUND)?;
-    if folder_config.folder_type.as_str() != "yhm-site-data" {
+    let folder_type = folder_config.folder_type.as_str().to_string();
+    if folder_type != "yhm-site-data" && folder_type != "vitepress-docs" {
         return Err(StatusCode::BAD_REQUEST);
     }
 
@@ -4045,12 +4101,6 @@ pub async fn generate_site_handler(
         .join(&folder_slug);
 
     // Run publish (and optional git push) in a blocking thread
-    let publish_config = site_publisher::PublishConfig {
-        source_dir,
-        output_dir: output_dir.clone(),
-        components_dir,
-    };
-
     let git_config = forgejo_repo.as_ref().and_then(|repo_url| {
         let token = forgejo_token.clone()?;
         Some(site_publisher::GitPushConfig {
@@ -4064,12 +4114,33 @@ pub async fn generate_site_handler(
         })
     });
 
+    let output_dir_log = output_dir.clone();
     let message = tokio::task::spawn_blocking(move || {
-        if let Some(git) = git_config {
-            site_publisher::publish_and_push(&publish_config, &git)
+        if folder_type == "vitepress-docs" {
+            let vp_config = site_publisher::VitepressPublishConfig {
+                source_dir,
+                output_dir: output_dir.clone(),
+                build: false,
+            };
+            if let Some(git) = git_config {
+                site_publisher::publish_vitepress_and_push(&vp_config, &git)
+            } else {
+                site_publisher::publish_vitepress(&vp_config)?;
+                Ok(format!("VitePress docs generated at {folder_slug} (no Forgejo repo configured)"))
+            }
         } else {
-            site_publisher::publish(&publish_config)?;
-            Ok(format!("Site generated at {folder_slug} (no Forgejo repo configured)"))
+            let publish_config = site_publisher::PublishConfig {
+                source_dir,
+                output_dir: output_dir.clone(),
+                components_dir,
+                build: false, // bun build disabled by default from UI; use site-cli --build for CI
+            };
+            if let Some(git) = git_config {
+                site_publisher::publish_and_push(&publish_config, &git)
+            } else {
+                site_publisher::publish(&publish_config)?;
+                Ok(format!("Site generated at {folder_slug} (no Forgejo repo configured)"))
+            }
         }
     })
     .await
@@ -4079,7 +4150,7 @@ pub async fn generate_site_handler(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    info!("Site published: {}", output_dir.display());
+    info!("Site published: {}", output_dir_log.display());
 
     // Persist publish status into workspace.yaml so the dashboard can show it.
     let publish_status = if forgejo_repo.is_some() { "pushed" } else { "generated" };
@@ -4097,9 +4168,65 @@ pub async fn generate_site_handler(
         }
     }
     Ok(Json(GenerateSiteResponse {
-        output_dir: output_dir.display().to_string(),
+        output_dir: output_dir_log.display().to_string(),
         message,
     }))
+}
+
+// ============================================================================
+// Site Element Editor
+// ============================================================================
+
+/// GET /workspaces/{workspace_id}/site-editor?path=...&page=...&lang=...
+///
+/// Renders the inline page-element tree editor for a yhm-site-data folder.
+/// Uses a query-param for the folder path because Axum wildcards must be the
+/// last segment (can't do `{*path}/editor`).
+#[derive(serde::Deserialize)]
+struct SiteEditorQuery {
+    path: Option<String>,
+    page: Option<String>,
+    lang: Option<String>,
+}
+
+async fn site_editor_page(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Query(query): Query<SiteEditorQuery>,
+) -> Result<Response, StatusCode> {
+    check_scope(&user, "read")?;
+    let user_id = require_auth(&session).await?;
+    let (workspace_name, _) = verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let folder_path = query.path.unwrap_or_default();
+    if folder_path.is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let selected_page = query.page.unwrap_or_default();
+    let selected_lang = query.lang.unwrap_or_default();
+
+    let html = tokio::task::spawn_blocking(move || {
+        site_overview::render_site_editor(
+            &workspace_root,
+            &workspace_id,
+            &workspace_name,
+            &folder_path,
+            if selected_page.is_empty() { None } else { Some(&selected_page) },
+            if selected_lang.is_empty() { None } else { Some(&selected_lang) },
+        )
+    })
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .map_err(|e| {
+        warn!("site editor render error: {e}");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    Ok(Html(html).into_response())
 }
 
 // ============================================================================
@@ -4263,6 +4390,10 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         )
         .route("/workspaces/{workspace_id}/edit", get(open_file_page))
         .route("/workspaces/{workspace_id}/edit-text", get(edit_text_file_page))
+        .route(
+            "/workspaces/{workspace_id}/site-editor",
+            get(site_editor_page),
+        )
         .route("/workspace-access-codes", get(workspace_access_codes_page))
         // ── Tenant admin API (Phase 6B) ───────────────────────────────────
         // TODO: add admin role check when role model is defined (Phase 6C)

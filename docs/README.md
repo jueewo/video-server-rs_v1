@@ -1,6 +1,6 @@
 # Documentation
 
-> Last updated: 2026-03-09
+> Last updated: 2026-03-15
 
 ---
 
@@ -82,6 +82,16 @@ a code unlocks one or more folders. No user account needed for consumers.
 | `apps/DUAL_USE_PATTERN.md` | Pattern for embedded + standalone mode in one crate |
 | `apps/course-viewer.md` | Course viewer crate |
 | `apps/media-viewer.md` | Media viewer / gallery crate |
+
+---
+
+## Site Generator & Frontend
+
+| File | What it covers |
+|---|---|
+| `design/SITE_GENERATOR.md` | Site generator architecture: sitedef.yaml, page compilation pipeline, element schema registry, validator, redirect/config generation |
+| `dev/features/PAGE_ELEMENTS.md` | Complete reference for all 21 page element types: fields, YAML examples, flat vs legacy structure |
+| `dev/features/FRONTEND_UI.md` | Astro frontend architecture: layouts, theme system, typography, card components, Mermaid, search |
 
 ---
 

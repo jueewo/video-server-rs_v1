@@ -20,6 +20,7 @@ const {
 const { lang } = Astro.params;
 
 import { getRelativeLocaleUrl } from "astro:i18n";
+import { b } from '../utils/siteBase';
 
 // const preferredLocale = Astro.preferredLocale;
 // const preferredLocales = Astro.preferredLocaleList;
@@ -45,7 +46,7 @@ import { getRelativeLocaleUrl } from "astro:i18n";
         <div class="grid gap-16 row-gap-10 mb-8 lg:grid-cols-6">
             <div class="md:max-w-md lg:col-span-2">
                 <a
-                    href="/"
+                    href={lang ? `${b}/${lang}/home` : `${b}/home`}
                     aria-label="Go home"
                     title="Company"
                     class="inline-flex items-center"
@@ -88,7 +89,7 @@ import { getRelativeLocaleUrl } from "astro:i18n";
                                             <a
                                                 href={
                                                     lang
-                                                        ? `/${lang}${category.link}`
+                                                        ? `${b}/${lang}${category.link}`
                                                         : category.link
                                                 }
                                                 class="transition-colors duration-300 text-base-content hover:text-primary hover:underline"
@@ -109,7 +110,7 @@ import { getRelativeLocaleUrl } from "astro:i18n";
                                                     <a
                                                         href={
                                                             lang
-                                                                ? `/${lang}${link.link}`
+                                                                ? `${b}/${lang}${link.link}`
                                                                 : link.link
                                                         }
                                                         class="transition-colors duration-300 text-base-content hover:text-primary"
@@ -180,7 +181,7 @@ import { getRelativeLocaleUrl } from "astro:i18n";
                                 class="text-base-content/80 text-sm"
                                 href={
                                     lang
-                                        ? `/${lang}/${legalitem.collection}${legalitem.link}`
+                                        ? `${b}/${lang}/${legalitem.collection}${legalitem.link}`
                                         : legalitem.link
                                 }
                             >

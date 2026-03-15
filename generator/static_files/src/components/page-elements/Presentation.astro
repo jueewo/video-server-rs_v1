@@ -76,7 +76,8 @@ markdownContent = markdownContent.replace(
 
 // Parse title and description
 const title = element?.title ?? element?.content?.title ?? "Presentation";
-const desc  = element?.desc  ?? element?.content?.desc  ?? "";
+const descRaw = element?.desc ?? element?.content?.desc ?? "";
+const desc: string = Array.isArray(descRaw) ? descRaw.join(' ') : (descRaw || '');
 ---
 
 <div

@@ -21,7 +21,8 @@ const filePath = `/src/assets/${datafile}`;
 const bpmnContent = (bpmnModules[filePath] as string) || "";
 
 const title = element?.title ?? element?.content?.title ?? "Process Diagram";
-const desc  = element?.desc  ?? element?.content?.desc  ?? "";
+const descRaw = element?.desc ?? element?.content?.desc ?? "";
+const desc: string = Array.isArray(descRaw) ? descRaw.join(' ') : (descRaw || '');
 ---
 
 <div class="w-full bg-base-100 my-12 p-4 md:p-12" data-process-wrapper={id}>

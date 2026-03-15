@@ -4,9 +4,10 @@
 
 const { element, lang } = Astro.props;
 
-const title = element.content?.title ?? "News";
-const desc = element.content?.desc ?? "";
-const showbuttons = element.props?.showbuttons ?? false;
+const title = element?.title ?? element?.content?.title ?? "News";
+const descRaw = element?.desc ?? element?.content?.desc ?? "";
+const desc: string = Array.isArray(descRaw) ? descRaw.join(' ') : (descRaw || '');
+const showbuttons = element?.showbuttons ?? element?.props?.showbuttons ?? false;
 
 type NewsItem = {
     title: string;

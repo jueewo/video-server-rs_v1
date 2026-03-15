@@ -23,6 +23,10 @@ import ProgressRing from "../components/anim/ProgressRing.astro";
 import LikeButton from "../components/preact/LikeButtonRemote";
 import SurveyRemote from "../components/preact/surveyremote/SurveyRemote";
 import { IconEnvelope } from "../components/icons/IconEnvelope";
+import ElementRenderer from "../components/page-renderer/ElementRenderer.astro";
+import FAQComponent from "../components/FAQComponent.astro";
+import ThemeToggle from "../components/utils/ThemeToggle.astro";
+import SearchBar from "../components/SearchBar.astro";
 
 
 
@@ -45,7 +49,8 @@ const { entry, headings, collection } = Astro.props;
 
 const {lang } = Astro.params;
 
-const enablelatex = entry.data.enablelatex; //  true; //...todo: add to config
+const enablelatex = entry.data.enablelatex;
+const enablemermaid = entry.data.enablemermaid;
 
 //.. page_metatags for header
 const page_metatags = {
@@ -72,11 +77,22 @@ const pageid = lang + '-' + collection + '-' + entry.id.replace(/\.(md|mdx)$/, "
 
 <html lang={lang ? lang : 'en'}>
 
-  <Header title={title} page_metatags={page_metatags} enablelatex={enablelatex} />
+  <Header title={title} page_metatags={page_metatags} enablelatex={enablelatex} enablemermaid={enablemermaid} />
 
   <body>
     <ProgressRing/>
 
+    <div class="navbar bg-base-100 z-50 sticky top-0 shadow-sm">
+      <div class="navbar-start">
+        <a class="btn btn-ghost text-xl uppercase" href={"/" + (lang ?? "en") + "/home"}>
+          {Config.siteName}
+        </a>
+      </div>
+      <div class="navbar-end">
+        <SearchBar lang={lang ?? "en"} searchableCollections={Config.searchableCollections} />
+        <ThemeToggle showtext={false} />
+      </div>
+    </div>
 
     <div class="drawer">
       { !entry.draft_content && entry.showtoc && (
@@ -163,14 +179,38 @@ const pageid = lang + '-' + collection + '-' + entry.id.replace(/\.(md|mdx)$/, "
           )
         }
 
+        <!-- elements_above: JSON-driven page elements rendered before prose -->
+        {entry.data.elements_above && entry.data.elements_above.length > 0 && (
+          <div class="w-full">
+            {entry.data.elements_above.map((el: any, i: number) => (
+              <ElementRenderer element={el} index={i} lang={lang} />
+            ))}
+          </div>
+        )}
+
         <!-- slug content / slot -->
 
         <div class="flex justify-center w-full max-w-[100vw] overflow-x-hidden box-border">
           <div class="prose py-16 px-4 sm:px-6 md:px-8 w-full max-w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-3rem)] md:max-w-prose [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_code]:break-words [&_pre_code]:break-normal">
-            <!-- <Content /> -->
             <slot />
           </div>
         </div>
+
+        <!-- elements_below: JSON-driven page elements rendered after prose -->
+        {entry.data.elements_below && entry.data.elements_below.length > 0 && (
+          <div class="w-full">
+            {entry.data.elements_below.map((el: any, i: number) => (
+              <ElementRenderer element={el} index={i} lang={lang} />
+            ))}
+          </div>
+        )}
+
+        <!-- faqdata: inline FAQ rendered from frontmatter -->
+        {entry.data.faqdata && entry.data.faqdata.length > 0 && (
+          <div class="w-full max-w-3xl mx-auto px-4 py-8">
+            <FAQComponent faqdata={entry.data.faqdata} />
+          </div>
+        )}
 
 
 

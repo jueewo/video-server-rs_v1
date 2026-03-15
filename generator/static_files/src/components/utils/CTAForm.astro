@@ -52,7 +52,7 @@ console.log("SurveyForm > id: "+id)
 
 // const surveydef = surveydefs[surveyid];
 // const surveydef = await getSurvey(surveyid);
-const surveydef = element.props.data;
+const surveydef = element.data ?? element.props?.data;
 // const surveydef = null;
 
 // // const id='123';

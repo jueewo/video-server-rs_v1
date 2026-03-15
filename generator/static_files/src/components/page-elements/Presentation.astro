@@ -12,9 +12,9 @@ import type { ImageMetadata } from "astro";
 
 const { element } = Astro.props;
 
-// Get the datafile path from props
-const datafile = element?.props?.datafile || "slides/demoslides.md";
-const id = element?.props?.id || "presentation";
+// Get the datafile path — flat with legacy props fallback
+const datafile = element?.datafile ?? element?.props?.datafile ?? "slides/demoslides.md";
+const id       = element?.id       ?? element?.props?.id       ?? "presentation";
 
 // Extract presentation name from datafile (e.g., "slides/demoslides.md" -> "demoslides")
 const presentationName =
@@ -75,8 +75,8 @@ markdownContent = markdownContent.replace(
 );
 
 // Parse title and description
-const title = element?.content?.title || "Presentation";
-const desc = element?.content?.desc || "";
+const title = element?.title ?? element?.content?.title ?? "Presentation";
+const desc  = element?.desc  ?? element?.content?.desc  ?? "";
 ---
 
 <div

@@ -31,30 +31,39 @@ const getImage = (imagePath: string) => {
 // First hero (index 0) gets priority loading for LCP optimization
 const isFirstHero = index === 0 || index === undefined;
 
+// Flat structure with legacy props/content fallback
+const fullscreen  = element.fullscreen  ?? element.props?.fullscreen;
+const image_zoomable = element.image_zoomable ?? element.props?.image_zoomable;
+const ext         = element.ext         ?? element.props?.ext;
+const rawLink     = element.link        ?? element.props?.link;
+const image       = element.image       ?? element.content?.image;
+const title       = element.title       ?? element.content?.title ?? "";
+const desc        = element.desc        ?? element.content?.desc;
+const button      = element.button      ?? element.content?.button;
+
 // Handle link as string or object with path property
 const linkUrl =
-    typeof element.props?.link === "string"
-        ? element.props.link
-        : element.props?.link?.path || "";
+    typeof rawLink === "string"
+        ? rawLink
+        : rawLink?.path || "";
 
 const is_external_link =
     linkUrl.includes("http") ||
     linkUrl.includes("https") ||
     linkUrl.includes("www");
+
 ---
 
 <div
-    class={(element.props && element.props.fullscreen ? "min-h-screen " : "") +
+    class={(fullscreen ? "min-h-screen " : "") +
         " bg-base-100 my-12 p-4 md:p-12 lg:w-full"}
 >
     <div class="p-2 md:p-4 xl:p-8 m-auto">
         {
-            element.content.image && (
+            image && (
                 <PicFromContent
-                    imagePath={element.content.image}
-                    altTitle={
-                        "image_" + element.content.title.replace(/ /g, "-")
-                    }
+                    imagePath={image}
+                    altTitle={"image_" + title.replace(/ /g, "-")}
                     class="w-3/4 lg:max-w-xl m-auto rounded-lg"
                     priority={isFirstHero}
                     sizes="(max-width: 640px) 75vw, (max-width: 1024px) 50vw, 576px"
@@ -64,7 +73,7 @@ const is_external_link =
         }
 
         {
-            element.props.image_zoomable && (
+            image_zoomable && (
                 <div class="flex justify-end items-center">
                     <button
                         class="btn btn-ghost"
@@ -91,13 +100,10 @@ const is_external_link =
                         class="modal modal-bottom sm:modal-middle"
                     >
                         <div class="modal-box w-full sm:w-11/12">
-                            {element.content.image && (
+                            {image && (
                                 <Image
-                                    src={getImage(element.content.image)}
-                                    alt={
-                                        "image_" +
-                                        element.content.title.replace(/ /g, "-")
-                                    }
+                                    src={getImage(image)}
+                                    alt={"image_" + title.replace(/ /g, "-")}
                                     class="w-fill m-auto rounded-lg"
                                     loading="lazy"
                                     decoding="async"
@@ -123,15 +129,12 @@ const is_external_link =
 
     <div class="max-w-md m-auto text-center">
         <h1 class="pt-4 mb-5 text-2xl font-bold">
-            <Fragment set:html={element.content.title} />
+            <Fragment set:html={title} />
         </h1>
 
         {
-            element.content.desc &&
-                (Array.isArray(element.content.desc)
-                    ? element.content.desc
-                    : [element.content.desc]
-                ).map((line: string) => (
+            desc &&
+                (Array.isArray(desc) ? desc : [desc]).map((line: string) => (
                     <p class="pt-6">
                         <Fragment set:html={line} />
                     </p>
@@ -139,12 +142,12 @@ const is_external_link =
         }
 
         {
-            element.props && linkUrl && (
+            linkUrl && (
                 <div>
-                    {element.props.ext ? (
+                    {ext ? (
                         <a href={linkUrl} target="_blank">
                             <button class="btn btn-outline my-6">
-                                {element.content.button}
+                                {button}
                                 <span class="text-xs ml-1"> ↗ </span>
                                 <span class="text-xs ml-1">
                                     <svg
@@ -167,7 +170,7 @@ const is_external_link =
                     ) : (
                         <a href={"/" + lang + linkUrl}>
                             <button class="btn btn-outline my-6">
-                                {element.content.button}
+                                {button}
                                 <span class="text-xs ml-1">
                                     <svg
                                         xmlns="http://www.w3.org/2000/svg"

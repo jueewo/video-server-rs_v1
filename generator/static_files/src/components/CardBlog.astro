@@ -34,6 +34,7 @@ const lang = pagelang || contentlang;
         <div
             class="card md:card-side bg-parent text-base shadow-xl max-w-full overflow-hidden"
         >
+            {card.data.image && (
             <div class="flex justify-center items-center content-center">
                 <figure class="max-w-xl w-full md:w-48 h-48">
                     <Image
@@ -46,12 +47,8 @@ const lang = pagelang || contentlang;
                         quality={80}
                     />
                 </figure>
-
-                {
-                    /* IMAGE DATA: {card.data.image}
-                  {JSON.stringify(card.data)} */
-                }
             </div>
+            )}
             <div class="card-body md:w-full max-w-full overflow-hidden">
                 <span class="flex items-center">
                     <h2 class="card-title flex-auto">{card.data.title}</h2>

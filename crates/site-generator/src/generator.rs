@@ -5,6 +5,7 @@ use serde_json::json;
 use tracing::info;
 
 use crate::schema::SiteDef;
+use crate::validator::validate_page_json;
 
 const TEMPLATE_INDEX: &str = include_str!("templates/pages_index.astro.txt");
 const TEMPLATE_SLUG: &str = include_str!("templates/pages_slug.astro.txt");
@@ -42,6 +43,7 @@ pub fn generate(config: &GeneratorConfig) -> Result<SiteDef> {
     copy_data(&sitedef, &config.source_dir, out)?;
     copy_content(&sitedef, &config.source_dir, out)?;
     write_website_config(&sitedef, out)?;
+    write_redirects(&sitedef, out)?;
 
     info!("Generation complete → {}", out.display());
     Ok(sitedef)
@@ -122,9 +124,26 @@ fn copy_data(sitedef: &SiteDef, source: &Path, out: &Path) -> Result<()> {
                 .join(&lang.locale);
             if src.exists() {
                 copy_dir_all(&src, &dst)?;
-                // If source has no page.json, compile one from numbered element files
-                if !src.join("page.json").exists() {
+                if src.join("page.yaml").exists() {
+                    // page.yaml is the authoritative source — always recompile it
+                    compile_page_from_yaml(&dst)?;
+                } else if src.join("page.json").exists() {
+                    // pre-built page.json — copy as-is (already done by copy_dir_all)
+                } else {
+                    // Numbered element files (*.json / *.yaml) → compile to page.json
                     compile_page_json(&dst)?;
+                }
+                // Validate compiled page.json
+                let page_json_dst = dst.join("page.json");
+                if page_json_dst.exists() {
+                    match validate_page_json(&page_json_dst) {
+                        Ok(report) => report.print(&page_json_dst.display().to_string()),
+                        Err(e) => tracing::warn!(
+                            "Could not validate {}: {}",
+                            page_json_dst.display(),
+                            e
+                        ),
+                    }
                 }
             }
         }
@@ -132,24 +151,59 @@ fn copy_data(sitedef: &SiteDef, source: &Path, out: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Compile individual numbered element JSON files (e.g. 1-hero.json, 2-carousel.json)
+/// Convert a single `page.yaml` file into `page.json`.
+/// The YAML may have a top-level `elements` key, or be a bare sequence.
+fn compile_page_from_yaml(dir: &Path) -> Result<()> {
+    let yaml_path = dir.join("page.yaml");
+    let text = std::fs::read_to_string(&yaml_path)
+        .with_context(|| format!("reading {}", yaml_path.display()))?;
+
+    let value: serde_yaml::Value = serde_yaml::from_str(&text)
+        .with_context(|| format!("parsing {}", yaml_path.display()))?;
+
+    // Accept { elements: [...] }  or  bare [...]
+    let elements = match &value {
+        serde_yaml::Value::Mapping(map) => map
+            .get("elements")
+            .cloned()
+            .unwrap_or(serde_yaml::Value::Sequence(vec![])),
+        serde_yaml::Value::Sequence(_) => value.clone(),
+        _ => serde_yaml::Value::Sequence(vec![]),
+    };
+
+    // Convert via JSON for a clean round-trip
+    let elements_json: serde_json::Value = serde_json::to_value(
+        serde_yaml::from_value::<serde_json::Value>(elements)
+            .context("yaml→json conversion")?,
+    )?;
+
+    let page = serde_json::json!({ "elements": elements_json });
+    let dst = dir.join("page.json");
+    std::fs::write(&dst, serde_json::to_string_pretty(&page)?)?;
+    info!("Compiled page.json from page.yaml in {}", dir.display());
+    Ok(())
+}
+
+/// Compile individual numbered element files (*.json or *.yaml, e.g. 1-hero.yaml)
 /// into a single page.json expected by content.config.ts.
-/// Skips files starting with '_' (disabled) and draft-only markers.
+/// Skips files starting with '_' (disabled).
 fn compile_page_json(dir: &Path) -> Result<()> {
     let page_json_path = dir.join("page.json");
 
-    // Collect all *.json files except page.json itself, sorted by filename
+    // Collect *.json and *.yaml element files (not page.json / page.yaml), sorted
     let mut files: Vec<_> = std::fs::read_dir(dir)?
         .filter_map(|e| e.ok())
         .filter(|e| {
             let name = e.file_name();
             let s = name.to_string_lossy();
-            s.ends_with(".json") && s != "page.json" && !s.starts_with('_')
+            !s.starts_with('_')
+                && s != "page.json"
+                && s != "page.yaml"
+                && (s.ends_with(".json") || s.ends_with(".yaml"))
         })
         .map(|e| e.path())
         .collect();
 
-    // Natural sort by filename so 1-hero < 2-carousel < 10-footer
     files.sort_by(|a, b| {
         let an = a.file_name().unwrap_or_default().to_string_lossy().to_string();
         let bn = b.file_name().unwrap_or_default().to_string_lossy().to_string();
@@ -160,7 +214,12 @@ fn compile_page_json(dir: &Path) -> Result<()> {
         .iter()
         .filter_map(|path| {
             let text = std::fs::read_to_string(path).ok()?;
-            serde_json::from_str(&text).ok()
+            if path.extension().map_or(false, |e| e == "yaml") {
+                let y: serde_yaml::Value = serde_yaml::from_str(&text).ok()?;
+                serde_json::to_value(serde_yaml::from_value::<serde_json::Value>(y).ok()?).ok()
+            } else {
+                serde_json::from_str(&text).ok()
+            }
         })
         .collect();
 
@@ -297,6 +356,77 @@ fn write_website_config(sitedef: &SiteDef, out: &Path) -> Result<()> {
     std::fs::create_dir_all(out.join("src"))?;
     std::fs::write(out.join("src").join("website.config.cjs"), config)?;
     info!("Written website.config.cjs");
+    Ok(())
+}
+
+// ── website.redirects.mjs ──────────────────────────────────────────────────────
+
+/// Write `src/website.redirects.mjs` — imported by `astro.config.mjs`.
+/// Provides:
+///   - `redirects`: `{ "/{slug}": "/{defaultLocale}/{slug}", ... }` for every page,
+///     plus a root `/` redirect to the default locale's home (first page).
+///   - `defaultLocale`: string used by the sitemap integration.
+///   - `locales`: `{ "en": "en", ... }` object for the sitemap integration.
+fn write_redirects(sitedef: &SiteDef, out: &Path) -> Result<()> {
+    let default_locale = &sitedef.defaultlanguage.locale;
+
+    // Root `/` → `/{defaultLocale}/{firstPage}`
+    let first_slug = sitedef
+        .pages
+        .first()
+        .map(|p| p.slug.as_str())
+        .unwrap_or("home");
+
+    let mut redirect_entries = vec![
+        format!(r#"  "/": "/{default_locale}/{first_slug}""#),
+        // Also redirect bare /{defaultLocale} to the first page
+        format!(r#"  "/{default_locale}": "/{default_locale}/{first_slug}""#),
+    ];
+
+    // Each page slug → /{defaultLocale}/{slug}
+    for page in &sitedef.pages {
+        let slug = &page.slug;
+        redirect_entries.push(format!(r#"  "/{slug}": "/{default_locale}/{slug}""#));
+    }
+
+    // For every non-default language, also redirect bare /{locale} to its home page
+    for lang in &sitedef.languages {
+        if lang.locale != *default_locale {
+            let locale = &lang.locale;
+            redirect_entries.push(format!(
+                r#"  "/{locale}": "/{locale}/{first_slug}""#
+            ));
+        }
+    }
+
+    // Sitemap locale map: { "en": "en", "de": "de", ... }
+    let locales_entries: Vec<String> = sitedef
+        .languages
+        .iter()
+        .map(|l| format!(r#"  "{}": "{}""#, l.locale, l.locale))
+        .collect();
+
+    let content = format!(
+        r#"// Auto-generated by site-generator — do not edit manually.
+// Imported by astro.config.mjs for redirects and sitemap locale config.
+export default {{
+  defaultLocale: "{default_locale}",
+  locales: {{
+{locales}
+  }},
+  redirects: {{
+{redirects}
+  }},
+}};
+"#,
+        default_locale = default_locale,
+        locales = locales_entries.join(",\n"),
+        redirects = redirect_entries.join(",\n"),
+    );
+
+    std::fs::create_dir_all(out.join("src"))?;
+    std::fs::write(out.join("src").join("website.redirects.mjs"), content)?;
+    info!("Written website.redirects.mjs ({} redirects)", redirect_entries.len());
     Ok(())
 }
 

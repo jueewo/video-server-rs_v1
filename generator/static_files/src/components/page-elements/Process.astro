@@ -5,9 +5,9 @@
 
 const { element } = Astro.props;
 
-// Get the datafile path from props
-const datafile = element?.props?.datafile || "processes/diagram_demo1.bpmn";
-const id = element?.props?.id || "process";
+// Get the datafile path — flat with legacy props fallback
+const datafile = element?.datafile ?? element?.props?.datafile ?? "processes/diagram_demo1.bpmn";
+const id       = element?.id       ?? element?.props?.id       ?? "process";
 
 // Import all BPMN files from processes directory
 const bpmnModules = import.meta.glob("/src/assets/processes/*.bpmn", {
@@ -20,9 +20,8 @@ const bpmnModules = import.meta.glob("/src/assets/processes/*.bpmn", {
 const filePath = `/src/assets/${datafile}`;
 const bpmnContent = (bpmnModules[filePath] as string) || "";
 
-// Parse title and description
-const title = element?.content?.title || "Process Diagram";
-const desc = element?.content?.desc || "";
+const title = element?.title ?? element?.content?.title ?? "Process Diagram";
+const desc  = element?.desc  ?? element?.content?.desc  ?? "";
 ---
 
 <div class="w-full bg-base-100 my-12 p-4 md:p-12" data-process-wrapper={id}>

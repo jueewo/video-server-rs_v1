@@ -20,10 +20,8 @@ const {element, id, dataid, data } = Astro.props;
 
 <!-- STATISTICS -->
 <div class="flex justify-center">
-  <div id={element.props.id} class="stats stats-vertical lg:stats-horizontal shadow p-10 my-24">
-    
-    
-    <CTAForm id={element.props.id} element={element}/>
+  <div id={element.id ?? element.props?.id} class="stats stats-vertical lg:stats-horizontal shadow p-10 my-24">
+    <CTAForm id={element.id ?? element.props?.id} element={element}/>
     
     
   </div>

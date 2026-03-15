@@ -16,11 +16,12 @@ import CardInfo from "../CardInfo.astro";
 import CardBlog from "../CardBlog.astro";
 import TitleAlertBanner from "./TitleAlertBanner.astro";
 
-// const {element, alt, index } = Astro.props;
 const { element, lang } = Astro.props;
 
-// let showing_default_language = false;
-const default_lang = Config.defaultLanguage.locale; // .. "en"
+const default_lang = Config.defaultLanguage.locale;
+
+// Flat structure with legacy props fallback
+const _props = (k: string) => element[k] ?? element.props?.[k];
 
 // const collection_name = "page_consulting";
 
@@ -45,11 +46,11 @@ const default_lang = Config.defaultLanguage.locale; // .. "en"
 //         (a) => a.id.split("/")[0] == default_lang,
 //     );
 // }
-// element.props.collection;
+// collection_name;
 // const consulting_carddata = (await getCollection("consulting"))
 //
 
-// let collection_carddata = (await getCollection(element.props.collection))
+// let collection_carddata = (await getCollection(collection_name))
 //     .filter((a) => !a.data.draft)
 //     .sort((a, b) =>
 //         b.data.pubDate && a.data.pubDate
@@ -65,23 +66,12 @@ const default_lang = Config.defaultLanguage.locale; // .. "en"
 
 // var filter_all_active = element.props.filter_all_active || true;
 
-//.. filter_by_feature .. should it be filtered by featured -> filter_by_feature
-//.. if yes, then show filtered or not_filtered -> filter_feature
-var filter_by_featured = element.props.filter_by_featured;
-var filter_featured = element.props.filter_featured;
+var filter_by_featured = _props("filter_by_featured");
+var filter_featured    = _props("filter_featured");
+var filter_filtertag   = _props("filter_filtertag");
+var filter_by_filtertag = filter_filtertag && filter_filtertag.length > 0;
 
-//.. filter_by_feature .. should it be filtered by filtertag -> filter_by_filtertag
-//.. if yes, then show all with filtertag -> filter_filtertag
-var filter_by_filtertag =
-    element.props.filter_filtertag && element.props.filter_filtertag.length > 0;
-var filter_filtertag = element.props.filter_filtertag;
-
-// var filter_all_active = false;
-// var filter_all_active_featured = false;
-// var filter_by_filtertag = true;
-// var filter_filtertag = "course";
-
-const collection_carddata = (await getCollection(element.props.collection))
+const collection_carddata = (await getCollection(_props("collection")))
     .filter(
         (a) =>
             !a.data.draft &&
@@ -109,8 +99,9 @@ const collection_carddata_actlang = collection_carddata.filter(
 );
 // let collection_carddata_defaultlang = collection_carddata.filter((a) => a.id.split("/")[0] == default_lang);
 
-const show_default_lang = element.props.show_default_lang;
-const just_unique = element.props.just_unique;
+const show_default_lang = _props("show_default_lang");
+const just_unique       = _props("just_unique");
+const collection_name   = _props("collection");
 
 let collection_carddata_defaultlang = [];
 if (show_default_lang) {
@@ -134,14 +125,14 @@ if (show_default_lang) {
 
 {/* TITLE */}
 {
-    element.content.title && element.content.title.length > 0 && (
-        <div class="mt-12 text-3xl">{element.content.title}</div>
+    _props("title") && _props("title").length > 0 && (
+        <div class="mt-12 text-3xl">{_props("title")}</div>
     )
 }
 
 {/* CARD: DEFAULT */}
 {
-    (!element.props.card || element.props.card === "default") && (
+    (!_props("card") || _props("card") === "default") && (
         <>
             <div class="mt-12 grid justify-items-center grid-cols-1 gap-8 md:px-10 md:gap-16 md:grid-cols-2 xl:gap-5 xl:grid-cols-3 xl:px-5 content-center">
                 {collection_carddata_actlang.map((card) => (
@@ -149,14 +140,14 @@ if (show_default_lang) {
                         {card.data.featured && (
                             <CardDefault2
                                 card={card}
-                                pathdir={element.props.collection}
+                                pathdir={collection_name}
                                 pagelang={lang}
                             />
                         )}
                         {!card.data.featured && (
                             <CardInfo
                                 card={card}
-                                pathdir={element.props.collection}
+                                pathdir={collection_name}
                                 pagelang={lang}
                             />
                         )}
@@ -180,14 +171,14 @@ if (show_default_lang) {
                                 {card.data.featured && (
                                     <CardDefault2
                                         card={card}
-                                        pathdir={element.props.collection}
+                                        pathdir={collection_name}
                                         pagelang={lang}
                                     />
                                 )}
                                 {!card.data.featured && (
                                     <CardInfo
                                         card={card}
-                                        pathdir={element.props.collection}
+                                        pathdir={collection_name}
                                         pagelang={lang}
                                     />
                                 )}
@@ -202,14 +193,14 @@ if (show_default_lang) {
 
 {/* CARD: BLOG */}
 {
-    element.props.card === "blog" && (
+    _props("card") === "blog" && (
         <>
             <div class="grid justify-items items-center gap-16 grid-cols-1 xl:grid-cols-2 xl:px-9 content-center">
                 {collection_carddata_actlang.map((card) => (
                     <div class="bg-slate-900 text-white mx-5 xl:mx-0 rounded-xl">
                         <CardBlog
                             card={card}
-                            pathdir={element.props.collection}
+                            pathdir={collection_name}
                             pagelang={lang}
                         />
                         {/* <CardDefault card={card} pathdir={`${lang}`+"/blog"} /> */}
@@ -232,7 +223,7 @@ if (show_default_lang) {
                             <div class="bg-slate-900 text-white mx-5 xl:mx-0 rounded-xl">
                                 <CardBlog
                                     card={card}
-                                    pathdir={element.props.collection}
+                                    pathdir={collection_name}
                                     pagelang={lang}
                                 />
                                 {/* <CardDefault card={card} pathdir={`${lang}`+"/blog"} /> */}
@@ -247,13 +238,13 @@ if (show_default_lang) {
 
 {/* CARD: INFO */}
 {
-    element.props.card === "info" && (
+    _props("card") === "info" && (
         <>
             <div class="mt-12 grid justify-items-center grid-cols-1 gap-8 px-4 sm:px-6 md:px-10 md:gap-12 md:grid-cols-2 xl:gap-8 xl:grid-cols-3 xl:px-5 content-center">
                 {collection_carddata_actlang.map((card) => (
                     <CardInfo
                         card={card}
-                        pathdir={element.props.collection}
+                        pathdir={collection_name}
                         pagelang={lang}
                     />
                 ))}
@@ -273,7 +264,7 @@ if (show_default_lang) {
                         {collection_carddata_defaultlang.map((card) => (
                             <CardInfo
                                 card={card}
-                                pathdir={element.props.collection}
+                                pathdir={collection_name}
                                 pagelang={lang}
                             />
                         ))}

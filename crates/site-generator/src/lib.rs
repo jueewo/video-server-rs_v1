@@ -2,6 +2,8 @@ mod schema;
 mod generator;
 mod vitepress_schema;
 mod vitepress_generator;
+pub mod element_schemas;
+pub mod validator;
 
 pub use schema::{SiteDef, MenuItem, SubMenuItem, CollectionDef, Language, PageDef};
 pub use generator::{GeneratorConfig, generate, load_sitedef};

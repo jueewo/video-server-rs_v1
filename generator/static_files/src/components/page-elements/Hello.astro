@@ -19,7 +19,7 @@ const session = null;
 
 <!-- HELLO LIKE BUTTON -->
 <div class="flex justify-center">
-    <div id={element.props.id} class="shadow p-10">
+    <div id={element.id ?? element.props?.id} class="shadow p-10">
         <LikeButton
             greeting="Like & Celebrate!"
             url={Astro.request.url}

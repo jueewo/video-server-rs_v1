@@ -26,12 +26,17 @@ const assetCardSchema = ({ image }: { image: () => any }) => z.object({
   heroImage: image().optional(),
   showtoc: z.boolean().optional(),
   enablelatex: z.boolean().optional(),
+  enablemermaid: z.boolean().optional(),
   featured: z.boolean(),
   draft: z.boolean(),
   draft_content: z.boolean().default(false),
   draft_content_msg: z.string().optional(),
   draft_content_msg_long: z.string().optional(),
   draft_content_clickable: z.boolean().default(true),
+  // Page element renderer support
+  faqdata: z.array(z.object({ quest: z.string(), ans: z.string() })).optional(),
+  elements_above: z.array(z.any()).optional(),
+  elements_below: z.array(z.any()).optional(),
 });
 
 const mdContentSchema = z.object({

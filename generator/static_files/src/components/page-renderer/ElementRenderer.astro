@@ -12,6 +12,7 @@
 
 import Hero from "../../components/page-elements/Hero.astro";
 import Hero2 from "../../components/page-elements/Hero2.astro";
+import FAQComponent from "../../components/FAQComponent.astro";
 import TitleAlertBanner from "../page-elements/TitleAlertBanner.astro";
 import TitleHero from "../page-elements/TitleHero.astro";
 import AnimateOnView from "../utils/AnimateOnView.astro";
@@ -42,6 +43,9 @@ const { element, alt, index } = Astro.props;
 
 let actlang = lang ? lang : "en";
 
+// Helper: read flat field with legacy props/content fallback
+const p = (key: string) => element[key] ?? element.props?.[key] ?? element.content?.[key];
+
 // Parse scroll effect configuration from props
 const getScrollEffectConfig = (scrollEffect: string) => {
     const config = {
@@ -62,9 +66,9 @@ const getScrollEffectConfig = (scrollEffect: string) => {
     return config;
 };
 
-const hasScrollEffect = !!element.props?.scrolleffect;
+const hasScrollEffect = !!(element.scrolleffect ?? element.props?.scrolleffect);
 const scrollEffectConfig = getScrollEffectConfig(
-    element.props?.scrolleffect || "",
+    (element.scrolleffect ?? element.props?.scrolleffect) || "",
 );
 ---
 
@@ -78,7 +82,7 @@ const scrollEffectConfig = getScrollEffectConfig(
                     bgimage={element.bgimage}
                     bgimage_alt={element.bgimage_alt}
                     parallax={element.parallax}
-                    styleclass={element.props?.styleclass}
+                    styleclass={element.styleclass ?? element.props?.styleclass}
                     priorityBg={index === 0}
                 >
                     {element.elements.map((subelement: any, idx: number) => (
@@ -93,7 +97,7 @@ const scrollEffectConfig = getScrollEffectConfig(
                             >
                                 <Astro.self
                                     element={subelement}
-                                    alt={element.props?.alt}
+                                    alt={element.alt ?? element.props?.alt}
                                     index={idx}
                                 />
                             </AnimateOnView>
@@ -105,7 +109,7 @@ const scrollEffectConfig = getScrollEffectConfig(
                 <div
                     class={
                         "w-full " +
-                        (element.props?.styleclass || "") +
+                        ((element.styleclass ?? element.props?.styleclass) || "") +
                         (element.bgimage ? " relative overflow-hidden" : "") +
                         (element.parallax
                             ? " min-h-screen flex flex-col items-center justify-center"
@@ -136,7 +140,7 @@ const scrollEffectConfig = getScrollEffectConfig(
                             >
                                 <Astro.self
                                     element={subelement}
-                                    alt={element.props?.alt}
+                                    alt={element.alt ?? element.props?.alt}
                                     index={idx}
                                 />
                             </AnimateOnView>
@@ -162,32 +166,32 @@ const scrollEffectConfig = getScrollEffectConfig(
 
                 {element.element === "TitleHero" && (
                     <TitleHero
-                        id={element.props?.id}
-                        title={element.content?.title}
-                        desc={element.content?.desc}
-                        img={element.content?.img}
-                        h1={element.props?.h1 ? true : false}
-                        h2={element.props?.h2 ? true : false}
+                        id={p("id")}
+                        title={p("title")}
+                        desc={p("desc")}
+                        img={p("img")}
+                        h1={p("h1") ? true : false}
+                        h2={p("h2") ? true : false}
                     />
                 )}
 
                 {element.element === "TitleAlertBanner" && (
-                    <TitleAlertBanner title={element.content?.title} />
+                    <TitleAlertBanner title={p("title")} />
                 )}
 
                 {element.element === "StatData" && (
                     <StatData
-                        id={element.props?.id}
-                        dataid={element.props?.dataid}
-                        data={element.props?.data}
+                        id={p("id")}
+                        dataid={p("dataid")}
+                        data={p("data")}
                     />
                 )}
 
                 {element.element === "Carousel" && (
                     <Carousel
-                        id={element.props?.id}
-                        dataid={element.props?.dataid}
-                        data={element.props?.data}
+                        id={p("id")}
+                        dataid={p("dataid")}
+                        data={p("data")}
                     />
                 )}
 
@@ -200,12 +204,12 @@ const scrollEffectConfig = getScrollEffectConfig(
                 {element.element === "Video" && (
                     <HlsVideoPlayer
                         id="videoplayer-1"
-                        src={element.props?.videoUrl}
-                        title={element.content?.title}
-                        poster={element.props?.posterImage}
-                        fallbackImage={element.props?.fallbackImage}
-                        autoplay={element.props?.autoplay}
-                        loop={element.props?.loop}
+                        src={p("videoUrl")}
+                        title={p("title")}
+                        poster={p("posterImage")}
+                        fallbackImage={p("fallbackImage")}
+                        autoplay={p("autoplay")}
+                        loop={p("loop")}
                         width="100%"
                         height="auto"
                     />
@@ -214,18 +218,18 @@ const scrollEffectConfig = getScrollEffectConfig(
                 {element.element === "TeamGrid" && (
                     <>
                         <div class="h-8" />
-                        <div class="hidden h-8">{element.props?.title}</div>
+                        <div class="hidden h-8">{p("title")}</div>
                         <TeamGrid
-                            teamdata={element.props?.data}
-                            filtertype={element.props?.filter}
+                            teamdata={p("data")}
+                            filtertype={p("filter")}
                         />
                     </>
                 )}
 
                 {element.element === "NewsBanner" && (
                     <NewsBanner
-                        title={element.content?.title}
-                        desc={element.content?.desc}
+                        title={p("title")}
+                        desc={p("desc")}
                         showbuttons={false}
                         lang={actlang}
                         client:visible
@@ -248,14 +252,20 @@ const scrollEffectConfig = getScrollEffectConfig(
 
                 {element.element === "Hello" && <Hello element={element} />}
 
+                {element.element === "FAQ" && p("faqdata") && (
+                    <div class="w-full max-w-3xl mx-auto px-4 py-8">
+                        <FAQComponent faqdata={p("faqdata")} />
+                    </div>
+                )}
+
                 {element.element === "CTARemote" && (
                     <SurveyRemote
                         url={Config.datatool.url}
-                        surveyid={element.props?.surveyid}
-                        sourceid={element.props?.sourceid}
-                        title={element.props?.title}
-                        submitbuttontxt={element.props?.send}
-                        thankyoumessage={element.props?.thankyoumessage}
+                        surveyid={p("surveyid")}
+                        sourceid={p("sourceid")}
+                        title={p("title")}
+                        submitbuttontxt={p("send")}
+                        thankyoumessage={p("thankyoumessage")}
                         showicon
                         client:only="preact"
                     />
@@ -266,12 +276,12 @@ const scrollEffectConfig = getScrollEffectConfig(
                         label="Like"
                         showicon
                         url={
-                            element.props?.url && element.props.url.length > 0
-                                ? element.props.url
+                            p("url") && p("url").length > 0
+                                ? p("url")
                                 : Config.datatool.url
                         }
                         websiteid={Config.datatool.websiteid}
-                        pageid={element.props?.sourceid}
+                        pageid={p("sourceid")}
                         token={Config.datatool.token}
                         client:load
                     />
@@ -282,6 +292,6 @@ const scrollEffectConfig = getScrollEffectConfig(
 
 {
     element.element === "SlidingGallery" && (
-        <SlidingGallery id={element.props?.id} dataid={element.props?.dataid} />
+        <SlidingGallery id={p("id")} dataid={p("dataid")} />
     )
 }

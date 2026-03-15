@@ -13,8 +13,18 @@ const { lang } = Astro.params;
 // -- IMAGES --
 import PicFromContent from "../utils/PicFromContent.astro";
 
-// Check if bgimage exists
-const bgImagePath = element.content.bgimage;
+// Flat structure with legacy props/content fallback
+const fullscreen  = element.fullscreen  ?? element.props?.fullscreen;
+const rawLink     = element.link        ?? element.props?.link;
+const bgImagePath = element.bgimage     ?? element.content?.bgimage ?? "";
+const bgimage_alt = element.bgimage_alt ?? element.content?.bgimage_alt ?? "";
+const image       = element.image       ?? element.content?.image;
+const image_alt   = element.image_alt   ?? element.content?.image_alt;
+const title       = element.title       ?? element.content?.title ?? "";
+const desc        = element.desc        ?? element.content?.desc;
+const button      = element.button      ?? element.content?.button;
+const tags        = element.tags        ?? element.content?.tags;
+
 const hasBgImage = bgImagePath && bgImagePath.length > 0;
 
 // First hero (index 0) gets priority loading for LCP optimization
@@ -22,9 +32,9 @@ const isFirstHero = index === 0 || index === undefined;
 
 // Handle link as string or object with path property
 const linkUrl =
-    typeof element.props?.link === "string"
-        ? element.props.link
-        : element.props?.link?.path || "";
+    typeof rawLink === "string"
+        ? rawLink
+        : rawLink?.path || "";
 
 const is_external_link =
     linkUrl.includes("http") ||
@@ -34,7 +44,7 @@ const is_external_link =
 
 {/* Hero2 */}
 <div
-    class={(element.props.fullscreen ? "min-h-screen " : "") +
+    class={(fullscreen ? "min-h-screen " : "") +
         "my-12 p-4 md:p-12 xl:w-4/5 relative overflow-hidden" +
         (hasBgImage ? " flex items-center justify-center" : "")}
 >
@@ -44,7 +54,7 @@ const is_external_link =
             <div class="absolute inset-0 z-0">
                 <PicFromContent
                     imagePath={bgImagePath}
-                    altTitle={element.content.bgimage_alt || ""}
+                    altTitle={bgimage_alt}
                     class="w-full h-full [&_img]:w-full [&_img]:h-full [&_img]:object-cover"
                     priority={isFirstHero}
                     sizes="100vw"
@@ -65,13 +75,10 @@ const is_external_link =
                   : "xl:flex-row")}
     >
         {
-            element.content.image && (
+            image && (
                 <PicFromContent
-                    imagePath={element.content.image}
-                    altTitle={
-                        element.content.image_alt ||
-                        "image_" + element.content.title.replace(/ /g, "-")
-                    }
+                    imagePath={image}
+                    altTitle={image_alt || "image_" + title.replace(/ /g, "-")}
                     class="w-3/4 lg:max-w-xl m-auto rounded-lg"
                     priority={isFirstHero}
                     sizes="(max-width: 640px) 75vw, (max-width: 1024px) 50vw, 576px"
@@ -88,15 +95,12 @@ const is_external_link =
                       : "xl:pl-12")}
         >
             <h1 class="text-5xl font-bold">
-                <Fragment set:html={element.content.title} />
+                <Fragment set:html={title} />
             </h1>
 
             {
-                element.content.desc &&
-                    (Array.isArray(element.content.desc)
-                        ? element.content.desc
-                        : [element.content.desc]
-                    ).map((line: string) => (
+                desc &&
+                    (Array.isArray(desc) ? desc : [desc]).map((line: string) => (
                         <p class="pt-6">
                             <Fragment set:html={line} />
                         </p>
@@ -112,8 +116,8 @@ const is_external_link =
                           : "xl:justify-start")}
             >
                 {
-                    element.content.tags &&
-                        element.content.tags.map((tag: string, idx: number) => (
+                    tags &&
+                        tags.map((tag: string, idx: number) => (
                             <div class="badge badge-outline">{tag}</div>
                         ))
                 }
@@ -136,18 +140,18 @@ const is_external_link =
                                 href={linkUrl}
                                 target="_blank"
                                 class="btn btn-primary "
-                                aria-label={element.props?.link?.label || ""}
+                                aria-label={rawLink?.label || ""}
                             >
-                                {element.content.button}
+                                {button}
                                 <span class="text-xs ml-1"> ↗ </span>
                             </a>
                         ) : (
                             <a
                                 href={"/" + lang + linkUrl}
                                 class="btn btn-primary "
-                                aria-label={element.props?.link?.label || ""}
+                                aria-label={rawLink?.label || ""}
                             >
-                                {element.content.button}
+                                {button}
                             </a>
                         )}
                     </div>

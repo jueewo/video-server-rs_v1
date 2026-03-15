@@ -6,8 +6,13 @@ import PicFromContent from "../utils/PicFromContent.astro";
 
 const { element, alt, index, lang } = Astro.props;
 
-const actlang = lang || "en";
-const mdcollslug = element.content.mdcollslug;
+const actlang    = lang || "en";
+// Flat structure with legacy props/content fallback
+const mdcollslug = element.mdcollslug ?? element.content?.mdcollslug;
+const fullscreen = element.fullscreen ?? element.props?.fullscreen;
+const elId       = element.id        ?? element.props?.id;
+const image      = element.image     ?? element.content?.image;
+const title      = element.title     ?? element.content?.title ?? "";
 
 const md_content = await getEntry("mdcontent", `${actlang}/${mdcollslug}`);
 // const Content = null;
@@ -18,24 +23,19 @@ const { Content, headings } = md_content
 ---
 
 <div
-    class={(element.props && element.props.fullscreen ? "min-h-screen " : "") +
+    class={(fullscreen ? "min-h-screen " : "") +
         " bg-base-200 my-12 p-4 md:p-12 lg:full"}
 >
-    <!-- MDTEXT
-{element.content.mdfile} -->
-
-    <!-- <div>LANG: {actlang}</div> -->
-
-    <!-- fsdjafl {element.image} -->
-
-    <PicFromContent
-        imagePath={element.content.image}
-        altTitle={element.content.title.replace(/ /g, "-")}
-        class="max-w-sm lg:max-w-xl m-auto rounded-lg"
-    />
+    {image && (
+        <PicFromContent
+            imagePath={image}
+            altTitle={title.replace(/ /g, "-")}
+            class="max-w-sm lg:max-w-xl m-auto rounded-lg"
+        />
+    )}
 
     <div
-        id={element.props.id ? element.props.id : "xxx"}
+        id={elId ?? "mdtext"}
         class="flex justify-center min-w-full"
     >
         <div class="prose py-16 mx-5 md:mx-12">

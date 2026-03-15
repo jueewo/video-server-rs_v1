@@ -4006,6 +4006,8 @@ pub struct GenerateSiteRequest {
     pub folder_path: String,
     /// Optional: server path to the Astro components/layouts directory
     pub components_dir: Option<String>,
+    /// When true, run `bun install && bun run build` after generation.
+    pub build: Option<bool>,
 }
 
 #[derive(Serialize)]
@@ -4114,6 +4116,8 @@ pub async fn generate_site_handler(
         })
     });
 
+    let do_build = request.build.unwrap_or(false);
+    let folder_slug_for_preview = folder_slug.clone();
     let output_dir_log = output_dir.clone();
     let message = tokio::task::spawn_blocking(move || {
         if folder_type == "vitepress-docs" {
@@ -4121,7 +4125,7 @@ pub async fn generate_site_handler(
             let vp_config = site_publisher::VitepressPublishConfig {
                 source_dir,
                 output_dir: output_dir.clone(),
-                build: false,
+                build: do_build,
                 static_dir,
             };
             if let Some(git) = git_config {
@@ -4135,13 +4139,17 @@ pub async fn generate_site_handler(
                 source_dir,
                 output_dir: output_dir.clone(),
                 components_dir,
-                build: false, // bun build disabled by default from UI; use site-cli --build for CI
+                build: do_build,
             };
             if let Some(git) = git_config {
                 site_publisher::publish_and_push(&publish_config, &git)
             } else {
                 site_publisher::publish(&publish_config)?;
-                Ok(format!("Site generated at {folder_slug} (no Forgejo repo configured)"))
+                if do_build {
+                    Ok(format!("Site built at {folder_slug}"))
+                } else {
+                    Ok(format!("Site generated at {folder_slug} (no Forgejo repo configured)"))
+                }
             }
         }
     })
@@ -4155,9 +4163,14 @@ pub async fn generate_site_handler(
     info!("Site published: {}", output_dir_log.display());
 
     // Persist publish status into workspace.yaml so the dashboard can show it.
-    let publish_status = if forgejo_repo.is_some() { "pushed" } else { "generated" };
+    let publish_status = if forgejo_repo.is_some() { "pushed" } else if do_build { "built" } else { "generated" };
     let timestamp = chrono::Utc::now().to_rfc3339();
     let folder_path_key = format!("/{}", clean);
+    let preview_url = if do_build && forgejo_repo.is_none() {
+        format!("/storage/site-builds/{workspace_id}/{folder_slug_for_preview}/dist/")
+    } else {
+        String::new()
+    };
     {
         let mut cfg = WorkspaceConfig::load(&workspace_root).unwrap_or_else(|_| {
             WorkspaceConfig::new("Workspace".to_string(), String::new())
@@ -4165,6 +4178,7 @@ pub async fn generate_site_handler(
         cfg.set_folder_metadata(&folder_path_key, "last_publish_time".into(), serde_yaml::Value::String(timestamp.clone()));
         cfg.set_folder_metadata(&folder_path_key, "last_publish_status".into(), serde_yaml::Value::String(publish_status.to_string()));
         cfg.set_folder_metadata(&folder_path_key, "last_publish_message".into(), serde_yaml::Value::String(message.clone()));
+        cfg.set_folder_metadata(&folder_path_key, "last_preview_url".into(), serde_yaml::Value::String(preview_url.clone()));
         if let Err(e) = cfg.save(&workspace_root) {
             warn!("Failed to save publish metadata to workspace.yaml: {e}");
         }

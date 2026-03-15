@@ -60,6 +60,7 @@ struct SiteOverviewTemplate {
     last_publish_time: String,
     last_publish_status: String,
     last_publish_message: String,
+    last_preview_url: String,
 }
 
 #[derive(Template)]
@@ -358,6 +359,7 @@ fn build_template_data(
     let last_publish_time = ctx.meta_str("last_publish_time").unwrap_or("").to_string();
     let last_publish_status = ctx.meta_str("last_publish_status").unwrap_or("").to_string();
     let last_publish_message = ctx.meta_str("last_publish_message").unwrap_or("").to_string();
+    let last_preview_url = ctx.meta_str("last_preview_url").unwrap_or("").to_string();
 
     Ok(SiteOverviewTemplate {
         authenticated: true,
@@ -382,6 +384,7 @@ fn build_template_data(
         last_publish_time,
         last_publish_status,
         last_publish_message,
+        last_preview_url,
     })
 }
 

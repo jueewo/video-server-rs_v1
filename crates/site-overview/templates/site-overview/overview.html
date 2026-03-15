@@ -38,6 +38,9 @@
             <button onclick="publishSite()" id="publish-btn" class="btn btn-sm btn-primary gap-1">
                 <i data-lucide="rocket" class="w-4 h-4"></i> Publish Site
             </button>
+            <button onclick="buildAndPreview()" id="build-btn" class="btn btn-sm btn-secondary gap-1">
+                <i data-lucide="play-circle" class="w-4 h-4"></i> Build &amp; Preview
+            </button>
             <a href="/workspaces/{{ workspace_id }}/site-editor?path={{ folder_path }}"
                class="btn btn-sm btn-secondary gap-1">
                 <i data-lucide="edit-3" class="w-4 h-4"></i> Edit Pages
@@ -260,6 +263,10 @@
                             <span class="badge badge-success badge-xs gap-1">
                                 <i data-lucide="git-commit-horizontal" class="w-3 h-3"></i> pushed
                             </span>
+                            {% elif last_publish_status == "built" %}
+                            <span class="badge badge-info badge-xs gap-1">
+                                <i data-lucide="package-check" class="w-3 h-3"></i> built
+                            </span>
                             {% else %}
                             <span class="badge badge-warning badge-xs gap-1">
                                 <i data-lucide="folder-output" class="w-3 h-3"></i> local only
@@ -270,6 +277,12 @@
                             </span>
                         </div>
                         <div class="text-base-content/50 break-all">{{ last_publish_message }}</div>
+                        {% if last_preview_url != "" %}
+                        <a href="{{ last_preview_url }}" target="_blank" rel="noopener"
+                           class="btn btn-xs btn-outline btn-info gap-1 mt-1">
+                            <i data-lucide="external-link" class="w-3 h-3"></i> Preview Site
+                        </a>
+                        {% endif %}
                     </div>
                     {% endif %}
                 </div>
@@ -355,6 +368,52 @@ async function publishSite() {
     if (ok) {
         // Reload after short delay so the "Last Published" status card updates
         setTimeout(() => window.location.reload(), 2500);
+    } else {
+        setTimeout(() => toast.classList.add('hidden'), 6000);
+    }
+}
+
+async function buildAndPreview() {
+    const btn = document.getElementById('build-btn');
+    const toast = document.getElementById('publish-toast');
+    const msg = document.getElementById('publish-toast-msg');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Building…';
+
+    let ok = false;
+    let previewUrl = '';
+    try {
+        const res = await fetch('/api/workspaces/{{ workspace_id }}/site/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folder_path: '{{ folder_path }}', build: true }),
+        });
+        const data = await res.json().catch(() => ({}));
+        ok = res.ok;
+        if (res.ok) {
+            const slug = '{{ folder_path }}'.replace(/^\//, '').replace(/\//g, '_');
+            previewUrl = `/storage/site-builds/{{ workspace_id }}/${slug}/dist/`;
+            msg.className = 'alert alert-success shadow-lg max-w-sm';
+            msg.innerHTML = `<i data-lucide="check-circle" class="w-5 h-5"></i><span>${data.message || 'Build complete!'} — <a href="${previewUrl}" target="_blank" class="underline font-semibold">Open Preview</a></span>`;
+        } else {
+            msg.className = 'alert alert-error shadow-lg max-w-sm';
+            msg.innerHTML = `<i data-lucide="x-circle" class="w-5 h-5"></i><span>${data.error || 'Build failed'}</span>`;
+        }
+    } catch (e) {
+        msg.className = 'alert alert-error shadow-lg max-w-sm';
+        msg.innerHTML = `<i data-lucide="x-circle" class="w-5 h-5"></i><span>Network error</span>`;
+    }
+
+    toast.classList.remove('hidden');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="play-circle" class="w-4 h-4"></i> Build &amp; Preview';
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    if (ok) {
+        // Reload after short delay so the preview link appears in the status card
+        setTimeout(() => window.location.reload(), 3000);
     } else {
         setTimeout(() => toast.classList.add('hidden'), 6000);
     }

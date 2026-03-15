@@ -12,6 +12,7 @@ const { lang } = Astro.params;
 
 // -- IMAGES --
 import PicFromContent from "../utils/PicFromContent.astro";
+import { b } from '../../utils/siteBase';
 
 import { Image } from "astro:assets";
 import type { ImageMetadata } from "astro";
@@ -168,7 +169,7 @@ const is_external_link =
                             </button>
                         </a>
                     ) : (
-                        <a href={"/" + lang + linkUrl}>
+                        <a href={b + lang + linkUrl}>
                             <button class="btn btn-outline my-6">
                                 {button}
                                 <span class="text-xs ml-1">

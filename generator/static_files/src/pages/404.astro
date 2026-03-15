@@ -8,6 +8,7 @@
 
 import "../styles/global.css";
 import Config from "../website.config.cjs";
+import { b } from '../utils/siteBase';
 
 export const prerender = true;
 
@@ -60,7 +61,7 @@ const defaultLang = Config.defaultLanguage?.locale || "en";
                             class="flex flex-col sm:flex-row gap-4 justify-center"
                         >
                             <a
-                                href={`/${defaultLang}/home`}
+                                href={`${b}${defaultLang}/home`}
                                 class="btn btn-primary"
                             >
                                 <svg

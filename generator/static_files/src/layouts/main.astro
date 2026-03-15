@@ -60,6 +60,7 @@ const actlang = lang ? lang : default_lang;
 import ThemeToggle from "../components/utils/ThemeToggle.astro";
 import placeholderImage from "../assets/images/utils/placeholder-hero-square.jpg";
 import SearchBar from "../components/SearchBar.astro";
+import { b } from '../utils/siteBase';
 
 const images = await import.meta.glob<{ default: ImageMetadata }>(
     "/src/assets/images/logos/*.{jpeg,jpg,png,gif}",
@@ -104,7 +105,7 @@ const getImage = (imagePath: string) => {
 
                 <a
                     class="btn btn-ghost text-xl uppercase"
-                    href={"/" + actlang + "/home"}
+                    href={b + actlang + "/home"}
                 >
                     {Config.siteName}
 

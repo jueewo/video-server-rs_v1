@@ -16,8 +16,18 @@ const siteUrl = process.env.SITE_URL || "http://localhost:4321";
 // Leave unset for production builds served from root.
 const astroBase = process.env.ASTRO_BASE; // undefined → Astro default ("/")
 
+// When a base path is set, Astro prefixes redirect *sources* automatically but
+// does NOT prefix redirect *destinations*. Fix that here so e.g. "/home" →
+// "/en/home" becomes "/home" → "/site1/en/home" when ASTRO_BASE="/site1".
+const base = astroBase ? astroBase.replace(/\/$/, "") : "";
+const redirects = base
+  ? Object.fromEntries(
+      Object.entries(siteConfig.redirects).map(([from, to]) => [from, base + to])
+    )
+  : siteConfig.redirects;
+
 export default defineConfig({
-  redirects: siteConfig.redirects,
+  redirects,
   // srcDir defaults to "./src" — generator writes pages/data/content into src/
   outDir: "./dist",
   publicDir: "./public",

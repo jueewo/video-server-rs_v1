@@ -12,6 +12,7 @@ const { lang } = Astro.params;
 
 // -- IMAGES --
 import PicFromContent from "../utils/PicFromContent.astro";
+import { b } from '../../utils/siteBase';
 
 // Flat structure with legacy props/content fallback
 const fullscreen  = element.fullscreen  ?? element.props?.fullscreen;
@@ -147,7 +148,7 @@ const is_external_link =
                             </a>
                         ) : (
                             <a
-                                href={"/" + lang + linkUrl}
+                                href={b + lang + linkUrl}
                                 class="btn btn-primary "
                                 aria-label={rawLink?.label || ""}
                             >

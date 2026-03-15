@@ -3,6 +3,7 @@ import type { CollectionEntry } from "astro:content";
 import CardDraftOverlay from "./CardDraftOverlay.astro";
 
 import { Image } from "astro:assets";
+import { b } from '../utils/siteBase';
 
 interface Props {
     card: CollectionEntry;
@@ -25,7 +26,7 @@ const lang = pagelang || contentlang;
 <a
     href={(!card.data.draft_content || card.data.draft_content_clickable) &&
     (!card.data.url || card.data.url.length == 0)
-        ? `/${lang}/${pathdir}/${slug}`
+        ? `${b}${lang}/${pathdir}/${slug}`
         : card.data.url}
     class="block w-full"
 >

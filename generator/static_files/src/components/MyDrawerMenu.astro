@@ -13,6 +13,7 @@ const newPath = currentPath.replace(regex, '');
 // const languages_array = ['en', 'de', 'sk'];
 import config from '../website.config.cjs';
 const languages = config.languages;
+import { b } from '../utils/siteBase';
 
 // import { getRelativeLocaleUrl } from 'astro:i18n';
 
@@ -81,7 +82,7 @@ for (const menu of headerNavigationMenu) {
             <li>
               {!menu.children || menu.children.length == 0 ? (
                 <a
-                  href={lang ? '/'+lang+ menu.link : menu.link}
+                  href={lang ? b+lang+ menu.link : menu.link}
                   class=`justify-between text-2xl md:text-lg ${ (currentPath == '/' + lang + menu.link || currentPath == '/' + lang + menu.link + '/') && 'menu-active'}`
                   aria-label={menu.name}
                 >
@@ -101,7 +102,7 @@ for (const menu of headerNavigationMenu) {
                       <li>
 
                         <a
-                          href={lang ? '/'+lang+ submenu.link : submenu.link}
+                          href={lang ? b+lang+ submenu.link : submenu.link}
                           class=`justify-between text-xl md:text-lg ${ (currentPath == '/' + lang + submenu.link || currentPath == '/' + lang + submenu.link + '/') && 'menu-active' }`
                           aria-label={submenu.name}
                         >
@@ -125,7 +126,7 @@ for (const menu of headerNavigationMenu) {
         {
           languages.map((language, index) => (
           <div class="tooltip tooltip-bottom" data-tip={language.language}>
-            <li><a class={lang==language.locale &&  'menu-active' } href={"/"+language.locale+newPath}>{language.locale.toUpperCase()}</a></li>
+            <li><a class={lang==language.locale &&  'menu-active' } href={b+language.locale+newPath}>{language.locale.toUpperCase()}</a></li>
           </div>
           // <li class={lang==language.locale &&  'bg-primary' }><a class={lang==language.locale &&  'active' } href={"/"+language.locale+newPath}>{language.locale.toUpperCase()}</a></li>
           ))

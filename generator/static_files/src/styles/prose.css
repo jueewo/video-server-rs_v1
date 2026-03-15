@@ -44,6 +44,17 @@
 .prose {
     /* Prevent any child from exceeding container */
     overflow-wrap: break-word;
+    font-family: var(--font-body, 'Outfit', system-ui, sans-serif);
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+    font-family: var(--font-heading, 'Syne', system-ui, sans-serif);
+    letter-spacing: -0.02em;
 }
 
 .prose pre {

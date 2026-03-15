@@ -27,10 +27,10 @@ import { getRelativeLocaleUrl } from "astro:i18n";
 
 <div
     id="footer"
-    class="w-full relative bg-gray-200 dark:bg-gray-900 z-20 mt-16"
+    class="w-full relative bg-base-200 z-20 mt-16"
 >
     <svg
-        class="absolute top-0 w-full h-6 -mt-5 sm:-mt-10 sm:h-16 text-gray-200 dark:text-gray-900 bg-transparent"
+        class="absolute top-0 w-full h-6 -mt-5 sm:-mt-10 sm:h-16 text-base-200 bg-transparent"
         preserveAspectRatio="none"
         viewBox="0 0 1440 54"
     >
@@ -62,14 +62,14 @@ import { getRelativeLocaleUrl } from "astro:i18n";
                     }
 
                     <span
-                        class="ml-2 text-xl font-bold tracking-wide text-gray-700 dark:text-gray-100 uppercase"
+                        class="ml-2 text-xl font-bold tracking-wide text-base-content uppercase"
                     >
                         {sitename}
                     </span>
                 </a>
 
                 <div class="mt-4 lg:max-w-sm">
-                    <p class="text-sm text-gray-900 dark:text-gray-200">
+                    <p class="text-sm text-base-content/80">
                         <Fragment set:html={footerContent.text} />
                     </p>
                 </div>
@@ -82,7 +82,7 @@ import { getRelativeLocaleUrl } from "astro:i18n";
                     footerNavigationMenu &&
                         footerNavigationMenu.map((category) => (
                             <div>
-                                <p class="font-semibold tracking-wide text-gray-900 dark:text-gray-200">
+                                <p class="font-semibold tracking-wide text-base-content">
                                     {category.link ? (
                                         <span>
                                             <a
@@ -91,7 +91,7 @@ import { getRelativeLocaleUrl } from "astro:i18n";
                                                         ? `/${lang}${category.link}`
                                                         : category.link
                                                 }
-                                                class="transition-colors duration-300 text-gray-900 dark:text-gray-200 hover:text-mytheme hover:underline"
+                                                class="transition-colors duration-300 text-base-content hover:text-primary hover:underline"
                                             >
                                                 {category.header}
                                             </a>
@@ -112,7 +112,7 @@ import { getRelativeLocaleUrl } from "astro:i18n";
                                                                 ? `/${lang}${link.link}`
                                                                 : link.link
                                                         }
-                                                        class="transition-colors duration-300 text-gray-900 dark:text-gray-200 hover:text-mytheme"
+                                                        class="transition-colors duration-300 text-base-content hover:text-primary"
                                                     >
                                                         <span class="hover:underline">
                                                             {link.name}{" "}
@@ -126,7 +126,7 @@ import { getRelativeLocaleUrl } from "astro:i18n";
                                                         )}
                                                     </a>
                                                 ) : (
-                                                    <span class="text-gray-600 dark:text-gray-400">
+                                                    <span class="text-base-content/60">
                                                         {link.name}
                                                     </span>
                                                 )}
@@ -144,7 +144,7 @@ import { getRelativeLocaleUrl } from "astro:i18n";
         class="flex flex-col justify-between p-5 pb-10 border-t border-deep-purple-accent-200 sm:flex-row"
     >
         <p class="flex items-center px-5">
-            <span class="text-sm text-gray-700 dark:text-gray-100">
+            <span class="text-sm text-base-content/80">
                 {
                     footerContent && (
                         <Fragment
@@ -177,7 +177,7 @@ import { getRelativeLocaleUrl } from "astro:i18n";
                     legal.map((legalitem) => (
                         <span>
                             <a
-                                class="text-gray-700 dark:text-gray-100 text-sm"
+                                class="text-base-content/80 text-sm"
                                 href={
                                     lang
                                         ? `/${lang}/${legalitem.collection}${legalitem.link}`

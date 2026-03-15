@@ -16,7 +16,7 @@ const desc2Str: string = Array.isArray(desc2) ? desc2.join(' ') : (desc2 || '');
       class="max-w-sm rounded-lg shadow-2xl"
     />
     <div class="max-w-md">
-      <h1 class={h1 ? `mb-2 font-bold text-5xl` : `mb-2 font-bold text-3xl`}>
+      <h1 class={h1 ? `mb-2 font-bold text-5xl tracking-tight` : `mb-2 font-bold text-3xl tracking-tight`}>
         {title}
       </h1>
       {descStr && <p class={h1 ? `pt-6` : `pt-2`}><Fragment set:html={descStr}></Fragment></p>}

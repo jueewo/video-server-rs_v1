@@ -100,10 +100,31 @@
     --noise: 0;
 }
 
-/* Ensure drawer content doesn't create horizontal overflow */
-.drawer-content {
-    overflow-x: hidden;
+/* ── Typography ──────────────────────────────────────────── */
+:root {
+    --font-heading: 'Syne', system-ui, sans-serif;
+    --font-body: 'Outfit', system-ui, sans-serif;
 }
+
+body {
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+}
+
+.navbar a, .navbar-brand {
+    font-family: var(--font-heading);
+}
+
+/* ── Scrollbar ───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: oklch(60% 0.05 250 / 0.4); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: oklch(60% 0.05 250 / 0.6); }
 
 /* Ensure drawer content doesn't create horizontal overflow */
 .drawer-content {

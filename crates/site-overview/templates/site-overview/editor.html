@@ -211,107 +211,102 @@ var pendingDelete = null; // same structure
 var addTarget = null;  // null = top-level, number = section's outer index
 var jfe = null;
 
-// ── Field schemas ─────────────────────────────────────────────────────────────
+// ── Field schemas (flat structure) ────────────────────────────────────────────
 var FIELD_SCHEMAS = {
     'Page-Metatags': [
-        { path: 'content.title',        type: 'text',     label: 'Page title' },
-        { path: 'content.description',  type: 'text',     label: 'Description' },
-        { path: 'content.keywords',     type: 'text',     label: 'Keywords' },
-        { path: 'content.author',       type: 'text',     label: 'Author' },
+        { path: 'content.title',       type: 'text', label: 'Page title' },
+        { path: 'content.description', type: 'text', label: 'Description' },
+        { path: 'content.keywords',    type: 'text', label: 'Keywords' },
+        { path: 'content.author',      type: 'text', label: 'Author' },
     ],
     Hero: [
-        { path: 'content.title',        type: 'text',       label: 'Title' },
-        { path: 'content.desc',         type: 'text-array', label: 'Description' },
-        { path: 'content.button',       type: 'text',       label: 'Button text' },
-        { path: 'content.image',        type: 'text',       label: 'Image path' },
-        { path: 'props.link.path',      type: 'text',       label: 'Button link' },
-        { path: 'props.link.label',     type: 'text',       label: 'Link aria-label' },
-        { path: 'props.fullscreen',     type: 'boolean',    label: 'Full screen' },
-        { path: 'props.image_zoomable', type: 'boolean',    label: 'Zoomable image' },
-        { path: 'props.ext',            type: 'boolean',    label: 'External link' },
+        { path: 'title',          type: 'text',       label: 'Title' },
+        { path: 'desc',           type: 'text-array', label: 'Description' },
+        { path: 'button',         type: 'text',       label: 'Button text' },
+        { path: 'image',          type: 'text',       label: 'Image path' },
+        { path: 'link',           type: 'text',       label: 'Button link (URL)' },
+        { path: 'fullscreen',     type: 'boolean',    label: 'Full screen' },
+        { path: 'image_zoomable', type: 'boolean',    label: 'Zoomable image' },
+        { path: 'ext',            type: 'boolean',    label: 'External link' },
     ],
     Hero2: [
-        { path: 'content.title',        type: 'text',       label: 'Title' },
-        { path: 'content.desc',         type: 'text-array', label: 'Description' },
-        { path: 'content.button',       type: 'text',       label: 'Button text' },
-        { path: 'content.image',        type: 'text',       label: 'Image path' },
-        { path: 'content.image_alt',    type: 'text',       label: 'Image alt text' },
-        { path: 'content.bgimage',      type: 'text',       label: 'Background image' },
-        { path: 'content.bgimage_alt',  type: 'text',       label: 'Background image alt' },
-        { path: 'content.tags',         type: 'text-array', label: 'Tags' },
-        { path: 'props.link.path',      type: 'text',       label: 'Button link' },
-        { path: 'props.link.label',     type: 'text',       label: 'Link aria-label' },
-        { path: 'props.fullscreen',     type: 'boolean',    label: 'Full screen' },
+        { path: 'title',       type: 'text',       label: 'Title' },
+        { path: 'desc',        type: 'text-array', label: 'Description' },
+        { path: 'button',      type: 'text',       label: 'Button text' },
+        { path: 'image',       type: 'text',       label: 'Image path' },
+        { path: 'image_alt',   type: 'text',       label: 'Image alt text' },
+        { path: 'bgimage',     type: 'text',       label: 'Background image' },
+        { path: 'bgimage_alt', type: 'text',       label: 'Background image alt' },
+        { path: 'tags',        type: 'text-array', label: 'Tags' },
+        { path: 'link',        type: 'text',       label: 'Button link (URL)' },
+        { path: 'fullscreen',  type: 'boolean',    label: 'Full screen' },
     ],
     Section: [
-        { path: 'props.styleclass',     type: 'text',       label: 'CSS class' },
-        { path: 'props.alt',            type: 'boolean',    label: 'Alternate layout' },
-        { path: 'props.parallax',       type: 'boolean',    label: 'Parallax' },
+        { path: 'styleclass', type: 'text',    label: 'CSS class' },
+        { path: 'alt',        type: 'boolean', label: 'Alternate layout' },
+        { path: 'parallax',   type: 'boolean', label: 'Parallax' },
     ],
     TitleHero: [
-        { path: 'content.title',        type: 'text',       label: 'Title' },
-        { path: 'content.desc',         type: 'text-array', label: 'Description' },
-        { path: 'content.image',        type: 'text',       label: 'Image path' },
-        { path: 'props.h1',             type: 'boolean',    label: 'Render as H1' },
+        { path: 'title', type: 'text',       label: 'Title' },
+        { path: 'desc',  type: 'text-array', label: 'Description' },
+        { path: 'image', type: 'text',       label: 'Image path' },
+        { path: 'h1',    type: 'boolean',    label: 'Render as H1' },
     ],
     TitleAlertBanner: [
-        { path: 'content.title',        type: 'text',       label: 'Title' },
-        { path: 'content.desc',         type: 'text-array', label: 'Description' },
-        { path: 'props.h2',             type: 'boolean',    label: 'Render as H2' },
+        { path: 'title', type: 'text',       label: 'Title' },
+        { path: 'desc',  type: 'text-array', label: 'Description' },
+        { path: 'h2',    type: 'boolean',    label: 'Render as H2' },
     ],
     Carousel:      [],
     StatData:      [],
     SlidingGallery:[],
     Collection: [
-        { path: 'content.title',              type: 'text',    label: 'Title' },
-        { path: 'content.desc',               type: 'text',    label: 'Description' },
-        { path: 'content.button',             type: 'text',    label: 'Button text' },
-        { path: 'props.collection',           type: 'text',    label: 'Collection name' },
-        { path: 'props.card',                 type: 'text',    label: 'Card style (default / blog / info)' },
-        { path: 'props.link.path',            type: 'text',    label: 'Button link' },
-        { path: 'props.link.label',           type: 'text',    label: 'Link aria-label' },
-        { path: 'props.show_default_lang',    type: 'boolean', label: 'Show default lang items' },
-        { path: 'props.filter_by_featured',   type: 'boolean', label: 'Filter by featured' },
-        { path: 'props.filter_by_filtertag',  type: 'boolean', label: 'Filter by tag' },
-        { path: 'props.filter_filtertag',     type: 'text',    label: 'Filter tag value' },
+        { path: 'title',              type: 'text',    label: 'Title' },
+        { path: 'collection',         type: 'text',    label: 'Collection name' },
+        { path: 'card',               type: 'text',    label: 'Card style (default / blog / info)' },
+        { path: 'show_default_lang',  type: 'boolean', label: 'Show default lang items' },
+        { path: 'filter_by_featured', type: 'boolean', label: 'Filter by featured' },
+        { path: 'filter_by_filtertag',type: 'boolean', label: 'Filter by tag' },
+        { path: 'filter_filtertag',   type: 'text',    label: 'Filter tag value' },
     ],
     MdText: [
-        { path: 'content.mdcollslug',   type: 'text', label: 'MDX collection slug' },
+        { path: 'mdcollslug', type: 'text', label: 'MDX collection slug (lang/slug)' },
+        { path: 'title',      type: 'text', label: 'Override title' },
     ],
     TeamGrid: [
-        { path: 'content.title',        type: 'text', label: 'Title' },
-        { path: 'props.filter',         type: 'text', label: 'Filter tag' },
+        { path: 'title',  type: 'text', label: 'Title' },
+        { path: 'filter', type: 'text', label: 'Filter tag' },
     ],
     NewsBanner: [
-        { path: 'content.title',        type: 'text',    label: 'Title' },
-        { path: 'content.desc',         type: 'text',    label: 'Description' },
-        { path: 'props.showbuttons',    type: 'boolean', label: 'Show buttons' },
+        { path: 'title',       type: 'text',    label: 'Title' },
+        { path: 'desc',        type: 'text',    label: 'Description' },
+        { path: 'showbuttons', type: 'boolean', label: 'Show buttons' },
     ],
     Presentation: [
-        { path: 'content.title',        type: 'text', label: 'Title' },
-        { path: 'content.desc',         type: 'text', label: 'Description' },
-        { path: 'props.datafile',       type: 'text', label: 'Slide file (.md)' },
+        { path: 'title',    type: 'text', label: 'Title' },
+        { path: 'desc',     type: 'text', label: 'Description' },
+        { path: 'datafile', type: 'text', label: 'Slide file (.md)' },
     ],
     Process: [
-        { path: 'content.title',        type: 'text', label: 'Title' },
-        { path: 'content.desc',         type: 'text', label: 'Description' },
-        { path: 'props.datafile',       type: 'text', label: 'BPMN file (.bpmn)' },
+        { path: 'title',    type: 'text', label: 'Title' },
+        { path: 'desc',     type: 'text', label: 'Description' },
+        { path: 'datafile', type: 'text', label: 'BPMN file (.bpmn)' },
     ],
     Video: [
-        { path: 'content.title',        type: 'text', label: 'Title' },
-        { path: 'props.videoUrl',       type: 'text', label: 'Video URL (.m3u8 or .mp4)' },
-        { path: 'props.posterImage',    type: 'text', label: 'Poster image path' },
+        { path: 'title',       type: 'text', label: 'Title' },
+        { path: 'videoUrl',    type: 'text', label: 'Video URL (.m3u8 or .mp4)' },
+        { path: 'posterImage', type: 'text', label: 'Poster image path' },
     ],
     CTA:      [],
     CTARemote: [
-        { path: 'props.surveyid',          type: 'text', label: 'Survey ID' },
-        { path: 'props.sourceid',          type: 'text', label: 'Source ID' },
-        { path: 'props.title',             type: 'text', label: 'Form title' },
-        { path: 'props.submitbuttontxt',   type: 'text', label: 'Submit button text' },
-        { path: 'props.thankyoumessage',   type: 'text', label: 'Thank-you message' },
+        { path: 'surveyid',        type: 'text', label: 'Survey ID' },
+        { path: 'sourceid',        type: 'text', label: 'Source ID' },
+        { path: 'title',           type: 'text', label: 'Form title' },
+        { path: 'submitbuttontxt', type: 'text', label: 'Submit button text' },
+        { path: 'thankyoumessage', type: 'text', label: 'Thank-you message' },
     ],
     LikeButton: [
-        { path: 'props.sourceid',       type: 'text', label: 'Source ID' },
+        { path: 'sourceid', type: 'text', label: 'Source ID' },
     ],
     Hello: [],
 };
@@ -347,6 +342,13 @@ async function savePage() {
         { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ content: JSON.stringify(pageData, null, 2) }) }
     );
+    if (res && res.ok) {
+        // Delete page.yaml so this page.json becomes the source of truth.
+        // The generator will now use page.json (not page.yaml) on next publish.
+        var yamlPath = PAGE_FILE_PATH.replace(/page\.json$/, 'page.yaml');
+        fetch('/api/workspaces/' + WORKSPACE_ID + '/files?path=' + encodeURIComponent(yamlPath),
+              { method: 'DELETE' }).catch(function() {});
+    }
     return res;
 }
 
@@ -368,6 +370,16 @@ function switchTab(tab) { if (jfe) jfe.switchTab(tab); }
 
 // ── Element display label ─────────────────────────────────────────────────────
 function getElementLabel(el) {
+    // Flat format (current standard)
+    if (el.title)      return el.title;
+    if (el.mdcollslug) return el.mdcollslug;
+    if (el.collection) return el.collection;
+    if (el.datafile)   return el.datafile;
+    if (el.surveyid)   return el.surveyid;
+    if (el.sourceid)   return el.sourceid;
+    if (el.videoUrl)   return el.videoUrl;
+    if (el.data && el.data.length)   return el.data.length + ' items';
+    // Legacy nested fallback
     if (el.content) {
         if (el.content.title)      return el.content.title;
         if (el.content.mdcollslug) return el.content.mdcollslug;
@@ -379,7 +391,6 @@ function getElementLabel(el) {
         if (el.props.sourceid)     return el.props.sourceid;
         if (el.props.videoUrl)     return el.props.videoUrl;
         if (el.props.data && el.props.data.length) return el.props.data.length + ' items';
-        if (el.props.items && el.props.items.length) return el.props.items.length + ' items';
     }
     return '';
 }
@@ -716,46 +727,46 @@ function showAddModal(outerIdx) {
 function makeTemplate(type) {
     var templates = {
         'Page-Metatags': { draft: false, element: 'Page-Metatags',
-            content: { title: '', description: '', keywords: '', author: '' }, props: {} },
+            content: { title: '', description: '', keywords: '', author: '' } },
         Hero: { draft: false, element: 'Hero',
-            content: { title: '', desc: '', button: '', image: '' },
-            props: { link: { path: '', label: '' }, fullscreen: false, image_zoomable: false, ext: false } },
+            title: '', desc: [], button: '', image: '', link: '',
+            fullscreen: false, image_zoomable: false, ext: false },
         Hero2: { draft: false, element: 'Hero2',
-            content: { title: '', desc: '', button: '', image: '', image_alt: '', bgimage: '', bgimage_alt: '', tags: [] },
-            props: { link: { path: '', label: '' }, fullscreen: false } },
+            title: '', desc: [], button: '', image: '', image_alt: '',
+            bgimage: '', bgimage_alt: '', tags: [], link: '', fullscreen: false },
         Section: { draft: false, element: 'Section',
-            content: {}, props: { alt: false, styleclass: '', parallax: false }, elements: [] },
+            styleclass: '', alt: false, parallax: false, elements: [] },
         TitleHero: { draft: false, element: 'TitleHero',
-            content: { title: '', desc: '', image: '' }, props: { h1: true } },
+            title: '', desc: [], image: '', h1: true },
         TitleAlertBanner: { draft: false, element: 'TitleAlertBanner',
-            content: { title: '', desc: '' }, props: { h2: false } },
+            title: '', desc: [], h2: false },
         Carousel: { draft: false, element: 'Carousel',
-            content: {}, props: { data: [{ title: '', desc: '', button: '', link: { path: '', label: '' }, image: '' }] } },
+            data: [{ title: '', desc: '', image: '' }] },
         StatData: { draft: false, element: 'StatData',
-            content: {}, props: { data: [{ title: '', value: '', desc: '', figure: '' }] } },
+            data: [{ title: '', value: '', desc: '' }] },
         Collection: { draft: false, element: 'Collection',
-            content: { title: '', desc: '', button: '' },
-            props: { collection: '', card: 'default', link: { path: '', label: '' },
-                     show_default_lang: false, filter_by_featured: false, filter_by_filtertag: false, filter_filtertag: '' } },
-        MdText: { draft: false, element: 'MdText', content: { mdcollslug: '' }, props: {} },
-        TeamGrid: { draft: false, element: 'TeamGrid', content: { title: '' }, props: { filter: '' } },
+            title: '', collection: '', card: 'default',
+            show_default_lang: false, filter_by_featured: false,
+            filter_by_filtertag: false, filter_filtertag: '' },
+        MdText: { draft: false, element: 'MdText', mdcollslug: '', title: '' },
+        TeamGrid: { draft: false, element: 'TeamGrid', title: '', filter: '' },
         NewsBanner: { draft: false, element: 'NewsBanner',
-            content: { title: '', desc: '' }, props: { showbuttons: true } },
-        SlidingGallery: { draft: false, element: 'SlidingGallery',
-            content: {}, props: { items: [{ image: '', title: '', link: '' }] } },
+            title: '', desc: [], showbuttons: true },
+        SlidingGallery: { draft: false, element: 'SlidingGallery', dataid: '' },
         Presentation: { draft: false, element: 'Presentation',
-            content: { title: '', desc: '' }, props: { datafile: '' } },
+            title: '', desc: '', datafile: '' },
         Process: { draft: false, element: 'Process',
-            content: { title: '', desc: '' }, props: { datafile: '' } },
+            title: '', desc: '', datafile: '' },
         Video: { draft: false, element: 'Video',
-            content: { title: '' }, props: { videoUrl: '', posterImage: '' } },
-        CTA: { draft: false, element: 'CTA', content: {}, props: { data: [] } },
+            title: '', videoUrl: '', posterImage: '' },
+        CTA: { draft: false, element: 'CTA', id: '', pages: [] },
         CTARemote: { draft: false, element: 'CTARemote',
-            content: {}, props: { surveyid: '', sourceid: '', title: '', submitbuttontxt: 'Submit', thankyoumessage: 'Thank you!' } },
-        LikeButton: { draft: false, element: 'LikeButton', content: {}, props: { sourceid: '' } },
-        Hello: { draft: false, element: 'Hello', content: {}, props: {} },
+            surveyid: '', sourceid: '', title: '',
+            submitbuttontxt: 'Submit', thankyoumessage: 'Thank you!' },
+        LikeButton: { draft: false, element: 'LikeButton', sourceid: '' },
+        Hello: { draft: false, element: 'Hello', title: '' },
     };
-    return JSON.parse(JSON.stringify(templates[type] || { draft: false, element: type, content: {}, props: {} }));
+    return JSON.parse(JSON.stringify(templates[type] || { draft: false, element: type }));
 }
 
 async function doAddElement() {

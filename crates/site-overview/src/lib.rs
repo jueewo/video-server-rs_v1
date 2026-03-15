@@ -82,14 +82,21 @@ struct SiteEditorTemplate {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/// Count elements per locale. Reads page.json if present; falls back to counting
-/// legacy *.json files in the locale directory.
+/// Count elements per locale. Checks page.yaml first (authoritative), then page.json,
+/// then falls back to counting legacy *.json files in the locale directory.
 fn count_elements_per_locale(data_dir: &Path, locales: &[String]) -> Vec<(String, usize)> {
     locales
         .iter()
         .map(|locale| {
-            let page_file = data_dir.join(locale).join("page.json");
-            let count = if page_file.exists() {
+            let locale_dir = data_dir.join(locale);
+            let yaml_file = locale_dir.join("page.yaml");
+            let page_file = locale_dir.join("page.json");
+
+            let count = if yaml_file.exists() {
+                compile_yaml_elements(&yaml_file)
+                    .map(|els| els.len())
+                    .unwrap_or(0)
+            } else if page_file.exists() {
                 std::fs::read_to_string(&page_file)
                     .ok()
                     .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
@@ -97,7 +104,6 @@ fn count_elements_per_locale(data_dir: &Path, locales: &[String]) -> Vec<(String
                     .unwrap_or(0)
             } else {
                 // Legacy: count json files
-                let locale_dir = data_dir.join(locale);
                 if locale_dir.is_dir() {
                     std::fs::read_dir(&locale_dir)
                         .map(|rd| {
@@ -155,8 +161,28 @@ fn nav_labels(menu: &[MenuItem], limit: usize) -> Vec<String> {
     labels
 }
 
-/// Read page.json for a page/locale. If it doesn't exist, auto-migrates from
-/// legacy multi-file format and writes page.json for future use.
+/// Compile a page.yaml file into its elements array (in-memory, no disk write).
+fn compile_yaml_elements(yaml_path: &Path) -> Option<Vec<serde_json::Value>> {
+    let text = std::fs::read_to_string(yaml_path).ok()?;
+    let value: serde_yaml::Value = serde_yaml::from_str(&text).ok()?;
+
+    let elements = match &value {
+        serde_yaml::Value::Mapping(map) => map
+            .get("elements")
+            .cloned()
+            .unwrap_or(serde_yaml::Value::Sequence(vec![])),
+        serde_yaml::Value::Sequence(_) => value.clone(),
+        _ => serde_yaml::Value::Sequence(vec![]),
+    };
+
+    let json_val: serde_json::Value =
+        serde_json::to_value(serde_yaml::from_value::<serde_json::Value>(elements).ok()?).ok()?;
+
+    json_val.as_array().cloned()
+}
+
+/// Read page elements for a page/locale.
+/// Priority: page.yaml (compile) > page.json > legacy numbered element files.
 /// Returns the raw JSON string of `{ "elements": [...] }`.
 fn load_page_json(folder_dir: &Path, page_slug: &str, locale: &str) -> String {
     let dir = folder_dir
@@ -164,22 +190,34 @@ fn load_page_json(folder_dir: &Path, page_slug: &str, locale: &str) -> String {
         .join(format!("page_{}", page_slug))
         .join(locale);
 
+    let yaml_file = dir.join("page.yaml");
     let page_file = dir.join("page.json");
 
-    // Try new single-file format first
+    // 1. page.yaml is the authoritative source (matches generator priority)
+    if yaml_file.exists() {
+        if let Some(elements) = compile_yaml_elements(&yaml_file) {
+            let page = serde_json::json!({ "elements": elements });
+            if let Ok(json) = serde_json::to_string_pretty(&page) {
+                return json;
+            }
+        }
+    }
+
+    // 2. Pre-built page.json (non-empty elements)
     if page_file.exists() {
         if let Ok(content) = std::fs::read_to_string(&page_file) {
-            if serde_json::from_str::<serde_json::Value>(&content)
+            let has_elements = serde_json::from_str::<serde_json::Value>(&content)
                 .ok()
-                .and_then(|v| v.get("elements").cloned())
-                .is_some()
-            {
+                .and_then(|v| v.get("elements").and_then(|e| e.as_array()).cloned())
+                .map(|arr| !arr.is_empty())
+                .unwrap_or(false);
+            if has_elements {
                 return content;
             }
         }
     }
 
-    // Auto-migrate from legacy multi-file format
+    // 3. Auto-migrate from legacy multi-file format
     let elements = load_elements_from_files(&dir);
     let page = serde_json::json!({ "elements": elements });
     let json = serde_json::to_string_pretty(&page)

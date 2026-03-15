@@ -4158,7 +4158,7 @@ pub async fn generate_site_handler(
             }
         } else {
             let preview_base = if do_build && git_config.is_none() {
-                Some(format!("/storage/site-builds/{workspace_id}/{folder_slug}/dist"))
+                Some(format!("/site-builds/{workspace_id}/{folder_slug}/dist"))
             } else {
                 None
             };
@@ -4194,13 +4194,15 @@ pub async fn generate_site_handler(
             let url = if do_build && forgejo_repo.is_none() {
                 if folder_type_for_preview == "vitepress-docs" {
                     // VitePress outputs to dist/ (outDir: 'dist' in config.ts)
+                    // Served via /storage route (VitePress uses .html extension, no redirect issue)
                     format!("/storage/site-builds/{workspace_id_for_preview}/{folder_slug_for_preview}/dist/")
                 } else {
-                    // Point directly at the home page to skip Astro's root redirect
-                    // (redirect destinations are root-relative and break under a subpath base).
+                    // Astro preview: served via /site-builds route which handles
+                    // directory→index.html without the nest+ServeDir redirect bug.
+                    // Point directly at the home page to skip Astro's root redirect.
                     let home_path = site_home_subpath(&source_dir_for_sitedef)
                         .unwrap_or_else(|| String::new());
-                    format!("/storage/site-builds/{workspace_id_for_preview}/{folder_slug_for_preview}/dist/{home_path}")
+                    format!("/site-builds/{workspace_id_for_preview}/{folder_slug_for_preview}/dist/{home_path}")
                 }
             } else {
                 String::new()

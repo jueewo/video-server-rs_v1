@@ -1305,6 +1305,74 @@ async fn main() -> anyhow::Result<()> {
                     api_key_or_session_auth,
                 )),
         )
+        // Serve prebuilt Astro preview sites.
+        // Route: /site-builds/{workspace_id}/{folder_slug}/{*path}
+        // Maps to: ./storage/site-builds/{workspace_id}/{folder_slug}/{path}
+        // Uses a direct route (not nest) so the full URI path is preserved in any
+        // redirects — avoiding the nest+ServeDir trailing-slash redirect bug.
+        .route(
+            "/site-builds/{*path}",
+            get({
+                let sd = storage_dir.clone();
+                move |axum::extract::Path(path): axum::extract::Path<String>,
+                      uri: axum::http::Uri,
+                      _req: axum::http::Request<axum::body::Body>| {
+                    let storage_dir = sd.clone();
+                    async move {
+                        let fs_path = storage_dir.join("site-builds").join(&path);
+                        // Directory without trailing slash → redirect so browser URL is correct
+                        if fs_path.is_dir() && !uri.path().ends_with('/') {
+                            let redirect_to = format!("{}/", uri.path());
+                            return axum::response::Redirect::permanent(&redirect_to)
+                                .into_response();
+                        }
+                        // Directory with trailing slash → serve index.html
+                        let serve_path = if fs_path.is_dir() {
+                            fs_path.join("index.html")
+                        } else {
+                            fs_path
+                        };
+                        match tokio::fs::read(&serve_path).await {
+                            Ok(content) => {
+                                let mime = match serve_path
+                                    .extension()
+                                    .and_then(|e| e.to_str())
+                                {
+                                    Some("html") => "text/html; charset=utf-8",
+                                    Some("css") => "text/css",
+                                    Some("js") | Some("mjs") => "application/javascript",
+                                    Some("json") => "application/json",
+                                    Some("svg") => "image/svg+xml",
+                                    Some("png") => "image/png",
+                                    Some("jpg") | Some("jpeg") => "image/jpeg",
+                                    Some("webp") => "image/webp",
+                                    Some("gif") => "image/gif",
+                                    Some("ico") => "image/x-icon",
+                                    Some("woff") => "font/woff",
+                                    Some("woff2") => "font/woff2",
+                                    Some("xml") => "application/xml",
+                                    Some("txt") => "text/plain",
+                                    _ => "application/octet-stream",
+                                };
+                                (
+                                    axum::http::StatusCode::OK,
+                                    [(axum::http::header::CONTENT_TYPE, mime)],
+                                    content,
+                                )
+                                    .into_response()
+                            }
+                            Err(_) => {
+                                axum::http::StatusCode::NOT_FOUND.into_response()
+                            }
+                        }
+                    }
+                }
+            })
+            .layer(axum::middleware::from_fn_with_state(
+                Arc::new(pool.clone()),
+                api_key_or_session_auth,
+            )),
+        )
         // Serve static files from storage directory (authentication required)
         .nest(
             "/storage",

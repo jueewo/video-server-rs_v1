@@ -5,8 +5,8 @@
 When you click **Build & Preview** in the site overview, the platform:
 
 1. Generates the Astro project into `storage/site-builds/{workspace_id}/{folder_slug}/`
-2. Runs `bun install && bun run build` with `ASTRO_BASE=/storage/site-builds/{workspace_id}/{folder_slug}/dist`
-3. Serves the built `dist/` as static files under that same path
+2. Runs `bun install && bun run build` with `ASTRO_BASE=/site-builds/{workspace_id}/{folder_slug}/dist`
+3. Serves the built `dist/` via the dedicated `/site-builds/{*path}` route
 4. Redirects the browser directly to the home page (e.g. `.../dist/en/home/`) to skip Astro's root redirect
 
 The `ASTRO_BASE` env var is picked up by `astro.config.mjs`:

@@ -128,6 +128,7 @@ fn cmd_publish(
         output_dir: output.clone(),
         components_dir,
         build,
+        base_path: None, // CLI builds are always served from root
     };
 
     if push {

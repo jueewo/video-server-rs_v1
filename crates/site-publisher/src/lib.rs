@@ -19,6 +19,10 @@ pub struct PublishConfig {
     pub components_dir: Option<PathBuf>,
     /// When true, run `bun install && bun run build` after generation.
     pub build: bool,
+    /// Base path for the Astro build (sets ASTRO_BASE env var).
+    /// Required when the built site will be served from a subpath (e.g. preview builds).
+    /// Leave None for production builds served from root.
+    pub base_path: Option<String>,
 }
 
 /// Resolve components_dir from a base directory and the component_lib name.
@@ -113,7 +117,7 @@ pub fn publish(config: &PublishConfig) -> Result<()> {
 
     // Step 6: bun build (optional)
     if config.build {
-        build_astro(&config.output_dir)?;
+        build_astro(&config.output_dir, config.base_path.as_deref())?;
     }
 
     info!("Site assembled at {}", config.output_dir.display());
@@ -162,7 +166,9 @@ fn inline_vault_media(vault_id: &str, output_dir: &Path) -> Result<()> {
 }
 
 /// Run `bun install && bun run build` in the output directory.
-pub fn build_astro(output_dir: &Path) -> Result<()> {
+/// If `base_path` is provided it is passed as `ASTRO_BASE` so the built site
+/// can be served from a subpath (e.g. `/storage/site-builds/.../dist`).
+pub fn build_astro(output_dir: &Path, base_path: Option<&str>) -> Result<()> {
     info!("Running bun install in {}", output_dir.display());
     let status = std::process::Command::new("bun")
         .args(["install"])
@@ -173,10 +179,12 @@ pub fn build_astro(output_dir: &Path) -> Result<()> {
     }
 
     info!("Running bun run build in {}", output_dir.display());
-    let status = std::process::Command::new("bun")
-        .args(["run", "build"])
-        .current_dir(output_dir)
-        .status()?;
+    let mut cmd = std::process::Command::new("bun");
+    cmd.args(["run", "build"]).current_dir(output_dir);
+    if let Some(base) = base_path {
+        cmd.env("ASTRO_BASE", base);
+    }
+    let status = cmd.status()?;
     if !status.success() {
         anyhow::bail!("bun build failed");
     }

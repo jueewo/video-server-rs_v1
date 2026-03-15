@@ -4118,6 +4118,7 @@ pub async fn generate_site_handler(
 
     let do_build = request.build.unwrap_or(false);
     let folder_slug_for_preview = folder_slug.clone();
+    let workspace_id_for_preview = workspace_id.clone();
     let output_dir_log = output_dir.clone();
     let message = tokio::task::spawn_blocking(move || {
         if folder_type == "vitepress-docs" {
@@ -4135,11 +4136,17 @@ pub async fn generate_site_handler(
                 Ok(format!("VitePress docs generated at {folder_slug} (no Forgejo repo configured)"))
             }
         } else {
+            let preview_base = if do_build && git_config.is_none() {
+                Some(format!("/storage/site-builds/{workspace_id}/{folder_slug}/dist"))
+            } else {
+                None
+            };
             let publish_config = site_publisher::PublishConfig {
                 source_dir,
                 output_dir: output_dir.clone(),
                 components_dir,
                 build: do_build,
+                base_path: preview_base,
             };
             if let Some(git) = git_config {
                 site_publisher::publish_and_push(&publish_config, &git)
@@ -4167,7 +4174,7 @@ pub async fn generate_site_handler(
     let timestamp = chrono::Utc::now().to_rfc3339();
     let folder_path_key = format!("/{}", clean);
     let preview_url = if do_build && forgejo_repo.is_none() {
-        format!("/storage/site-builds/{workspace_id}/{folder_slug_for_preview}/dist/")
+        format!("/storage/site-builds/{workspace_id_for_preview}/{folder_slug_for_preview}/dist/")
     } else {
         String::new()
     };

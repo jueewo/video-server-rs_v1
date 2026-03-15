@@ -12,6 +12,9 @@ import siteConfig from "./src/website.redirects.mjs";
 
 // Site URL: set SITE_URL env var in CI for correct sitemap generation.
 const siteUrl = process.env.SITE_URL || "http://localhost:4321";
+// Base path: set ASTRO_BASE for preview builds served under a subpath (e.g. /storage/site-builds/...).
+// Leave unset for production builds served from root.
+const astroBase = process.env.ASTRO_BASE || "";
 
 export default defineConfig({
   redirects: siteConfig.redirects,
@@ -19,6 +22,7 @@ export default defineConfig({
   outDir: "./dist",
   publicDir: "./public",
   site: siteUrl,
+  base: astroBase,
 
   server: {
     host: "localhost",

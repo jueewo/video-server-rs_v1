@@ -28,7 +28,7 @@ const lang = pagelang || contentlang;
     href={!disableclick &&
     (!card.data.draft_content || card.data.draft_content_clickable) &&
     (!card.data.url || card.data.url.length == 0)
-        ? `${b}${lang}/${pathdir}/${slug}`
+        ? `${b}/${lang}/${pathdir}/${slug}`
         : card.data.url}
 >
     <div class="static max-w-full">

@@ -29,8 +29,11 @@ To fix this, all internal page link constructions in the Astro templates use a s
 
 ```ts
 // src/utils/siteBase.ts
-export const b: string = import.meta.env.BASE_URL; // always has trailing slash
+const raw = import.meta.env.BASE_URL; // Astro provides trailing slash, but be defensive
+export const b: string = raw === '/' ? '' : raw.replace(/\/$/, '');
 ```
+
+`b` exports with **no trailing slash** so call sites always add an explicit `/`:
 
 Usage pattern:
 ```astro
@@ -38,15 +41,15 @@ Usage pattern:
 import { b } from '~/utils/siteBase';
 ---
 <!-- Instead of href={"/" + lang + "/home"} -->
-<a href={b + lang + "/home"}>...</a>
+<a href={b + "/" + lang + "/home"}>...</a>
 
 <!-- Instead of `/${lang}/${collection}/${slug}` -->
-<a href={`${b}${lang}/${collection}/${slug}`}>...</a>
+<a href={`${b}/${lang}/${collection}/${slug}`}>...</a>
 ```
 
-**In production** (`base` not set): `b = "/"` → links are `/en/home` (unchanged)
-**In preview**: `b = "/storage/.../dist/"` → links are `/storage/.../dist/en/home`
-**On a subdomain path**: `b = "/site1/"` → links are `/site1/en/home`
+**In production** (`base` not set): `b = ""` → links are `/en/home` (unchanged)
+**In preview**: `b = "/storage/.../dist"` → links are `/storage/.../dist/en/home`
+**On a subdomain path**: `b = "/site1"` → links are `/site1/en/home`
 
 Files using this pattern:
 - `src/components/CardDefault2.astro`, `CardBlog.astro`, `CardInfo.astro` — collection card links

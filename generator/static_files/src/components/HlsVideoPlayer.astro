@@ -1,0 +1,197 @@
+---
+// Props to make the component configurable/reusable
+export interface Props {
+    id?: string;
+    src: string; // URL to master.m3u8 (required)
+    title?: string; // Optional title/poster alt text
+    poster?: string; // Optional poster image URL
+    width?: string; // e.g. "100%" or "800px"
+    height?: string; // e.g. "auto" or "450px"
+    autoplay?: boolean;
+    muted?: boolean;
+    loop?: boolean;
+    fallbackImage?: string; // Optional fallback image URL when video fails to load
+}
+
+const {
+    id,
+    src,
+    title = "Video",
+    poster,
+    width = "100%",
+    height = "auto",
+    autoplay = false,
+    muted = false,
+    loop = false,
+    fallbackImage,
+} = Astro.props;
+
+
+// Use fallbackImage if provided, otherwise use poster as fallback
+const effectiveFallbackImage = fallbackImage || poster;
+---
+
+<div class="video-container">
+    <video
+        id={id}
+        class="hls-video"
+        data-src={src}
+        controls
+        width={width}
+        height={height}
+        poster={poster}
+        autoplay={autoplay}
+        muted={muted}
+        loop={loop}
+    >
+        <!-- Fallback message for browsers with native HLS support issues -->
+        Your browser does not support HLS video playback.
+    </video>
+    {
+        effectiveFallbackImage && (
+            <div class="flex items-center justify-center">
+                <!-- <h2>Error loading video</h2> -->
+                <img
+                    src={effectiveFallbackImage}
+                    alt={title}
+                    class="fallback-image"
+                    style="display: none;"
+                />
+            </div>
+        )
+    }
+</div>
+
+<!-- Load hls.js only on the client -->
+<script is:inline src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script>
+    // This runs only in the browser
+    declare const Hls: any;
+    const show_debug = false;
+
+    function showFallbackImage(video: HTMLVideoElement) {
+        if (show_debug) {
+          console.log(
+            "Attempting to show fallback image for video:",
+            video.id || "unknown",
+        )};
+        const container = video.closest(".video-container");
+        if (container) {
+            const img = container.querySelector(
+                ".fallback-image",
+            ) as HTMLImageElement;
+            if (img) {
+                if (show_debug) console.log("Fallback image found, switching display");
+                video.style.display = "none";
+                img.style.display = "block";
+            } else {
+                // console.warn("No fallback image found in container");
+            }
+        } else {
+            // console.warn("Video container not found");
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        document.querySelectorAll(".hls-video").forEach((videoElement) => {
+            const video = videoElement as HTMLVideoElement;
+            const videoSrc = video.dataset.src || "";
+            const shouldLoop = video.hasAttribute("loop");
+
+            if (!videoSrc) {
+                if (show_debug) console.warn("No video source provided");
+                showFallbackImage(video);
+                return;
+            }
+
+            //console.log("Initializing video player for:", videoSrc, "Loop:", shouldLoop);
+
+            // Add general error listener for video load failures
+            video.addEventListener("error", (e) => {
+                if (show_debug) console.error("Video error event triggered:", e);
+                showFallbackImage(video);
+            });
+
+            // Handle loop manually for all HLS videos
+            if (shouldLoop) {
+                video.addEventListener("ended", () => {
+                    if (show_debug) console.log("Video ended, restarting for loop");
+                    video.currentTime = 0;
+                    video.play().catch(err => {
+                        console.error("Error restarting video:", err);
+                    });
+                });
+            }
+
+            if (Hls.isSupported()) {
+                const hls = new Hls({
+                    xhrSetup: (xhr: any) => {
+                        // Important for authenticated (private) videos: send cookies/sessions
+                        xhr.withCredentials = true;
+                    },
+                });
+
+                hls.on(Hls.Events.ERROR, (event: any, data: any) => {
+                    console.error("HLS error:", data.type, data.details, data);
+                    if (data.fatal) {
+                        console.error("HLS fatal error detected");
+                        switch (data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                console.error("Fatal network error");
+                                showFallbackImage(video);
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                console.error(
+                                    "Fatal media error, trying to recover",
+                                );
+                                hls.recoverMediaError();
+                                // Give it a moment to try recovery, then show fallback
+                                setTimeout(() => {
+                                    if (
+                                        video.error ||
+                                        video.networkState === 3
+                                    ) {
+                                        showFallbackImage(video);
+                                    }
+                                }, 2000);
+                                break;
+                            default:
+                                console.error("Fatal error, cannot recover");
+                                showFallbackImage(video);
+                                break;
+                        }
+                    }
+                });
+
+                hls.loadSource(videoSrc);
+                hls.attachMedia(video);
+
+                // console.log("HLS.js initialized and source loaded");
+            } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+                // Safari/native HLS support (no need for hls.js)
+                // console.log("Using native HLS support");
+                video.src = videoSrc;
+            } else {
+                // console.warn("HLS not supported on this browser");
+                showFallbackImage(video);
+            }
+        });
+    });
+</script>
+
+<style>
+    .video-container {
+        position: relative;
+    }
+    video {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        background: #000;
+    }
+    .fallback-image {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+    }
+</style>

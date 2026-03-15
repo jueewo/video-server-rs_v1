@@ -1,0 +1,68 @@
+---
+import { getImage } from "astro:assets";
+import type { ImageMetadata } from "astro";
+import ImageBanner from "../preact/ImageBanner";
+
+const { id, dataid, data } = Astro.props;
+
+// Import all images from assets/images folder
+const imageModules = import.meta.glob<{ default: ImageMetadata }>(
+    "/src/assets/images/**/*.{jpeg,jpg,png,gif,webp}",
+    { eager: true },
+);
+
+// Helper to convert public path to assets path and get optimized image
+async function getOptimizedImage(publicPath: string) {
+    // Convert /images/concepts/file.webp to /src/assets/images/concepts/file.webp
+    const assetPath = "/src/assets" + publicPath;
+
+    const imageModule = imageModules[assetPath];
+    if (!imageModule) {
+        // console.warn(
+        //     `Image not found in assets: ${assetPath}. Available:`,
+        //     Object.keys(imageModules).filter((k) => k.includes("concepts")),
+        // );
+        // Return empty string to prevent broken image requests
+        return "";
+    }
+
+    const optimized = await getImage({
+        src: imageModule.default,
+        width: 800,
+        format: "webp",
+    });
+
+    return optimized.src;
+}
+
+// Pre-process all images at build time (filter out drafts and posts without valid images)
+let processedData: typeof data = [];
+if (data && data.length > 0) {
+    const nonDraftPosts = data.filter((post: any) => !post.draft);
+    const processed = await Promise.all(
+        nonDraftPosts.map(async (post: any) => ({
+            ...post,
+            img: await getOptimizedImage(post.img),
+        })),
+    );
+    // Filter out posts where image wasn't found
+    processedData = processed.filter((post: any) => post.img !== "");
+}
+---
+
+<!-- CAROUSEL -->{
+    processedData && processedData.length > 0 && (
+        <div class="flex justify-center bg-base-300">
+            <div class="my-12 md:my-20">
+                <ImageBanner
+                    posts={processedData}
+                    carouselId={id}
+                    isAutoPlay={true}
+                    autoPlayMilliseconds={5000}
+                    showTitle={false}
+                    client:only="preact"
+                />
+            </div>
+        </div>
+    )
+}

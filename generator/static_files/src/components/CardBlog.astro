@@ -1,0 +1,130 @@
+---
+import type { CollectionEntry } from "astro:content";
+import CardDraftOverlay from "./CardDraftOverlay.astro";
+
+// import { assetCardCollection } from "../content.config";
+
+import { Image } from "astro:assets";
+
+interface Props {
+    card: CollectionEntry;
+    pathdir: string;
+    disableclick?: boolean; //..just if used as header in contentlayout, set this to disable the link
+    pagelang?: string;
+}
+const { card, pathdir, disableclick, pagelang } = Astro.props;
+
+let [contentlang, slug] = card.id.replace(/\.(md|mdx)$/, "").split("/");
+if (!slug) ((slug = contentlang), (contentlang = "en"));
+//.. FALLBACK if not i18n, no language ('/en/post1.md' vs '/post1.md')
+
+// Use page language if provided, otherwise fall back to content language
+const lang = pagelang || contentlang;
+---
+
+{/* CARDBLOG */}
+<a
+    href={!disableclick &&
+    (!card.data.draft_content || card.data.draft_content_clickable) &&
+    (!card.data.url || card.data.url.length == 0)
+        ? `/${lang}/${pathdir}/${slug}`
+        : card.data.url}
+>
+    <div class="static max-w-full">
+        <div
+            class="card md:card-side bg-parent text-base shadow-xl max-w-full overflow-hidden"
+        >
+            <div class="flex justify-center items-center content-center">
+                <figure class="max-w-xl w-full md:w-48 h-48">
+                    <Image
+                        class="object-cover md:w-48 w-parent h-48 rounded-lg"
+                        src={card.data.image}
+                        alt={card.data.title}
+                        widths={[320, 640, 960]}
+                        format="webp"
+                        sizes="(max-width: 768px) 100vw, 192px"
+                        quality={80}
+                    />
+                </figure>
+
+                {
+                    /* IMAGE DATA: {card.data.image}
+                  {JSON.stringify(card.data)} */
+                }
+            </div>
+            <div class="card-body md:w-full max-w-full overflow-hidden">
+                <span class="flex items-center">
+                    <h2 class="card-title flex-auto">{card.data.title}</h2>
+                    {
+                        card.data.badge && card.data.badge.length > 0 && (
+                            <div class=" justify-self-end bg-warning p-1 flex justify-center">
+                                <div class="text-center text-xs">
+                                    {card.data.badge}
+                                </div>
+                            </div>
+                        )
+                    }
+                </span>
+                <p>{card.data.desc}</p>
+
+                <div class="card-actions justify-end">
+                    {
+                        card.data.linktxt && card.data.linktxt.length > 0 && (
+                            <button class="btn btn-primary btn-sm">
+                                {card.data.linktxt}
+                            </button>
+                        )
+                    }
+
+                    <div class="mt-4 card-actions justify-start">
+                        {
+                            card.data.typetags &&
+                                card.data.typetags.length > 0 &&
+                                card.data.typetags.map(
+                                    (tag: string, index: number) => (
+                                        <div class="badge badge-primary">
+                                            {" "}
+                                            #{tag}
+                                        </div>
+                                    ),
+                                )
+                        }
+                        {
+                            card.data.tags &&
+                                card.data.tags.length > 0 &&
+                                card.data.tags.map(
+                                    (tag: string, index: number) => (
+                                        <div class="badge badge-outline">
+                                            {tag}
+                                        </div>
+                                    ),
+                                )
+                        }
+                    </div>
+                </div>
+            </div>
+
+            {
+                card.data.content_msg && (
+                    <div class="absolute top-0 bottom-0 left-0 right-0 ">
+                        <span class="absolute right-8 top-2 badge badge-warning justify-self-end">
+                            {card.data.content_msg}
+                        </span>
+                    </div>
+                )
+            }
+
+            <!-- overlay draft_content -->
+            {
+                card.data.draft_content && (
+                    <div class="absolute top-0 bottom-0 left-0 right-0 ">
+                        <CardDraftOverlay card={card} />
+                    </div>
+
+                    // </div>
+                )
+            }
+            <!-- overlay end -->
+        </div>
+    </div>
+</a>

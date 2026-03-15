@@ -1,0 +1,82 @@
+---
+// NewsBannerSSG — fetches bannerposts at build time (SSG-safe, no client-side fetch).
+// Falls back gracefully if the backend is not available during build.
+
+const { element, lang } = Astro.props;
+
+const title = element.content?.title ?? "News";
+const desc = element.content?.desc ?? "";
+const showbuttons = element.props?.showbuttons ?? false;
+
+type NewsItem = {
+    title: string;
+    desc: string;
+    img?: string;
+    link: string;
+    button: string;
+};
+
+let posts: NewsItem[] = [];
+
+try {
+    const apiBase = import.meta.env.API_BASE_URL || "http://localhost:3000";
+    const res = await fetch(`${apiBase}/api/const/bannerposts`);
+    if (res.ok) {
+        const data = await res.json();
+        posts = data.posts ?? [];
+    }
+} catch {
+    // Backend not available at build time — render empty gracefully.
+}
+---
+
+<div class="bg-base-100 my-12 p-4 md:p-12 lg:w-full">
+    <div class="w-3/4 mx-auto mt-8 text-center">
+        <h1 class="text-5xl font-bold">{title}</h1>
+        {desc && <p class="pt-6">{desc}</p>}
+    </div>
+
+    {posts.length > 0 && (
+        <div class="w-full carousel carousel-center p-4 space-x-4 bg-neutral rounded-box my-9">
+            {posts.map((item, index) => (
+                <div class="carousel-item w-4/5">
+                    <div
+                        id={`item-${index}`}
+                        class={`card h-64 w-full bg-gradient-to-r from-primary to-blue-900 text-primary-content ${item.img ? "card-side" : ""}`}
+                    >
+                        {item.img && (
+                            <figure>
+                                <img src={item.img} class="rounded-box h-64 w-64" alt={item.title} />
+                            </figure>
+                        )}
+                        <div class="card-body">
+                            <h2 class="card-title">{item.title}</h2>
+                            <p>{item.desc}</p>
+                            <div class="card-actions justify-end">
+                                <a href={item.link} class="btn">{item.button} ❯</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    )}
+
+    {showbuttons && posts.length > 0 && (
+        <div class="flex justify-center w-full py-2 gap-2">
+            {posts.map((_, index) => (
+                <a class="btn btn-xs" href={`#item-${index}`}>{index + 1}</a>
+            ))}
+        </div>
+    )}
+
+    {posts.length === 0 && (
+        <div class="p-4 bg-neutral rounded-box my-9 w-full">
+            <div class="card w-full h-32 bg-primary text-primary-content">
+                <div class="card-body items-center text-center">
+                    <h2 class="card-title">No news available</h2>
+                </div>
+            </div>
+        </div>
+    )}
+</div>

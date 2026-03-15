@@ -1,0 +1,212 @@
+---
+// let iconsize = "8"
+// import Config from "../website.config.cjs";
+// let themetoggle = Config.themelight + "," + Config.themedark;
+
+
+
+// export const prerender = false;
+
+// import { logoutUser } from "../pages/api/auth";
+import ThemeToggle from "../utils/ThemeToggle.astro";
+import ModalComponent from "../utils/ModalComponent.astro";
+// import EntityForm from "../forms/EntityForm.vue";
+
+import { Image} from "astro:assets";
+import userProfilePic from "../../assets/images/team/profile_jw2.jpg";
+import userPlaceholderPic from "../../assets/images/utils/placeholder-about.jpg";
+import SurveyRemote from "../preact/surveyremote/SurveyRemote";
+import Config from "../../website.config.cjs";
+
+
+
+
+const session = null;
+// const session = await Astro.locals.auth.validate();
+// // if (session) return Astro.redirect("/auth/profile", 302);
+
+---
+
+<!-- <script>
+  import { logoutUser } from "../pages/api/user";
+
+  async function logout() {
+    console.log("button clicked!");
+    await logoutUser({ name: "name", authtoken: "authtoken" });
+  }
+
+  document.getElementById("logoutbutton").addEventListener("click", logout);
+
+</script> -->
+<div class="dropdown dropdown-end">
+  <label tabindex="0" class="btn btn-ghost btn-circle avatar">
+    <div class="w-10 rounded-full">
+      {
+        session ? (
+          <>
+            {/* <img src="/images/team/profile_jw2.jpg" /> */}
+            <Image src={userProfilePic} alt="User Profile" />
+            {/* <Image src={userPlaceholderPic} alt="User Placeholder" /> */}
+          </>
+        ) : (
+          <>
+            {/* <img src="/images/utils/placeholder-about.jpg" /> */}
+            <Image src={userPlaceholderPic} alt="User Placeholder" />
+          </>
+        )
+      }
+      <!-- <img src="/images/team/profile_jw.jpg" /> -->
+    </div>
+  </label>
+  <ul
+    tabindex="0"
+    class="menu menu-sm dropdown-content mt-3 z-40 p-2 shadow bg-base-100 rounded-box w-52"
+  >
+
+    <!-- <li>
+      <a href="/user" class="justify-between text-xl md:text-lg">
+        Hello
+        <span class="badge">Apps</span>
+      </a>
+    </li> -->
+
+    {
+      session ? (
+
+        <>
+
+
+
+          <li>
+
+            <a href="/auth/profile" class="justify-between text-xl md:text-lg">
+              Profile
+              <span class="badge">New</span>
+            </a>
+          </li>
+          <li>
+            <!--
+            <a href="/auth/logout" class="justify-between  text-xl md:text-lg">
+              <span>Logout</span>
+            </a>
+            -->
+
+            <form method="post" action="/auth/logout">
+              <input class="justify-between  text-xl md:text-lg" type="submit" value="Sign out" />
+            </form>
+
+          </li>
+          <li>
+            <hr class="my-4" />
+          </li>
+          <li>
+            <a href="/admin" class="justify-between  text-xl md:text-lg">
+              <span>Admin</span>
+            </a>
+          </li>
+          <!-- <li>
+            <a href="/admin/testcrud" class="justify-between  text-xl md:text-lg">
+              <span>TestCRUD</span>
+            </a>
+          </li>
+          -->
+          <!--
+          <li>
+            <a href="/admin/upload" class="justify-between  text-xl md:text-lg">
+              <span>UPLOAD</span>
+            </a>
+          </li>
+          -->
+        </>
+      ) : (
+        <li>
+          <a href="/auth/login" class="justify-between  text-xl md:text-lg">
+            <span>Login</span>
+          </a>
+        </li>
+      )
+    }
+
+    <!-- <li><a onclick="my_modal_login.showModal()">Login</a></li>
+    <li><a onclick="my_modal_logout.showModal()">Logout</a></li> -->
+    <!-- <li><a>Settings</a></li> -->
+
+    <!-- <li><ThemeSwap /></li> -->
+
+    <!-- <div class="mt-8 flex justify-center items-center"  >
+      <ThemeSwap />
+    </div> -->
+
+
+
+    <!-- Theme Toggle -->
+    <ThemeToggle />
+
+    <!-- --- theme menu --- -->
+    <!-- <div class="join join-vertical">
+      <input type="radio" name="theme-buttons" class="btn theme-controller join-item" aria-label="Default" value="default"/>
+      <input type="radio" name="theme-buttons" class="btn theme-controller join-item" aria-label="Retro" value="retro"/>
+      <input type="radio" name="theme-buttons" class="btn theme-controller join-item" aria-label="Cyberpunk" value="cyberpunk"/>
+      <input type="radio" name="theme-buttons" class="btn theme-controller join-item" aria-label="Valentine" value="valentine"/>
+      <input type="radio" name="theme-buttons" class="btn theme-controller join-item" aria-label="Aqua" value="aqua"/>
+    </div> -->
+
+
+    <!-- <button class="btn" onclick="my_modal_feedback.showModal()">
+      Feedback
+    </button> -->
+    <!-- <FeedbackComponent /> -->
+    <!-- <ModalComponent slot="actionbanner" id="testmodal" modalbtn="Contact">
+      <div>
+
+        <SurveyRemote url={Config.datatool.url} surveyid="survey_contact_1" sourceid="astro-cms-site-usermenu_" title="Contact us, we love to hear from you."  submitbuttontxt="Send" thankyoumessage="Thank you for your message!"  showicon client:load />
+
+      </div>
+    </ModalComponent> -->
+
+    <!-- {session && <p>User: {session.user.username}</p>} -->
+
+  </ul>
+</div>
+
+<!-- <dialog id="my_modal_feedback" class="modal modal-bottom sm:modal-middle">
+  <div class="modal-box">
+    <form>
+      <button class="btn btn-sm btn-circle btn-ghost absolute right-2">
+        ✕
+      </button>
+    </form>
+
+    <FeedbackForm client:visible />
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog> -->
+
+<!-- <dialog id="my_modal_login" class="modal modal-bottom sm:modal-middle">
+  <div class="modal-box">
+    <form>
+      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+        ✕
+      </button>
+    </form>
+
+    LOGIN FORM GOES HERE
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog> -->
+
+<!-- <dialog id="my_modal_logout" class="modal modal-bottom sm:modal-middle">
+  <div class="modal-box">
+    <form>
+      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+        ✕
+      </button>
+    </form>
+
+    LOGOUT FORM GOES HERE
+  </div>
+</dialog> -->

@@ -1,0 +1,242 @@
+---
+// Process component for BPMN diagrams
+// Loads BPMN files from assets/processes/ directory
+// WITH LAZY LOADING - Only initializes when visible
+
+const { element } = Astro.props;
+
+// Get the datafile path from props
+const datafile = element?.props?.datafile || "processes/diagram_demo1.bpmn";
+const id = element?.props?.id || "process";
+
+// Import all BPMN files from processes directory
+const bpmnModules = import.meta.glob("/src/assets/processes/*.bpmn", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+});
+
+// Extract the file path and get the content
+const filePath = `/src/assets/${datafile}`;
+const bpmnContent = (bpmnModules[filePath] as string) || "";
+
+// Parse title and description
+const title = element?.content?.title || "Process Diagram";
+const desc = element?.content?.desc || "";
+---
+
+<div class="w-full bg-base-100 my-12 p-4 md:p-12" data-process-wrapper={id}>
+    {
+        (title || desc) && (
+            <div class="max-w-4xl m-auto text-center mb-8">
+                {title && (
+                    <h2 class="text-3xl font-bold mb-4">
+                        <Fragment set:html={title} />
+                    </h2>
+                )}
+                {desc && (
+                    <p class="text-lg opacity-80">
+                        <Fragment set:html={desc} />
+                    </p>
+                )}
+            </div>
+        )
+    }
+
+    <div
+        class="bpmn-container w-full"
+        style="height: 600px; border: 1px solid #e0e0e0; border-radius: 8px; background: white;"
+        data-process-container={id}
+    >
+        <!-- Loading skeleton -->
+        <div class="process-loading" data-loading={id}>
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <p class="loading-text">Loading process diagram...</p>
+            </div>
+        </div>
+
+        <!-- BPMN.js container -->
+        <div
+            id={id}
+            class="bpmn-viewer"
+            data-bpmn={id}
+            data-bpmn-content={bpmnContent}
+            style="width: 100%; height: 100%; opacity: 0;"
+        >
+        </div>
+    </div>
+</div>
+
+<style>
+    .bpmn-container {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .bpmn-viewer {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        transition: opacity 0.3s ease-in-out;
+    }
+
+    /* Loading skeleton */
+    .process-loading {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(4px);
+        border-radius: 8px;
+        z-index: 10;
+    }
+
+    .process-loading.hidden {
+        display: none;
+    }
+
+    .loading-content {
+        text-align: center;
+    }
+
+    .loading-spinner {
+        width: 48px;
+        height: 48px;
+        border: 4px solid rgba(0, 0, 0, 0.1);
+        border-left-color: #42b883;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .loading-text {
+        font-size: 14px;
+        opacity: 0.7;
+        font-weight: 500;
+        color: #333;
+    }
+
+    /* BPMN.js styles adjustments */
+    :global(.bjs-powered-by) {
+        display: none !important;
+    }
+
+    /* Ensure BPMN canvas fills container */
+    .bpmn-viewer :global(.bjs-container) {
+        width: 100% !important;
+        height: 100% !important;
+    }
+</style>
+
+<script>
+    // Lazy loading with IntersectionObserver
+    if (typeof window !== "undefined") {
+        const initializeProcess = async (containerId: string) => {
+            const bpmnElement = document.querySelector(
+                `[data-bpmn="${containerId}"]`,
+            ) as HTMLElement;
+            const loadingElement = document.querySelector(
+                `[data-loading="${containerId}"]`,
+            ) as HTMLElement;
+
+            if (!bpmnElement) return;
+
+            try {
+                // Get BPMN content from data attribute
+                const bpmnContent =
+                    bpmnElement.getAttribute("data-bpmn-content");
+
+                if (!bpmnContent) {
+                    throw new Error("No BPMN content found");
+                }
+
+                // Dynamically import bpmn-js (code splitting!)
+                // @ts-ignore
+                const { default: BpmnViewer } =
+                    await import("bpmn-js/lib/Viewer");
+
+                // Create viewer instance
+                const viewer = new BpmnViewer({
+                    container: `#${containerId}`,
+                    width: "100%",
+                    height: "100%",
+                });
+
+                // Import and display the BPMN diagram
+                await viewer.importXML(bpmnContent);
+
+                // Get canvas and zoom to fit
+                const canvas = viewer.get("canvas") as any;
+                canvas.zoom("fit-viewport", "auto");
+
+                // Hide loading, show diagram
+                if (loadingElement) {
+                    loadingElement.classList.add("hidden");
+                }
+                bpmnElement.style.opacity = "1";
+            } catch (error) {
+                console.error("Failed to initialize BPMN diagram:", error);
+                if (loadingElement) {
+                    loadingElement.innerHTML = `
+                        <div class="loading-content">
+                            <p class="loading-text" style="color: red;">Failed to load process diagram</p>
+                            <p class="loading-text" style="font-size: 12px; margin-top: 8px;">${error instanceof Error ? error.message : "Unknown error"}</p>
+                        </div>
+                    `;
+                }
+            }
+        };
+
+        // Use IntersectionObserver for lazy initialization
+        const observeProcess = () => {
+            const wrappers = document.querySelectorAll(
+                "[data-process-wrapper]",
+            );
+
+            const observer = new IntersectionObserver(
+                (entries) => {
+                    entries.forEach((entry) => {
+                        if (entry.isIntersecting) {
+                            const wrapper = entry.target as HTMLElement;
+                            const processId = wrapper.getAttribute(
+                                "data-process-wrapper",
+                            );
+
+                            if (processId) {
+                                // Initialize when visible
+                                initializeProcess(processId);
+                                // Stop observing after initialization
+                                observer.unobserve(wrapper);
+                            }
+                        }
+                    });
+                },
+                {
+                    rootMargin: "100px", // Start loading 100px before it comes into view
+                    threshold: 0.1,
+                },
+            );
+
+            wrappers.forEach((wrapper) => observer.observe(wrapper));
+        };
+
+        // Initialize when DOM is ready
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", observeProcess);
+        } else {
+            observeProcess();
+        }
+    }
+</script>

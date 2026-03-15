@@ -1,0 +1,52 @@
+/* Mobile-friendly prose content - fix code block overflow */
+@media (max-width: 767px) {
+    /* Ensure prose container respects viewport width */
+    .prose {
+        max-width: 100%;
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+    }
+
+    /* Code blocks: enable horizontal scroll and limit width */
+    .prose pre {
+        max-width: calc(100vw - 2.5rem);
+        overflow-x: auto;
+        white-space: pre;
+        word-wrap: normal;
+    }
+
+    /* Inline code: allow wrapping */
+    .prose code {
+        word-break: break-word;
+    }
+
+    /* Prevent pre > code from creating min-width issues */
+    .prose pre code {
+        word-break: normal;
+        white-space: pre;
+    }
+
+    /* Tables: enable horizontal scroll */
+    .prose table {
+        display: block;
+        max-width: calc(100vw - 2.5rem);
+        overflow-x: auto;
+    }
+
+    /* Images: constrain to viewport */
+    .prose img {
+        max-width: 100%;
+        height: auto;
+    }
+}
+
+/* General prose improvements */
+.prose {
+    /* Prevent any child from exceeding container */
+    overflow-wrap: break-word;
+}
+
+.prose pre {
+    /* Ensure code blocks can scroll horizontally if needed */
+    overflow-x: auto;
+}

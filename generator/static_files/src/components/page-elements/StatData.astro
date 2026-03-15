@@ -1,0 +1,46 @@
+---
+// import TitleAlertBanner from "./TitleAlertBanner.astro";
+
+
+// import statdata from "../../assets/stats.json";
+
+
+import { IconUsers } from "../icons/IconUsers.tsx";
+import { IconHeart } from "../icons/IconHeart.tsx";
+import { IconBriefcase } from "../icons/IconBriefcase.tsx";
+import { IconSearch } from "../icons/IconSearch.tsx";
+import { IconMap } from "../icons/IconMap.tsx";
+
+// const {element, alt, index } = Astro.props;
+const {id, dataid, data } = Astro.props;
+
+
+//..alt change left/right (pic and text order)
+//..index required if alt
+
+---
+
+<!-- STATISTICS -->
+<div class="flex justify-center">
+  <div id={id} class="stats stats-vertical lg:stats-horizontal shadow p-10 my-24">
+    
+    { data && data.length > 0 &&
+      data.map((stat, index) => (
+        <div class="stat">
+          <div class="stat-title">{stat.title}</div>
+          <div class="stat-value">{stat.value}</div>
+          <div class="stat-desc">{stat.desc}</div>
+          <div class="stat-figure text-primary">
+            
+            { stat.figure == 'users' && <IconUsers setclass="inline-block w-8 h-8 stroke-current" />}
+            { stat.figure == 'briefcase' && <IconBriefcase setclass="inline-block w-8 h-8 stroke-current" />}
+            { stat.figure == 'heart' && <IconHeart setclass="inline-block w-8 h-8 stroke-current" />}
+            { stat.figure == 'search' && <IconSearch setclass="inline-block w-8 h-8 stroke-current" />}
+            { stat.figure == 'map' && <IconMap setclass="inline-block w-8 h-8 stroke-current" />}
+          </div>
+        </div>
+      ))
+    }
+
+  </div>
+</div>

@@ -1,0 +1,285 @@
+---
+// import { IconUsers } from "../icons/IconUsers.jsx";
+// import { IconHeart } from "../icons/IconHeart.jsx";
+// import { IconBriefcase } from "../icons/IconBriefcase.jsx";
+// import { IconSearch } from "../icons/IconSearch.jsx";
+// import { IconMap } from "../icons/IconMap.jsx";
+// import SurveyForm from "../utils/SurveyForm.astro";
+// import CTAForm from "../utils/CTAForm.astro";
+// import LikeButton from "../preact/LikeButtonRemote";
+//
+import { getCollection, getEntry } from "astro:content";
+
+import Config from "../../website.config.cjs";
+import CardDefault2 from "../CardDefault2.astro";
+import CardInfo from "../CardInfo.astro";
+import CardBlog from "../CardBlog.astro";
+import TitleAlertBanner from "./TitleAlertBanner.astro";
+
+// const {element, alt, index } = Astro.props;
+const { element, lang } = Astro.props;
+
+// let showing_default_language = false;
+const default_lang = Config.defaultLanguage.locale; // .. "en"
+
+// const collection_name = "page_consulting";
+
+// // import { getCollection, getEntry } from "astro:content";
+// const page_elements = (await getCollection(collection_name))
+//     .filter((a) => !a.data.draft)
+//     .sort(
+//         (a, b) =>
+//             // a.data.weight.valueOf() - b.data.weight.valueOf()
+//             a.data.weight - b.data.weight,
+//     );
+
+// // ===
+// let page_elements_actlang = page_elements.filter(
+//     (a) => a.id.split("/")[0] == lang,
+// );
+// let showing_default_language = false;
+// const default_lang = Config.defaultLanguage.locale; // .. "en"
+// if (page_elements_actlang.length == 0) {
+//     showing_default_language = true;
+//     page_elements_actlang = page_elements.filter(
+//         (a) => a.id.split("/")[0] == default_lang,
+//     );
+// }
+// element.props.collection;
+// const consulting_carddata = (await getCollection("consulting"))
+//
+
+// let collection_carddata = (await getCollection(element.props.collection))
+//     .filter((a) => !a.data.draft)
+//     .sort((a, b) =>
+//         b.data.pubDate && a.data.pubDate
+//             ? b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+//             : 0,
+//     )
+//     .sort((a, b) => {
+//         if (a.data.featured && !b.data.featured) return -1;
+//         if (!a.data.featured && b.data.featured) return 1;
+//         return 0;
+//     })
+//     .sort((a, b) => a.data.draft_content - b.data.draft_content);
+
+// var filter_all_active = element.props.filter_all_active || true;
+
+//.. filter_by_feature .. should it be filtered by featured -> filter_by_feature
+//.. if yes, then show filtered or not_filtered -> filter_feature
+var filter_by_featured = element.props.filter_by_featured;
+var filter_featured = element.props.filter_featured;
+
+//.. filter_by_feature .. should it be filtered by filtertag -> filter_by_filtertag
+//.. if yes, then show all with filtertag -> filter_filtertag
+var filter_by_filtertag =
+    element.props.filter_filtertag && element.props.filter_filtertag.length > 0;
+var filter_filtertag = element.props.filter_filtertag;
+
+// var filter_all_active = false;
+// var filter_all_active_featured = false;
+// var filter_by_filtertag = true;
+// var filter_filtertag = "course";
+
+const collection_carddata = (await getCollection(element.props.collection))
+    .filter(
+        (a) =>
+            !a.data.draft &&
+            (!filter_by_featured || a.data.featured == filter_featured) &&
+            // (filter_featured && !filter_by_featured && !a.data.featured) ||
+            (!filter_by_filtertag ||
+                (filter_by_filtertag &&
+                    a.data.filtertags &&
+                    a.data.filtertags.includes(filter_filtertag))),
+    )
+    .sort((a, b) =>
+        b.data.pubDate && a.data.pubDate
+            ? b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+            : 0,
+    )
+    .sort((a, b) => {
+        if (a.data.featured && !b.data.featured) return -1;
+        if (!a.data.featured && b.data.featured) return 1;
+        return 0;
+    })
+    .sort((a, b) => a.data.draft_content - b.data.draft_content);
+
+const collection_carddata_actlang = collection_carddata.filter(
+    (a) => a.id.split("/")[0] == lang,
+);
+// let collection_carddata_defaultlang = collection_carddata.filter((a) => a.id.split("/")[0] == default_lang);
+
+const show_default_lang = element.props.show_default_lang;
+const just_unique = element.props.just_unique;
+
+let collection_carddata_defaultlang = [];
+if (show_default_lang) {
+    collection_carddata_defaultlang = collection_carddata.filter(
+        (a) => a.id.split("/")[0] == default_lang,
+    );
+
+    if (just_unique) {
+        const actlang_ids = collection_carddata_actlang.map(
+            (obj) => obj.id.replace(/\.(md|mdx)$/, "").split("/")[1],
+        );
+        collection_carddata_defaultlang =
+            collection_carddata_defaultlang.filter(
+                (a) =>
+                    a.id.split("/")[0] == default_lang &&
+                    !actlang_ids.includes(a.id.replace(/\.(md|mdx)$/, "").split("/")[1]),
+            );
+    }
+}
+---
+
+{/* TITLE */}
+{
+    element.content.title && element.content.title.length > 0 && (
+        <div class="mt-12 text-3xl">{element.content.title}</div>
+    )
+}
+
+{/* CARD: DEFAULT */}
+{
+    (!element.props.card || element.props.card === "default") && (
+        <>
+            <div class="mt-12 grid justify-items-center grid-cols-1 gap-8 md:px-10 md:gap-16 md:grid-cols-2 xl:gap-5 xl:grid-cols-3 xl:px-5 content-center">
+                {collection_carddata_actlang.map((card) => (
+                    <>
+                        {card.data.featured && (
+                            <CardDefault2
+                                card={card}
+                                pathdir={element.props.collection}
+                                pagelang={lang}
+                            />
+                        )}
+                        {!card.data.featured && (
+                            <CardInfo
+                                card={card}
+                                pathdir={element.props.collection}
+                                pagelang={lang}
+                            />
+                        )}
+                    </>
+                ))}
+            </div>
+
+            {collection_carddata_defaultlang.length > 0 && (
+                <>
+                    <div class="mt-10 mx-12">
+                        <TitleAlertBanner
+                            title="Content in English"
+                            desc="Additional content just available in English"
+                            h2
+                        />
+                    </div>
+
+                    <div class="mt-12 grid justify-items-center grid-cols-1 gap-8 md:px-10 md:gap-16 md:grid-cols-2 xl:gap-5 xl:grid-cols-3 xl:px-5 content-center">
+                        {collection_carddata_defaultlang.map((card) => (
+                            <>
+                                {card.data.featured && (
+                                    <CardDefault2
+                                        card={card}
+                                        pathdir={element.props.collection}
+                                        pagelang={lang}
+                                    />
+                                )}
+                                {!card.data.featured && (
+                                    <CardInfo
+                                        card={card}
+                                        pathdir={element.props.collection}
+                                        pagelang={lang}
+                                    />
+                                )}
+                            </>
+                        ))}
+                    </div>
+                </>
+            )}
+        </>
+    )
+}
+
+{/* CARD: BLOG */}
+{
+    element.props.card === "blog" && (
+        <>
+            <div class="grid justify-items items-center gap-16 grid-cols-1 xl:grid-cols-2 xl:px-9 content-center">
+                {collection_carddata_actlang.map((card) => (
+                    <div class="bg-slate-900 text-white mx-5 xl:mx-0 rounded-xl">
+                        <CardBlog
+                            card={card}
+                            pathdir={element.props.collection}
+                            pagelang={lang}
+                        />
+                        {/* <CardDefault card={card} pathdir={`${lang}`+"/blog"} /> */}
+                    </div>
+                ))}
+            </div>
+
+            {collection_carddata_defaultlang.length > 0 && (
+                <>
+                    <div class="mt-10 mx-12">
+                        <TitleAlertBanner
+                            title="Content in English"
+                            desc="Additional content just available in English"
+                            h2
+                        />
+                    </div>
+
+                    <div class="grid justify-items items-center gap-16 grid-cols-1 xl:grid-cols-2 xl:px-9 content-center">
+                        {collection_carddata_defaultlang.map((card) => (
+                            <div class="bg-slate-900 text-white mx-5 xl:mx-0 rounded-xl">
+                                <CardBlog
+                                    card={card}
+                                    pathdir={element.props.collection}
+                                    pagelang={lang}
+                                />
+                                {/* <CardDefault card={card} pathdir={`${lang}`+"/blog"} /> */}
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
+        </>
+    )
+}
+
+{/* CARD: INFO */}
+{
+    element.props.card === "info" && (
+        <>
+            <div class="mt-12 grid justify-items-center grid-cols-1 gap-8 px-4 sm:px-6 md:px-10 md:gap-12 md:grid-cols-2 xl:gap-8 xl:grid-cols-3 xl:px-5 content-center">
+                {collection_carddata_actlang.map((card) => (
+                    <CardInfo
+                        card={card}
+                        pathdir={element.props.collection}
+                        pagelang={lang}
+                    />
+                ))}
+            </div>
+
+            {collection_carddata_defaultlang.length > 0 && (
+                <>
+                    <div class="mt-10 mx-12">
+                        <TitleAlertBanner
+                            title="Content in English"
+                            desc="Additional content just available in English"
+                            h2
+                        />
+                    </div>
+
+                    <div class="mt-12 grid justify-items-center grid-cols-1 gap-8 px-4 sm:px-6 md:px-10 md:gap-12 md:grid-cols-2 xl:gap-8 xl:grid-cols-3 xl:px-5 content-center">
+                        {collection_carddata_defaultlang.map((card) => (
+                            <CardInfo
+                                card={card}
+                                pathdir={element.props.collection}
+                                pagelang={lang}
+                            />
+                        ))}
+                    </div>
+                </>
+            )}
+        </>
+    )
+}

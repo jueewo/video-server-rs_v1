@@ -1,0 +1,89 @@
+---
+import type { CollectionEntry } from "astro:content";
+
+// import { Image } from "astro:assets";
+// import { ImageMetadata } from "astro";
+import PicFromContent from "./utils/PicFromContent.astro";
+
+interface Props {
+  card: CollectionEntry;
+  // image: ImageMetadata;
+  // bgimage: ImageMetadata;
+  // pathdir: String;
+}
+// const { card, pathdir } = Astro.props;
+const { card, image, bgimage } = Astro.props;
+
+// const showimage = false;
+---
+
+<!-- <a href={card.data.draft_content_clickable && `/${pathdir}/${card.slug}`}> -->
+  
+    <!-- // with background image -->
+    <!-- <div
+      class={card.fullscreen ? "hero h-full" : "hero"}
+      style={"background-image: url(" + card.bgimage + ");"}
+    > -->
+    <div class={card.fullscreen ? "hero h-full" : "hero"}>
+      <!-- <div class="hero-overlay" /> -->
+        <!-- <Image src={bgimage} alt={card.title} class="hero-overlay"/> -->
+        <PicFromContent 
+          imagePath={card.bgimage} 
+          altTitle={card.title.replace(/ /g, '-')} 
+          class="" 
+        /> 
+      <!-- </div> -->
+    
+      <div class="hero-overlay bg-opacity-40" />
+        <div class="hero-content text-center text-white">
+          <div class="max-w-md">
+            {card.image && card.image.length > 0 && (
+              // <img
+              //   src={card.image}
+              //   class="max-w-sm rounded-lg inline-block fill-current"
+              // />
+
+              // <Image src={card.image} alt={card.title} 
+              //   class="max-w-sm rounded-lg inline-block fill-current"
+              //   width="300" height="300"
+              // />
+              // <Image src={image} alt={card.title} 
+              //   class="max-w-sm rounded-lg inline-block fill-current"
+              //   width="300" height="300"
+              // />
+              <PicFromContent 
+                imagePath={card.bgimage} 
+                altTitle={card.title.replace(/ /g, '-')} 
+                class="max-w-sm rounded-lg inline-block fill-current" 
+              /> 
+            )}
+            <div class="mb-5 text-3xl font-bold">
+              <Fragment set:html={card.title} /> 
+            </div>
+            
+            <p class="mb-5">
+              <Fragment set:html={card.desc} />
+            </p>
+
+            <!--
+            {hero.url && hero.url.length > 0 && (
+              <a href={hero.url}>
+                <button class="btn btn-secondary">
+                  {hero.button}  
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+
+                </button>
+              </a>
+            )}
+            -->
+            
+          </div>
+        </div>
+  
+    </Image>
+    </div>
+    <!-- </div> -->
+      
+<!-- </a> -->

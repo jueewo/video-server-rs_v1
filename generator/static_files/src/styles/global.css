@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+@plugin "@tailwindcss/typography";
+
+/* Enable DaisyUI plugin — DaisyUI v5 uses CSS comma-separated list, not JS array */
+@plugin "daisyui" {
+    themes: corporate --default, synthwave, business, venturepro, ventureprodark;
+}
+
+/* Define the custom VenturePro theme */
+@plugin "daisyui/theme" {
+    name: venturepro; /* Theme name – use in data-theme */
+    default: true; /* Set as default theme */
+    prefersdark: false; /* Light as default; we'll add dark below */
+    color-scheme: light; /* Browser UI hint */
+
+    /* Core colors (converted to OKLCH for v4 – premium, accessible) */
+    --color-base-100: oklch(98% 0.02 260); /* Off-white bg: #F8FAFC */
+    --color-base-200: oklch(94% 0.03 250); /* Light gray: #E2E8F0 */
+    --color-base-300: oklch(88% 0.04 250); /* Medium gray: #CBD5E1 */
+    --color-base-content: oklch(25% 0.05 250); /* Slate text: #1E293B */
+
+    --color-primary: oklch(45% 0.15 280); /* Rich Indigo: #312E81 */
+    --color-primary-content: oklch(90% 0.05 270); /* Light text on primary */
+
+    --color-secondary: oklch(60% 0.2 240); /* Electric Blue: #3B82F6 */
+    --color-secondary-content: oklch(
+        95% 0.05 240
+    ); /* Light text on secondary */
+
+    --color-accent: oklch(60% 0.2 160); /* Emerald: #10B981 */
+    --color-accent-content: oklch(95% 0.05 160); /* Light text on accent */
+
+    --color-neutral: oklch(15% 0.02 260); /* Deep Navy: #0F172A */
+    --color-neutral-content: oklch(85% 0.03 250); /* Light text on neutral */
+
+    /* Semantic colors (defaults work great, but customized for brand) */
+    --color-info: oklch(60% 0.2 200); /* Info blue */
+    --color-info-content: oklch(95% 0.05 200);
+    --color-success: oklch(60% 0.2 160); /* Matches accent */
+    --color-success-content: oklch(95% 0.05 160);
+    --color-warning: oklch(70% 0.2 80); /* Amber */
+    --color-warning-content: oklch(20% 0.05 80);
+    --color-error: oklch(55% 0.25 25); /* Red */
+    --color-error-content: oklch(98% 0.02 25);
+
+    /* Layout tweaks (modern, professional radii) */
+    --radius-selector: 0.5rem;
+    --radius-field: 0.25rem;
+    --radius-box: 0.75rem;
+    --size-selector: 0.25rem;
+    --size-field: 0.25rem;
+    --border: 1px;
+    --depth: 1;
+    --noise: 0;
+}
+
+/* Optional: Dark mode variant (auto-switches with prefers-color-scheme) */
+@plugin "daisyui/theme" {
+    name: ventureprodark;
+    prefersdark: true;
+    color-scheme: dark;
+
+    /* Dark-optimized colors (slightly lighter primaries for readability) */
+    --color-base-100: oklch(12% 0.03 260); /* Charcoal bg: #121826 */
+    --color-base-200: oklch(18% 0.04 250); /* Dark gray: #1E293B */
+    --color-base-300: oklch(25% 0.05 250); /* Medium dark: #334155 */
+    --color-base-content: oklch(85% 0.03 250); /* Light text: #E2E8F0 */
+
+    --color-primary: oklch(55% 0.18 280); /* Lighter indigo: ~#6366F1 */
+    --color-primary-content: oklch(90% 0.05 270);
+
+    --color-secondary: oklch(70% 0.22 240); /* Lighter blue: ~#60A5FA */
+    --color-secondary-content: oklch(95% 0.05 240);
+
+    --color-accent: oklch(70% 0.22 160); /* Lighter emerald: ~#34D399 */
+    --color-accent-content: oklch(95% 0.05 160);
+
+    --color-neutral: oklch(25% 0.04 260); /* Darker navy: #1E293B */
+    --color-neutral-content: oklch(85% 0.03 250);
+
+    /* Reuse semantic colors from light, or tweak as needed */
+    --color-info: oklch(70% 0.22 200);
+    --color-info-content: oklch(95% 0.05 200);
+    --color-success: oklch(70% 0.22 160);
+    --color-success-content: oklch(95% 0.05 160);
+    --color-warning: oklch(70% 0.2 80);
+    --color-warning-content: oklch(20% 0.05 80);
+    --color-error: oklch(55% 0.25 25);
+    --color-error-content: oklch(98% 0.02 25);
+
+    /* Same layout as light */
+    --radius-selector: 0.5rem;
+    --radius-field: 0.25rem;
+    --radius-box: 0.75rem;
+    --size-selector: 0.25rem;
+    --size-field: 0.25rem;
+    --border: 1px;
+    --depth: 1;
+    --noise: 0;
+}
+
+/* Ensure drawer content doesn't create horizontal overflow */
+.drawer-content {
+    overflow-x: hidden;
+}
+
+/* Ensure drawer content doesn't create horizontal overflow */
+.drawer-content {
+    overflow-x: hidden;
+}
+
+/* Allow sticky positioning for scroll sections - overflow: clip allows sticky while preventing overflow */
+.drawer-content:has(.scroll-section) {
+    overflow-x: clip !important;
+}

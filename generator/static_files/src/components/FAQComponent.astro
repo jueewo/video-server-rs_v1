@@ -1,0 +1,33 @@
+---
+import type { CollectionEntry } from "astro:content";
+
+import { Image } from "astro:assets";
+
+interface Props {
+  faqdata: Array<Object>;
+  theme: String;
+}
+const { faqdata, theme } = Astro.props;
+
+// const showimage = false;
+---
+
+<div>
+  {
+    faqdata.map((faq) => (
+      <div class="collapse collapse-plus my-2">
+        <input type="checkbox" class="peer" />
+        <div class="collapse-title bg-primary text-primary-content peer-checked:bg-info peer-checked:text-info-content">
+          <!-- {faq.quest} -->
+          <Fragment set:html={faq.quest} />
+        </div>
+        <div class="border-l-4 border-info collapse-content pt-4  ">
+          <!-- <p>{faq.ans}</p> -->
+          <Fragment set:html={faq.ans} />
+        </div>
+      </div>
+    ))
+  }
+
+  
+</div>

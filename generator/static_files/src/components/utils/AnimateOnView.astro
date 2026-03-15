@@ -1,0 +1,128 @@
+---
+/**
+ * AnimateOnView - Wrapper component for scroll-triggered animations
+ *
+ * Usage:
+ *   <AnimateOnView effect="fade-in">
+ *     <MyComponent />
+ *   </AnimateOnView>
+ *
+ * Effects: fade-in, fly-left, fly-right, fly-up, fly-down
+ */
+
+interface Props {
+    effect?: string;
+    class?: string;
+}
+
+const { effect = "", class: className = "" } = Astro.props;
+
+// Parse effect string
+const effects = effect.split(" ").filter(Boolean);
+const type = effects.includes("fade-in") ? "fade" : "fly";
+const direction = effects.includes("fly-right")
+    ? "right"
+    : effects.includes("fly-up")
+      ? "up"
+      : effects.includes("fly-down")
+        ? "down"
+        : "left";
+
+// Build data attribute for the script
+const animConfig = effect ? JSON.stringify({ type, direction }) : "";
+---
+
+{
+    effect ? (
+        <div
+            class:list={["animate-on-view", className]}
+            data-animate={animConfig}
+        >
+            <slot />
+        </div>
+    ) : (
+        <slot />
+    )
+}
+
+<style>
+    .animate-on-view {
+        opacity: 0;
+        position: relative;
+        z-index: 0;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .animate-on-view {
+            opacity: 1;
+        }
+    }
+</style>
+
+<script>
+    import { animate, inView } from "motion";
+
+    function initAnimateOnView() {
+        const elements = document.querySelectorAll(
+            ".animate-on-view:not(.initialized)",
+        );
+
+        elements.forEach((el) => {
+            el.classList.add("initialized");
+
+            const configStr = el.getAttribute("data-animate");
+            if (!configStr) return;
+
+            const config = JSON.parse(configStr);
+            const htmlEl = el as HTMLElement;
+
+            // Check for reduced motion
+            if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+                htmlEl.style.opacity = "1";
+                return;
+            }
+
+            // Set initial transform
+            const initialTransform =
+                config.type === "fade"
+                    ? "scale(0.9)"
+                    : config.direction === "right"
+                      ? "translateX(100px)"
+                      : config.direction === "up"
+                        ? "translateY(50px)"
+                        : config.direction === "down"
+                          ? "translateY(-50px)"
+                          : "translateX(-100px)";
+
+            htmlEl.style.transform = initialTransform;
+
+            // Animate when in view
+            inView(
+                el,
+                () => {
+                    const animProps: Record<string, number> = { opacity: 1 };
+
+                    if (config.type === "fade") {
+                        animProps.scale = 1;
+                    } else {
+                        animProps.x = 0;
+                        animProps.y = 0;
+                    }
+
+                    animate(htmlEl, animProps, { duration: 0.6 });
+                },
+                { margin: "0px 0px -50px 0px" },
+            );
+        });
+    }
+
+    // Initialize on load
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initAnimateOnView);
+    } else {
+        initAnimateOnView();
+    }
+
+    // Re-init for Astro view transitions
+    document.addEventListener("astro:page-load", initAnimateOnView);
+</script>

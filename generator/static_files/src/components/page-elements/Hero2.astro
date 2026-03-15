@@ -1,0 +1,158 @@
+---
+// Hero2 component with background image support - PERFORMANCE OPTIMIZED
+// - Lazy loading for below-the-fold images
+// - Priority loading for first hero (index === 0)
+// - Responsive image sizes for mobile optimization
+
+const { element, alt, index } = Astro.props;
+// alt: change left/right (pic and text order)
+// index: required if alt, also used to determine priority loading
+
+const { lang } = Astro.params;
+
+// -- IMAGES --
+import PicFromContent from "../utils/PicFromContent.astro";
+
+// Check if bgimage exists
+const bgImagePath = element.content.bgimage;
+const hasBgImage = bgImagePath && bgImagePath.length > 0;
+
+// First hero (index 0) gets priority loading for LCP optimization
+const isFirstHero = index === 0 || index === undefined;
+
+// Handle link as string or object with path property
+const linkUrl =
+    typeof element.props?.link === "string"
+        ? element.props.link
+        : element.props?.link?.path || "";
+
+const is_external_link =
+    linkUrl.includes("http") ||
+    linkUrl.includes("https") ||
+    linkUrl.includes("www");
+---
+
+{/* Hero2 */}
+<div
+    class={(element.props.fullscreen ? "min-h-screen " : "") +
+        "my-12 p-4 md:p-12 xl:w-4/5 relative overflow-hidden" +
+        (hasBgImage ? " flex items-center justify-center" : "")}
+>
+    {/* Background Image Layer */}
+    {
+        hasBgImage && (
+            <div class="absolute inset-0 z-0">
+                <PicFromContent
+                    imagePath={bgImagePath}
+                    altTitle={element.content.bgimage_alt || ""}
+                    class="w-full h-full [&_img]:w-full [&_img]:h-full [&_img]:object-cover"
+                    priority={isFirstHero}
+                    sizes="100vw"
+                    quality={80}
+                />
+                {/* Optional overlay for better text readability */}
+                <div class="absolute inset-0 bg-base-100/70" />
+            </div>
+        )
+    }
+
+    <div
+        class={"hero-content flex-col relative z-10 " +
+            (hasBgImage
+                ? "items-center justify-center text-center w-full"
+                : alt && index % 2 == 0
+                  ? "xl:flex-row-reverse"
+                  : "xl:flex-row")}
+    >
+        {
+            element.content.image && (
+                <PicFromContent
+                    imagePath={element.content.image}
+                    altTitle={
+                        element.content.image_alt ||
+                        "image_" + element.content.title.replace(/ /g, "-")
+                    }
+                    class="w-3/4 lg:max-w-xl m-auto rounded-lg"
+                    priority={isFirstHero}
+                    sizes="(max-width: 640px) 75vw, (max-width: 1024px) 50vw, 576px"
+                    quality={80}
+                />
+            )
+        }
+        <div
+            class={"max-w-xl " +
+                (hasBgImage
+                    ? "text-center"
+                    : alt && index % 2 == 0
+                      ? "xl:pr-12"
+                      : "xl:pl-12")}
+        >
+            <h1 class="text-5xl font-bold">
+                <Fragment set:html={element.content.title} />
+            </h1>
+
+            {
+                element.content.desc &&
+                    (Array.isArray(element.content.desc)
+                        ? element.content.desc
+                        : [element.content.desc]
+                    ).map((line: string) => (
+                        <p class="pt-6">
+                            <Fragment set:html={line} />
+                        </p>
+                    ))
+            }
+
+            <div
+                class={"card-actions justify-center py-4 " +
+                    (hasBgImage
+                        ? ""
+                        : alt && index % 2 == 0
+                          ? "xl:justify-end"
+                          : "xl:justify-start")}
+            >
+                {
+                    element.content.tags &&
+                        element.content.tags.map((tag: string, idx: number) => (
+                            <div class="badge badge-outline">{tag}</div>
+                        ))
+                }
+            </div>
+
+            {
+                linkUrl && (
+                    <div
+                        class={
+                            "pt-6 flex items-center justify-center " +
+                            (hasBgImage
+                                ? ""
+                                : alt && index % 2 == 0
+                                  ? "xl:justify-end"
+                                  : "xl:justify-start")
+                        }
+                    >
+                        {is_external_link ? (
+                            <a
+                                href={linkUrl}
+                                target="_blank"
+                                class="btn btn-primary "
+                                aria-label={element.props?.link?.label || ""}
+                            >
+                                {element.content.button}
+                                <span class="text-xs ml-1"> ↗ </span>
+                            </a>
+                        ) : (
+                            <a
+                                href={"/" + lang + linkUrl}
+                                class="btn btn-primary "
+                                aria-label={element.props?.link?.label || ""}
+                            >
+                                {element.content.button}
+                            </a>
+                        )}
+                    </div>
+                )
+            }
+        </div>
+    </div>
+</div>

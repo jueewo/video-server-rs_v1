@@ -1,0 +1,27 @@
+---
+import PicFromContent from "../utils/PicFromContent.astro";
+
+const { id, title, desc, desc2, image, img, h1 } = Astro.props;
+
+// Normalize desc: JSON may store it as a string or array of strings
+const descStr: string = Array.isArray(desc) ? desc.join(' ') : (desc || '');
+const desc2Str: string = Array.isArray(desc2) ? desc2.join(' ') : (desc2 || '');
+---
+
+<div id={id} class="hero pt-16 pb-8">
+  <div class="hero-content text-center flex-col lg:flex-row">
+    <PicFromContent
+      imagePath={image ?? img}
+      altTitle={"image_"+title.replace(/ /g, '-')}
+      class="max-w-sm rounded-lg shadow-2xl"
+    />
+    <div class="max-w-md">
+      <h1 class={h1 ? `mb-2 font-bold text-5xl` : `mb-2 font-bold text-3xl`}>
+        {title}
+      </h1>
+      {descStr && <p class={h1 ? `pt-6` : `pt-2`}><Fragment set:html={descStr}></Fragment></p>}
+      {desc2Str && <p class={h1 ? `pt-6` : `pt-2`}><Fragment set:html={desc2Str}></Fragment></p>}
+    </div>
+  </div>
+  <div class="hero-content text-center max-w-md"></div>
+</div>

@@ -1,0 +1,39 @@
+.h1 {
+  /* font-weight: 500;
+  font-size: clamp(1.5rem, 1rem + 1.25vw, 2rem); */
+  padding-left: 0em;
+}
+.h1 a {
+  border-left: 2px solid gray;
+}
+
+.h2 {
+  padding-left: 1em;
+  list-style-type: circle;
+  border-inline-start: 1px;
+  /* border-left: 2px solid black; */
+}
+.h2 a {
+  /* padding-left: 1em; */
+  border-left: 2px solid gray;
+}
+
+ul .h3 {
+  padding-left: 2em;
+  /* list-style-image: url("http://icons.iconarchive.com/icons/paomedia/small-n-flat/32/sign-check-icon.png"); */
+}
+.h3 a {
+  border-left: 2px solid gray;
+}
+
+ul .h4 {
+  padding-left: 3em;
+  /* list-style-image: url("http://icons.iconarchive.com/icons/paomedia/small-n-flat/32/sign-check-icon.png"); */
+}
+.h4 a {
+  border-left: 2px solid gray;
+}
+
+/* ul {
+  list-style-image: url("http://icons.iconarchive.com/icons/paomedia/small-n-flat/32/sign-check-icon.png");
+} */

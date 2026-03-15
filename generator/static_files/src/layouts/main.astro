@@ -1,0 +1,193 @@
+---
+import "../styles/global.css";
+
+// import MyMenuSideBarMobile from "../components/MyMenuSideBarMobile.vue";
+import DrawerMenu from "../components/MyDrawerMenu.astro";
+import NavFooter from "../components/MyNavFooter.astro";
+
+// import ThemeSwap from "../components/utils/ThemeSwap.astro";
+import UserMenu from "../components/auth/UserMenu.astro";
+// import UserMenuVue from "../components/auth/UserMenuVue.vue";
+// import ChatSidebar from "../components/ChatSidebar.astro";
+
+import Config from "../website.config.cjs";
+import Header from "./_header.astro";
+
+import { Image, imageConfig } from "astro:assets";
+import { type ImageMetadata } from "astro";
+
+import ProgressRing from "../components/anim/ProgressRing.astro";
+import ProgressBar from "../components/anim/ProgressBar.astro";
+
+// import * as testscript from "../scripts/test.js";
+
+// const { sessionId } = Astro.locals;
+// const session = await Astro.locals.auth.validate();
+
+// import { getRelativeLocaleUrl } from 'astro:i18n';
+
+// const preferredLocale = Astro.preferredLocale;
+// const preferredLocales = Astro.preferredLocaleList;
+
+interface Props {
+    // lang: string;
+    title?: string;
+    page_metatags?: any;
+}
+
+const { lang, slug } = Astro.params;
+const { title, page_metatags } = Astro.props;
+
+// console.log("TITLE "+title)
+
+const default_lang = Config.defaultLanguage.locale; // .. "en"
+const actlang = lang ? lang : default_lang;
+
+// const im = import.meta.glob("/src/assets/images/logos/*");
+// console.log("IMAGES: "+JSON.stringify(im));
+
+// const images = await Astro.glob("/src/assets/images/logos/*").then(files => {
+//   // .. structure > .. Image: {"src":"/@fs/Users/juergen/MyDev/MyProjects/astro-web-pages/astro-test/src/assets/images/logos/academy0002.png?origWidth=400&origHeight=300&origFormat=png","width":400,"height":300,"format":"png","name":"/images/logos/academy0002.png"}
+//   // return files.map(file => file.default );
+//   return files.map(file => {file.default.name = file.default.src.split("src/assets").pop().split("?").shift(); return file.default} );
+// });
+
+// const getImage = (name) => {
+//   return images.find(image => image.name == name) || placeholderImage;
+// }
+
+// const images2 = await Astro.glob("/src/assets/images/*")
+import ThemeToggle from "../components/utils/ThemeToggle.astro";
+import placeholderImage from "../assets/images/utils/placeholder-hero-square.jpg";
+import SearchBar from "../components/SearchBar.astro";
+
+const images = await import.meta.glob<{ default: ImageMetadata }>(
+    "/src/assets/images/logos/*.{jpeg,jpg,png,gif}",
+);
+
+//..TEST
+// const imagePath = "/src/assets/images/logos/logo_jwvntrs_icon.png"
+// if (!images[imagePath]) throw new Error(`"${imagePath}" does not exist in glob: "src/assets/images/logos/*.{jpeg,jpg,png,gif}"`);
+
+const getImage = (imagePath: string) => {
+    const prefix = "/src/assets";
+    if (!images[prefix + imagePath]) return placeholderImage;
+    return images[prefix + imagePath](); //|| placeholderImage;
+};
+---
+
+<html lang={actlang}>
+    <Header title={title} page_metatags={page_metatags} />
+
+    <body class="min-h-screen">
+        <ProgressRing />
+        <ProgressBar class="bg-green-600" />
+
+        <div class="navbar bg-base-100 z-50" style="position: fixed; top: 0px;">
+            <div class="navbar-start">
+                <!-- MENU BTN  -->
+                <label for="my-drawer-2" class="btn btn-ghost">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M4 6h16M4 12h8m-8 6h16"></path>
+                    </svg>
+                </label>
+
+                <a
+                    class="btn btn-ghost text-xl uppercase"
+                    href={"/" + actlang + "/home"}
+                >
+                    {Config.siteName}
+
+                    <Image
+                        src={getImage(Config.siteLogoIcon)}
+                        alt={"Logo for " + Config.siteName}
+                        class="h-12 w-12"
+                    />
+                </a>
+            </div>
+
+            <div class="navbar-end">
+                <SearchBar
+                    lang={actlang}
+                    searchableCollections={Config.searchableCollections}
+                />
+                <ThemeToggle showtext={false} />
+                <!-- <UserMenu /> -->
+            </div>
+        </div>
+
+        <div class="drawer min-h-screen">
+            <input id="my-drawer-2" type="checkbox" class="drawer-toggle" />
+
+            <div class="mt-20 drawer-content">
+                <slot />
+
+                <slot name="actionbanner" />
+            </div>
+
+            <div class="drawer-side z-50">
+                <label for="my-drawer-2" class="drawer-overlay"></label>
+                <ul class="menu p-4 w-60 h-full bg-base-200 text-base-content">
+                    <!-- Sidebar content here -->
+
+                    <!-- CLOSE BUTTON  -->
+                    <!-- https://heroicons.com/ -->
+                    <label
+                        for="my-drawer-2"
+                        class="mt-2 btn btn-circle btn-ghost absolute right-2 top-2"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.5"
+                            stroke="currentColor"
+                            class="w-6 h-6"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M6 18L18 6M6 6l12 12"
+                            >
+                            </path>
+                        </svg>
+                    </label>
+
+                    <div class="mt-8">
+                        <DrawerMenu
+                            headerNavigationMenu={Config.headerNavigationMenu}
+                        />
+                    </div>
+
+                    <hr class="my-8" />
+                    <slot name="menuaddon" />
+                </ul>
+            </div>
+        </div>
+
+        <footer
+            style="position: relative; bottom: 0em; left: 0em; right: 0em; "
+        >
+            <NavFooter
+                sitename={Config.footerContent.sitename}
+                showlogo={true}
+                footerLogo={getImage(Config.footerContent.footerLogo)}
+                social={Config.socialMedia}
+                legal={Config.legal}
+                footerNavigationMenu={Config.footerNavigationMenu}
+                footerContent={Config.footerContent}
+                extprop=`  Built with ${Astro.generator} by <a class='link' target='_' href='https://yawninghero.com'><i>yh</i></a>`
+            />
+        </footer>
+    </body>
+</html>

@@ -1,0 +1,102 @@
+---
+
+import Config from "../website.config.cjs";
+
+
+interface Props {
+  // lang: string;
+  title?: string;
+  page_metatags?: any;
+  enablelatex?: boolean;
+}
+
+const {lang, slug} = Astro.params;
+const {title, page_metatags, enablelatex} = Astro.props;
+
+---
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5" />
+
+    <!-- Preconnect to external origins -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+    <link rel="preconnect" href={Config.datatool.url} />
+
+    <!-- DNS Prefetch for less critical resources -->
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
+    <link rel="dns-prefetch" href={Config.datatool.url} />
+
+    <link rel="icon" type="image/x-icon" href={Config.favicon} />
+    <title>{Config.siteTitle} {title && ' | ' + title}</title>
+
+
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=5"
+  />
+  <meta name="application-name" content={Config.siteName} />
+
+  <meta name="generator" content=`yhm using ${Astro.generator}` />
+  <meta name="mantra" content={Config.siteMantra} />
+  <meta name="description" content={Config.siteDescription} />
+
+  <meta name="copyright" content={Config.footerContent.copyright} />
+
+  <slot name="head_metatags" />
+
+  <!--  -->
+  {page_metatags && <title>{page_metatags.title}</title>}
+  {page_metatags && Object.keys(page_metatags).map((key) => (
+    <meta name={key} content={page_metatags[key]} slot="head_metatags"/>
+  ))}
+
+  <meta name="apple-mobile-web-app-title" content={Config.siteTitle} />
+  <link rel="apple-touch-icon" href={Config.siteLogoIconTouch} />
+
+  <link rel="sitemap" href="/sitemap-index.xml" />
+
+  <slot name="head" />
+
+  <!-- <ViewTransitions /> -->
+
+  {enablelatex && (
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous"
+    />
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+      integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+      integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+      crossorigin="anonymous"
+      onload="renderMathInElement(document.body);"
+    ></script>
+  )}
+
+  <script is:inline define:vars={{ themelight: Config.themelight, themedark: Config.themedark }}>
+    // Theme initialization - runs inline to prevent flash
+    (function() {
+      const lightTheme = themelight || "corporate";
+      const darkTheme = themedark || "business";
+      const savedTheme = localStorage.getItem("theme");
+
+      if (savedTheme === lightTheme || savedTheme === darkTheme) {
+        document.documentElement.setAttribute("data-theme", savedTheme);
+      } else {
+        document.documentElement.setAttribute("data-theme", lightTheme);
+        localStorage.setItem("theme", lightTheme);
+      }
+    })();
+  </script>
+
+</head>

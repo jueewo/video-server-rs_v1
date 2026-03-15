@@ -1,0 +1,8 @@
+---
+import WebSiteConfig from "../website.config.cjs";
+
+export const prerender = true;
+
+const defaultLang = WebSiteConfig.defaultLanguage.locale;
+return Astro.rewrite("/" + defaultLang + "/home");
+---

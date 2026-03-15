@@ -1,0 +1,86 @@
+---
+import type { CollectionEntry } from "astro:content";
+
+import { Image } from "astro:assets";
+
+interface Props {
+    card: CollectionEntry;
+    // pathdir: String;
+}
+const { card } = Astro.props;
+---
+
+{/* CARDDRAFTOVERLAY */}
+{/* Clickable draft content - shows badge and key icon */}
+{
+    card.data.draft_content && card.data.draft_content_clickable && (
+        <div class="flex items-center mt-1 ml-2">
+            <div class="badge badge-sm badge-warning">
+                {card.data.draft_content_msg &&
+                card.data.draft_content_msg.length > 0 ? (
+                    <span>{card.data.draft_content_msg}</span>
+                ) : (
+                    "under review"
+                )}
+            </div>
+
+            <div class="ml-4 w-6 h-6">
+                {/* key icon @ top */}
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.5"
+                    stroke="currentColor"
+                    class="w-full h-full stroke-warning"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
+                    />
+                </svg>
+            </div>
+        </div>
+    )
+}
+
+{/*  Non-clickable draft content - shows clock overlay */}
+{
+    card.data.draft_content && !card.data.draft_content_clickable && (
+      <div class="card absolute top-0 bottom-0 left-0 right-0 bg-black opacity-80">
+          {/* overlay locked clock icon */}
+          <div class="w-full h-full flex justify-center items-center">
+              {/* clock icon */}
+              <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="1.5"
+                  stroke="currentColor"
+                  class="w-16 h-16 stroke-warning"
+              >
+                  <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+              </svg>
+          </div>
+      </div>
+
+      <div class="card absolute top-0 bottom-0 left-0 right-0">
+          {/* overlay locked draft_content_msg */}
+          <div class="flex items-center mt-1 ml-2">
+              <div class="badge badge-sm badge-warning">
+                  {card.data.draft_content_msg &&
+                  card.data.draft_content_msg.length > 0 ? (
+                      <span>{card.data.draft_content_msg}</span>
+                  ) : (
+                      "under review"
+                  )}
+              </div>
+          </div>
+      </div>
+    )
+}

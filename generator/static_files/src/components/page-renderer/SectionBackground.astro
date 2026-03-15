@@ -1,0 +1,119 @@
+---
+/**
+ * SectionBackground - Reusable background component for sections
+ * Handles both parallax and regular background images with overlay
+ *
+ * Mobile Fix: background-attachment: fixed doesn't work on iOS/mobile browsers.
+ * On mobile, we fall back to a regular cover background using the optimized
+ * Astro Image component instead of CSS background-image.
+ *
+ * Usage:
+ *   <SectionBackground
+ *     bgimage="/images/bg.jpg"
+ *     parallax={true}
+ *     priority={false}
+ *   />
+ */
+
+import PicFromContent from "../utils/PicFromContent.astro";
+import { getImage } from "astro:assets";
+import type { ImageMetadata } from "astro";
+
+interface Props {
+    bgimage?: string;
+    bgimage_alt?: string;
+    parallax?: boolean;
+    priority?: boolean;
+    overlayClass?: string;
+}
+
+const {
+    bgimage,
+    bgimage_alt = "",
+    parallax = false,
+    priority = false,
+    overlayClass = "bg-base-100/70",
+} = Astro.props;
+
+// Image glob for parallax backgrounds from assets folder
+const images = import.meta.glob<{ default: ImageMetadata }>(
+    "/src/assets/images/**/*.{jpeg,jpg,png,gif,webp}",
+    { eager: true },
+);
+
+const getImageUrl = async (imagePath: string): Promise<string | null> => {
+    if (!imagePath) return null;
+    const prefix = "/src/assets/";
+    const normalizedPath = imagePath.startsWith("/")
+        ? imagePath.slice(1)
+        : imagePath;
+    const fullPath = prefix + normalizedPath;
+    const imageModule = images[fullPath];
+    if (imageModule) {
+        try {
+            // Optimize image with getImage - converts to WebP
+            const optimized = await getImage({
+                src: imageModule.default,
+                format: "webp",
+                quality: 75, // Lower quality for backgrounds
+                width: 1920, // Max width for parallax backgrounds
+            });
+            return optimized.src;
+        } catch (e) {
+            console.warn(`Failed to optimize parallax image: ${imagePath}`, e);
+            return imageModule.default.src;
+        }
+    }
+    // Fallback to public folder path
+    return imagePath.startsWith("/") ? imagePath : "/" + imagePath;
+};
+
+// Get parallax background URL if applicable (await the optimization)
+const parallaxBgUrl = bgimage && parallax ? await getImageUrl(bgimage) : null;
+---
+
+{/* Parallax Background Layer - CSS background with inline styles */}
+{
+    parallaxBgUrl && (
+        <>
+            {/* Desktop: Parallax effect with background-attachment: fixed */}
+            <div
+                class="parallax-bg-desktop absolute inset-0 z-0 hidden md:block"
+                style={`background-image: url(${parallaxBgUrl}); background-attachment: fixed; background-position: center; background-repeat: no-repeat; background-size: cover;`}
+                aria-hidden="true"
+            />
+            {/* Mobile: Regular background (fixed attachment doesn't work on iOS) */}
+            <div
+                class="parallax-bg-mobile absolute inset-0 z-0 block md:hidden"
+                style={`background-image: url(${parallaxBgUrl}); background-attachment: scroll; background-position: center; background-repeat: no-repeat; background-size: cover;`}
+                aria-hidden="true"
+            />
+        </>
+    )
+}
+
+{/* Regular Background Image Layer - uses optimized Astro Image */}
+{
+    bgimage && !parallax && (
+        <div class="absolute inset-0 z-0 w-full h-full" aria-hidden="true">
+            <PicFromContent
+                imagePath={bgimage}
+                altTitle={bgimage_alt}
+                class="w-full h-full [&_div]:w-full [&_div]:h-full [&_img]:w-full [&_img]:h-full [&_img]:object-cover [&_img]:max-w-none"
+                priority={priority}
+                sizes="100vw"
+                quality={80}
+            />
+        </div>
+    )
+}
+
+{/* Overlay for better text readability */}
+{
+    bgimage && (
+        <div
+            class={`absolute inset-0 ${overlayClass} z-0`}
+            aria-hidden="true"
+        />
+    )
+}

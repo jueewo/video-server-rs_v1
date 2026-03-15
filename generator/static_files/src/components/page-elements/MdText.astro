@@ -1,0 +1,87 @@
+---
+// import TitleAlertBanner from "./TitleAlertBanner.astro";
+import { getCollection, getEntry, render } from "astro:content";
+
+import PicFromContent from "../utils/PicFromContent.astro";
+
+const { element, alt, index, lang } = Astro.props;
+
+const actlang = lang || "en";
+const mdcollslug = element.content.mdcollslug;
+
+const md_content = await getEntry("mdcontent", `${actlang}/${mdcollslug}`);
+// const Content = null;
+
+const { Content, headings } = md_content
+    ? await render(md_content)
+    : { Content: null, headings: null };
+---
+
+<div
+    class={(element.props && element.props.fullscreen ? "min-h-screen " : "") +
+        " bg-base-200 my-12 p-4 md:p-12 lg:full"}
+>
+    <!-- MDTEXT
+{element.content.mdfile} -->
+
+    <!-- <div>LANG: {actlang}</div> -->
+
+    <!-- fsdjafl {element.image} -->
+
+    <PicFromContent
+        imagePath={element.content.image}
+        altTitle={element.content.title.replace(/ /g, "-")}
+        class="max-w-sm lg:max-w-xl m-auto rounded-lg"
+    />
+
+    <div
+        id={element.props.id ? element.props.id : "xxx"}
+        class="flex justify-center min-w-full"
+    >
+        <div class="prose py-16 mx-5 md:mx-12">
+            {Content && <Content />}
+        </div>
+    </div>
+
+    <!-- <div class="p-2 md:p-4 xl:p-8 xl:w-4/5 m-auto">
+
+    {element.content.image && (
+      <img
+        src={'/'+element.content.image}
+        class="max-w-sm m-auto rounded-lg "
+      />
+
+    )}
+
+  </div>
+
+
+
+  <div class="max-w-md m-auto text-center">
+
+
+    <h1 class="pt-4 mb-5 text-2xl font-bold">
+      <Fragment set:html={element.content.title} />
+    </h1>
+
+    {element.content.desc && element.content.desc.map((line) => (
+      <p class="pt-6">
+        <Fragment set:html={line}></Fragment>
+      </p>
+    ))}
+
+
+    {element.props && element.props.url  && (
+      <a href={element.props.url}>
+        <button class="btn btn-outline my-6">
+          {element.content.button}
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </button>
+      </a>
+    )}
+  </div> -->
+</div>
+
+<!-- TEST Title> {md_content.data.title} -->

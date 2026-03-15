@@ -1,0 +1,136 @@
+---
+
+const { lang } = Astro.params;
+const { headerNavigationMenu } = Astro.props;
+
+const currentPath = Astro.url.pathname;
+
+const regex = new RegExp(`^\\/${lang}`);
+const newPath = currentPath.replace(regex, '');
+
+// console.log(newPath);
+
+// const languages_array = ['en', 'de', 'sk'];
+import config from '../website.config.cjs';
+const languages = config.languages;
+
+// import { getRelativeLocaleUrl } from 'astro:i18n';
+
+// const preferredLocale = Astro.preferredLocale;
+// const preferredLocales = Astro.preferredLocaleList;
+
+//..tests if currentPath is part of the child menues, if yew ... render submenu open
+// const isOpen = (menu : object) => {
+
+//   for (const child of menu.children) {
+//     // console.log(currentPath, child.link)
+//     if (currentPath == '/' + lang + child.link+'/') {
+//       // console.log("true")
+//       return true
+//     }
+//   }
+//   // console.log(actpath)
+//   return false
+// }
+
+// .. needed for static site generation (dznamic worked with isOpen() function
+const openMenues : string[] = [];// check_isOpen;
+for (const menu of headerNavigationMenu) {
+  if (menu.children && menu.children.length > 0) {
+    // console.log("\nmenu > "+menu.name)
+    for (const child of menu.children) {
+      // console.log("child > "+child.name+" | "+ '/'+lang+child.link+'/' + " | "+currentPath  )
+      if (currentPath == '/'+lang+child.link || currentPath == '/'+lang+child.link+'/') {
+        // console.log("push > "+child.name)
+        openMenues.push(menu.name)
+      }
+    }
+  }
+}
+
+// console.log("openMenues > "+openMenues+" | currentPath > "+currentPath)
+// const isOpen = openMenues.includes(menuName)
+
+
+
+---
+
+<div class="w-56 z-10">
+  <ul class="menu rounded-box p-2">
+    <!-- <div v-for="menu in headerNavigationMenu" :key="menu.name"> -->
+    <!-- <span class="w-56">
+      {JSON.stringify(Config.headerNavigationMenu)}
+    </span> -->
+
+    <!-- {preferredLocale} -->
+    <!-- {preferredLocales} -->
+
+    <!-- LANG {lang} -->
+    <!-- PATH: {currentPath} -->
+
+    {
+      headerNavigationMenu &&
+        headerNavigationMenu.map(
+          (
+            menu: any,
+            index: number
+            // <div>
+            //   {menu.name}
+            // </div>
+          ) => (
+            <li>
+              {!menu.children || menu.children.length == 0 ? (
+                <a
+                  href={lang ? '/'+lang+ menu.link : menu.link}
+                  class=`justify-between text-2xl md:text-lg ${ (currentPath == '/' + lang + menu.link || currentPath == '/' + lang + menu.link + '/') && 'menu-active'}`
+                  aria-label={menu.name}
+                >
+                {menu.name}
+
+                </a>
+                // {menu.name}{" "}{currentPath} {'/' + lang + menu.link}
+
+                // <a href={getRelativeLocaleUrl(preferredLocale, menu.link)} class="justify-between text-2xl md:text-lg">
+                //   {menu.name}{" "}
+                // </a>
+              ) : (
+                <details open={openMenues.includes(menu.name)}>
+                  <summary class="justify-between text-2xl md:text-lg">{menu.name}</summary>
+                  <ul class="rounded-box p-2 ">
+                    {menu.children.map((submenu: any, index: number) => (
+                      <li>
+
+                        <a
+                          href={lang ? '/'+lang+ submenu.link : submenu.link}
+                          class=`justify-between text-xl md:text-lg ${ (currentPath == '/' + lang + submenu.link || currentPath == '/' + lang + submenu.link + '/') && 'menu-active' }`
+                          aria-label={submenu.name}
+                        >
+                          {submenu.name}
+                        </a>
+
+
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </li>
+          )
+        )
+    }
+
+    <div class="mt-12 border border-2 border-black " >
+      <div class="flex flex-row items-center justify-center">
+
+        {
+          languages.map((language, index) => (
+          <div class="tooltip tooltip-bottom" data-tip={language.language}>
+            <li><a class={lang==language.locale &&  'menu-active' } href={"/"+language.locale+newPath}>{language.locale.toUpperCase()}</a></li>
+          </div>
+          // <li class={lang==language.locale &&  'bg-primary' }><a class={lang==language.locale &&  'active' } href={"/"+language.locale+newPath}>{language.locale.toUpperCase()}</a></li>
+          ))
+        }
+
+    </div>
+  </ul>
+</div>

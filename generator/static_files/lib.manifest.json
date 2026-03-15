@@ -1,0 +1,36 @@
+{
+  "name": "daisy-default",
+  "description": "DaisyUI + Tailwind component library (Astro 6, Preact, Reveal.js)",
+  "astroVersion": "6",
+  "elements": [
+    "Section",
+    "Hero",
+    "Hero2",
+    "TitleHero",
+    "TitleAlertBanner",
+    "Carousel",
+    "StatData",
+    "Collection",
+    "MdText",
+    "TeamGrid",
+    "NewsBanner",
+    "SlidingGallery",
+    "Presentation",
+    "Process",
+    "Video",
+    "CTA",
+    "CTARemote",
+    "Survey",
+    "LikeButton",
+    "Hello"
+  ],
+  "requiredSitedefs": [
+    "settings.themedark",
+    "settings.themelight"
+  ],
+  "notes": {
+    "SlidingGallery": "props.dataid loading not yet implemented; use props.items[] for inline data",
+    "CTARemote": "requires datatool.url and datatool.websiteid in website.config.cjs",
+    "Video": "serves HLS via props.videoUrl; props.posterImage optional"
+  }
+}

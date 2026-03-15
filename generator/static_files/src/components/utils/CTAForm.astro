@@ -1,0 +1,671 @@
+---
+// import Layout from "../../../layouts/plainlayout.astro";
+
+// import IconInfo from "../../../components/survey/IconInfo.astro";
+import { IconInfo } from "../icons/IconInfo";
+
+// import { addResult, getSurvey } from "../../../data/resources_kv";
+// import deno from "deno-astro-adapter";
+
+// import * as { base64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
+// import { base64 } from "https://deno.land/std@0.207.0/encoding/base64.ts";
+// import { base64 } from "std/encoding/base64.ts";
+
+// import { join, resolve } from "https://deno.land/std@0.177.0/path/mod.ts";
+// import { join, resolve } from "std:path/mod.ts";
+
+// const baseDir = "./uploads/";
+
+// FORM FILE UPLOAD, see> https://medium.com/deno-the-complete-reference/save-uploaded-files-from-multipart-form-data-in-deno-676e32f553d8
+
+// const { id, formid, addonvalues, title_override, desc_override, fullpage } = Astro.props;
+
+
+// import { v4 as uuidv4 } from 'uuid';
+
+// import * as uuid from "https://deno.land/std@0.202.0/uuid/mod.ts";
+// const uuidv1 = uuid.v1.generate();
+// console.log("Random UUID:", uuidv1);
+
+// const id = v1.generate();
+// const myUUID = crypto.randomUUID();
+// console.log("Random UUID:", myUUID);
+
+// import { saveFile } from '../../../lib/files.ts';
+// import { join, resolve } from "node:path";
+// import fs from "node:fs";
+// import type { L } from "../../../../dist/server/manifest_3805fedb.mjs";
+
+// const id = crypto.randomUUID();
+
+// console.log("id: "+id)
+
+// const ip = Astro.clientAddress;
+// console.log("your ip: "+ip)
+
+
+
+const { id, element } = Astro.props;
+console.log("SurveyForm > id: "+id)
+
+
+
+// const surveydef = surveydefs[surveyid];
+// const surveydef = await getSurvey(surveyid);
+const surveydef = element.props.data;
+// const surveydef = null;
+
+// // const id='123';
+const addonvalues=null;
+const title_override='';
+const desc_override='';
+const fullpage=false;
+
+
+const debug = false;
+
+const responseMessage = {msg: null};
+
+// if (Astro.request.method === "POST") {
+// 	const data = await Astro.request.formData();
+// 	// const username = formData.get("username");
+// 	// const password = formData.get("password");
+//   console.log("POST SENT > ");
+//   console.log("POST SENT > "+ JSON.stringify(data))
+
+//   try {
+
+//     // console.log("Send to accountserver..")
+
+//     const username = 'demo';
+//     const password = 'demodemo'
+//     const headers = new Headers();
+//     // headers.set('Authorization', 'Basic ' + Buffer.from(username + ":" + password).toString('base64'))
+//     // headers.set('Authorization', 'Basic ' + base64.encode(username + ":" + password))
+//     headers.set('Authorization', 'Basic ZGVtbzpkZW1vZGVtbw==')   // ==> user:password ==> demo:demodemo
+//     // headers.set('Authorization', 'Basic ' + "user:pwd")
+
+//     // console.log(headers.get('Authorization'));
+
+//     const resp = await fetch('http://localhost:7878/uploads', {
+//             method: 'post',
+//             headers: headers,
+//             body: data,
+//           })
+//     console.log("resp from RUST Salvo Service (aipo_server)");
+//     // console.log(resp);
+
+//   } catch (e) {
+//     console.log("SAVING FILE FAILED .. external webservice ERROR")
+//     console.log(e)
+//   }
+
+//   const result = {};
+
+//   for (var p of data) {
+//       let field = p[0];
+//       let value = p[1];
+
+//       if (value instanceof File) {
+//         console.log("FILE =>", field, value);
+//         console.log("TODO file handling with DENO");
+
+//         console.log("FIELD => adding filename", field, value);
+//         result[field] = value.name;
+
+//         // saveFile(value);
+//         const baseDir = "./uploads/";
+//         const newFileName = resolve(join(baseDir, value.name));
+//         // await Deno.writeFile(`${newFileName}`, await val.arrayBuffer());
+//         // console.log("SAVED FILE =>", newFileName);
+
+//         // const encoder = new TextEncoder()
+//         // const fileBuffer = await value.arrayBuffer();
+//         // // const fileBuffer = Buffer.from(await value.arrayBuffer());
+//         // // await DelayNode.writeFile(`${newFileName}`, fileBuffer);
+//         // fs.writeFileSync(newFileName, fileBuffer);
+//         // console.log("SAVED FILE =>", newFileName);
+
+        
+
+//         // result[field] = value; //..results in just empty object: filename: {}
+
+//         // const baseDir = "./uploads/";
+//         // const newFileName = resolve(join(baseDir, value.name));
+//         // await Deno.writeFile(`${newFileName}`, await value.arrayBuffer());
+//         // console.log("SAVED FILE =>", newFileName);
+//       } else {
+//         console.log("FIELD => ", field, value);
+//         result[field] = value;    //..add as field
+//       }
+
+//       // console.log(field, value)
+//       // result[field] = value;
+//   }
+
+//   try {
+    
+//     await addResult(result["surveyid"], result["source"], result );
+//   } catch (error) {
+//     console.error(error);
+//   }
+//   return Astro.redirect(`/survey/${result["surveyid"]}/final`);
+  
+// }
+
+
+// const  uid  = Astro.url.searchParams.get('uid')! || '';
+// console.log("UID : "+uid);
+
+
+// script TABS>
+// https://stackoverflow.com/questions/54723528/how-to-create-tabs-in-javascript
+
+---
+
+
+<script>
+  
+
+
+const tabs = document.querySelectorAll(".steps");
+const tab = document.querySelectorAll(".step");
+const panel = document.querySelectorAll(".panel");
+const page = document.querySelectorAll(".page");
+
+const validation_message = document.getElementById("validation_message");
+// const back_button = document.getElementById("backbtn");
+// const next_button = document.getElementById("nextbtn");
+
+// back_button?.setAttribute("disabled", "true");
+
+const evalbtn = document.getElementById("evalbtn");
+
+
+
+
+function validateEmail(email) {
+  const res = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,10}$/;
+
+  console.log("Validate Email: "+email);
+  console.log(res.test(String(email).toLowerCase()));
+
+  return res.test(String(email).toLowerCase());
+}
+
+function onTabClick(event) {
+
+  var valid_page = true;
+
+  console.log("VALIDATE")
+  for (let i = 0; i < tab.length; i++) {
+    if (tab[i].classList.contains("active")) {
+      console.log("Active was : " + i);
+      console.log("...VALIDATE...")
+      let inputelements = page[i].getElementsByTagName("input");
+
+      
+      
+      for (let j=0; j<inputelements.length; j++) {
+        console.log(">> "+inputelements[j].value + ">> "+inputelements[j].name +  ">> "+inputelements[j].checked + " | " + inputelements[j].required )
+        console.log("xxx "+inputelements[j].type)
+
+        var valid_element = true;
+
+        if (inputelements[j].required) {
+
+          if (inputelements[j].required &&  (inputelements[j].type == "text")) {
+            console.log(">> eval >> "+ String(inputelements[j].value.length>0))
+            valid_element = inputelements[j].value.length>0;
+            // if (inputelements[j].value.length == 0) {
+            //   inputelements[j].classList.add('failed')
+            // }
+          }
+          if (inputelements[j].type == "email") {
+            console.log(">> eval email >> "+ validateEmail(inputelements[j].value))
+            valid_element = validateEmail(inputelements[j].value);
+            // if (inputelements[j].value) {
+            //   inputelements[j].classList.add('failed')
+            // }
+          }
+
+          if (inputelements[j].required && inputelements[j].type =="checkbox") {
+            console.log(">> eval checked >> "+inputelements[j].checked)
+            valid_element = inputelements[j].checked
+          }
+
+          if (!valid_element) {
+            inputelements[j].classList.add('failed')
+            valid_page = false;
+          }
+
+        }
+        
+      }
+
+
+      let textareaelements = page[i].getElementsByTagName("textarea");
+      for (let j=0; j<textareaelements.length; j++) {
+        // console.log(">>> "+textareaelements[j].value + " | "+textareaelements[j].required)
+        if (textareaelements[j].required) {
+          console.log(">> eval >> "+textareaelements[j].value)
+        }
+      }
+    };
+  }
+
+  if (!valid_page) {
+    validation_message.innerHTML = "NOT VALID";
+    return;
+  } else {
+    validation_message.innerHTML = "";
+  }
+
+  // deactivate existing active tabs and panel
+  for (let i = 0; i < tab.length; i++) {
+    tab[i].classList.remove("active");
+  }
+
+  for (let i = 0; i < panel.length; i++) {
+    panel[i].classList.remove("active");
+    page[i].classList.remove("active");
+  }
+
+
+  // activate new tabs and panel
+  event.target.classList.add('active');
+  event.target.classList.add('step-primary');
+  let classString = event.target.getAttribute('data-target');
+  console.log(classString);
+  
+  document.getElementById('panels').getElementsByClassName(classString)[0].classList.add("active");
+  document.getElementById('pages').getElementsByClassName(classString)[0].classList.add("active");
+
+} //..end function onTabClick
+
+// function onBack(event) {
+
+//   console.log("back..")
+//   var act_page = 0;
+
+//   if (next_button) {
+//     next_button.removeAttribute("disabled");
+//     // console.log("SET next_button ENABLED")
+//   }
+  
+
+//   // find active tabs and panel
+//   for (let i = 0; i < tab.length; i++) {
+//     if (tab[i].classList.contains("active")) {
+//       act_page = i;
+//     };
+//   }
+//   if (act_page>0) {
+
+//     if (act_page == 1) {
+//       // event.target.innerHTML = "START";
+//       event.target.setAttribute("disabled", true);
+//     }
+
+//     // deactivate existing active tabs and panel
+//     for (let i = 0; i < tab.length; i++) {
+//       tab[i].classList.remove("active");
+//     }
+
+//     for (let i = 0; i < panel.length; i++) {
+//       panel[i].classList.remove("active");
+//       page[i].classList.remove("active");
+//     }
+
+//     tab[act_page-1].classList.add("active");
+//     tab[act_page-1].classList.add("step-primary");
+//     panel[act_page-1].classList.add("active");
+//     page[act_page-1].classList.add("active");
+//   }
+// }
+
+// function onNext(event) {
+
+//   console.log("next..")
+//   var act_page = 0;
+
+//   if (back_button) {
+//     back_button.removeAttribute("disabled");
+//     // console.log("SET back_button ENABLED")
+//   }
+
+//   // find active tabs and panel
+//   for (let i = 0; i < tab.length; i++) {
+//     if (tab[i].classList.contains("active")) {
+//       act_page = i;
+//     };
+//   }
+
+  
+//   // console.log(">> "+act_page+" | "+page.length);
+//   if (act_page < (page.length-1)) {
+
+//     if (act_page == (page.length-2)) {
+//       // event.target.innerHTML = "END";
+//       event.target.setAttribute("disabled", true);
+//     }
+
+//     // deactivate existing active tabs and panel
+//     for (let i = 0; i < tab.length; i++) {
+//       tab[i].classList.remove("active");
+//     }
+
+//     for (let i = 0; i < panel.length; i++) {
+//       panel[i].classList.remove("active");
+//       page[i].classList.remove("active");
+//     }
+
+  
+//     tab[act_page+1].classList.add("active");
+//     tab[act_page+1].classList.add("step-primary");
+//     panel[act_page+1].classList.add("active");
+//     page[act_page+1].classList.add("active");
+//   }
+
+// }
+
+// -- add EventListener ---
+
+// for (let i = 0; i < tab.length; i++) {
+//   tab[i].addEventListener('click', onTabClick, false);
+// }
+
+// back_button?.addEventListener('click', onBack, false);
+// next_button?.addEventListener('click', onNext, false);
+
+evalbtn?.addEventListener('click', onTabClick, false);
+
+
+// var navItems = document.querySelectorAll(".step");
+// for (var i = 0; i < navItems.length; i++) {
+//    navItems[i].addEventListener("click", function(ev) {
+//       this.classList.add("step-primary");
+      
+//       // console.log("add active to > "+JSON.stringify(ev.target))
+//    });
+// }
+
+</script> 
+
+<style>
+.panel {
+  display: none;
+}
+
+.panel.active {
+  display: block;
+}
+
+.page {
+  display: none;
+}
+
+.page.active {
+  display: block;
+}
+
+.active {
+  /* @apply border border-2 text-red-600; */
+  /* @apply  text-red-600; */
+
+  
+}
+
+.failed {
+  /* background: pink; */
+  /* @apply border-solid border-2 border-red-400 bg-red-300 */
+}
+
+</style>
+
+
+<!-- <Layout title={surveyid}> -->
+<div class={fullpage ? 'min-h-screen flex flex-col justify-center items-center' : 'flex flex-col justify-center items-center'}>
+
+<!-- <h1>CTAFORM</h1> -->
+
+{surveydef ? 
+(
+    <div class="w-96 p-6 m-auto rounded-md shadow-md lg:max-w-lg">
+
+      <h1 class="text-3xl font-semibold text-center text-primary">
+        { title_override ?
+          <span>
+            { title_override }
+          </span> :
+          <span>
+            { surveydef.title }
+          </span>
+        }
+      </h1>
+      { desc_override && <p>{ desc_override }</p> }
+
+      
+
+      <form method="POST" id="myform" enctype="multipart/form-data" class="w-80 space-y-4">
+        <input type="text" hidden name="source" value={id} />
+        <input type="text" hidden name="surveyid" value={surveydef.id} />
+
+        
+
+        
+        { surveydef.hiddenfield && surveydef.hiddenfield.length > 0 && 
+          <div>
+            <label class="label hidden">
+              <span class="text-base label-text">{ surveydef.hiddenfield }</span>
+            </label>
+            <input
+              type="text"
+              id={surveydef.hiddenfield}
+              name={surveydef.hiddenfield}
+              placeholder={surveydef.hiddenfield}
+            
+              class="w-full input input-bordered input-primary"
+              hidden
+            />
+          </div>
+        }
+
+
+        <div id="pages">
+        { surveydef.pages.length>0 && surveydef.pages.map((page, index) => (
+          <div class={index == 0 ? `${page.label} page active` : `${page.label} page`}> 
+
+            { page.fields.map((field) => 
+              <div class="field">
+                { field.element === 'input' && 
+                <div>
+                  
+                  { field.type !== 'checkbox'  && field.type !== 'range' && field.type !== 'file' && 
+                  <span>
+                    <label class="label">
+                      <span class="text-base label-text">{ field.title }</span>
+                    </label>
+                    
+                    <input
+                      type={field.type}
+                      id={field.id}
+                      name={field.name}
+                      required={field.required ? true : false}
+                      placeholder={field.placeholder}
+                      class="w-full input input-bordered input-primary"
+                    />
+                  </span>
+                  }
+
+                  { field.type === 'range' && 
+                  <span>
+                    <label class="label">
+                      <span class="text-base label-text flex items-center">{ field.title }
+                        <div
+                          class="tooltip tooltip-top"
+                          data-tip={field.placeholder}
+                        >
+                          
+                          <IconInfo w="w-8" h="h-8" classparam="w-8 h-8" />
+                        </div>  
+                      </span>
+                    </label>
+                    
+                    <input
+                      type={field.type}
+                      id={field.id}
+                      name={field.name}
+                      required={field.required ? true : false}
+                      placeholder={field.placeholder}
+                      class="range range-primary"
+                      min="0" max="10" step="1" value="2"
+                    />
+                    <div class="w-full flex justify-between text-xs px-2">
+                      { [...Array(11).keys()].map((nr) => <span>|</span>)}
+                      
+                    </div>
+                    
+                  </span>
+                  }
+
+                  { field.type === 'checkbox' && 
+                  <span>
+                    <div class="form-control">
+                      <label class="label cursor-pointer">
+                        <span class="label-text flex items-center"
+                          >{ field.title }
+                          <div
+                            class="tooltip tooltip-top"
+                            data-tip={field.placeholder}
+                          >
+                            
+                            <IconInfo w="w-8" h="h-8" classparam="w-8 h-8" />
+                          </div>
+                        </span>
+                        
+                        <input
+                          type={field.type}
+                          id={field.id}
+                          name={field.name}
+                          required={field.required ? true : false}
+                          
+                          class="checkbox"
+                        />
+                      </label>
+                    </div>
+                  </span>
+                  }
+
+                  { field.type === 'file' && 
+                  <span>
+                    <div class="form-control">
+                      <label class="label cursor-pointer">
+                        <span class="label-text flex items-center"
+                          >{ field.title }
+                          <div
+                            class="tooltip tooltip-top"
+                            data-tip={field.placeholder}
+                          >
+                            
+                            <IconInfo w="w-8" h="h-8" classparam="w-8 h-8" />
+                          </div>
+                        </span>
+                        
+                        <input
+                          type={field.type}
+                          id={field.id}
+                          name={field.name}
+                          required={field.required ? true : false}
+                          mulitple
+                          class="fileupload"
+                        />
+                      </label>
+                    </div>
+                  </span>
+                  }
+
+                </div>
+                }
+
+                
+                { field.element == 'textarea' && 
+                <div>
+                  <label class="label">
+                    <span class="text-base label-text">{ field.title }</span>
+                  </label>
+                  <textarea
+                    id={field.id}
+                    name={field.name}
+                    required={field.required ? true : false}
+                    placeholder={field.placeholder}
+                  
+                    class="w-full h-24 input input-bordered input-primary"
+                  />
+                </div> 
+                } 
+              </div>  
+              )
+            }  
+
+          
+          </div>))  
+        }
+        
+
+
+          {/* <div class="FINAL page">
+            <div class="flex flex-col items-center">
+              <button data-send-button class="btn btn-primary">{ surveydef.buttontxt }</button>
+            </div>
+            
+            <div class="text-xs mt-8">
+              By clicking `{ surveydef.buttontxt }`, you agree to our
+              <a
+                href="/info/privacy"
+                class="text-xs text-gray-600 underline hover:underline hover:text-blue-600"
+              >
+                Privacy Policy
+              </a>
+            </div>
+          </div> */}
+
+        </div>
+
+        <div class="flex flex-col items-center">
+              <button class="btn btn-ghost"id="evalbtn">EVAL Test</button>
+              <button data-send-button class="btn btn-primary">{ surveydef.buttontxt }</button>
+            </div>
+            
+            <div class="text-xs mt-8">
+              By clicking `{ surveydef.buttontxt }`, you agree to our
+              <a
+                href="/info/privacy"
+                class="text-xs text-gray-600 underline hover:underline hover:text-blue-600"
+              >
+                Privacy Policy
+              </a>
+            </div>
+          </div>
+        
+
+        <div class="" id="validation_message"></div>
+
+      </form>
+      
+      
+
+      
+      { responseMessage && responseMessage.msg && (
+        <div class="alert alert-success mt-12">
+          <span>{ responseMessage.msg }</span>
+        </div>
+      )}
+
+    </div>
+  
+
+  ) : "DATAFORM NOT FOUND"}
+</div>
+
+<!-- </Layout> -->

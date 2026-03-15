@@ -1,0 +1,43 @@
+---
+// Export a "Props" interface to .
+// export interface Props {
+//     height?: number,
+//     width?: number,
+// }
+// const {height = 80, width = 60 } = Astro.props;
+
+// const { id, title, desc, desc2, img, h1 } = Astro.props;
+---
+
+<div class="progress fixed top-16 left-0"></div>
+
+
+<script>
+import { animate, scroll } from "motion";
+scroll(animate(".progress", { scaleX: [0, 1] }));
+
+</script>
+
+<style>
+
+.progress {
+    z-index: 40;
+    /* background: var(--splash); */
+    /* background: "#0037ff"; */
+  }
+
+
+  
+
+  body {
+    --feint: rgba(133, 150, 193, 0.1);
+    /* --splash: hsl(var(--p)); */
+    /* fix, var(--p) not working ... TODO */
+    /* --splash: #0037ff;  */
+    /* --splash: var(--my-scrollbar); */
+    --splash: oklch(var(--p));
+  }
+
+  
+
+</style>

@@ -1,0 +1,33 @@
+---
+
+
+import { IconUsers } from "../icons/IconUsers.jsx";
+import { IconHeart } from "../icons/IconHeart.jsx";
+import { IconBriefcase } from "../icons/IconBriefcase.jsx";
+import { IconSearch } from "../icons/IconSearch.jsx";
+import { IconMap } from "../icons/IconMap.jsx";
+import SurveyForm from "../utils/SurveyForm.astro";
+import FormCTA from "../utils/CTAForm.astro";
+
+// const {element, alt, index } = Astro.props;
+const {element, id, dataid, data } = Astro.props;
+
+
+//..alt change left/right (pic and text order)
+//..index required if alt
+
+---
+
+<!-- STATISTICS -->
+<div class="flex justify-center">
+  <div id={element.props.id} class="stats stats-vertical lg:stats-horizontal shadow p-10 my-24">
+    
+    {element.props.pages && element.props.pages.length > 1 ?
+      <SurveyForm id={element.props.id} element={element}/>
+    :
+      <FormCTA id={element.props.id} element={element}/>
+    }
+    
+    
+  </div>
+</div>

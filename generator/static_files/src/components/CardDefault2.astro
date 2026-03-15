@@ -1,0 +1,111 @@
+---
+import type { CollectionEntry } from "astro:content";
+import CardDraftOverlay from "./CardDraftOverlay.astro";
+
+import { Image } from "astro:assets";
+
+interface Props {
+    card: CollectionEntry;
+    pathdir: String;
+    pagelang?: String;
+}
+const { card, pathdir, pagelang } = Astro.props;
+
+let [contentlang, slug] = card.id.replace(/\.(md|mdx)$/, "").split("/");
+if (!slug) ((slug = contentlang), (contentlang = "en"));
+//.. FALLBACK if not i18n, no language ('/en/post1.md' vs '/post1.md')
+
+// Use page language if provided, otherwise fall back to content language
+const lang = pagelang || contentlang;
+
+// const lang = card.slug.split("/")[0]
+---
+
+{/* CARDDEFAULT2 */}
+<a
+    href={(!card.data.draft_content || card.data.draft_content_clickable) &&
+    (!card.data.url || card.data.url.length == 0)
+        ? `/${lang}/${pathdir}/${slug}`
+        : card.data.url}
+    class="block w-full"
+>
+    <div class="w-full max-w-full">
+        <div
+            class="card glass relative w-full max-w-sm mx-auto sm:max-w-md md:max-w-sm lg:max-w-md bg-base-100 shadow-xl overflow-hidden"
+        >
+            <figure class="aspect-[4/3] overflow-hidden">
+                <Image
+                    src={card.data.image}
+                    alt={card.data.title}
+                    class="w-full h-full object-cover"
+                    widths={[320, 640, 960]}
+                    format="webp"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 384px"
+                    quality={80}
+                />
+            </figure>
+
+            <div
+                class="absolute h-1/2 bottom-0 left-0 right-0 bg-black text-white opacity-80"
+            >
+                <div class="card-body relative h-full">
+                    <span class="flex items-center">
+                        <h2 class="card-title flex-auto">{card.data.title}</h2>
+                        {
+                            card.data.badge && card.data.badge.length > 0 && (
+                                <div class=" justify-self-end bg-warning p-1 flex justify-center">
+                                    <div class="text-center text-xs">
+                                        {card.data.badge}
+                                    </div>
+                                </div>
+                            )
+                        }
+                    </span>
+                    <p>{card.data.desc}</p>
+                    <div class="absolute bottom-4">
+                        <div class="mt-4 card-actions justify-start">
+                            {
+                                card.data.typetags &&
+                                    card.data.typetags.length > 0 &&
+                                    card.data.typetags.map((tag, index) => (
+                                        <div class="badge badge-sm badge-primary">
+                                            {" "}
+                                            #{tag}
+                                        </div>
+                                    ))
+                            }
+                            {
+                                card.data.tags &&
+                                    card.data.tags.length > 0 &&
+                                    card.data.tags.map((tag, index) => (
+                                        <div class="badge badge-sm badge-outline">
+                                            {tag}
+                                        </div>
+                                    ))
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {
+                card.data.content_msg && (
+                    <div class="absolute top-0 bottom-0 left-0 right-0 ">
+                        <span class="absolute right-8 top-2 badge badge-warning justify-self-end">
+                            {card.data.content_msg}
+                        </span>
+                    </div>
+                )
+            }
+
+            {/* overlay for draft content */}
+            {
+                card.data.draft_content && (
+                    <div class="absolute top-0 bottom-0 left-0 right-0">
+                        <CardDraftOverlay card={card} />
+                    </div>
+                )
+            }
+        </div>
+    </div>
+</a>

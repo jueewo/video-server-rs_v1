@@ -39,10 +39,12 @@ pub fn resolve_components_dir(components_base: &Path, component_lib: Option<&str
 }
 
 /// Assemble the Astro project output directory:
-/// 1. Copy static components/layouts (if configured)
+/// 1. Copy generic template (static_files: components, layouts, styles)
 /// 2. Run the generator (sitedef.yaml → pages, data, content, website.config.cjs)
-/// 3. Optionally copy vault media into public/media/
-/// 4. Optionally run `bun install && bun run build`
+/// 3. Overlay site-specific workspace assets (public/ and assets/)
+/// 4. Reserved: vault media layer (future)
+/// 5. Optionally inline vault media into public/media/
+/// 6. Optionally run `bun install && bun run build`
 pub fn publish(config: &PublishConfig) -> Result<()> {
     // Pre-load sitedef to resolve component_lib before copying static files
     let sitedef_preview = site_generator::load_sitedef(&config.source_dir)?;
@@ -82,14 +84,34 @@ pub fn publish(config: &PublishConfig) -> Result<()> {
     };
     let sitedef = site_generator::generate(&gen_config)?;
 
-    // Step 3: inline media vault (optional)
+    // Step 3: overlay site-specific workspace assets
+    // source_dir/public/  → output_dir/public/
+    // source_dir/assets/  → output_dir/src/assets/
+    // source_dir/pages/   → output_dir/src/pages/
+    let workspace_public = config.source_dir.join("public");
+    if workspace_public.exists() {
+        info!("Copying workspace public/ from {}", workspace_public.display());
+        copy_dir_all(&workspace_public, &config.output_dir.join("public"))?;
+    }
+    let workspace_assets = config.source_dir.join("assets");
+    if workspace_assets.exists() {
+        info!("Copying workspace assets/ from {}", workspace_assets.display());
+        copy_dir_all(&workspace_assets, &config.output_dir.join("src").join("assets"))?;
+    }
+    let workspace_pages = config.source_dir.join("pages");
+    if workspace_pages.exists() {
+        info!("Copying workspace pages/ from {}", workspace_pages.display());
+        copy_dir_all(&workspace_pages, &config.output_dir.join("src").join("pages"))?;
+    }
+
+    // Step 5: inline media vault (optional)
     if sitedef.inline_media.unwrap_or(false) {
         if let Some(ref vault_id) = sitedef.media_vault_id {
             inline_vault_media(vault_id, &config.output_dir)?;
         }
     }
 
-    // Step 4: bun build (optional)
+    // Step 6: bun build (optional)
     if config.build {
         build_astro(&config.output_dir)?;
     }

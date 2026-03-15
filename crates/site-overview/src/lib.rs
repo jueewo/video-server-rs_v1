@@ -449,6 +449,259 @@ pub fn render_site_editor(
     Ok(tmpl.render()?)
 }
 
+// ── Collection entries ────────────────────────────────────────────────────────
+
+pub struct EntryMeta {
+    pub slug: String,
+    pub locale: String,
+    pub title: String,
+    pub draft: bool,
+    pub featured: bool,
+    pub pub_date: String,
+}
+
+#[derive(Template)]
+#[template(path = "site-overview/collection_entries.html")]
+struct CollectionEntriesTemplate {
+    authenticated: bool,
+    workspace_id: String,
+    workspace_name: String,
+    folder_name: String,
+    folder_path: String,
+    breadcrumbs: Vec<(String, String)>,
+    collection_name: String,
+    languages: Vec<String>,
+    entries: Vec<EntryMeta>,
+}
+
+#[derive(Template)]
+#[template(path = "site-overview/entry_editor.html")]
+struct EntryEditorTemplate {
+    authenticated: bool,
+    workspace_id: String,
+    workspace_name: String,
+    folder_name: String,
+    folder_path: String,
+    breadcrumbs: Vec<(String, String)>,
+    collection_name: String,
+    locale: String,
+    slug: String,
+    frontmatter_json: String,
+    body: String,
+    languages: Vec<String>,
+}
+
+/// Split an MDX file into its YAML frontmatter and body.
+pub fn split_mdx(raw: &str) -> (serde_yaml::Value, String) {
+    let rest = if let Some(r) = raw.strip_prefix("---\n") {
+        r
+    } else if let Some(r) = raw.strip_prefix("---\r\n") {
+        r
+    } else {
+        return (serde_yaml::Value::Mapping(Default::default()), raw.to_string());
+    };
+
+    if let Some(pos) = rest.find("\n---") {
+        let yaml_str = &rest[..pos];
+        let after_close = &rest[pos + 4..]; // skip \n---
+        let body = after_close
+            .trim_start_matches('\r')
+            .trim_start_matches('\n')
+            .to_string();
+        let fm = serde_yaml::from_str(yaml_str).unwrap_or_default();
+        (fm, body)
+    } else {
+        (serde_yaml::Value::Mapping(Default::default()), raw.to_string())
+    }
+}
+
+/// Reconstruct an MDX file from frontmatter + body.
+pub fn write_mdx(fm: &serde_yaml::Value, body: &str) -> String {
+    let yaml = serde_yaml::to_string(fm).unwrap_or_default();
+    format!("---\n{}---\n{}", yaml, body)
+}
+
+fn fm_str(fm: &serde_yaml::Value, key: &str) -> Option<String> {
+    fm.get(key).and_then(|v| match v {
+        serde_yaml::Value::String(s) => Some(s.clone()),
+        serde_yaml::Value::Number(n) => Some(n.to_string()),
+        _ => None,
+    })
+}
+
+fn fm_bool(fm: &serde_yaml::Value, key: &str) -> Option<bool> {
+    fm.get(key).and_then(|v| v.as_bool())
+}
+
+/// List all .md/.mdx entries across all locales for a collection.
+fn list_collection_entries(content_dir: &Path, locales: &[String]) -> Vec<EntryMeta> {
+    let mut entries = Vec::new();
+    for locale in locales {
+        let locale_dir = content_dir.join(locale);
+        if !locale_dir.is_dir() {
+            continue;
+        }
+        let Ok(rd) = std::fs::read_dir(&locale_dir) else {
+            continue;
+        };
+        let mut locale_entries: Vec<EntryMeta> = rd
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                let p = e.path();
+                p.is_file()
+                    && matches!(
+                        p.extension().and_then(|x| x.to_str()),
+                        Some("md") | Some("mdx")
+                    )
+            })
+            .filter_map(|e| {
+                let path = e.path();
+                let slug = path.file_stem()?.to_str()?.to_string();
+                let raw = std::fs::read_to_string(&path).ok()?;
+                let (fm, _) = split_mdx(&raw);
+                let title = fm_str(&fm, "title").unwrap_or_else(|| slug.clone());
+                let draft = fm_bool(&fm, "draft").unwrap_or(false);
+                let featured = fm_bool(&fm, "featured").unwrap_or(false);
+                let pub_date = fm_str(&fm, "pubDate").unwrap_or_default();
+                Some(EntryMeta { slug, locale: locale.clone(), title, draft, featured, pub_date })
+            })
+            .collect();
+        locale_entries.sort_by(|a, b| b.pub_date.cmp(&a.pub_date).then(a.slug.cmp(&b.slug)));
+        entries.extend(locale_entries);
+    }
+    entries
+}
+
+/// Find a collection entry file (.mdx preferred, .md fallback) and load it.
+fn load_entry_file(locale_dir: &Path, slug: &str) -> anyhow::Result<(serde_yaml::Value, String)> {
+    let mdx = locale_dir.join(format!("{}.mdx", slug));
+    let md = locale_dir.join(format!("{}.md", slug));
+    let path = if mdx.exists() { mdx } else if md.exists() { md } else {
+        anyhow::bail!("Entry not found: {}/{}", locale_dir.display(), slug);
+    };
+    let raw = std::fs::read_to_string(&path)?;
+    Ok(split_mdx(&raw))
+}
+
+/// Write a collection entry file back (preserves original extension, defaults to .mdx).
+pub fn save_entry_file(
+    locale_dir: &Path,
+    slug: &str,
+    fm: &serde_yaml::Value,
+    body: &str,
+) -> anyhow::Result<()> {
+    let mdx = locale_dir.join(format!("{}.mdx", slug));
+    let md = locale_dir.join(format!("{}.md", slug));
+    let path = if md.exists() && !mdx.exists() { md } else { mdx };
+    std::fs::create_dir_all(locale_dir)?;
+    std::fs::write(&path, write_mdx(fm, body))?;
+    Ok(())
+}
+
+/// Delete a collection entry file (.mdx or .md).
+pub fn delete_entry_file(locale_dir: &Path, slug: &str) -> anyhow::Result<()> {
+    let mdx = locale_dir.join(format!("{}.mdx", slug));
+    let md = locale_dir.join(format!("{}.md", slug));
+    let path = if mdx.exists() { mdx } else if md.exists() { md } else {
+        anyhow::bail!("Entry not found: {}/{}", locale_dir.display(), slug);
+    };
+    std::fs::remove_file(&path)?;
+    Ok(())
+}
+
+pub fn render_collection_entries(
+    workspace_root: &Path,
+    workspace_id: &str,
+    workspace_name: &str,
+    folder_path: &str,
+    collection_name: &str,
+) -> anyhow::Result<String> {
+    let folder_dir = workspace_root.join(folder_path);
+    let sitedef = load_sitedef(&folder_dir)?;
+    let locales: Vec<String> = sitedef.languages.iter().map(|l| l.locale.clone()).collect();
+
+    let content_dir = folder_dir.join("content").join(collection_name);
+    let entries = list_collection_entries(&content_dir, &locales);
+
+    let folder_name = std::path::Path::new(folder_path)
+        .file_name().and_then(|n| n.to_str()).unwrap_or(folder_path).to_string();
+    let breadcrumbs = build_breadcrumbs(workspace_id, workspace_name, folder_path);
+
+    let tmpl = CollectionEntriesTemplate {
+        authenticated: true,
+        workspace_id: workspace_id.to_string(),
+        workspace_name: workspace_name.to_string(),
+        folder_name,
+        folder_path: folder_path.to_string(),
+        breadcrumbs,
+        collection_name: collection_name.to_string(),
+        languages: locales,
+        entries,
+    };
+    Ok(tmpl.render()?)
+}
+
+pub fn render_entry_editor(
+    workspace_root: &Path,
+    workspace_id: &str,
+    workspace_name: &str,
+    folder_path: &str,
+    collection_name: &str,
+    locale: &str,
+    slug: &str,
+) -> anyhow::Result<String> {
+    let folder_dir = workspace_root.join(folder_path);
+    let sitedef = load_sitedef(&folder_dir)?;
+    let languages: Vec<String> = sitedef.languages.iter().map(|l| l.locale.clone()).collect();
+
+    let locale_dir = folder_dir.join("content").join(collection_name).join(locale);
+    let (fm, body) = load_entry_file(&locale_dir, slug)?;
+
+    let fm_as_json: serde_json::Value = serde_yaml::from_value(fm)
+        .unwrap_or(serde_json::Value::Object(Default::default()));
+    let frontmatter_json = serde_json::to_string_pretty(&fm_as_json)
+        .unwrap_or_else(|_| "{}".to_string());
+
+    let folder_name = std::path::Path::new(folder_path)
+        .file_name().and_then(|n| n.to_str()).unwrap_or(folder_path).to_string();
+    let breadcrumbs = build_breadcrumbs(workspace_id, workspace_name, folder_path);
+
+    let tmpl = EntryEditorTemplate {
+        authenticated: true,
+        workspace_id: workspace_id.to_string(),
+        workspace_name: workspace_name.to_string(),
+        folder_name,
+        folder_path: folder_path.to_string(),
+        breadcrumbs,
+        collection_name: collection_name.to_string(),
+        locale: locale.to_string(),
+        slug: slug.to_string(),
+        frontmatter_json,
+        body,
+        languages,
+    };
+    Ok(tmpl.render()?)
+}
+
+// ── VitePress overview data types ─────────────────────────────────────────────
+
+/// A subfolder inside docs/ with its direct .md files.
+pub struct DocSubfolder {
+    pub name: String,
+    pub files: Vec<String>,
+}
+
+/// Full sidebar group with items, for the structure panel.
+pub struct SidebarGroupDetail {
+    pub text: String,
+    pub items: Vec<SidebarItemDetail>,
+}
+
+pub struct SidebarItemDetail {
+    pub text: String,
+    pub link: String,
+}
+
 // ── VitePress overview ────────────────────────────────────────────────────────
 
 #[derive(Template)]
@@ -475,6 +728,14 @@ struct VitepressOverviewTemplate {
     last_publish_time: String,
     last_publish_status: String,
     last_publish_message: String,
+    last_preview_url: String,
+    // docs/ structure: root-level files and subfolders with their files
+    doc_root_files: Vec<String>,
+    doc_subfolders: Vec<DocSubfolder>,
+    // Full sidebar detail for the structure panel and modal chips
+    sidebar_detail: Vec<SidebarGroupDetail>,
+    // Flat group names (kept for datalist)
+    sidebar_groups: Vec<String>,
 }
 
 pub struct VitepressOverviewRenderer;
@@ -527,6 +788,15 @@ fn build_vitepress_template_data(
     let doc_count = count_md_files(&folder_dir.join("docs"));
     let nav_item_count = def.nav.len();
     let sidebar_group_count = def.sidebar.len();
+    let sidebar_groups: Vec<String> = def.sidebar.iter().map(|g| g.text.clone()).collect();
+    let sidebar_detail: Vec<SidebarGroupDetail> = def.sidebar.iter().map(|g| SidebarGroupDetail {
+        text: g.text.clone(),
+        items: g.items.iter().map(|i| SidebarItemDetail {
+            text: i.text.clone(),
+            link: i.link.clone(),
+        }).collect(),
+    }).collect();
+    let (doc_root_files, doc_subfolders) = scan_docs_dir(&folder_dir.join("docs"));
 
     // Extract all metadata strings before partially moving ctx fields
     let forgejo_repo = ctx.meta_str("forgejo_repo").unwrap_or("").to_string();
@@ -534,6 +804,7 @@ fn build_vitepress_template_data(
     let last_publish_time = ctx.meta_str("last_publish_time").unwrap_or("").to_string();
     let last_publish_status = ctx.meta_str("last_publish_status").unwrap_or("").to_string();
     let last_publish_message = ctx.meta_str("last_publish_message").unwrap_or("").to_string();
+    let last_preview_url = ctx.meta_str("last_preview_url").unwrap_or("").to_string();
     let has_git = !forgejo_repo.is_empty();
 
     let breadcrumbs = build_breadcrumbs(&ctx.workspace_id, &ctx.workspace_name, &ctx.folder_path);
@@ -561,7 +832,52 @@ fn build_vitepress_template_data(
         last_publish_time,
         last_publish_status,
         last_publish_message,
+        last_preview_url,
+        doc_root_files,
+        doc_subfolders,
+        sidebar_detail,
+        sidebar_groups,
     })
+}
+
+/// Scan docs/ directory: returns (root_files, subfolders).
+/// Root files are .md/.mdx files directly in docs/.
+/// Subfolders are immediate subdirectories with their .md/.mdx files.
+fn scan_docs_dir(docs_dir: &Path) -> (Vec<String>, Vec<DocSubfolder>) {
+    let mut root_files = Vec::new();
+    let mut subfolders = Vec::new();
+    if !docs_dir.is_dir() {
+        return (root_files, subfolders);
+    }
+    let Ok(entries) = std::fs::read_dir(docs_dir) else {
+        return (root_files, subfolders);
+    };
+    let mut dirs: Vec<String> = Vec::new();
+    let mut files: Vec<String> = Vec::new();
+    for entry in entries.filter_map(|e| e.ok()) {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if entry.path().is_dir() {
+            dirs.push(name);
+        } else if name.ends_with(".md") || name.ends_with(".mdx") {
+            files.push(name);
+        }
+    }
+    files.sort();
+    dirs.sort();
+    root_files = files;
+    for dir_name in dirs {
+        let sub_path = docs_dir.join(&dir_name);
+        let Ok(sub_entries) = std::fs::read_dir(&sub_path) else { continue };
+        let mut sub_files: Vec<String> = sub_entries
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().is_file())
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .filter(|n| n.ends_with(".md") || n.ends_with(".mdx"))
+            .collect();
+        sub_files.sort();
+        subfolders.push(DocSubfolder { name: dir_name, files: sub_files });
+    }
+    (root_files, subfolders)
 }
 
 /// Recursively count .md and .mdx files under a directory.

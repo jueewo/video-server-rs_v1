@@ -205,12 +205,15 @@ pub struct VitepressPublishConfig {
     pub source_dir: PathBuf,
     /// Output: where the assembled VitePress project will be written
     pub output_dir: PathBuf,
-    /// When true, run `bun install && bun run docs:build` after generation.
+    /// When true, run `npm install && npm run docs:build` after generation.
     pub build: bool,
     /// Optional path to the platform's static/ directory. When set, `icon.webp`
     /// is copied into the output public/ as `favicon.webp` and used as the site
     /// favicon if none is configured in vitepressdef.yaml.
     pub static_dir: Option<PathBuf>,
+    /// When set, written as `base:` in config.ts so assets resolve correctly
+    /// when the built site is served from a subpath (e.g. for local preview).
+    pub base_path: Option<String>,
 }
 
 /// Assemble the VitePress project output directory:
@@ -243,6 +246,7 @@ pub fn publish_vitepress(config: &VitepressPublishConfig) -> Result<()> {
                 None
             }
         }),
+        base_path: config.base_path.clone(),
     };
     site_generator::generate_vitepress(&gen_config)?;
 

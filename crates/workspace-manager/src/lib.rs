@@ -4133,15 +4133,22 @@ pub async fn generate_site_handler(
     let folder_slug_for_preview = folder_slug.clone();
     let workspace_id_for_preview = workspace_id.clone();
     let source_dir_for_sitedef = source_dir.clone();
+    let folder_type_for_preview = folder_type.clone();
     let output_dir_log = output_dir.clone();
     let publish_result: Result<String, String> = tokio::task::spawn_blocking(move || {
         if folder_type == "vitepress-docs" {
             let static_dir = std::env::current_dir().ok().map(|d| d.join("static"));
+            let vp_base = if do_build && git_config.is_none() {
+                Some(format!("/storage/site-builds/{workspace_id}/{folder_slug}/dist/"))
+            } else {
+                None
+            };
             let vp_config = site_publisher::VitepressPublishConfig {
                 source_dir,
                 output_dir: output_dir.clone(),
                 build: do_build,
                 static_dir,
+                base_path: vp_base,
             };
             if let Some(git) = git_config {
                 site_publisher::publish_vitepress_and_push(&vp_config, &git)
@@ -4185,11 +4192,16 @@ pub async fn generate_site_handler(
         Ok(msg) => {
             let status = if forgejo_repo.is_some() { "pushed" } else if do_build { "built" } else { "generated" };
             let url = if do_build && forgejo_repo.is_none() {
-                // Point directly at the home page to skip Astro's root redirect
-                // (redirect destinations are root-relative and break under a subpath base).
-                let home_path = site_home_subpath(&source_dir_for_sitedef)
-                    .unwrap_or_else(|| String::new());
-                format!("/storage/site-builds/{workspace_id_for_preview}/{folder_slug_for_preview}/dist/{home_path}")
+                if folder_type_for_preview == "vitepress-docs" {
+                    // VitePress outputs to dist/ (outDir: 'dist' in config.ts)
+                    format!("/storage/site-builds/{workspace_id_for_preview}/{folder_slug_for_preview}/dist/")
+                } else {
+                    // Point directly at the home page to skip Astro's root redirect
+                    // (redirect destinations are root-relative and break under a subpath base).
+                    let home_path = site_home_subpath(&source_dir_for_sitedef)
+                        .unwrap_or_else(|| String::new());
+                    format!("/storage/site-builds/{workspace_id_for_preview}/{folder_slug_for_preview}/dist/{home_path}")
+                }
             } else {
                 String::new()
             };
@@ -4227,6 +4239,162 @@ pub async fn generate_site_handler(
             Json(serde_json::json!({ "error": e })),
         )),
     }
+}
+
+// ============================================================================
+// VitePress: Add Page
+// ============================================================================
+
+#[derive(Deserialize)]
+pub struct AddVitepressPageRequest {
+    /// Workspace-relative path to the vitepress-docs folder.
+    pub folder_path: String,
+    /// Human-readable page title.
+    pub title: String,
+    /// Filename for the new doc, e.g. "second.md". Must end in `.md`.
+    pub filename: String,
+    /// Optional subfolder under docs/, e.g. "guide" → docs/guide/second.md
+    #[serde(default)]
+    pub subfolder: String,
+    /// Sidebar group to add the item to. Creates a new group if it doesn't exist.
+    #[serde(default)]
+    pub sidebar_group: String,
+    /// Also add a top-nav entry.
+    #[serde(default)]
+    pub add_to_nav: bool,
+}
+
+#[derive(Serialize)]
+pub struct AddVitepressPageResponse {
+    pub edit_url: String,
+}
+
+/// POST /api/workspaces/{workspace_id}/vitepress/add-page
+///
+/// Creates a new Markdown file under docs/ and registers it in vitepressdef.yaml.
+pub async fn vitepress_add_page_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(request): Json<AddVitepressPageRequest>,
+) -> Result<Json<AddVitepressPageResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let err = |msg: &str| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": msg })),
+        )
+    };
+
+    check_scope(&user, "write").map_err(|_| err("unauthorized"))?;
+    let user_id = require_auth(&session).await.map_err(|_| err("unauthorized"))?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id)
+        .await
+        .map_err(|_| err("workspace not found"))?;
+
+    // Sanitize folder path — reject traversal
+    let clean_folder = request.folder_path.trim_start_matches('/').to_string();
+    if clean_folder.split('/').any(|seg| seg == ".." || seg == ".") {
+        return Err(err("invalid folder path"));
+    }
+
+    // Sanitize filename — must end in .md, no path separators
+    let filename = request.filename.trim().to_string();
+    if filename.is_empty() || filename.contains('/') || filename.contains('\\') {
+        return Err(err("invalid filename"));
+    }
+    let filename = if filename.ends_with(".md") {
+        filename
+    } else {
+        format!("{filename}.md")
+    };
+
+    // Sanitize subfolder — no path traversal
+    let subfolder = request.subfolder.trim().trim_matches('/').to_string();
+    if subfolder.split('/').any(|seg| seg == ".." || seg == ".") {
+        return Err(err("invalid subfolder"));
+    }
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let folder_dir = workspace_root.join(&clean_folder);
+    let docs_dir = if subfolder.is_empty() {
+        folder_dir.join("docs")
+    } else {
+        folder_dir.join("docs").join(&subfolder)
+    };
+    let doc_file = docs_dir.join(&filename);
+
+    if doc_file.exists() {
+        return Err(err("file already exists"));
+    }
+
+    // VitePress link: /subfolder/stem or /stem
+    let stem = filename.trim_end_matches(".md");
+    let link = if subfolder.is_empty() {
+        format!("/{stem}")
+    } else {
+        format!("/{subfolder}/{stem}")
+    };
+
+    // Create the .md file
+    let md_content = format!("# {}\n\nAdd your content here.\n", request.title);
+    tokio::fs::create_dir_all(&docs_dir).await.map_err(|_| err("failed to create docs dir"))?;
+    tokio::fs::write(&doc_file, &md_content).await.map_err(|_| err("failed to create file"))?;
+
+    // Update vitepressdef.yaml
+    let yaml_path = folder_dir.join("vitepressdef.yaml");
+    let yaml_text = tokio::fs::read_to_string(&yaml_path).await.unwrap_or_default();
+    let mut def: site_generator::VitepressDef = serde_yaml::from_str(&yaml_text).unwrap_or_else(|_| {
+        site_generator::VitepressDef {
+            title: String::new(),
+            description: String::new(),
+            theme_color: None,
+            favicon: None,
+            nav: vec![],
+            sidebar: vec![],
+        }
+    });
+
+    // Add sidebar entry
+    let sidebar_group = request.sidebar_group.trim().to_string();
+    let sidebar_label = if sidebar_group.is_empty() { "Guide".to_string() } else { sidebar_group };
+    let new_item = site_generator::SidebarItem {
+        text: request.title.clone(),
+        link: link.clone(),
+    };
+    if let Some(group) = def.sidebar.iter_mut().find(|g| g.text == sidebar_label) {
+        group.items.push(new_item);
+    } else {
+        def.sidebar.push(site_generator::SidebarGroup {
+            text: sidebar_label,
+            items: vec![new_item],
+            collapsed: false,
+        });
+    }
+
+    // Optionally add nav entry
+    if request.add_to_nav {
+        def.nav.push(site_generator::NavItem {
+            text: request.title.clone(),
+            link: Some(link.clone()),
+            items: vec![],
+        });
+    }
+
+    let updated_yaml = serde_yaml::to_string(&def).map_err(|_| err("failed to serialize yaml"))?;
+    tokio::fs::write(&yaml_path, updated_yaml).await.map_err(|_| err("failed to write yaml"))?;
+
+    let file_path = if subfolder.is_empty() {
+        format!("{clean_folder}/docs/{filename}")
+    } else {
+        format!("{clean_folder}/docs/{subfolder}/{filename}")
+    };
+    let edit_url = format!(
+        "/workspaces/{workspace_id}/edit?file={}",
+        urlencoding::encode(&file_path)
+    );
+
+    Ok(Json(AddVitepressPageResponse { edit_url }))
 }
 
 // ============================================================================
@@ -4283,6 +4451,213 @@ async fn site_editor_page(
     })?;
 
     Ok(Html(html).into_response())
+}
+
+// ── Collection entry list page ────────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct SiteCollectionQuery {
+    path: Option<String>,
+    collection: Option<String>,
+}
+
+async fn site_collection_page(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Query(query): Query<SiteCollectionQuery>,
+) -> Result<Response, StatusCode> {
+    check_scope(&user, "read")?;
+    let user_id = require_auth(&session).await?;
+    let (workspace_name, _) = verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let folder_path = query.path.unwrap_or_default();
+    let collection = query.collection.unwrap_or_default();
+    if folder_path.is_empty() || collection.is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let html = tokio::task::spawn_blocking(move || {
+        site_overview::render_collection_entries(
+            &workspace_root, &workspace_id, &workspace_name, &folder_path, &collection,
+        )
+    })
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .map_err(|e| { warn!("site-collection render error: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+
+    Ok(Html(html).into_response())
+}
+
+// ── Entry editor page ─────────────────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct SiteEntryQuery {
+    path: Option<String>,
+    collection: Option<String>,
+    locale: Option<String>,
+    slug: Option<String>,
+}
+
+async fn site_entry_editor_page(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Query(query): Query<SiteEntryQuery>,
+) -> Result<Response, StatusCode> {
+    check_scope(&user, "read")?;
+    let user_id = require_auth(&session).await?;
+    let (workspace_name, _) = verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let folder_path = query.path.unwrap_or_default();
+    let collection = query.collection.unwrap_or_default();
+    let locale = query.locale.unwrap_or_default();
+    let slug = query.slug.unwrap_or_default();
+    if folder_path.is_empty() || collection.is_empty() || locale.is_empty() || slug.is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let html = tokio::task::spawn_blocking(move || {
+        site_overview::render_entry_editor(
+            &workspace_root, &workspace_id, &workspace_name,
+            &folder_path, &collection, &locale, &slug,
+        )
+    })
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .map_err(|e| { warn!("site-entry render error: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+
+    Ok(Html(html).into_response())
+}
+
+// ── Collection entry CRUD API ─────────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct CreateEntryRequest {
+    folder_path: String,
+    collection: String,
+    locale: String,
+    slug: String,
+    title: String,
+}
+
+async fn create_collection_entry(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(req): Json<CreateEntryRequest>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "write")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    // Validate slug: alphanumeric, hyphens, underscores only
+    if !req.slug.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let locale_dir = workspace_root
+        .join(&req.folder_path)
+        .join("content")
+        .join(&req.collection)
+        .join(&req.locale);
+
+    // Check it doesn't already exist
+    let mdx = locale_dir.join(format!("{}.mdx", &req.slug));
+    let md = locale_dir.join(format!("{}.md", &req.slug));
+    if mdx.exists() || md.exists() {
+        return Ok(Json(serde_json::json!({ "error": "Entry already exists" })));
+    }
+
+    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    let fm_yaml = format!(
+        "title: \"{}\"\ndesc: \"\"\nkeywords: \"\"\nauthor: \"\"\npubDate: {}\nfeatured: false\ndraft: true\ndraft_content: false\ntags: []\nfiltertags: []\ntypetags: []\n",
+        req.title.replace('"', "\\\""),
+        today
+    );
+    let fm: serde_yaml::Value = serde_yaml::from_str(&fm_yaml).unwrap_or_default();
+
+    std::fs::create_dir_all(&locale_dir).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    site_overview::save_entry_file(&locale_dir, &req.slug, &fm, "")
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+#[derive(serde::Deserialize)]
+struct SaveEntryRequest {
+    folder_path: String,
+    collection: String,
+    locale: String,
+    slug: String,
+    frontmatter: serde_json::Value,
+    body: String,
+}
+
+async fn save_collection_entry(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(req): Json<SaveEntryRequest>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "write")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let locale_dir = workspace_root
+        .join(&req.folder_path)
+        .join("content")
+        .join(&req.collection)
+        .join(&req.locale);
+
+    // Convert JSON frontmatter → serde_yaml::Value
+    let fm_yaml: serde_yaml::Value = serde_yaml::to_value(&req.frontmatter)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    site_overview::save_entry_file(&locale_dir, &req.slug, &fm_yaml, &req.body)
+        .map_err(|e| { warn!("save entry error: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+#[derive(serde::Deserialize)]
+struct DeleteEntryQuery {
+    folder_path: String,
+    collection: String,
+    locale: String,
+    slug: String,
+}
+
+async fn delete_collection_entry(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Query(req): Query<DeleteEntryQuery>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "write")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let locale_dir = workspace_root
+        .join(&req.folder_path)
+        .join("content")
+        .join(&req.collection)
+        .join(&req.locale);
+
+    site_overview::delete_entry_file(&locale_dir, &req.slug)
+        .map_err(|e| { warn!("delete entry error: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
+
+    Ok(Json(serde_json::json!({ "ok": true })))
 }
 
 // ============================================================================
@@ -4367,6 +4742,10 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
             post(generate_site_handler),
         )
         .route(
+            "/api/workspaces/{workspace_id}/vitepress/add-page",
+            post(vitepress_add_page_handler),
+        )
+        .route(
             "/api/workspaces/{workspace_id}/presentation/sync-yaml",
             post(sync_presentation_yaml),
         )
@@ -4449,6 +4828,18 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         .route(
             "/workspaces/{workspace_id}/site-editor",
             get(site_editor_page),
+        )
+        .route(
+            "/workspaces/{workspace_id}/site-collection",
+            get(site_collection_page),
+        )
+        .route(
+            "/workspaces/{workspace_id}/site-entry",
+            get(site_entry_editor_page),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/site-collection/entries",
+            post(create_collection_entry).put(save_collection_entry).delete(delete_collection_entry),
         )
         .route("/workspace-access-codes", get(workspace_access_codes_page))
         // ── Tenant admin API (Phase 6B) ───────────────────────────────────

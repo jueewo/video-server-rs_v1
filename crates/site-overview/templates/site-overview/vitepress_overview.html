@@ -32,6 +32,12 @@
             <button onclick="publishDocs()" id="publish-btn" class="btn btn-sm btn-primary gap-1">
                 <i data-lucide="rocket" class="w-4 h-4"></i> Publish Docs
             </button>
+            <button onclick="buildAndPreview()" id="build-btn" class="btn btn-sm btn-secondary gap-1">
+                <i data-lucide="play-circle" class="w-4 h-4"></i> Build &amp; Preview
+            </button>
+            <button onclick="document.getElementById('add-page-modal').showModal(); lucide.createIcons()" class="btn btn-sm btn-outline gap-1">
+                <i data-lucide="file-plus" class="w-4 h-4"></i> New Doc
+            </button>
             <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}?files=1"
                class="btn btn-sm btn-ghost gap-1">
                 <i data-lucide="folder-open" class="w-4 h-4"></i> Browse Files
@@ -58,38 +64,110 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <!-- Left: config info -->
+        <!-- Left: structure panel -->
         <div class="lg:col-span-2 space-y-6">
 
-            <!-- Quick start card -->
+            <!-- Docs folder tree + Sidebar side by side -->
             <div class="card bg-base-100 border border-base-300 shadow-sm">
                 <div class="card-body p-4">
-                    <h2 class="card-title text-base mb-2">
-                        <i data-lucide="file-text" class="w-4 h-4"></i> Content Structure
-                    </h2>
-                    <p class="text-sm text-base-content/70 mb-3">
-                        Place Markdown files in the <code class="font-mono bg-base-200 px-1 rounded">docs/</code> directory.
-                        Configure navigation in <code class="font-mono bg-base-200 px-1 rounded">vitepressdef.yaml</code>.
-                    </p>
-                    <div class="font-mono text-xs bg-base-200 rounded p-3 whitespace-pre">docs/
-  index.md          ← home page
-  getting-started.md
-  guide/
-    installation.md
-public/             ← static assets (optional)
-vitepressdef.yaml   ← title, nav, sidebar</div>
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="card-title text-base">
+                            <i data-lucide="layout-list" class="w-4 h-4"></i> Structure
+                        </h2>
+                        <div class="flex gap-2">
+                            <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}/docs?files=1"
+                               class="btn btn-xs btn-ghost gap-1">
+                                <i data-lucide="folder-open" class="w-3 h-3"></i> docs/
+                            </a>
+                            <a href="/workspaces/{{ workspace_id }}/edit?file={{ folder_path }}/vitepressdef.yaml"
+                               class="btn btn-xs btn-ghost gap-1">
+                                <i data-lucide="file-code" class="w-3 h-3"></i> vitepressdef.yaml
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                        <!-- Folder tree -->
+                        <div>
+                            <p class="text-xs font-semibold text-base-content/50 uppercase tracking-wide mb-2">
+                                <i data-lucide="folder" class="w-3 h-3 inline -mt-0.5"></i> docs/
+                            </p>
+                            {% if doc_root_files.is_empty() && doc_subfolders.is_empty() %}
+                            <p class="text-xs text-base-content/40 italic">No .md files yet. Click New Doc to add one.</p>
+                            {% else %}
+                            <ul class="text-xs space-y-0.5 font-mono">
+                                {% for f in &doc_root_files %}
+                                <li class="flex items-center gap-1 text-base-content/70">
+                                    <i data-lucide="file-text" class="w-3 h-3 shrink-0 text-base-content/40"></i>
+                                    <a href="/workspaces/{{ workspace_id }}/edit?file={{ folder_path }}/docs/{{ f }}"
+                                       class="hover:text-primary truncate">{{ f }}</a>
+                                </li>
+                                {% endfor %}
+                                {% for sub in &doc_subfolders %}
+                                <li class="mt-1">
+                                    <div class="flex items-center gap-1 text-base-content/60 font-semibold">
+                                        <i data-lucide="folder" class="w-3 h-3 shrink-0"></i>
+                                        {{ sub.name }}/
+                                    </div>
+                                    <ul class="ml-4 mt-0.5 space-y-0.5">
+                                        {% for f in &sub.files %}
+                                        <li class="flex items-center gap-1 text-base-content/70">
+                                            <i data-lucide="file-text" class="w-3 h-3 shrink-0 text-base-content/40"></i>
+                                            <a href="/workspaces/{{ workspace_id }}/edit?file={{ folder_path }}/docs/{{ sub.name }}/{{ f }}"
+                                               class="hover:text-primary truncate">{{ f }}</a>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+
+                        <!-- Sidebar structure -->
+                        <div class="border-l border-base-300 pl-4">
+                            <p class="text-xs font-semibold text-base-content/50 uppercase tracking-wide mb-2">
+                                <i data-lucide="sidebar" class="w-3 h-3 inline -mt-0.5"></i> Sidebar
+                            </p>
+                            {% if sidebar_detail.is_empty() %}
+                            <p class="text-xs text-base-content/40 italic">No sidebar groups yet.</p>
+                            {% else %}
+                            <ul class="text-xs space-y-2">
+                                {% for group in &sidebar_detail %}
+                                <li>
+                                    <div class="font-semibold text-base-content/60 mb-0.5">{{ group.text }}</div>
+                                    <ul class="ml-3 space-y-0.5">
+                                        {% for item in &group.items %}
+                                        <li class="flex items-center gap-1 text-base-content/70">
+                                            <i data-lucide="chevron-right" class="w-3 h-3 shrink-0 text-base-content/30"></i>
+                                            <span class="truncate">{{ item.text }}</span>
+                                            <span class="text-base-content/30 font-mono ml-auto pl-1 shrink-0">{{ item.link }}</span>
+                                        </li>
+                                        {% endfor %}
+                                        {% if group.items.is_empty() %}
+                                        <li class="text-base-content/30 italic">empty</li>
+                                        {% endif %}
+                                    </ul>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+
+                    </div>
                 </div>
             </div>
 
-            <!-- vitepressdef.yaml edit shortcut -->
+            <!-- Configuration -->
             <div class="card bg-base-100 border border-base-300 shadow-sm">
                 <div class="card-body p-4">
                     <div class="flex items-center justify-between mb-2">
                         <h2 class="card-title text-base">
                             <i data-lucide="settings" class="w-4 h-4"></i> Configuration
                         </h2>
-                        <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}?files=1"
-                           class="btn btn-xs btn-ghost">Edit files →</a>
+                        <a href="/workspaces/{{ workspace_id }}/edit?file={{ folder_path }}/vitepressdef.yaml"
+                           class="btn btn-xs btn-ghost">Edit →</a>
                     </div>
                     <div class="grid grid-cols-2 gap-2 text-sm">
                         <div>
@@ -133,26 +211,52 @@ vitepressdef.yaml   ← title, nav, sidebar</div>
                     <p class="text-xs text-base-content/50 mb-3">No Forgejo repo configured. Click "Edit folder type" to add one.</p>
                     {% endif %}
 
-                    <button onclick="publishDocs()" id="publish-btn-2" class="btn btn-sm btn-primary w-full gap-1">
-                        <i data-lucide="rocket" class="w-4 h-4"></i>
-                        {% if has_git %}Push to Forgejo{% else %}Generate{% endif %}
-                    </button>
+                    <div class="flex gap-2">
+                        <button onclick="publishDocs()" id="publish-btn-2" class="btn btn-sm btn-primary flex-1 gap-1">
+                            <i data-lucide="rocket" class="w-4 h-4"></i>
+                            {% if has_git %}Push to Forgejo{% else %}Generate{% endif %}
+                        </button>
+                        <button onclick="buildAndPreview()" id="build-btn-2" class="btn btn-sm btn-secondary flex-1 gap-1">
+                            <i data-lucide="play-circle" class="w-4 h-4"></i> Build
+                        </button>
+                    </div>
 
                     {% if !last_publish_time.is_empty() %}
-                    <div class="mt-3 text-xs">
-                        <div class="flex items-center gap-1 text-base-content/50">
-                            <i data-lucide="clock" class="w-3 h-3"></i>
-                            Last: {{ last_publish_time }}
+                    <div class="divider my-2"></div>
+                    <div class="text-xs space-y-1">
+                        <div class="font-medium text-base-content/70">Last Published</div>
+                        <div class="flex gap-2 items-center">
+                            {% if last_publish_status == "pushed" %}
+                            <span class="badge badge-success badge-xs gap-1">
+                                <i data-lucide="git-commit-horizontal" class="w-3 h-3"></i> pushed
+                            </span>
+                            {% elif last_publish_status == "built" %}
+                            <span class="badge badge-info badge-xs gap-1">
+                                <i data-lucide="package-check" class="w-3 h-3"></i> built
+                            </span>
+                            {% elif last_publish_status == "error" %}
+                            <span class="badge badge-error badge-xs gap-1">
+                                <i data-lucide="x-circle" class="w-3 h-3"></i> error
+                            </span>
+                            {% elif last_publish_status == "generated" %}
+                            <span class="badge badge-warning badge-xs gap-1">
+                                <i data-lucide="folder-output" class="w-3 h-3"></i> local only
+                            </span>
+                            {% elif !last_publish_status.is_empty() %}
+                            <span class="badge badge-warning badge-xs">{{ last_publish_status }}</span>
+                            {% endif %}
+                            <span class="text-base-content/50 font-mono">
+                                <span data-publish-time="{{ last_publish_time }}">{{ last_publish_time }}</span>
+                            </span>
                         </div>
-                        {% if last_publish_status == "pushed" %}
-                        <div class="badge badge-success badge-sm mt-1">pushed</div>
-                        {% else if last_publish_status == "generated" %}
-                        <div class="badge badge-info badge-sm mt-1">generated</div>
-                        {% else if !last_publish_status.is_empty() %}
-                        <div class="badge badge-warning badge-sm mt-1">{{ last_publish_status }}</div>
-                        {% endif %}
                         {% if !last_publish_message.is_empty() %}
-                        <p class="text-base-content/40 mt-1 break-all">{{ last_publish_message }}</p>
+                        <p class="text-base-content/40 break-all">{{ last_publish_message }}</p>
+                        {% endif %}
+                        {% if !last_preview_url.is_empty() %}
+                        <a href="{{ last_preview_url }}" target="_blank" rel="noopener"
+                           class="btn btn-xs btn-outline btn-info gap-1 mt-1">
+                            <i data-lucide="external-link" class="w-3 h-3"></i> Preview Docs
+                        </a>
                         {% endif %}
                     </div>
                     {% endif %}
@@ -169,16 +273,108 @@ vitepressdef.yaml   ← title, nav, sidebar</div>
     <div class="alert shadow-lg max-w-sm" id="publish-alert"></div>
 </div>
 
+<!-- Add VitePress Page Modal -->
+<dialog id="add-page-modal" class="modal">
+    <div class="modal-box max-w-md">
+        <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+            <i data-lucide="file-plus" class="w-5 h-5"></i> New Doc Page
+        </h3>
+
+        <div class="space-y-4">
+            <div>
+                <label class="label"><span class="label-text">Page Title</span></label>
+                <input type="text" id="ap-title" placeholder="e.g. Getting Started"
+                       class="input input-bordered w-full" oninput="apAutoFilename(this.value)" />
+            </div>
+
+            <!-- Subfolder -->
+            <div>
+                <label class="label"><span class="label-text">Subfolder <span class="text-base-content/40 text-xs">(optional)</span></span></label>
+                {% if !doc_subfolders.is_empty() %}
+                <div class="flex flex-wrap gap-1 mb-2">
+                    {% for sub in &doc_subfolders %}
+                    <button type="button" onclick="apSelectSubfolder('{{ sub.name }}')"
+                            data-subfolder="{{ sub.name }}"
+                            class="ap-subfolder-chip badge badge-outline badge-sm cursor-pointer hover:badge-primary transition-colors">
+                        <i data-lucide="folder" class="w-3 h-3 mr-1"></i>{{ sub.name }}/
+                    </button>
+                    {% endfor %}
+                    <button type="button" onclick="apSelectSubfolder('')"
+                            data-subfolder=""
+                            class="ap-subfolder-chip badge badge-outline badge-sm cursor-pointer hover:badge-ghost transition-colors">
+                        (root)
+                    </button>
+                </div>
+                {% endif %}
+                <input type="text" id="ap-subfolder" placeholder="e.g. guide  (or leave empty for docs/)"
+                       class="input input-bordered input-sm w-full" oninput="apUpdatePreview(); apSyncChips('subfolder')" />
+            </div>
+
+            <!-- Filename -->
+            <div>
+                <label class="label"><span class="label-text">Filename</span></label>
+                <div class="join w-full">
+                    <input type="text" id="ap-filename" placeholder="getting-started"
+                           class="input input-bordered join-item flex-1 min-w-0" oninput="apUpdatePreview()" />
+                    <span class="join-item flex items-center px-3 bg-base-200 border border-base-300 text-base-content/50 text-sm">.md</span>
+                </div>
+                <p class="text-xs text-base-content/40 mt-1">
+                    → <code id="ap-path-preview" class="font-mono">docs/</code>
+                </p>
+            </div>
+
+            <!-- Sidebar section -->
+            <div>
+                <label class="label"><span class="label-text">Sidebar Section</span></label>
+                {% if !sidebar_groups.is_empty() %}
+                <div class="flex flex-wrap gap-1 mb-2">
+                    {% for g in &sidebar_groups %}
+                    <button type="button" onclick="apSelectGroup('{{ g }}')"
+                            data-group="{{ g }}"
+                            class="ap-group-chip badge badge-outline badge-sm cursor-pointer hover:badge-secondary transition-colors">
+                        {{ g }}
+                    </button>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <input type="text" id="ap-group" placeholder="Guide  (new or existing)"
+                       class="input input-bordered input-sm w-full" oninput="apSyncChips('group')" />
+                <p class="text-xs text-base-content/40 mt-1">Creates section if it doesn't exist yet.</p>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <input type="checkbox" id="ap-nav" class="checkbox checkbox-sm" />
+                <label for="ap-nav" class="label-text text-sm">Also add to top navigation bar</label>
+            </div>
+        </div>
+
+        <p id="ap-error" class="text-error text-sm mt-3 hidden"></p>
+
+        <div class="modal-action">
+            <button onclick="document.getElementById('add-page-modal').close()" class="btn btn-ghost">Cancel</button>
+            <button onclick="submitAddPage()" id="ap-submit-btn" class="btn btn-primary gap-1">
+                <i data-lucide="file-plus" class="w-4 h-4"></i> Create Page
+            </button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
 <script>
+function setAllBtns(disabled, publishHtml, buildHtml) {
+    ['publish-btn','publish-btn-2'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.disabled = disabled; if (publishHtml !== null) el.innerHTML = publishHtml; }
+    });
+    ['build-btn','build-btn-2'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.disabled = disabled; if (buildHtml !== null) el.innerHTML = buildHtml; }
+    });
+}
+
 async function publishDocs() {
-    const btn = document.getElementById('publish-btn');
-    const btn2 = document.getElementById('publish-btn-2');
-    const origHtml = btn.innerHTML;
-    const orig2Html = btn2.innerHTML;
-    btn.disabled = true;
-    btn2.disabled = true;
-    btn.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Publishing…';
-    btn2.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Publishing…';
+    const origPublish = document.getElementById('publish-btn')?.innerHTML;
+    setAllBtns(true, '<span class="loading loading-spinner loading-xs"></span> Publishing…', null);
 
     const toast = document.getElementById('publish-toast');
     const alert = document.getElementById('publish-alert');
@@ -204,13 +400,183 @@ async function publishDocs() {
     }
     toast.classList.remove('hidden');
     if (typeof lucide !== 'undefined') lucide.createIcons();
-    btn.disabled = false;
-    btn2.disabled = false;
-    btn.innerHTML = origHtml;
-    btn2.innerHTML = orig2Html;
+    setAllBtns(false, origPublish, null);
     if (typeof lucide !== 'undefined') lucide.createIcons();
     if (ok) setTimeout(() => window.location.reload(), 2500);
     else setTimeout(() => toast.classList.add('hidden'), 6000);
 }
+
+async function buildAndPreview() {
+    const origBuild = document.getElementById('build-btn')?.innerHTML;
+    setAllBtns(true, null, '<span class="loading loading-spinner loading-xs"></span> Building…');
+
+    const toast = document.getElementById('publish-toast');
+    const alert = document.getElementById('publish-alert');
+    let ok = false;
+    try {
+        const res = await fetch('/api/workspaces/{{ workspace_id }}/site/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folder_path: '{{ folder_path }}', build: true }),
+        });
+        const data = await res.json().catch(() => ({}));
+        ok = res.ok;
+        if (res.ok) {
+            const previewUrl = data.preview_url || '';
+            const previewLink = previewUrl ? ` — <a href="${previewUrl}" target="_blank" class="underline font-semibold">Open Preview</a>` : '';
+            alert.className = 'alert alert-success shadow-lg max-w-sm';
+            alert.innerHTML = `<i data-lucide="check-circle" class="w-5 h-5"></i><span>${data.message || 'Build complete!'}${previewLink}</span>`;
+        } else {
+            alert.className = 'alert alert-error shadow-lg max-w-sm';
+            alert.innerHTML = `<i data-lucide="x-circle" class="w-5 h-5"></i><span>${data.error || 'Build failed'}</span>`;
+        }
+    } catch (e) {
+        alert.className = 'alert alert-error shadow-lg max-w-sm';
+        alert.innerHTML = `<i data-lucide="x-circle" class="w-5 h-5"></i><span>Network error</span>`;
+    }
+    toast.classList.remove('hidden');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    setAllBtns(false, null, origBuild);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    if (ok) setTimeout(() => window.location.reload(), 3000);
+    else setTimeout(() => toast.classList.add('hidden'), 6000);
+}
+
+// ── Add page modal ────────────────────────────────────────────────────────────
+
+function apSlugify(s) {
+    return s.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
+}
+
+function apAutoFilename(title) {
+    const el = document.getElementById('ap-filename');
+    if (el.dataset.manual) return;
+    el.value = apSlugify(title);
+    apUpdatePreview();
+}
+
+function apUpdatePreview() {
+    const sub = document.getElementById('ap-subfolder').value.trim().replace(/^\/|\/$/g, '');
+    const fn = document.getElementById('ap-filename').value.trim();
+    const preview = document.getElementById('ap-path-preview');
+    const parts = ['docs'];
+    if (sub) parts.push(sub);
+    if (fn) parts.push(fn + '.md');
+    preview.textContent = parts.join('/');
+}
+
+function apSelectSubfolder(value) {
+    document.getElementById('ap-subfolder').value = value;
+    apUpdatePreview();
+    apSyncChips('subfolder');
+}
+
+function apSelectGroup(value) {
+    document.getElementById('ap-group').value = value;
+    apSyncChips('group');
+}
+
+function apSyncChips(type) {
+    if (type === 'subfolder') {
+        const val = document.getElementById('ap-subfolder').value.trim();
+        document.querySelectorAll('.ap-subfolder-chip').forEach(chip => {
+            const match = chip.dataset.subfolder === val || (val === '' && chip.dataset.subfolder === '');
+            chip.classList.toggle('badge-primary', match);
+            chip.classList.toggle('badge-outline', !match);
+        });
+    } else {
+        const val = document.getElementById('ap-group').value.trim();
+        document.querySelectorAll('.ap-group-chip').forEach(chip => {
+            const match = chip.dataset.group === val;
+            chip.classList.toggle('badge-secondary', match);
+            chip.classList.toggle('badge-outline', !match);
+        });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('ap-filename')?.addEventListener('input', function() {
+        this.dataset.manual = '1';
+        apUpdatePreview();
+    });
+    document.getElementById('add-page-modal')?.addEventListener('close', () => {
+        const fn = document.getElementById('ap-filename');
+        if (fn) delete fn.dataset.manual;
+        document.getElementById('ap-title').value = '';
+        document.getElementById('ap-subfolder').value = '';
+        document.getElementById('ap-filename').value = '';
+        document.getElementById('ap-group').value = '';
+        document.getElementById('ap-nav').checked = false;
+        document.getElementById('ap-error').classList.add('hidden');
+        document.getElementById('ap-path-preview').textContent = 'docs/';
+        apSyncChips('subfolder');
+        apSyncChips('group');
+    });
+});
+
+async function submitAddPage() {
+    const title = document.getElementById('ap-title').value.trim();
+    const subfolder = document.getElementById('ap-subfolder').value.trim().replace(/^\/|\/$/g, '');
+    const filename = document.getElementById('ap-filename').value.trim();
+    const group = document.getElementById('ap-group').value.trim();
+    const addToNav = document.getElementById('ap-nav').checked;
+    const errEl = document.getElementById('ap-error');
+    const btn = document.getElementById('ap-submit-btn');
+
+    errEl.classList.add('hidden');
+    if (!title) { errEl.textContent = 'Title is required.'; errEl.classList.remove('hidden'); return; }
+    if (!filename) { errEl.textContent = 'Filename is required.'; errEl.classList.remove('hidden'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Creating…';
+
+    try {
+        const res = await fetch('/api/workspaces/{{ workspace_id }}/vitepress/add-page', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                folder_path: '{{ folder_path }}',
+                title,
+                filename: filename.endsWith('.md') ? filename : filename + '.md',
+                subfolder,
+                sidebar_group: group || 'Guide',
+                add_to_nav: addToNav,
+            }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.edit_url) {
+            document.getElementById('add-page-modal').close();
+            window.location.href = data.edit_url;
+        } else {
+            errEl.textContent = data.error || 'Failed to create page.';
+            errEl.classList.remove('hidden');
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="file-plus" class="w-4 h-4"></i> Create Page';
+            lucide.createIcons();
+        }
+    } catch (e) {
+        errEl.textContent = 'Network error: ' + String(e);
+        errEl.classList.remove('hidden');
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="file-plus" class="w-4 h-4"></i> Create Page';
+        lucide.createIcons();
+    }
+}
+
+// Format ISO timestamps as relative time ("2 hours ago")
+document.querySelectorAll('[data-publish-time]').forEach(el => {
+    const iso = el.dataset.publishTime;
+    if (!iso) return;
+    const d = new Date(iso);
+    if (isNaN(d)) return;
+    const diff = Math.round((Date.now() - d.getTime()) / 1000);
+    let label;
+    if (diff < 60) label = `${diff}s ago`;
+    else if (diff < 3600) label = `${Math.round(diff/60)}m ago`;
+    else if (diff < 86400) label = `${Math.round(diff/3600)}h ago`;
+    else label = `${Math.round(diff/86400)}d ago`;
+    el.textContent = label;
+    el.title = d.toLocaleString();
+});
 </script>
 {% endblock %}

@@ -28,6 +28,7 @@ pdf-viewer = { path = "../pdf-viewer" }
 bpmn-viewer = { path = "../bpmn-viewer" }
 course-processor = { path = "../workspace-processors/course-processor" }
 site-publisher = { path = "../site-publisher" }
+site-generator = { path = "../site-generator" }
 site-overview  = { path = "../site-overview" }
 
 [dev-dependencies]

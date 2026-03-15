@@ -150,6 +150,7 @@
                                     {% for lang in &languages %}
                                     <th class="text-center">{{ lang }}</th>
                                     {% endfor %}
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -173,6 +174,12 @@
                                         {% endif %}
                                     </td>
                                     {% endfor %}
+                                    <td class="text-right">
+                                        <a href="/workspaces/{{ workspace_id }}/site-collection?path={{ folder_path }}&collection={{ col.name }}"
+                                           class="btn btn-xs btn-ghost gap-1">
+                                            <i data-lucide="pencil" class="w-3 h-3"></i> Edit
+                                        </a>
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

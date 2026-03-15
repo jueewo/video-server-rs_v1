@@ -14,6 +14,9 @@ pub struct VitepressGeneratorConfig {
     /// Fallback favicon path (e.g. "/favicon.webp") used when vitepressdef.yaml
     /// does not specify one. Ignored if the yaml already sets `favicon`.
     pub default_favicon: Option<String>,
+    /// When set, written as `base:` in config.ts so assets resolve correctly
+    /// when the built site is served from a subpath (e.g. for local preview).
+    pub base_path: Option<String>,
 }
 
 /// Parse and validate vitepressdef.yaml from the source directory.
@@ -42,7 +45,7 @@ pub fn generate_vitepress(config: &VitepressGeneratorConfig) -> Result<Vitepress
     std::fs::create_dir_all(out)?;
 
     write_package_json(out)?;
-    write_vitepress_config(&def, out)?;
+    write_vitepress_config(&def, out, config.base_path.as_deref())?;
     copy_docs(&config.source_dir, out)?;
     copy_public(&config.source_dir, out)?;
 
@@ -74,7 +77,7 @@ fn write_package_json(out: &Path) -> Result<()> {
 
 // ── .vitepress/config.ts ──────────────────────────────────────────────────────
 
-fn write_vitepress_config(def: &VitepressDef, out: &Path) -> Result<()> {
+fn write_vitepress_config(def: &VitepressDef, out: &Path, base_path: Option<&str>) -> Result<()> {
     let vp_dir = out.join(".vitepress");
     std::fs::create_dir_all(&vp_dir)?;
 
@@ -119,6 +122,13 @@ fn write_vitepress_config(def: &VitepressDef, out: &Path) -> Result<()> {
         String::new()
     };
 
+    let base_line = if let Some(base) = base_path {
+        let base_json = serde_json::to_string(base)?;
+        format!("  base: {base_json},\n")
+    } else {
+        String::new()
+    };
+
     let config = format!(
         r#"import {{ defineConfig }} from 'vitepress'
 {custom_css}
@@ -130,7 +140,8 @@ export default defineConfig({{
   title: {title_json},
   description: {description_json},
   srcDir: 'docs',
-{head_block}  themeConfig: {{
+  outDir: 'dist',
+{base_line}{head_block}  themeConfig: {{
     nav,
     sidebar,
     search: {{
@@ -141,6 +152,7 @@ export default defineConfig({{
 }})
 "#,
         custom_css = custom_css,
+        base_line = base_line,
         head_block = head_block,
         nav_json = nav_json,
         sidebar_json = sidebar_json,

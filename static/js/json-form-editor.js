@@ -43,7 +43,7 @@
  * { path: 'props.limit',   type: 'number',     label: 'Max items' }
  * { path: 'content.body',  type: 'textarea',   label: 'Body text' }
  *
- * Supported field types: text | textarea | text-array | boolean | number
+ * Supported field types: text | textarea | text-array | boolean | number | image
  */
 
 (function(global) {
@@ -162,6 +162,42 @@
         return inp;
     }
 
+    function buildImageField(field, value, data) {
+        var container = document.createElement('div');
+        container.className = 'space-y-1';
+
+        var inp = document.createElement('input');
+        inp.type = 'text';
+        inp.className = 'input input-bordered input-sm w-full font-mono text-xs';
+        inp.placeholder = '/images/photo.jpg or /media/slug/image.webp';
+        inp.value = (value !== undefined && value !== null) ? String(value) : '';
+
+        var preview = document.createElement('div');
+        preview.className = 'mt-1';
+
+        function updatePreview() {
+            var src = inp.value.trim();
+            if (!src) {
+                preview.innerHTML = '';
+                return;
+            }
+            preview.innerHTML =
+                '<img src="' + escHtml(src) + '" alt="preview" ' +
+                'class="h-16 w-auto rounded border border-base-300 object-contain bg-base-200" ' +
+                'onerror="this.parentNode.innerHTML=\'<span class=\\\"text-xs text-base-content/40\\\">preview unavailable</span>\'">';
+        }
+
+        inp.addEventListener('input', function() {
+            setPath(data, field.path, this.value);
+            updatePreview();
+        });
+
+        updatePreview();
+        container.appendChild(inp);
+        container.appendChild(preview);
+        return container;
+    }
+
     function buildFieldEl(field, data) {
         var value = getPath(data, field.path);
         var wrap = document.createElement('div');
@@ -179,6 +215,7 @@
             case 'boolean':    control = buildBooleanField(field, value, data);   break;
             case 'number':     control = buildNumberField(field, value, data);    break;
             case 'text-array': control = buildTextArrayField(field, value, data); break;
+            case 'image':      control = buildImageField(field, value, data);     break;
             default:           control = buildTextField(field, value, data);      break;
         }
         wrap.appendChild(control);

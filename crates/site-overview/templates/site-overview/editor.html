@@ -223,7 +223,7 @@ var FIELD_SCHEMAS = {
         { path: 'title',          type: 'text',       label: 'Title' },
         { path: 'desc',           type: 'text-array', label: 'Description' },
         { path: 'button',         type: 'text',       label: 'Button text' },
-        { path: 'image',          type: 'text',       label: 'Image path' },
+        { path: 'image',          type: 'image',      label: 'Image' },
         { path: 'link',           type: 'text',       label: 'Button link (URL)' },
         { path: 'fullscreen',     type: 'boolean',    label: 'Full screen' },
         { path: 'image_zoomable', type: 'boolean',    label: 'Zoomable image' },
@@ -233,9 +233,9 @@ var FIELD_SCHEMAS = {
         { path: 'title',       type: 'text',       label: 'Title' },
         { path: 'desc',        type: 'text-array', label: 'Description' },
         { path: 'button',      type: 'text',       label: 'Button text' },
-        { path: 'image',       type: 'text',       label: 'Image path' },
+        { path: 'image',       type: 'image',      label: 'Image' },
         { path: 'image_alt',   type: 'text',       label: 'Image alt text' },
-        { path: 'bgimage',     type: 'text',       label: 'Background image' },
+        { path: 'bgimage',     type: 'image',      label: 'Background image' },
         { path: 'bgimage_alt', type: 'text',       label: 'Background image alt' },
         { path: 'tags',        type: 'text-array', label: 'Tags' },
         { path: 'link',        type: 'text',       label: 'Button link (URL)' },
@@ -249,7 +249,7 @@ var FIELD_SCHEMAS = {
     TitleHero: [
         { path: 'title', type: 'text',       label: 'Title' },
         { path: 'desc',  type: 'text-array', label: 'Description' },
-        { path: 'image', type: 'text',       label: 'Image path' },
+        { path: 'image', type: 'image',      label: 'Image' },
         { path: 'h1',    type: 'boolean',    label: 'Render as H1' },
     ],
     TitleAlertBanner: [
@@ -293,9 +293,9 @@ var FIELD_SCHEMAS = {
         { path: 'datafile', type: 'text',       label: 'BPMN file (.bpmn)' },
     ],
     Video: [
-        { path: 'title',       type: 'text', label: 'Title' },
-        { path: 'videoUrl',    type: 'text', label: 'Video URL (.m3u8 or .mp4)' },
-        { path: 'posterImage', type: 'text', label: 'Poster image path' },
+        { path: 'title',       type: 'text',  label: 'Title' },
+        { path: 'videoUrl',    type: 'text',  label: 'Video URL (.m3u8 or .mp4)' },
+        { path: 'posterImage', type: 'image', label: 'Poster image' },
     ],
     CTA:      [],
     CTARemote: [

@@ -170,12 +170,13 @@ fn inline_vault_media(vault_id: &str, output_dir: &Path) -> Result<()> {
 /// can be served from a subpath (e.g. `/storage/site-builds/.../dist`).
 pub fn build_astro(output_dir: &Path, base_path: Option<&str>) -> Result<()> {
     info!("Running bun install in {}", output_dir.display());
-    let status = std::process::Command::new("bun")
+    let out = std::process::Command::new("bun")
         .args(["install"])
         .current_dir(output_dir)
-        .status()?;
-    if !status.success() {
-        anyhow::bail!("bun install failed");
+        .output()?;
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        anyhow::bail!("bun install failed: {stderr}");
     }
 
     info!("Running bun run build in {}", output_dir.display());
@@ -183,10 +184,13 @@ pub fn build_astro(output_dir: &Path, base_path: Option<&str>) -> Result<()> {
     cmd.args(["run", "build"]).current_dir(output_dir);
     if let Some(base) = base_path {
         cmd.env("ASTRO_BASE", base);
+        info!("ASTRO_BASE={base}");
     }
-    let status = cmd.status()?;
-    if !status.success() {
-        anyhow::bail!("bun build failed");
+    let out = cmd.output()?;
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        anyhow::bail!("bun build failed.\nstderr: {stderr}\nstdout: {stdout}");
     }
 
     info!("Astro build complete");

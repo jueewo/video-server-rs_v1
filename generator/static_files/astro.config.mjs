@@ -14,7 +14,7 @@ import siteConfig from "./src/website.redirects.mjs";
 const siteUrl = process.env.SITE_URL || "http://localhost:4321";
 // Base path: set ASTRO_BASE for preview builds served under a subpath (e.g. /storage/site-builds/...).
 // Leave unset for production builds served from root.
-const astroBase = process.env.ASTRO_BASE || "";
+const astroBase = process.env.ASTRO_BASE; // undefined → Astro default ("/")
 
 export default defineConfig({
   redirects: siteConfig.redirects,
@@ -22,7 +22,7 @@ export default defineConfig({
   outDir: "./dist",
   publicDir: "./public",
   site: siteUrl,
-  base: astroBase,
+  ...(astroBase ? { base: astroBase } : {}),
 
   server: {
     host: "localhost",

@@ -4026,33 +4026,34 @@ pub async fn generate_site_handler(
     session: Session,
     State(state): State<Arc<WorkspaceManagerState>>,
     Json(request): Json<GenerateSiteRequest>,
-) -> Result<Json<GenerateSiteResponse>, StatusCode> {
-    check_scope(&user, "write")?;
-    let user_id = require_auth(&session).await?;
-    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+) -> Result<Json<GenerateSiteResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let je = |s: StatusCode| (s, Json(serde_json::json!({})));
+    check_scope(&user, "write").map_err(je)?;
+    let user_id = require_auth(&session).await.map_err(je)?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await.map_err(je)?;
 
     // Validate and resolve source path
     let clean = request.folder_path.trim_start_matches('/');
     for seg in clean.split('/') {
         if seg == ".." || seg == "." {
-            return Err(StatusCode::BAD_REQUEST);
+            return Err(je(StatusCode::BAD_REQUEST));
         }
     }
     let workspace_root = state.storage.workspace_root(&workspace_id);
     let source_dir = workspace_root.join(clean);
     if !source_dir.exists() || !source_dir.is_dir() {
-        return Err(StatusCode::NOT_FOUND);
+        return Err(je(StatusCode::NOT_FOUND));
     }
 
     // Verify the folder is typed as a publishable site type
     let config = WorkspaceConfig::load(&workspace_root).map_err(|e| {
         warn!("Failed to load workspace config: {e}");
-        StatusCode::INTERNAL_SERVER_ERROR
+        je(StatusCode::INTERNAL_SERVER_ERROR)
     })?;
-    let folder_config = config.get_folder(&request.folder_path).ok_or(StatusCode::NOT_FOUND)?;
+    let folder_config = config.get_folder(&request.folder_path).ok_or_else(|| je(StatusCode::NOT_FOUND))?;
     let folder_type = folder_config.folder_type.as_str().to_string();
     if folder_type != "yhm-site-data" && folder_type != "vitepress-docs" {
-        return Err(StatusCode::BAD_REQUEST);
+        return Err(je(StatusCode::BAD_REQUEST));
     }
 
     // Determine components dir: request override → folder metadata → env var
@@ -4120,7 +4121,7 @@ pub async fn generate_site_handler(
     let folder_slug_for_preview = folder_slug.clone();
     let workspace_id_for_preview = workspace_id.clone();
     let output_dir_log = output_dir.clone();
-    let message = tokio::task::spawn_blocking(move || {
+    let publish_result: Result<String, String> = tokio::task::spawn_blocking(move || {
         if folder_type == "vitepress-docs" {
             let static_dir = std::env::current_dir().ok().map(|d| d.join("static"));
             let vp_config = site_publisher::VitepressPublishConfig {
@@ -4161,22 +4162,26 @@ pub async fn generate_site_handler(
         }
     })
     .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-    .map_err(|e| {
-        warn!("Site publish failed: {e:#}");
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+    .map_err(|_| "spawn_blocking panicked".to_string())
+    .and_then(|r| r.map_err(|e| format!("{e:#}")));
 
-    info!("Site published: {}", output_dir_log.display());
-
-    // Persist publish status into workspace.yaml so the dashboard can show it.
-    let publish_status = if forgejo_repo.is_some() { "pushed" } else if do_build { "built" } else { "generated" };
+    // Always persist status — including errors — so the dashboard shows what happened.
     let timestamp = chrono::Utc::now().to_rfc3339();
     let folder_path_key = format!("/{}", clean);
-    let preview_url = if do_build && forgejo_repo.is_none() {
-        format!("/storage/site-builds/{workspace_id_for_preview}/{folder_slug_for_preview}/dist/")
-    } else {
-        String::new()
+    let (publish_status, save_message, preview_url) = match &publish_result {
+        Ok(msg) => {
+            let status = if forgejo_repo.is_some() { "pushed" } else if do_build { "built" } else { "generated" };
+            let url = if do_build && forgejo_repo.is_none() {
+                format!("/storage/site-builds/{workspace_id_for_preview}/{folder_slug_for_preview}/dist/")
+            } else {
+                String::new()
+            };
+            (status, msg.clone(), url)
+        }
+        Err(e) => {
+            warn!("Site publish failed: {e}");
+            ("error", format!("Build failed: {e}"), String::new())
+        }
     };
     {
         let mut cfg = WorkspaceConfig::load(&workspace_root).unwrap_or_else(|_| {
@@ -4184,16 +4189,26 @@ pub async fn generate_site_handler(
         });
         cfg.set_folder_metadata(&folder_path_key, "last_publish_time".into(), serde_yaml::Value::String(timestamp.clone()));
         cfg.set_folder_metadata(&folder_path_key, "last_publish_status".into(), serde_yaml::Value::String(publish_status.to_string()));
-        cfg.set_folder_metadata(&folder_path_key, "last_publish_message".into(), serde_yaml::Value::String(message.clone()));
+        cfg.set_folder_metadata(&folder_path_key, "last_publish_message".into(), serde_yaml::Value::String(save_message.clone()));
         cfg.set_folder_metadata(&folder_path_key, "last_preview_url".into(), serde_yaml::Value::String(preview_url.clone()));
         if let Err(e) = cfg.save(&workspace_root) {
             warn!("Failed to save publish metadata to workspace.yaml: {e}");
         }
     }
-    Ok(Json(GenerateSiteResponse {
-        output_dir: output_dir_log.display().to_string(),
-        message,
-    }))
+
+    match publish_result {
+        Ok(message) => {
+            info!("Site published: {}", output_dir_log.display());
+            Ok(Json(GenerateSiteResponse {
+                output_dir: output_dir_log.display().to_string(),
+                message,
+            }))
+        }
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": e })),
+        )),
+    }
 }
 
 // ============================================================================

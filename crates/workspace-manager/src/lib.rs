@@ -4167,7 +4167,7 @@ pub async fn generate_site_handler(
 
     // Always persist status — including errors — so the dashboard shows what happened.
     let timestamp = chrono::Utc::now().to_rfc3339();
-    let folder_path_key = format!("/{}", clean);
+    let folder_path_key = clean.to_string(); // no leading slash — matches how folders are keyed in workspace.yaml
     let (publish_status, save_message, preview_url) = match &publish_result {
         Ok(msg) => {
             let status = if forgejo_repo.is_some() { "pushed" } else if do_build { "built" } else { "generated" };

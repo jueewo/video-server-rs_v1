@@ -40,23 +40,70 @@
     <!-- Two-column layout: body | metadata -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-        <!-- Left: MDX body editor (2/3 width) -->
+        <!-- Left: tabbed editor (2/3 width) -->
         <div class="lg:col-span-2 flex flex-col gap-4">
-
-            <!-- Body (Pre section tabs will be added in Phase 2) -->
             <div class="card bg-base-100 border border-base-300 shadow-sm flex-1">
                 <div class="card-body p-3">
-                    <div class="flex items-center justify-between mb-2">
-                        <h2 class="font-semibold text-sm flex items-center gap-2">
-                            <i data-lucide="file-text" class="w-4 h-4"></i> Content (MDX)
-                        </h2>
-                        <span class="text-xs text-base-content/40">Markdown + JSX components</span>
+
+                    <!-- Tab bar -->
+                    <div role="tablist" class="tabs tabs-bordered mb-3">
+                        <button role="tab" id="stab-pre"     class="tab tab-sm"        onclick="switchSection('pre')">Pre</button>
+                        <button role="tab" id="stab-content" class="tab tab-sm tab-active" onclick="switchSection('content')">Content (MDX)</button>
+                        <button role="tab" id="stab-post"    class="tab tab-sm"        onclick="switchSection('post')">Post</button>
+                        <button role="tab" id="stab-faq"     class="tab tab-sm"        onclick="switchSection('faq')">FAQ</button>
                     </div>
-                    <textarea id="body-editor"
-                        class="textarea textarea-bordered font-mono text-xs w-full resize-y"
-                        rows="32"
-                        spellcheck="false"
-                        oninput="markUnsaved()">{{ body }}</textarea>
+
+                    <!-- Pre elements -->
+                    <div id="section-pre" class="hidden">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs text-base-content/50">Elements rendered <strong>above</strong> the MDX content</span>
+                            <button onclick="showAddElementModal('elements_above')" class="btn btn-xs btn-primary gap-1">
+                                <i data-lucide="plus" class="w-3 h-3"></i> Add
+                            </button>
+                        </div>
+                        <ul id="pre-list" class="space-y-1 min-h-8"></ul>
+                        <p id="pre-empty" class="text-xs text-base-content/40 py-2 text-center italic hidden">No pre-elements yet.</p>
+                    </div>
+
+                    <!-- Content (MDX body) -->
+                    <div id="section-content">
+                        <div class="flex items-center justify-between mb-2">
+                            <h2 class="font-semibold text-sm flex items-center gap-2">
+                                <i data-lucide="file-text" class="w-4 h-4"></i> MDX body
+                            </h2>
+                            <span class="text-xs text-base-content/40">Markdown + JSX components</span>
+                        </div>
+                        <textarea id="body-editor"
+                            class="textarea textarea-bordered font-mono text-xs w-full resize-y"
+                            rows="32"
+                            spellcheck="false"
+                            oninput="markUnsaved()">{{ body }}</textarea>
+                    </div>
+
+                    <!-- Post elements -->
+                    <div id="section-post" class="hidden">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs text-base-content/50">Elements rendered <strong>below</strong> the MDX content</span>
+                            <button onclick="showAddElementModal('elements_below')" class="btn btn-xs btn-primary gap-1">
+                                <i data-lucide="plus" class="w-3 h-3"></i> Add
+                            </button>
+                        </div>
+                        <ul id="post-list" class="space-y-1 min-h-8"></ul>
+                        <p id="post-empty" class="text-xs text-base-content/40 py-2 text-center italic hidden">No post-elements yet.</p>
+                    </div>
+
+                    <!-- FAQ -->
+                    <div id="section-faq" class="hidden">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs text-base-content/50">FAQ items (rendered by FAQComponent)</span>
+                            <button onclick="addFaqItem()" class="btn btn-xs btn-primary gap-1">
+                                <i data-lucide="plus" class="w-3 h-3"></i> Add item
+                            </button>
+                        </div>
+                        <div id="faq-list" class="space-y-3"></div>
+                        <p id="faq-empty" class="text-xs text-base-content/40 py-2 text-center italic hidden">No FAQ items yet.</p>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -207,6 +254,98 @@
     <div id="toast-msg" class="alert shadow-lg max-w-sm"></div>
 </div>
 
+<!-- Element Edit Modal -->
+<dialog id="element-edit-modal" class="modal">
+    <div class="modal-box max-w-lg">
+        <h3 class="font-bold text-base mb-1" id="elem-modal-title">Edit Element</h3>
+        <p class="text-xs text-base-content/50 mb-3" id="elem-modal-subtitle"></p>
+
+        <div role="tablist" class="tabs tabs-bordered mb-3">
+            <button role="tab" id="elem-tab-form" class="tab tab-sm tab-active" onclick="switchElemTab('form')">Form</button>
+            <button role="tab" id="elem-tab-json" class="tab tab-sm" onclick="switchElemTab('json')">JSON</button>
+        </div>
+
+        <div id="elem-form-view">
+            <div class="grid grid-cols-2 gap-3 mb-3 pb-3 border-b border-base-200">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="elem-field-draft" class="checkbox checkbox-sm">
+                    <span class="text-xs font-medium">Draft (hidden)</span>
+                </label>
+            </div>
+            <div id="elem-form-fields" class="space-y-3 max-h-80 overflow-y-auto pr-1"></div>
+        </div>
+
+        <div id="elem-json-view" class="hidden">
+            <textarea id="elem-json-editor" class="textarea textarea-bordered font-mono text-xs w-full" rows="16" spellcheck="false"></textarea>
+        </div>
+
+        <div class="modal-action mt-4">
+            <button onclick="saveElementEdit()" class="btn btn-primary btn-sm">Save</button>
+            <button onclick="document.getElementById('element-edit-modal').close()" class="btn btn-ghost btn-sm">Cancel</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Add Element Modal -->
+<dialog id="add-element-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">Add Element</h3>
+        <div>
+            <label class="label py-0 pb-1"><span class="label-text text-sm">Element Type</span></label>
+            <select id="new-element-type" class="select select-bordered w-full select-sm">
+                <optgroup label="Heroes">
+                    <option value="Hero" selected>Hero</option>
+                    <option value="Hero2">Hero2</option>
+                    <option value="TitleHero">TitleHero</option>
+                    <option value="TitleAlertBanner">TitleAlertBanner</option>
+                </optgroup>
+                <optgroup label="Content">
+                    <option value="Collection">Collection</option>
+                    <option value="MdText">MdText</option>
+                    <option value="NewsBanner">NewsBanner</option>
+                    <option value="Carousel">Carousel</option>
+                    <option value="StatData">StatData</option>
+                    <option value="SlidingGallery">SlidingGallery</option>
+                    <option value="TeamGrid">TeamGrid</option>
+                </optgroup>
+                <optgroup label="Media / Interactive">
+                    <option value="Video">Video</option>
+                    <option value="Presentation">Presentation</option>
+                    <option value="Process">Process</option>
+                    <option value="CTARemote">CTARemote</option>
+                    <option value="CTA">CTA</option>
+                    <option value="LikeButton">LikeButton</option>
+                    <option value="Hello">Hello</option>
+                </optgroup>
+            </select>
+        </div>
+        <div class="modal-action">
+            <button onclick="doAddElement()" class="btn btn-primary btn-sm">Add</button>
+            <button onclick="document.getElementById('add-element-modal').close()" class="btn btn-ghost btn-sm">Cancel</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Element Delete Modal -->
+<dialog id="element-delete-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold">Delete element?</h3>
+        <p class="text-sm text-base-content/60 mt-2"><span id="elem-delete-desc" class="font-mono text-xs"></span></p>
+        <p class="text-sm text-error mt-1">This cannot be undone.</p>
+        <div class="modal-action">
+            <button onclick="doDeleteElement()" class="btn btn-error btn-sm">Delete</button>
+            <button onclick="document.getElementById('element-delete-modal').close()" class="btn btn-ghost btn-sm">Cancel</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
+<script src="/static/js/json-form-editor.js"></script>
+<script src="/static/js/site-schemas.js"></script>
+<script src="/static/js/media-picker.js"></script>
 <script>
 var WORKSPACE_ID    = '{{ workspace_id }}';
 var FOLDER_PATH     = '{{ folder_path }}';
@@ -216,7 +355,14 @@ var SLUG            = '{{ slug }}';
 
 // Frontmatter: single source of truth (mutable JS object)
 var fmData = {{ frontmatter_json|safe }};
-var fmJsonDirty = false; // true when raw JSON textarea was edited directly
+var fmJsonDirty = false;
+
+// Ensure element arrays exist
+if (!Array.isArray(fmData.elements_above)) fmData.elements_above = [];
+if (!Array.isArray(fmData.elements_below)) fmData.elements_below = [];
+if (!Array.isArray(fmData.faqdata))        fmData.faqdata = [];
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
 
 function showToast(msg, type) {
     var el = document.getElementById('toast-msg');
@@ -230,9 +376,14 @@ function markUnsaved() {
     document.getElementById('status-badge').classList.remove('hidden');
 }
 
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Frontmatter form ─────────────────────────────────────────────────────────
+
 function syncFmField(key, value) {
     fmData[key] = value;
-    // Keep raw JSON textarea in sync
     document.getElementById('fm-json-editor').value = JSON.stringify(fmData, null, 2);
 }
 
@@ -241,15 +392,11 @@ function onFmJsonEdit() {
     markUnsaved();
 }
 
-// ── Tag arrays ────────────────────────────────────────────────────────────────
-
 function renderTagArray(wrapId, key) {
     var wrap = document.getElementById(wrapId);
     wrap.innerHTML = '';
     var arr = Array.isArray(fmData[key]) ? fmData[key] : [];
-    arr.forEach(function(val, i) {
-        addTagLine(wrapId, key, val, false);
-    });
+    arr.forEach(function(val) { addTagLine(wrapId, key, val, false); });
 }
 
 function addTagLine(wrapId, key, val, updateFm) {
@@ -282,8 +429,6 @@ function syncTagArray(wrapId, key) {
     document.getElementById('fm-json-editor').value = JSON.stringify(fmData, null, 2);
 }
 
-// ── Populate form from fmData ─────────────────────────────────────────────────
-
 function populateForm() {
     var set = function(id, val) {
         var el = document.getElementById(id);
@@ -312,13 +457,330 @@ function populateForm() {
     }
 }
 
-// ── Raw JSON toggle ───────────────────────────────────────────────────────────
-
 function toggleFmJson() {
     var wrap = document.getElementById('fm-json-wrap');
     var chev = document.getElementById('fm-chevron');
     var hidden = wrap.classList.toggle('hidden');
     chev.setAttribute('data-lucide', hidden ? 'chevron-down' : 'chevron-up');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// ── Section tabs ──────────────────────────────────────────────────────────────
+
+var SECTIONS = ['pre', 'content', 'post', 'faq'];
+
+function switchSection(name) {
+    SECTIONS.forEach(function(s) {
+        document.getElementById('section-' + s).classList.toggle('hidden', s !== name);
+        var tab = document.getElementById('stab-' + s);
+        tab.classList.toggle('tab-active', s === name);
+    });
+}
+
+// ── Element list rendering (pre / post) ──────────────────────────────────────
+
+function renderElementList(key) {
+    var isAbove = (key === 'elements_above');
+    var listId  = isAbove ? 'pre-list'  : 'post-list';
+    var emptyId = isAbove ? 'pre-empty' : 'post-empty';
+
+    var list  = document.getElementById(listId);
+    var empty = document.getElementById(emptyId);
+    list.innerHTML = '';
+
+    var arr = fmData[key] || [];
+    if (arr.length === 0) {
+        empty.classList.remove('hidden');
+        return;
+    }
+    empty.classList.add('hidden');
+
+    arr.forEach(function(el, idx) {
+        list.appendChild(buildElementItem(key, el, idx));
+    });
+
+    initElementSortable(list, key);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function buildElementItem(key, el, idx) {
+    var li = document.createElement('li');
+    li.className = 'element-item flex items-center gap-2 p-2 rounded border border-base-200 hover:border-base-300 bg-base-50';
+    li.dataset.key = key;
+    li.dataset.idx = idx;
+
+    var handle = document.createElement('span');
+    handle.className = 'elem-drag-handle cursor-grab text-base-content/30 hover:text-base-content/60 flex-shrink-0';
+    handle.innerHTML = '<i data-lucide="grip-vertical" class="w-4 h-4"></i>';
+
+    var posBadge = document.createElement('span');
+    posBadge.className = 'elem-pos-badge badge badge-ghost badge-xs font-mono w-6 text-center flex-shrink-0';
+    posBadge.textContent = idx + 1;
+
+    var typeBadge = document.createElement('span');
+    typeBadge.className = 'badge badge-outline badge-sm flex-shrink-0';
+    typeBadge.textContent = el.element || '?';
+
+    var titleSpan = document.createElement('span');
+    titleSpan.className = 'text-xs text-base-content/60 flex-1 truncate min-w-0';
+    titleSpan.textContent = getElementLabel(el);
+
+    var actions = document.createElement('div');
+    actions.className = 'flex gap-1 flex-shrink-0';
+
+    if (el.draft) {
+        var db = document.createElement('span');
+        db.className = 'badge badge-warning badge-xs flex-shrink-0';
+        db.textContent = 'draft';
+        actions.appendChild(db);
+    }
+
+    var editBtn = document.createElement('button');
+    editBtn.className = 'btn btn-xs btn-ghost';
+    editBtn.title = 'Edit';
+    editBtn.innerHTML = '<i data-lucide="edit-3" class="w-3 h-3"></i>';
+    editBtn.addEventListener('click', function() {
+        openElementEdit(li.dataset.key, parseInt(li.dataset.idx, 10));
+    });
+
+    var delBtn = document.createElement('button');
+    delBtn.className = 'btn btn-xs btn-ghost text-error';
+    delBtn.title = 'Delete';
+    delBtn.innerHTML = '<i data-lucide="trash-2" class="w-3 h-3"></i>';
+    delBtn.addEventListener('click', function() {
+        confirmDeleteElement(li.dataset.key, parseInt(li.dataset.idx, 10), el.element || 'element');
+    });
+
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+
+    li.appendChild(handle);
+    li.appendChild(posBadge);
+    li.appendChild(typeBadge);
+    li.appendChild(titleSpan);
+    li.appendChild(actions);
+
+    return li;
+}
+
+function initElementSortable(list, key) {
+    if (typeof Sortable === 'undefined') return;
+    Sortable.create(list, {
+        handle: '.elem-drag-handle',
+        animation: 150,
+        onEnd: function() {
+            var items = list.querySelectorAll('.element-item');
+            var oldArr = (fmData[key] || []).slice();
+            var newArr = [];
+            items.forEach(function(item) {
+                newArr.push(oldArr[parseInt(item.dataset.idx, 10)]);
+            });
+            fmData[key] = newArr;
+            items.forEach(function(item, i) {
+                item.dataset.idx = i;
+                var badge = item.querySelector('.elem-pos-badge');
+                if (badge) badge.textContent = i + 1;
+            });
+            document.getElementById('fm-json-editor').value = JSON.stringify(fmData, null, 2);
+            markUnsaved();
+        }
+    });
+}
+
+// ── Element edit modal ────────────────────────────────────────────────────────
+
+var editingKey = null;
+var editingIdx = null;
+var editJfe    = null;
+
+function openElementEdit(key, idx) {
+    editingKey = key;
+    editingIdx = idx;
+    var el = (fmData[key] || [])[idx];
+    if (!el) return;
+
+    var elementType = el.element || '';
+    document.getElementById('elem-modal-title').textContent = 'Edit: ' + elementType;
+    document.getElementById('elem-modal-subtitle').textContent = (key === 'elements_above' ? 'Pre' : 'Post') + ' element #' + (idx + 1);
+    document.getElementById('elem-field-draft').checked = !!el.draft;
+
+    if (!editJfe) {
+        editJfe = new JsonFormEditor({
+            fieldsContainer: document.getElementById('elem-form-fields'),
+            jsonTextarea:    document.getElementById('elem-json-editor'),
+            tabForm:         document.getElementById('elem-tab-form'),
+            tabJson:         document.getElementById('elem-tab-json'),
+            formView:        document.getElementById('elem-form-view'),
+            jsonView:        document.getElementById('elem-json-view'),
+            schemas:         FIELD_SCHEMAS,
+            complexTypes:    COMPLEX_NOTE_TYPES,
+        });
+    }
+
+    editJfe.open(JSON.parse(JSON.stringify(el)), elementType);
+    if (COMPLEX_NOTE_TYPES.indexOf(elementType) >= 0) {
+        editJfe.switchTab('json');
+    }
+
+    document.getElementById('element-edit-modal').showModal();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function switchElemTab(tab) {
+    if (editJfe) editJfe.switchTab(tab);
+}
+
+function saveElementEdit() {
+    if (editingKey === null || editingIdx === null || !editJfe) return;
+    var saved;
+    try { saved = editJfe.getData(); } catch(e) { showToast(e.message, 'error'); return; }
+    saved.draft = document.getElementById('elem-field-draft').checked;
+
+    fmData[editingKey][editingIdx] = saved;
+    document.getElementById('fm-json-editor').value = JSON.stringify(fmData, null, 2);
+    markUnsaved();
+    document.getElementById('element-edit-modal').close();
+    renderElementList(editingKey);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// ── Add element ───────────────────────────────────────────────────────────────
+
+var addingKey = null;
+
+function showAddElementModal(key) {
+    addingKey = key;
+    document.getElementById('add-element-modal').showModal();
+}
+
+function doAddElement() {
+    var type = document.getElementById('new-element-type').value;
+    document.getElementById('add-element-modal').close();
+
+    var newEl = makeTemplate(type);
+    if (!Array.isArray(fmData[addingKey])) fmData[addingKey] = [];
+    fmData[addingKey].push(newEl);
+
+    document.getElementById('fm-json-editor').value = JSON.stringify(fmData, null, 2);
+    markUnsaved();
+    renderElementList(addingKey);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    addingKey = null;
+}
+
+// ── Delete element ────────────────────────────────────────────────────────────
+
+var deletingKey = null;
+var deletingIdx = null;
+
+function confirmDeleteElement(key, idx, typeLabel) {
+    deletingKey = key;
+    deletingIdx = idx;
+    document.getElementById('elem-delete-desc').textContent =
+        typeLabel + ' #' + (idx + 1) + ' (' + (key === 'elements_above' ? 'Pre' : 'Post') + ')';
+    document.getElementById('element-delete-modal').showModal();
+}
+
+function doDeleteElement() {
+    if (deletingKey === null || deletingIdx === null) return;
+    document.getElementById('element-delete-modal').close();
+    fmData[deletingKey].splice(deletingIdx, 1);
+    document.getElementById('fm-json-editor').value = JSON.stringify(fmData, null, 2);
+    markUnsaved();
+    renderElementList(deletingKey);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    deletingKey = null;
+    deletingIdx = null;
+}
+
+// ── FAQ editor ────────────────────────────────────────────────────────────────
+
+function renderFaqList() {
+    var list  = document.getElementById('faq-list');
+    var empty = document.getElementById('faq-empty');
+    list.innerHTML = '';
+
+    var arr = fmData.faqdata || [];
+    if (arr.length === 0) {
+        empty.classList.remove('hidden');
+        return;
+    }
+    empty.classList.add('hidden');
+
+    arr.forEach(function(item, idx) {
+        list.appendChild(buildFaqItem(item, idx));
+    });
+}
+
+function buildFaqItem(item, idx) {
+    var div = document.createElement('div');
+    div.className = 'faq-item card bg-base-200/50 border border-base-300 p-3 space-y-2';
+    div.dataset.idx = idx;
+
+    var header = document.createElement('div');
+    header.className = 'flex items-center gap-2';
+    var num = document.createElement('span');
+    num.className = 'badge badge-ghost badge-xs font-mono';
+    num.textContent = idx + 1;
+    var del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'btn btn-xs btn-ghost text-error ml-auto';
+    del.innerHTML = '<i data-lucide="trash-2" class="w-3 h-3"></i>';
+    del.addEventListener('click', function() { deleteFaqItem(idx); });
+    header.appendChild(num);
+    header.appendChild(del);
+
+    var qLabel = document.createElement('label');
+    qLabel.className = 'label py-0';
+    qLabel.innerHTML = '<span class="label-text text-xs font-medium">Question</span>';
+
+    var qInput = document.createElement('input');
+    qInput.type = 'text';
+    qInput.className = 'input input-bordered input-xs w-full';
+    qInput.value = item.quest || '';
+    qInput.addEventListener('input', function() {
+        fmData.faqdata[idx].quest = this.value;
+        document.getElementById('fm-json-editor').value = JSON.stringify(fmData, null, 2);
+        markUnsaved();
+    });
+
+    var aLabel = document.createElement('label');
+    aLabel.className = 'label py-0';
+    aLabel.innerHTML = '<span class="label-text text-xs font-medium">Answer</span>';
+
+    var aInput = document.createElement('textarea');
+    aInput.className = 'textarea textarea-bordered textarea-xs w-full text-xs';
+    aInput.rows = 2;
+    aInput.value = item.ans || '';
+    aInput.addEventListener('input', function() {
+        fmData.faqdata[idx].ans = this.value;
+        document.getElementById('fm-json-editor').value = JSON.stringify(fmData, null, 2);
+        markUnsaved();
+    });
+
+    div.appendChild(header);
+    div.appendChild(qLabel);
+    div.appendChild(qInput);
+    div.appendChild(aLabel);
+    div.appendChild(aInput);
+
+    return div;
+}
+
+function addFaqItem() {
+    if (!Array.isArray(fmData.faqdata)) fmData.faqdata = [];
+    fmData.faqdata.push({ quest: '', ans: '' });
+    document.getElementById('fm-json-editor').value = JSON.stringify(fmData, null, 2);
+    markUnsaved();
+    renderFaqList();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function deleteFaqItem(idx) {
+    fmData.faqdata.splice(idx, 1);
+    document.getElementById('fm-json-editor').value = JSON.stringify(fmData, null, 2);
+    markUnsaved();
+    renderFaqList();
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
@@ -328,7 +790,6 @@ async function saveEntry() {
     var btn = document.getElementById('save-btn');
     btn.disabled = true;
 
-    // If raw JSON was edited, parse it and use as fmData
     if (fmJsonDirty) {
         try {
             fmData = JSON.parse(document.getElementById('fm-json-editor').value);
@@ -374,6 +835,9 @@ document.addEventListener('keydown', function(e) {
 
 // Init
 populateForm();
+renderElementList('elements_above');
+renderElementList('elements_below');
+renderFaqList();
 if (typeof lucide !== 'undefined') lucide.createIcons();
 </script>
 {% endblock %}

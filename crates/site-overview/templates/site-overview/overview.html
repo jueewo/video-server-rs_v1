@@ -134,8 +134,14 @@
                         <h2 class="card-title text-base">
                             <i data-lucide="book-open" class="w-4 h-4"></i> Collections
                         </h2>
-                        <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}/content"
-                           class="btn btn-xs btn-ghost">Browse →</a>
+                        <div class="flex gap-1">
+                            <button onclick="document.getElementById('add-collection-modal').showModal()"
+                                    class="btn btn-xs btn-primary gap-1">
+                                <i data-lucide="plus" class="w-3 h-3"></i> Add
+                            </button>
+                            <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}/content"
+                               class="btn btn-xs btn-ghost">Browse →</a>
+                        </div>
                     </div>
                     {% if collections.is_empty() %}
                     <p class="text-sm text-base-content/50">No collections defined yet.</p>
@@ -335,6 +341,41 @@
 
 </div>
 
+<!-- Add Collection Modal -->
+<dialog id="add-collection-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">Add Collection</h3>
+        <div class="space-y-3">
+            <div class="form-control">
+                <label class="label py-0 pb-1">
+                    <span class="label-text text-sm">Name</span>
+                    <span class="label-text-alt text-xs text-base-content/40">lowercase, a-z 0-9 - _</span>
+                </label>
+                <input id="nc-name" type="text" placeholder="blog" class="input input-bordered input-sm w-full font-mono" />
+            </div>
+            <div class="form-control">
+                <label class="label py-0 pb-1">
+                    <span class="label-text text-sm">Type</span>
+                </label>
+                <select id="nc-coltype" class="select select-bordered select-sm w-full">
+                    <option value="assetCardCollection">assetCardCollection</option>
+                    <option value="mdContentCollection">mdContentCollection</option>
+                </select>
+            </div>
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="nc-searchable" class="checkbox checkbox-sm" />
+                <span class="text-sm">Searchable</span>
+            </label>
+            <p id="nc-error" class="text-xs text-error hidden"></p>
+        </div>
+        <div class="modal-action">
+            <button onclick="doAddCollection()" class="btn btn-primary btn-sm">Create</button>
+            <button onclick="document.getElementById('add-collection-modal').close()" class="btn btn-ghost btn-sm">Cancel</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
 <!-- Publish result toast -->
 <div id="publish-toast" class="toast toast-top toast-end hidden" style="top:4.5rem;z-index:60">
     <div id="publish-toast-msg" class="alert shadow-lg max-w-sm"></div>
@@ -420,6 +461,33 @@ async function buildAndPreview() {
 
     // Reload in both cases — success shows preview link, failure shows error badge in dashboard
     setTimeout(() => window.location.reload(), ok ? 3000 : 5000);
+}
+
+// ── Add Collection ────────────────────────────────────────────────────────────
+
+async function doAddCollection() {
+    const name      = document.getElementById('nc-name').value.trim();
+    const coltype   = document.getElementById('nc-coltype').value;
+    const searchable = document.getElementById('nc-searchable').checked;
+    const errEl     = document.getElementById('nc-error');
+
+    if (!name) { errEl.textContent = 'Name is required.'; errEl.classList.remove('hidden'); return; }
+    if (!/^[a-z0-9_-]+$/.test(name)) {
+        errEl.textContent = 'Name must be lowercase letters, digits, hyphens, or underscores.';
+        errEl.classList.remove('hidden'); return;
+    }
+    errEl.classList.add('hidden');
+
+    const res = await fetch('/api/workspaces/{{ workspace_id }}/site-collections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder_path: '{{ folder_path }}', name, coltype, searchable }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (data.error) { errEl.textContent = data.error; errEl.classList.remove('hidden'); return; }
+
+    document.getElementById('add-collection-modal').close();
+    window.location.reload();
 }
 
 // Format ISO timestamps as relative time ("2 hours ago")

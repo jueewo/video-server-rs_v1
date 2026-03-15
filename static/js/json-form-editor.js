@@ -166,10 +166,14 @@
         var container = document.createElement('div');
         container.className = 'space-y-1';
 
+        // Input + browse button row
+        var row = document.createElement('div');
+        row.className = 'flex gap-1';
+
         var inp = document.createElement('input');
         inp.type = 'text';
-        inp.className = 'input input-bordered input-sm w-full font-mono text-xs';
-        inp.placeholder = '/images/photo.jpg or /media/slug/image.webp';
+        inp.className = 'input input-bordered input-sm flex-1 font-mono text-xs';
+        inp.placeholder = '/media/slug/image.webp';
         inp.value = (value !== undefined && value !== null) ? String(value) : '';
 
         var preview = document.createElement('div');
@@ -192,8 +196,27 @@
             updatePreview();
         });
 
+        row.appendChild(inp);
+
+        // Browse button — only rendered when MediaPicker is available
+        if (typeof MediaPicker !== 'undefined') {
+            var browseBtn = document.createElement('button');
+            browseBtn.type = 'button';
+            browseBtn.className = 'btn btn-sm btn-ghost flex-shrink-0';
+            browseBtn.title = 'Browse media vault';
+            browseBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+            browseBtn.addEventListener('click', function() {
+                MediaPicker.open(function(url) {
+                    inp.value = url;
+                    setPath(data, field.path, url);
+                    updatePreview();
+                }, 'image');
+            });
+            row.appendChild(browseBtn);
+        }
+
         updatePreview();
-        container.appendChild(inp);
+        container.appendChild(row);
         container.appendChild(preview);
         return container;
     }

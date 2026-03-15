@@ -4660,6 +4660,101 @@ async fn delete_collection_entry(
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
+// ── Create collection ─────────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct CreateCollectionRequest {
+    folder_path: String,
+    name: String,
+    coltype: String,
+    #[serde(default)]
+    searchable: bool,
+}
+
+async fn create_site_collection(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(req): Json<CreateCollectionRequest>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "write")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    // Validate name: lowercase letters, digits, hyphens, underscores
+    if req.name.is_empty()
+        || !req.name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Ok(Json(serde_json::json!({ "error": "Invalid collection name" })));
+    }
+    if req.coltype.is_empty() {
+        return Ok(Json(serde_json::json!({ "error": "coltype is required" })));
+    }
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let site_dir = workspace_root.join(&req.folder_path);
+    let sitedef_path = site_dir.join("sitedef.yaml");
+
+    // Read sitedef.yaml as a raw YAML value to avoid losing unknown fields
+    let yaml_text = std::fs::read_to_string(&sitedef_path)
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+    let mut root: serde_yaml::Value = serde_yaml::from_str(&yaml_text)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Get languages list so we can create dirs
+    let languages: Vec<String> = root
+        .get("languages")
+        .and_then(|v| v.as_sequence())
+        .map(|seq| {
+            seq.iter()
+                .filter_map(|item| item.get("locale").and_then(|l| l.as_str()).map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    // Check for duplicate collection name
+    if let Some(cols) = root.get("collections").and_then(|v| v.as_sequence()) {
+        for c in cols {
+            if c.get("name").and_then(|n| n.as_str()) == Some(&req.name) {
+                return Ok(Json(serde_json::json!({ "error": "Collection already exists" })));
+            }
+        }
+    }
+
+    // Append the new collection entry
+    let new_col = serde_yaml::Value::Mapping({
+        let mut m = serde_yaml::Mapping::new();
+        m.insert(serde_yaml::Value::String("name".into()),       serde_yaml::Value::String(req.name.clone()));
+        m.insert(serde_yaml::Value::String("coltype".into()),    serde_yaml::Value::String(req.coltype.clone()));
+        m.insert(serde_yaml::Value::String("searchable".into()), serde_yaml::Value::Bool(req.searchable));
+        m
+    });
+    root.as_mapping_mut()
+        .and_then(|m| m.get_mut("collections"))
+        .and_then(|v| v.as_sequence_mut())
+        .map(|seq| seq.push(new_col));
+
+    // Write sitedef.yaml back
+    let updated_yaml = serde_yaml::to_string(&root)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    std::fs::write(&sitedef_path, updated_yaml)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Create content/{name}/{locale}/ directories
+    let content_dir = site_dir.join("content").join(&req.name);
+    if languages.is_empty() {
+        // fallback: create a bare content dir
+        std::fs::create_dir_all(&content_dir).ok();
+    } else {
+        for locale in &languages {
+            std::fs::create_dir_all(content_dir.join(locale)).ok();
+        }
+    }
+
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
 // ============================================================================
 // Router
 // ============================================================================
@@ -4836,6 +4931,10 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         .route(
             "/workspaces/{workspace_id}/site-entry",
             get(site_entry_editor_page),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/site-collections",
+            post(create_site_collection),
         )
         .route(
             "/api/workspaces/{workspace_id}/site-collection/entries",

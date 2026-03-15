@@ -4647,6 +4647,7 @@ dependencies = [
  "async-trait",
  "axum",
  "serde_json",
+ "serde_yaml",
  "site-generator",
  "tokio",
  "tracing",

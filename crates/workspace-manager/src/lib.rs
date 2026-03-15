@@ -4014,6 +4014,18 @@ pub struct GenerateSiteRequest {
 pub struct GenerateSiteResponse {
     pub output_dir: String,
     pub message: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub preview_url: String,
+}
+
+/// Read `sitedef.yaml` and return the default-locale/first-page subpath
+/// (e.g. `"en/home/"`) so the preview URL can skip Astro's root redirect.
+fn site_home_subpath(source_dir: &std::path::Path) -> Option<String> {
+    let text = std::fs::read_to_string(source_dir.join("sitedef.yaml")).ok()?;
+    let val: serde_yaml::Value = serde_yaml::from_str(&text).ok()?;
+    let locale = val.get("defaultlanguage")?.get("locale")?.as_str()?;
+    let page = val.get("pages")?.as_sequence()?.first()?.get("slug")?.as_str()?;
+    Some(format!("{locale}/{page}/"))
 }
 
 /// POST /api/workspaces/{workspace_id}/site/generate
@@ -4120,6 +4132,7 @@ pub async fn generate_site_handler(
     let do_build = request.build.unwrap_or(false);
     let folder_slug_for_preview = folder_slug.clone();
     let workspace_id_for_preview = workspace_id.clone();
+    let source_dir_for_sitedef = source_dir.clone();
     let output_dir_log = output_dir.clone();
     let publish_result: Result<String, String> = tokio::task::spawn_blocking(move || {
         if folder_type == "vitepress-docs" {
@@ -4172,7 +4185,11 @@ pub async fn generate_site_handler(
         Ok(msg) => {
             let status = if forgejo_repo.is_some() { "pushed" } else if do_build { "built" } else { "generated" };
             let url = if do_build && forgejo_repo.is_none() {
-                format!("/storage/site-builds/{workspace_id_for_preview}/{folder_slug_for_preview}/dist/")
+                // Point directly at the home page to skip Astro's root redirect
+                // (redirect destinations are root-relative and break under a subpath base).
+                let home_path = site_home_subpath(&source_dir_for_sitedef)
+                    .unwrap_or_else(|| String::new());
+                format!("/storage/site-builds/{workspace_id_for_preview}/{folder_slug_for_preview}/dist/{home_path}")
             } else {
                 String::new()
             };
@@ -4202,6 +4219,7 @@ pub async fn generate_site_handler(
             Ok(Json(GenerateSiteResponse {
                 output_dir: output_dir_log.display().to_string(),
                 message,
+                preview_url: preview_url.clone(),
             }))
         }
         Err(e) => Err((

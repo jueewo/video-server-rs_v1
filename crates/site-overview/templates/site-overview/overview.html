@@ -392,10 +392,10 @@ async function buildAndPreview() {
         const data = await res.json().catch(() => ({}));
         ok = res.ok;
         if (res.ok) {
-            const slug = '{{ folder_path }}'.replace(/^\//, '').replace(/\//g, '_');
-            previewUrl = `/storage/site-builds/{{ workspace_id }}/${slug}/dist/`;
+            previewUrl = data.preview_url || '';
             msg.className = 'alert alert-success shadow-lg max-w-sm';
-            msg.innerHTML = `<i data-lucide="check-circle" class="w-5 h-5"></i><span>${data.message || 'Build complete!'} — <a href="${previewUrl}" target="_blank" class="underline font-semibold">Open Preview</a></span>`;
+            const previewLink = previewUrl ? ` — <a href="${previewUrl}" target="_blank" class="underline font-semibold">Open Preview</a>` : '';
+            msg.innerHTML = `<i data-lucide="check-circle" class="w-5 h-5"></i><span>${data.message || 'Build complete!'}${previewLink}</span>`;
         } else {
             msg.className = 'alert alert-error shadow-lg max-w-sm';
             msg.innerHTML = `<i data-lucide="x-circle" class="w-5 h-5"></i><span>${data.error || 'Build failed'}</span>`;

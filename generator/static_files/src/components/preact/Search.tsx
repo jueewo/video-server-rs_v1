@@ -128,11 +128,15 @@ function Pagination({
   );
 }
 
-function getLink(post: Post, lang: string = "en") {
+const _base = import.meta.env.BASE_URL;
+const base = _base === "/" ? "" : _base.replace(/\/$/, "");
+
+function getLink(post: Post) {
   // post.slug includes language prefix (e.g., "en/impressum")
-  // we need to remove it and add our own: /lang/collection/slug-without-lang
+  // extract lang from slug prefix, then build: base/lang/collection/slug-without-lang
+  const lang = post.slug.split("/")[0] || "en";
   const slugWithoutLang = post.slug.replace(/^[^/]+\//, ""); // Remove "en/" from "en/impressum"
-  return `/${lang}/${post.collection}/${slugWithoutLang}`;
+  return `${base}/${lang}/${post.collection}/${slugWithoutLang}`;
 }
 
 function Search({ searchList }: Props) {

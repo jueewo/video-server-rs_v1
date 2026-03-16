@@ -413,6 +413,8 @@ pub struct MarkdownPreviewTemplate {
     pub edit_url: String,
     pub back_url: String,
     pub back_label: String,
+    /// Other .md/.mdx files in the same directory: (display_name, workspace-relative path)
+    pub sibling_docs: Vec<(String, String)>,
 }
 
 // ============================================================================
@@ -2252,6 +2254,34 @@ pub async fn open_file_page(
                 "/workspaces/{}/edit-text?file={}",
                 workspace_id, encoded_path
             );
+            // Collect sibling .md/.mdx files from the same directory
+            let sibling_docs = {
+                let dir = workspace_root.join(file_dir.trim_start_matches('/'));
+                let current_name = std::path::Path::new(&file_path)
+                    .file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+                let mut siblings: Vec<(String, String)> = std::fs::read_dir(&dir)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|e| e.ok())
+                    .filter(|e| e.path().is_file())
+                    .filter_map(|e| {
+                        let name = e.file_name().to_string_lossy().to_string();
+                        if (name.ends_with(".md") || name.ends_with(".mdx")) && name != current_name {
+                            let rel = if file_dir.is_empty() {
+                                name.clone()
+                            } else {
+                                format!("{}/{}", file_dir.trim_start_matches('/'), name)
+                            };
+                            let display = name.trim_end_matches(".mdx").trim_end_matches(".md").to_string();
+                            Some((display, rel))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                siblings.sort_by(|a, b| a.0.cmp(&b.0));
+                siblings
+            };
             let template = MarkdownPreviewTemplate {
                 authenticated: true,
                 workspace_id: workspace_id.clone(),
@@ -2263,6 +2293,7 @@ pub async fn open_file_page(
                 edit_url,
                 back_url: back_url.clone(),
                 back_label: workspace_name.clone(),
+                sibling_docs,
             };
             template
                 .render()

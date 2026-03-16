@@ -37,21 +37,25 @@
     </div>
 
     <!-- Page / Language selectors -->
-    <div class="flex flex-wrap gap-3 mb-6 items-center">
-        <form method="get" action="/workspaces/{{ workspace_id }}/site-editor" class="flex gap-2 items-center flex-wrap">
+    <div class="mb-6">
+        <form method="get" action="/workspaces/{{ workspace_id }}/site-editor" class="flex items-end gap-4">
             <input type="hidden" name="path" value="{{ folder_path }}">
-            <label class="text-sm font-medium">Page:</label>
-            <select name="page" class="select select-sm select-bordered" onchange="this.form.submit()">
-                {% for pg in &pages %}
-                <option value="{{ pg }}" {% if pg == &selected_page %}selected{% endif %}>{{ pg }}</option>
-                {% endfor %}
-            </select>
-            <label class="text-sm font-medium ml-2">Language:</label>
-            <select name="lang" class="select select-sm select-bordered" onchange="this.form.submit()">
-                {% for lc in &languages %}
-                <option value="{{ lc }}" {% if lc == &selected_lang %}selected{% endif %}>{{ lc }}</option>
-                {% endfor %}
-            </select>
+            <div class="form-control">
+                <label class="label py-0 pb-1"><span class="label-text text-sm font-medium">Page</span></label>
+                <select name="page" class="select select-sm select-bordered w-40" onchange="this.form.submit()">
+                    {% for pg in &pages %}
+                    <option value="{{ pg }}" {% if pg == &selected_page %}selected{% endif %}>{{ pg }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-control">
+                <label class="label py-0 pb-1"><span class="label-text text-sm font-medium">Language</span></label>
+                <select name="lang" class="select select-sm select-bordered w-24" onchange="this.form.submit()">
+                    {% for lc in &languages %}
+                    <option value="{{ lc }}" {% if lc == &selected_lang %}selected{% endif %}>{{ lc }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             <button type="button" onclick="showAddModal(null)" class="btn btn-sm btn-primary gap-1">
                 <i data-lucide="plus" class="w-4 h-4"></i> Add Element
             </button>
@@ -206,6 +210,32 @@ var LANG         = '{{ selected_lang }}';
 
 // The full page data — single source of truth
 var pageData = {{ page_json|safe }};
+
+// Normalize legacy content/props nesting into flat structure on load
+function flattenPageElement(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    var flat = {};
+    Object.keys(obj).forEach(function(k) {
+        if (k !== 'content' && k !== 'props') flat[k] = obj[k];
+    });
+    if (obj.props && typeof obj.props === 'object') {
+        Object.keys(obj.props).forEach(function(k) {
+            if (flat[k] === undefined || flat[k] === null) flat[k] = obj.props[k];
+        });
+    }
+    if (obj.content && typeof obj.content === 'object') {
+        Object.keys(obj.content).forEach(function(k) {
+            if (flat[k] === undefined || flat[k] === null) flat[k] = obj.content[k];
+        });
+    }
+    if (Array.isArray(flat.elements)) {
+        flat.elements = flat.elements.map(flattenPageElement);
+    }
+    return flat;
+}
+if (pageData && Array.isArray(pageData.elements)) {
+    pageData.elements = pageData.elements.map(flattenPageElement);
+}
 
 // currentEdit: null | { outer: null|number, idx: number }
 var currentEdit = null;

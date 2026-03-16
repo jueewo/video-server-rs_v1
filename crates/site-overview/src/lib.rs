@@ -422,7 +422,9 @@ pub fn render_site_editor(
         load_page_json(&folder_dir, &sel_page, &sel_lang)
     } else {
         r#"{"elements":[]}"#.to_string()
-    };
+    }
+    // Escape </ sequences to prevent HTML parser from prematurely closing <script>
+    .replace("</", r"<\/");
 
     let folder_name = std::path::Path::new(folder_path)
         .file_name()

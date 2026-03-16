@@ -97,11 +97,12 @@
                         <table class="table table-xs w-full">
                             <thead>
                                 <tr>
-                                    <th>Slug</th>
+                                    <th class="w-32">Slug</th>
                                     <th>Title</th>
                                     {% for lang in &languages %}
-                                    <th class="text-center">{{ lang }}</th>
+                                    <th class="text-center w-16">{{ lang }}</th>
                                     {% endfor %}
+                                    <th class="w-16"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -118,6 +119,12 @@
                                         {% endif %}
                                     </td>
                                     {% endfor %}
+                                    <td class="text-right">
+                                        <a href="/workspaces/{{ workspace_id }}/site-editor?path={{ folder_path }}&page={{ page.slug }}"
+                                           class="btn btn-xs btn-ghost gap-1">
+                                            <i data-lucide="pencil" class="w-3 h-3"></i>
+                                        </a>
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

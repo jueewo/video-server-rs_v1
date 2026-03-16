@@ -269,9 +269,37 @@
         }
     }
 
+    // Flatten legacy content/props nesting into flat structure.
+    // YAML-compiled elements use { content: { title, desc, ... }, props: { fullscreen, ... } }
+    // but the editor and Astro components prefer flat { title, desc, fullscreen, ... }.
+    function flattenElement(obj) {
+        if (!obj || typeof obj !== 'object') return obj;
+        var flat = {};
+        // Copy all top-level keys except content and props
+        Object.keys(obj).forEach(function(k) {
+            if (k !== 'content' && k !== 'props') flat[k] = obj[k];
+        });
+        // Merge props first (lower priority), then content (higher priority)
+        if (obj.props && typeof obj.props === 'object') {
+            Object.keys(obj.props).forEach(function(k) {
+                if (flat[k] === undefined || flat[k] === null) flat[k] = obj.props[k];
+            });
+        }
+        if (obj.content && typeof obj.content === 'object') {
+            Object.keys(obj.content).forEach(function(k) {
+                if (flat[k] === undefined || flat[k] === null) flat[k] = obj.content[k];
+            });
+        }
+        // Recursively flatten nested elements (Sections)
+        if (Array.isArray(flat.elements)) {
+            flat.elements = flat.elements.map(flattenElement);
+        }
+        return flat;
+    }
+
     JsonFormEditor.prototype.open = function(dataObj, elementType) {
         // Deep clone so edits don't affect the caller's object until getData()
-        this._data = JSON.parse(JSON.stringify(dataObj));
+        this._data = flattenElement(JSON.parse(JSON.stringify(dataObj)));
         this._buildForm(elementType);
         if (this.jsonTextarea) {
             this.jsonTextarea.value = JSON.stringify(this._data, null, 2);

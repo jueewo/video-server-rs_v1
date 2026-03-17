@@ -9,6 +9,22 @@
 
 ---
 
+## Tools
+
+**site-cli** (`target/release/site-cli`) handles scaffolding — creating sitedef entries, page directories, collection directories, and MDX entry files. Use it instead of manually writing boilerplate YAML and creating directories.
+
+```bash
+SITE_CLI="./target/release/site-cli"
+# All commands take --source (-s) pointing to the site directory
+```
+
+If the binary doesn't exist, build it first:
+```bash
+cargo build --package site-cli --release
+```
+
+---
+
 ## Step 1 — Gather Requirements
 
 Before writing any files, ask or confirm:
@@ -28,26 +44,13 @@ If the user provides a brief ("build me a consulting site with home/about/docs")
 
 ---
 
-## Step 2 — File Creation Order
+## Step 2 — Create sitedef.yaml
 
-Always create in this order. Later files depend on earlier ones.
+Write the `sitedef.yaml` file manually (see reference.md for full schema). This is the one file that needs manual creation since it contains all settings, menu structure, footer, social media, and legal config.
 
-```
-1. sitedef.yaml                          ← site identity, pages list, collections, menu, legal
-2. data/page_{slug}/{locale}/page.yaml   ← one per page per locale
-3. content/{collection}/{locale}/*.mdx   ← one per collection entry per locale
-4. content/info/{locale}/impressum.mdx   ← if legal required
-5. content/info/{locale}/privacy.mdx     ← if legal required
-```
+### sitedef.yaml checklist
 
-Never create a page that references a collection not declared in `sitedef.yaml`.
-Never create an `MdText` element before the MDX file it references exists.
-
----
-
-## Step 3 — sitedef.yaml Checklist
-
-Before moving to pages, verify `sitedef.yaml` has:
+Before moving to pages, verify:
 
 - [ ] `settings.siteName` — short, no spaces, used in meta tags
 - [ ] `settings.baseURL` — full URL with https
@@ -61,9 +64,56 @@ Before moving to pages, verify `sitedef.yaml` has:
 
 ---
 
-## Step 4 — Page Construction
+## Step 3 — Scaffold Pages and Collections with site-cli
 
-For each page, pick elements in weight order. Common patterns:
+Once `sitedef.yaml` is written, use site-cli to create the directory structure. This is faster and less error-prone than manually creating directories and files.
+
+```bash
+SITE=storage/workspaces/{workspace_id}/websites/{site_slug}
+
+# Verify sitedef was read correctly
+$SITE_CLI -s $SITE status
+
+# Pages are already defined in sitedef.yaml, but we need data directories.
+# site-cli page add creates both the sitedef entry AND the data dirs.
+# If pages are already in sitedef, skip this — create data dirs manually or
+# remove + re-add pages via CLI.
+
+# Add collections (creates sitedef entry + content dirs)
+$SITE_CLI -s $SITE collection add --name blog --type assetCardCollection --searchable
+$SITE_CLI -s $SITE collection add --name mdcontent --type mdContentCollection
+$SITE_CLI -s $SITE collection add --name info --type mdContentCollection  # if legal needed
+
+# Add collection entries (creates MDX with frontmatter scaffold)
+$SITE_CLI -s $SITE entry add --collection blog --slug first-post --title "First Post"
+$SITE_CLI -s $SITE entry add --collection info --slug impressum --title "Impressum"
+$SITE_CLI -s $SITE entry add --collection info --slug privacy --title "Privacy Policy"
+$SITE_CLI -s $SITE entry add --collection mdcontent --slug quickstart --title "Quickstart"
+
+# Verify structure
+$SITE_CLI -s $SITE validate
+```
+
+**Alternative — scaffold everything when creating from scratch:**
+
+If you're creating a brand new site and want site-cli to create pages too:
+
+```bash
+# Create sitedef.yaml first (manually — only settings/menu/footer/legal)
+# Then add pages via CLI — this creates sitedef entries AND data dirs:
+$SITE_CLI -s $SITE page add --slug home --title "Home" --icon home
+$SITE_CLI -s $SITE page add --slug about --title "About"
+$SITE_CLI -s $SITE page add --slug blog --title "Blog"
+$SITE_CLI -s $SITE page add --slug info --title "Info"
+```
+
+---
+
+## Step 4 — Write Page Content
+
+For each page, edit `data/page_{slug}/{locale}/page.yaml` to add elements. This is the part that requires manual content creation — site-cli creates the empty scaffold, you fill in the elements.
+
+Pick elements in weight order. Common patterns:
 
 **Landing / Home:**
 `TitleHero` (h1) → `Section` with `Hero2` blocks → `StatData` → `Section` with CTA `Hero2`
@@ -102,39 +152,40 @@ mdcollslug: "en/quickstart"   ← WRONG — produces en/en/quickstart (not found
 
 ---
 
-## Step 5 — Legal Pages
+## Step 5 — Write Collection Entry Content
+
+Edit the MDX files created by `site-cli entry add`. The scaffold has frontmatter with placeholder values — fill in real content.
+
+For entries in non-`mdcontent` collections, ensure the full `assetCardSchema` frontmatter is present (see reference.md):
+```yaml
+tags: [...]
+typetags: [...]
+featured: false
+draft: false
+draft_content: false
+image: "../../../assets/images/utils/placeholder-hero-square.jpg"
+heroImage: "../../../assets/images/utils/placeholder-hero.jpg"
+```
+
+---
+
+## Step 6 — Legal Pages
 
 If legal is required:
 
-1. Add `info` collection to `sitedef.yaml`:
-```yaml
-collections:
-  - name: info
-    coltype: mdContentCollection
-    searchable: false
+1. Add `info` collection and page (if not already done in Step 3):
+```bash
+$SITE_CLI -s $SITE collection add --name info --type mdContentCollection
+$SITE_CLI -s $SITE page add --slug info --title "Info"
 ```
 
-2. **Add `info` as a page** in `sitedef.yaml` `pages:` — the generator only creates `[lang]/{slug}/` routes for entries listed in `pages:`. Without this, `/{lang}/info/impressum` will 404:
-```yaml
-pages:
-  # ... other pages ...
-  - slug: info
-    title: Info
+2. Add legal entries:
+```bash
+$SITE_CLI -s $SITE entry add --collection info --slug impressum --title "Impressum"
+$SITE_CLI -s $SITE entry add --collection info --slug privacy --title "Privacy Policy"
 ```
 
-3. **Create `data/page_info/{locale}/page.yaml`** — every page needs page data:
-```yaml
-elements:
-  - element: TitleHero
-    draft: false
-    weight: 1
-    h1: true
-    title: "Info"
-    desc:
-      - "Legal and company information."
-```
-
-4. Add legal links with `collection: info`:
+3. Ensure `sitedef.yaml` has legal links with `collection: info`:
 ```yaml
 legal:
   - name: Impressum
@@ -147,57 +198,83 @@ legal:
     external: false
 ```
 
-5. Create `content/info/{locale}/impressum.mdx` and `content/info/{locale}/privacy.mdx`.
+4. Edit `data/page_info/{locale}/page.yaml` to add at least a TitleHero:
+```yaml
+elements:
+  - element: TitleHero
+    draft: false
+    weight: 1
+    h1: true
+    title: "Info"
+    desc:
+      - "Legal and company information."
+```
 
-Footer renders as `/{lang}/info/impressum` and `/{lang}/info/privacy`.
+5. Edit the MDX files with actual legal content.
 
 For Austrian/German entities, use the jueewo ventures template in `examples.md` as the base — replace company name, address, and contact details.
 
 ---
 
-## Step 6 — Multilingual
+## Step 7 — Multilingual
 
 If more than one locale:
 
 - Add all locales to `sitedef.yaml` `languages:` and set `defaultlanguage:`
-- Duplicate `data/page_{slug}/{locale}/page.yaml` for each locale
-- Duplicate all content MDX files under each locale subfolder
+- site-cli automatically creates locale directories for all languages when adding pages/collections
+- Duplicate content in MDX files for each locale
 - If a locale file is missing at build time, Astro falls back to default language — add a `TitleAlertBanner` to flag untranslated pages
 
 ---
 
-## Step 7 — Pre-Build Sanity Check
+## Step 8 — Validate and Build
 
-Before triggering Generate + Build:
+```bash
+# Validate structure
+$SITE_CLI -s $SITE validate
 
-- [ ] Every page slug in `sitedef.yaml` has a matching `data/page_{slug}/{locale}/page.yaml`
-- [ ] Every collection that needs browseable URLs is **also listed in `pages:`** (the generator only creates `[lang]/{slug}/` routes for pages, not for collections alone)
+# Fix any errors/warnings reported
+
+# Generate + Build (via server UI or CLI)
+$SITE_CLI -s $SITE generate --output /tmp/site-out
+# or via publish:
+$SITE_CLI -s $SITE publish --output /tmp/site-out --build
+```
+
+### Pre-build sanity check
+
+- [ ] `validate` reports no errors
 - [ ] Every `collection:` referenced in page elements exists in `sitedef.yaml`
-- [ ] Every `mdcollslug:` in `MdText` elements has a matching MDX file (without locale prefix in the slug)
+- [ ] Every `mdcollslug:` in `MdText` elements has a matching MDX file (without locale prefix)
 - [ ] Every `image:` path starting with `../../assets/` has the file in `assets/images/`
 - [ ] `StatData` elements use `props.data`, not top-level `data`
 - [ ] `draft: false` on elements you want visible
-- [ ] Legal collection (`info`) declared if `legal:` is non-empty in sitedef
-- [ ] MDX files in non-`mdcontent` collections must use `assetCardSchema` frontmatter (requires `tags`, `typetags`, `featured`, `draft` — see reference.md)
+- [ ] MDX files in non-`mdcontent` collections have full `assetCardSchema` frontmatter
 
 ---
 
 ## Adding to an Existing Site
 
 ### New page
-1. Add slug to `sitedef.yaml` `pages:` list
-2. Add to `menu:` or `footermenu:` as appropriate
-3. Create `data/page_{slug}/{locale}/page.yaml`
-4. Run Generate + Build
+```bash
+$SITE_CLI -s $SITE page add --slug faq --title "FAQ"
+# Then edit data/page_faq/{locale}/page.yaml to add elements
+# Add to menu/footermenu in sitedef.yaml manually
+```
 
 ### New collection
-1. Add to `sitedef.yaml` `collections:`
-2. Create `content/{name}/{locale}/` directory
-3. Add at least one MDX entry (build fails on empty collection)
-4. Run Generate + Build
+```bash
+$SITE_CLI -s $SITE collection add --name products --type assetCardCollection --searchable
+$SITE_CLI -s $SITE entry add --collection products --slug my-product --title "My Product"
+# Edit the MDX file with real content
+```
 
 ### New legal page
-Follow Step 5 above. If `info` collection already exists, only steps 2 (link) and 3 (MDX file) are needed.
+```bash
+$SITE_CLI -s $SITE entry add --collection info --slug terms --title "Terms of Service"
+# Add to legal: in sitedef.yaml
+# Edit MDX with content
+```
 
 ### Editing page content
 - Edit `page.yaml` (workspace source) — this is the authoritative file

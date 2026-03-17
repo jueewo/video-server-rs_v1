@@ -79,6 +79,13 @@ enum Commands {
         action: EntryAction,
     },
 
+    /// List available page components (element types).
+    Components {
+        /// Show detailed fields for a specific component
+        #[arg(long)]
+        name: Option<String>,
+    },
+
     /// Validate site structure and report issues.
     Validate,
 
@@ -238,6 +245,7 @@ async fn main() -> Result<()> {
         Commands::Page { action } => cmd_page(source, action),
         Commands::Collection { action } => cmd_collection(source, action),
         Commands::Entry { action } => cmd_entry(source, action),
+        Commands::Components { name } => cmd_components(name.as_deref()),
         Commands::Validate => cmd_validate(source),
         Commands::Generate { output } => cmd_generate(source, &output),
         Commands::Publish {
@@ -289,6 +297,7 @@ async fn dispatch_remote(cfg: &remote::RemoteConfig, command: Commands) -> Resul
                 locale,
             } => remote::entry_remove(cfg, &collection, &slug, locale.as_deref()).await,
         },
+        Commands::Components { name } => cmd_components(name.as_deref()),
         Commands::Validate => remote::validate(cfg).await,
         Commands::Generate { .. } => {
             // Remote generate uses the server's generate endpoint
@@ -348,6 +357,70 @@ fn cmd_status(source: &Path) -> Result<()> {
             }
         }
     }
+    Ok(())
+}
+
+// ============================================================================
+// Components
+// ============================================================================
+
+fn cmd_components(name: Option<&str>) -> Result<()> {
+    use site_generator::element_schemas::{ELEMENT_SCHEMAS, FieldType};
+
+    if let Some(name) = name {
+        // Show detail for a specific component
+        let schema = ELEMENT_SCHEMAS
+            .iter()
+            .find(|s| s.element.eq_ignore_ascii_case(name))
+            .with_context(|| format!("Unknown component '{}'. Run 'components' to see all.", name))?;
+
+        println!("{}", schema.element);
+        println!("  {}", schema.description);
+        println!();
+        println!("  {:<20} {:<10} {}", "FIELD", "TYPE", "REQUIRED");
+        println!("  {:<20} {:<10} {}", "-----", "----", "--------");
+        for f in schema.fields {
+            let type_str = match f.field_type {
+                FieldType::String => "string",
+                FieldType::Bool => "bool",
+                FieldType::Number => "number",
+                FieldType::StringArray => "string[]",
+                FieldType::Array => "array",
+                FieldType::Object => "object",
+                FieldType::Any => "any",
+            };
+            let req = if f.required { "yes" } else { "" };
+            println!("  {:<20} {:<10} {}", f.name, type_str, req);
+        }
+
+        // Show YAML example
+        println!();
+        println!("  Example:");
+        println!("  - element: {}", schema.element);
+        println!("    draft: false");
+        println!("    weight: 1");
+        for f in schema.fields {
+            if !f.required { continue; }
+            let val = match f.field_type {
+                FieldType::String => "\"...\"".to_string(),
+                FieldType::Bool => "false".to_string(),
+                FieldType::Number => "0".to_string(),
+                FieldType::StringArray => "\n      - \"...\"".to_string(),
+                FieldType::Array => "\n      - ...".to_string(),
+                FieldType::Object => "{}".to_string(),
+                FieldType::Any => "\"...\"".to_string(),
+            };
+            println!("    {}: {}", f.name, val);
+        }
+    } else {
+        // List all components
+        println!("{:<20} {}", "COMPONENT", "DESCRIPTION");
+        for s in ELEMENT_SCHEMAS {
+            println!("{:<20} {}", s.element, s.description);
+        }
+        println!("\n{} component(s). Use --name <component> for details.", ELEMENT_SCHEMAS.len());
+    }
+
     Ok(())
 }
 

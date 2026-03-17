@@ -71,6 +71,7 @@ pub struct MenuItem {
     pub name: String,
     pub path: Option<String>,
     pub icon: Option<String>,
+    pub external: Option<bool>,
     pub submenu: Option<Vec<SubMenuItem>>,
 }
 
@@ -78,6 +79,7 @@ pub struct MenuItem {
 pub struct SubMenuItem {
     pub name: String,
     pub path: String,
+    pub external: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

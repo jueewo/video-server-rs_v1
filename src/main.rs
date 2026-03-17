@@ -17,13 +17,10 @@ use std::{collections::HashMap, fs, net::SocketAddr, sync::Arc};
 // -------------------------------
 
 /// Visual identity / white-label configuration.
-/// Loaded from `branding.yaml`; falls back to `app.yaml` for backward compatibility.
+/// Loaded from `branding.yaml`.
 #[derive(serde::Deserialize, Clone)]
 pub struct AppConfig {
-    // Primary field names (branding.yaml)
-    #[serde(alias = "title")]          // backward compat: app.yaml used "title"
     pub name: String,
-    #[serde(alias = "icon")]           // backward compat: app.yaml used "icon"
     pub logo: String,
     #[serde(default)]
     pub favicon: Option<String>,
@@ -50,20 +47,16 @@ impl Default for AppConfig {
 
 impl AppConfig {
     pub fn load() -> Self {
-        // Try branding.yaml first, fall back to legacy app.yaml
-        for filename in &["branding.yaml", "app.yaml"] {
-            match fs::read_to_string(filename) {
-                Ok(content) => {
-                    return serde_yaml::from_str(&content).unwrap_or_else(|e| {
-                        println!("⚠️  Failed to parse {}: {}", filename, e);
-                        Self::default()
-                    });
-                }
-                Err(_) => continue,
+        match fs::read_to_string("branding.yaml") {
+            Ok(content) => serde_yaml::from_str(&content).unwrap_or_else(|e| {
+                println!("Failed to parse branding.yaml: {}", e);
+                Self::default()
+            }),
+            Err(_) => {
+                println!("No branding.yaml found, using defaults");
+                Self::default()
             }
         }
-        println!("ℹ️  No branding.yaml found, using defaults");
-        Self::default()
     }
 }
 

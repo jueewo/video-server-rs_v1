@@ -82,12 +82,15 @@ for (const menu of headerNavigationMenu) {
             <li>
               {!menu.children || menu.children.length == 0 ? (
                 <a
-                  href={lang ? b+'/'+lang+ menu.link : menu.link}
-                  class=`justify-between text-2xl md:text-lg ${ (currentPath == '/' + lang + menu.link || currentPath == '/' + lang + menu.link + '/') && 'menu-active'}`
+                  href={menu.external || menu.link.startsWith("http")
+                    ? menu.link
+                    : lang ? b+'/'+lang+ menu.link : menu.link}
+                  class=`justify-between text-2xl md:text-lg ${ !menu.external && (currentPath == '/' + lang + menu.link || currentPath == '/' + lang + menu.link + '/') && 'menu-active'}`
                   aria-label={menu.name}
+                  {...(menu.external || menu.link.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                 >
                 {menu.name}
-
+                {menu.external && <span class="text-xs ml-1">↗</span>}
                 </a>
                 // {menu.name}{" "}{currentPath} {'/' + lang + menu.link}
 
@@ -102,11 +105,15 @@ for (const menu of headerNavigationMenu) {
                       <li>
 
                         <a
-                          href={lang ? b+'/'+lang+ submenu.link : submenu.link}
-                          class=`justify-between text-xl md:text-lg ${ (currentPath == '/' + lang + submenu.link || currentPath == '/' + lang + submenu.link + '/') && 'menu-active' }`
+                          href={submenu.external || submenu.link.startsWith("http")
+                            ? submenu.link
+                            : lang ? b+'/'+lang+ submenu.link : submenu.link}
+                          class=`justify-between text-xl md:text-lg ${ !submenu.external && (currentPath == '/' + lang + submenu.link || currentPath == '/' + lang + submenu.link + '/') && 'menu-active' }`
                           aria-label={submenu.name}
+                          {...(submenu.external || submenu.link.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                         >
                           {submenu.name}
+                          {submenu.external && <span class="text-xs ml-1">↗</span>}
                         </a>
 
 

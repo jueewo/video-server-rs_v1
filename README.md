@@ -1,655 +1,304 @@
-# Media Server (Rust + MediaMTX)
+# AppKask
 
-A production-ready media management and HLS live streaming server built with Rust (Axum) and MediaMTX.
+> Deliver your consulting work in a complete environment your clients own.
 
-## ✅ Status: PRODUCTION READY
+You deliver process models, data platforms, training materials, and media assets. Today that means seven tools, seven logins, seven places where client data lives. That's not a delivery — it's a scavenger hunt.
 
-**Last Updated:** January 9, 2026
-
-Features:
-- ✅ RTMP live streaming ingest
-- ✅ HLS output with low latency (2-3 seconds)
-- ✅ WebRTC support (sub-second latency)
-- ✅ Session-based authentication
-- ✅ Access codes for shared media
-- ✅ Stream recording (24-hour retention)
-- ✅ SQLite database for metadata
-- ✅ CORS support
-- ✅ Interactive test page
-
-## Architecture
-
-```
-┌─────────────┐
-│ OBS/FFmpeg  │ Stream with video + audio
-└──────┬──────┘
-       │ RTMP: rtmp://localhost:1935/live?token=supersecret123
-       ↓
-┌──────────────────┐     ┌─────────────────────┐
-│    MediaMTX      │────→│   Rust Server       │
-│  - RTMP Ingest   │Auth │   - Authentication  │
-│  - HLS Output    │     │   - Session Mgmt    │
-│  - WebRTC Output │     │   - HLS Proxy       │
-│  - Recording     │     │   - Web UI          │
-└────┬────────┬────┘     └──────────┬──────────┘
-     │        │                     │
-     │ HLS    │ WebRTC             HTTP
-     │        │                     │
-     └────────┴─────────────────────↓
-              ┌─────────────────────┐
-              │      Browser        │
-              │   HLS.js Player     │
-              │   (2-3s latency)    │
-              └─────────────────────┘
-```
-
-## Quick Start
-
-### Option 1: Docker (Recommended)
-
-**Easiest way to get started:**
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/video-server-rs_v1.git
-cd video-server-rs_v1/docker
-
-# Start both services (media-server + mediamtx)
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Access the application
-open http://localhost:3000
-```
-
-**That's it!** Both the media server and MediaMTX are running.
-
-See `docker/README.md` and `docker/DOCKER.md` for complete Docker documentation.
+AppKask packages your entire consulting delivery into one self-hosted platform. One workspace per client. One link to share. One binary to hand over.
 
 ---
 
-### Option 2: Native Installation
+## What It Does
 
-### Prerequisites
+**Workspace > Folder > App.** Each client gets a workspace. Inside, folders are typed — assign *media-server* and it becomes a media gallery. Assign *course* and it becomes a training environment. Assign *bpmn-simulator* and it becomes a process modeler. You never leave the workspace. Your client never sees infrastructure.
 
-#### Required System Tools
+**Share without accounts.** Generate an access code for any folder. Your client opens a URL, enters the code, and browses the deliverables. No sign-up, no IT approval, no friction.
 
-1. **Rust** (already installed ✓)
-2. **FFmpeg** (for video streaming and processing)
-3. **MediaMTX** (streaming server)
-4. **Ghostscript** (for PDF thumbnail generation)
-5. **WebP tools** (for image optimization)
+**Hand over the whole thing.** When the engagement ends, ship the client a standalone instance running on their server. Their data, your work product, packaged as a branded platform.
 
-**Installation:**
+---
+
+## Features
+
+| Capability | What you get |
+|---|---|
+| **Media Management** | Upload, transcode, stream. HLS adaptive bitrate (1080p-360p), real-time progress, auto-thumbnails |
+| **Site Generator** | Build multi-language client websites from structured data. Astro-powered, theme-able |
+| **Process Modeling** | Interactive BPMN diagrams your clients can explore and simulate |
+| **Course Delivery** | Training programs with Reveal.js presentations and structured modules |
+| **3D Gallery** | Present deliverables in an immersive WebGL space (Babylon.js) |
+| **Custom Tools** | Deploy your Vue3/Preact data platforms as workspace folders |
+| **Live Streaming** | RTMP ingest via MediaMTX, HLS output, WebRTC for low latency |
+| **Access Control** | Four layers: public, access codes, groups (RBAC), ownership. Full audit trail |
+| **WebDAV** | Clients drag-drop files from Finder or Explorer |
+
+---
+
+## Quick Start
+
+### Docker (recommended)
+
+```bash
+git clone https://github.com/jueewo/appkask.git
+cd appkask/docker
+docker compose up -d
+open http://localhost:3000
+```
+
+### Native
+
+**Prerequisites:** Rust, FFmpeg, ffprobe, MediaMTX, Ghostscript, cwebp
 
 ```bash
 # macOS
 brew install ffmpeg mediamtx ghostscript webp
 
-# Ubuntu/Debian
-sudo apt-get update
-sudo apt-get install -y ffmpeg ghostscript webp
-
-# Alpine (Docker)
-apk add --no-cache ffmpeg ghostscript libwebp-tools
-```
-
-### Install MediaMTX
-
-**macOS:**
-```bash
-brew install mediamtx
-```
-
-**Linux:**
-```bash
-wget https://github.com/bluenviron/mediamtx/releases/latest/download/mediamtx_v1.5.1_linux_amd64.tar.gz
-tar -xzf mediamtx_v1.5.1_linux_amd64.tar.gz
-sudo mv mediamtx /usr/local/bin/
-```
-
-**Verify:**
-```bash
-mediamtx --version
-```
-
-### Running
-
-You need **3 terminals**:
-
-**Terminal 1 - Start MediaMTX:**
-```bash
-cd video-server-rs_v1
+# Start MediaMTX (separate terminal)
 mediamtx mediamtx.yml
-```
 
-**Terminal 2 - Start Rust Server:**
-```bash
+# Start AppKask
 cargo run --release
+open http://localhost:3000
 ```
 
-**Terminal 3 - Stream from Camera (macOS):**
-```bash
-# List your devices first
-ffmpeg -f avfoundation -list_devices true -i ""
+---
 
-# Stream with video + audio
-ffmpeg -f avfoundation -framerate 30 -video_size 1280x720 -i "0:0" \
-  -c:v libx264 -preset veryfast -tune zerolatency \
-  -c:a aac -b:a 128k -ar 44100 \
-  -f flv "rtmp://localhost:1935/live?token=supersecret123"
+## Architecture
+
+A Cargo workspace with 34 crates, built on Axum 0.8 and SQLite.
+
+```
+appkask
+ |-- Axum HTTP server (port 3000)
+ |-- MediaMTX streaming server (RTMP/HLS/WebRTC)
+ |-- SQLite database (single file, WAL mode)
+ |-- Vault-based storage (isolated per workspace)
 ```
 
-**Watch the Stream:**
+### Key technical decisions
 
-1. Login: http://localhost:3000/login
-2. Watch: http://localhost:3000/test
+- **Rust** — Single binary, ~20 MB. No runtime, no garbage collector, no surprises at 2 AM.
+- **SQLite** — One file to back up. Zero configuration. Handles 1-50 concurrent users with WAL mode.
+- **Modular crates** — 34 workspace crates, each with a focused responsibility. Add a folder type by implementing one trait.
+- **Askama templates** — Type-checked at compile time. No template errors in production.
+- **OpenTelemetry** — Distributed tracing built in. Plug into Grafana, SigNoz, or Jaeger.
+
+### Workspace crates
+
+| Layer | Crates |
+|---|---|
+| **Core** | `common`, `media-core`, `access-control` |
+| **Media** | `media-manager`, `video-manager`, `docs-viewer`, `bpmn-viewer`, `pdf-viewer` |
+| **Auth** | `user-auth` (OIDC/Casdoor), `access-codes`, `access-groups`, `api-keys` |
+| **Workspace** | `workspace-manager`, `vault-manager`, `site-generator`, `site-publisher` |
+| **Apps** | `3d-gallery`, `course-viewer`, `media-mcp`, `media-cli` |
+| **Infra** | `rate-limiter`, `live-streaming` |
+
+---
+
+## How It Works
+
+### 1. Create a workspace for your client
+
+Each workspace is an isolated container. Upload media, model processes, build courses, host the project website — everything lives in one place.
+
+### 2. Assign folder types
+
+A folder's type determines what app opens it:
+
+| Folder type | Opens as |
+|---|---|
+| `media-server` | Media gallery with upload, search, tagging, streaming |
+| `course` | Training environment with Reveal.js presentations |
+| `bpmn-simulator` | Interactive process modeler and simulator |
+| `yhm-site-data` | Multi-language static site builder (Astro) |
+| `js-tool` | Your custom Vue3/Preact data platform |
+
+### 3. Share with an access code
+
+Generate a code. Send a link. Client enters the code and sees their deliverables. Revoke when the engagement ends.
+
+### 4. Deliver
+
+Three tiers, same codebase:
+
+- **Your platform** — Multi-tenant. Each client is a scoped tenant.
+- **Hosted B2B** — Client gets a branded section. Their logo, their colors. Recurring hosting revenue.
+- **Standalone** — Ship the client a binary for their own server. White-label, self-contained.
+
+---
 
 ## Configuration
+
+### Environment variables
+
+```bash
+DATABASE_URL=sqlite:media.db        # SQLite database path
+STORAGE_DIR=./storage                # File storage root
+
+# OIDC authentication (optional)
+OIDC_ISSUER=https://auth.example.com
+OIDC_CLIENT_ID=your_client_id
+OIDC_CLIENT_SECRET=your_secret
+OIDC_REDIRECT_URI=http://localhost:3000/auth/callback
+
+# Development
+ENABLE_EMERGENCY_LOGIN=true          # Dev-only login bypass
+
+# Observability
+OTLP_ENDPOINT=http://localhost:4317  # OpenTelemetry collector
+
+# Production
+RUN_MODE=production                  # Enforces security checks
+```
 
 ### Ports
 
 | Port | Service | Purpose |
-|------|---------|---------|
-| 3000 | Rust HTTP | Web UI, auth, HLS proxy |
-| 1935 | MediaMTX RTMP | RTMP ingest (standard port) |
-| 8888 | MediaMTX HLS | HLS output |
-| 8889 | MediaMTX WebRTC | WebRTC output |
-| 9997 | MediaMTX API | Control API |
-| 9998 | MediaMTX Metrics | Prometheus metrics |
-
-### Stream Token
-
-⚠️ **Change before production!**
-
-Edit `src/main.rs`:
-```rust
-const RTMP_PUBLISH_TOKEN: &str = "supersecret123"; // Change this!
-```
-
-### Recording
-
-Recordings are automatically saved to:
-- **Path:** `./livestreams/live/YYYY-MM-DD_HH-MM-SS/`
-- **Format:** MP4 (fMP4)
-- **Retention:** 24 hours (auto-delete)
-- **Segment:** 1 hour files
-
-To disable recording, edit `mediamtx.yml`:
-```yaml
-paths:
-  live:
-    record: no
-```
-
-## URLs
-
-### Development
-
-- **Main Page:** http://localhost:3000
-- **Login:** http://localhost:3000/login
-- **Test Player:** http://localhost:3000/test
-- **Health Check:** http://localhost:3000/health
-- **MediaMTX Status:** http://localhost:3000/api/mediamtx/status
-- **MediaMTX API:** http://localhost:9997/v3/paths/list
-- **Metrics:** http://localhost:9998/metrics
-
-### Streaming
-
-- **RTMP:** `rtmp://localhost:1935/live?token=supersecret123`
-- **HLS:** `http://localhost:3000/hls/live/index.m3u8` (requires login)
-- **WebRTC:** `http://localhost:8889/live/whep` (ultra-low latency)
-
-## OBS Studio Setup
-
-1. Open OBS Studio
-2. Settings → Stream
-3. Configure:
-   - **Service:** Custom
-   - **Server:** `rtmp://localhost:1935/live`
-   - **Stream Key:** `?token=supersecret123`
-4. Settings → Output:
-   - **Video Encoder:** x264
-   - **Rate Control:** CBR
-   - **Bitrate:** 2500 Kbps
-   - **Preset:** veryfast
-   - **Profile:** baseline
-5. Click "Start Streaming"
-6. Watch at: http://localhost:3000/test
-
-## Database Schema
-
-```sql
-CREATE TABLE videos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    slug TEXT NOT NULL UNIQUE,
-    title TEXT NOT NULL,
-    is_public BOOLEAN NOT NULL DEFAULT 0
-);
-```
-
-Sample data includes:
-- `welcome` - Public video
-- `fullmovie` - Public video  
-- `lesson1` - Private video
-- `live` - Live stream (private, requires auth)
-
-## API Endpoints
-
-### Public Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | Home page |
-| `/login` | GET | Create session |
-| `/logout` | GET | Destroy session |
-| `/test` | GET | HLS test player |
-| `/health` | GET | Health check |
-
-### Authentication Endpoints (Called by MediaMTX)
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/stream/validate` | GET | Validate publisher token |
-| `/api/stream/authorize` | GET | Authorize viewer session |
-
-### Monitoring Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/mediamtx/status` | GET | MediaMTX status |
-| `/api/webhooks/stream-ready` | POST | Stream started webhook |
-| `/api/webhooks/stream-ended` | POST | Stream ended webhook |
-
-### Access Code Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/access-codes` | POST | Create access code |
-| `/api/access-codes` | GET | List access codes |
-| `/api/access-codes/:code` | DELETE | Delete access code |
-
-### Streaming Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/hls/:slug/:file` | GET | HLS proxy (live + VOD) |
-
-## Access Codes
-
-Access codes allow sharing private videos and images without requiring user authentication. Perfect for embedding media in websites, courses, or sharing with external users.
-
-### Ownership & Permissions
-
-- **Access codes are owned by the user who creates them**
-- **Users can only create access codes for media they own**
-- **Each access code grants access to specific videos and images owned by the creator**
-- **Users can only manage (list/delete) access codes they created**
-
-### Creating Access Codes
-
-```bash
-# Create an access code for multiple media items (must be owned by authenticated user)
-curl -X POST http://localhost:3000/api/access-codes \
-  -H "Content-Type: application/json" \
-  -d '{
-    "code": "website2024",
-    "description": "Media for company website",
-    "expires_at": "2024-12-31T23:59:59Z",
-    "media_items": [
-      {"media_type": "video", "media_slug": "welcome"},
-      {"media_type": "image", "media_slug": "logo"}
-    ]
-  }'
-```
-
-### Using Access Codes
-
-Append `?access_code=YOUR_CODE` to any media URL:
-
-```
-# Video player
-http://localhost:3000/watch/welcome?access_code=website2024
-
-# Image direct access
-http://localhost:3000/images/logo?access_code=website2024
-
-# HLS stream (VOD only)
-http://localhost:3000/hls/welcome/index.m3u8?access_code=website2024
-```
-
-### Embedding in Websites
-
-```html
-<!-- Video embed -->
-<iframe src="http://localhost:3000/watch/welcome?access_code=website2024"
-        width="640" height="360"></iframe>
-
-<!-- Image embed -->
-<img src="http://localhost:3000/images/logo?access_code=website2024"
-     alt="Company Logo">
-```
-
-### Managing Access Codes
-
-```bash
-# List all access codes
-curl http://localhost:3000/api/access-codes
-
-# Delete an access code
-curl -X DELETE http://localhost:3000/api/access-codes/website2024
-```
-
-### Database Schema
-
-```sql
--- Access codes table
-CREATE TABLE access_codes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    code TEXT NOT NULL UNIQUE,
-    expires_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    description TEXT
-);
-
--- Link codes to media items
-CREATE TABLE access_code_permissions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    access_code_id INTEGER NOT NULL,
-    media_type TEXT NOT NULL CHECK (media_type IN ('video', 'image')),
-    media_slug TEXT NOT NULL,
-    FOREIGN KEY (access_code_id) REFERENCES access_codes(id) ON DELETE CASCADE,
-    UNIQUE(access_code_id, media_type, media_slug)
-);
-```
-
-## Testing
-
-### Check Everything is Running
-
-```bash
-# 1. MediaMTX API
-curl http://localhost:9997/v3/paths/list
-
-# 2. Rust server health
-curl http://localhost:3000/health
-
-# 3. Create session
-curl http://localhost:3000/login
-
-# 4. Check if stream is live
-curl http://localhost:9997/v3/paths/get/live
-```
-
-### Monitor Segments
-
-```bash
-# Watch HLS segments being created
-watch -n 1 'ls -lh storage/private/live/'
-
-# Watch recordings
-watch -n 1 'ls -lh livestreams/live/'
-```
-
-## Troubleshooting
-
-### "Connection refused" when streaming
-- Check MediaMTX is running: `lsof -i :1935`
-- Check config: `mediamtx mediamtx.yml`
-
-### "Unauthorized" when watching
-- Login first: http://localhost:3000/login
-- Check session: curl http://localhost:3000/health
-
-### No video appears
-- Check MediaMTX logs (Terminal 1)
-- Check stream is active: `curl http://localhost:9997/v3/paths/get/live`
-- Check browser console for errors
-
-### No audio
-- Use `"0:0"` format (video:audio), not just `"0"`
-- Grant microphone permissions on macOS
-- List devices: `ffmpeg -f avfoundation -list_devices true -i ""`
-
-### High CPU usage
-- Encoding happens on streaming client (normal)
-- Server just proxies (low CPU)
-- Use hardware encoding if available
-
-### Port conflicts
-```bash
-# Find what's using a port
-lsof -i :3000
-lsof -i :1935
-
-# Kill process
-kill -9 <PID>
-```
-
-## Production Deployment
-
-### Security Checklist
-
-- [ ] Change `RTMP_PUBLISH_TOKEN` to strong random value
-- [ ] Enable HTTPS (use provided `Caddyfile`)
-- [ ] Configure MediaMTX TLS in `mediamtx.yml`
-- [ ] Implement proper user authentication (JWT/OAuth)
-- [ ] Set up firewall rules
-- [ ] Use PostgreSQL instead of SQLite
-- [ ] Enable rate limiting
-- [ ] Set up monitoring/alerting
-- [ ] Configure CDN for HLS distribution
-- [ ] Review CORS origins
-
-### Using Caddy for HTTPS
-
-The project includes a `Caddyfile` for automatic HTTPS:
-
-```bash
-# Install Caddy
-brew install caddy  # macOS
-
-# Start Caddy
-caddy run
-```
-
-Access via: https://app.appkask.com
-
-### Performance Optimization
-
-**Enable hardware encoding** (streaming client):
-```bash
-# macOS
--c:v h264_videotoolbox
-
-# Linux with NVIDIA GPU
--c:v h264_nvenc
-```
-
-**MediaMTX tuning** (edit `mediamtx.yml`):
-```yaml
-# Even lower latency (more CPU)
-hlsSegmentDuration: 500ms
-hlsPartDuration: 100ms
-hlsSegmentCount: 3
-
-# Or standard latency (less CPU)
-hlsSegmentDuration: 2s
-hlsPartDuration: 200ms
-hlsSegmentCount: 6
-```
-
-## Project Structure
-
-```
-video-server-rs_v1/
-├── src/
-│   └── main.rs              # Main server code
-├── storage/
-│   ├── public/              # Public videos (VOD)
-│   └── private/             # Private videos + live stream
-├── livestreams/
-│   └── live/                # Recorded streams (auto-deleted after 24h)
-├── docs/
-│   ├── README.md            # Documentation index
-│   ├── LIVE_STREAMING_GUIDE.md
-│   └── MEDIAMTX_MIGRATION.md
-├── Cargo.toml               # Rust dependencies
-├── mediamtx.yml             # MediaMTX configuration
-├── Caddyfile                # HTTPS reverse proxy config
-├── test-hls.html            # Standalone test player
-├── media.db                 # SQLite database
-├── README.md                # This file
-├── QUICKSTART.md            # Quick start guide
-├── PROJECT_STATUS.md        # Project status
-└── MIGRATION_COMPLETE.md    # Migration history
-```
-
-## Dependencies
-
-### Rust Crates (Cargo.toml)
-- `axum` - Web framework
-- `tokio` - Async runtime
-- `tower` - Middleware
-- `tower-http` - HTTP utilities
-- `tower-sessions` - Session management
-- `sqlx` - Database
-- `reqwest` - HTTP client (for MediaMTX proxy)
-- `serde` - Serialization
-- `tracing` - Logging
-
-### System Dependencies
-
-| Tool | Purpose | Required | Installation |
-|------|---------|----------|--------------|
-| **FFmpeg** | Video streaming & transcoding | ✅ Yes | `brew install ffmpeg` |
-| **MediaMTX** | RTMP/HLS streaming server | ✅ Yes | `brew install mediamtx` |
-| **Ghostscript** | PDF thumbnail generation | ✅ Yes | `brew install ghostscript` |
-| **WebP tools** | Image optimization (cwebp) | ✅ Yes | `brew install webp` |
-| **SQLite** | Database | ✅ Yes | Usually pre-installed |
-| **Caddy** | HTTPS reverse proxy | ⚠️ Optional | `brew install caddy` |
-
-**Verify Installation:**
-```bash
-ffmpeg -version          # Video processing
-mediamtx --version       # Streaming server
-gs --version             # PDF rendering
-cwebp -version           # WebP conversion
-sqlite3 --version        # Database
-```
-
-**Docker:** All dependencies are included in the Dockerfile.
-
-## Features
-
-### Current
-- ✅ Live RTMP streaming
-- ✅ HLS playback (2-3s latency)
-- ✅ WebRTC support (sub-1s latency)
-- ✅ Session authentication
-- ✅ Access codes for media sharing
-- ✅ Automatic recording
-- ✅ VOD playback
-- ✅ Multi-origin CORS
-- ✅ Health monitoring
-- ✅ Metrics endpoint
-
-### Planned
-- [ ] Multi-quality ABR streaming
-- [ ] Multiple concurrent streams
-- [ ] JWT authentication
-- [ ] User management
-- [ ] Stream analytics
-- [ ] Chat integration
-- [ ] CDN integration
-- [ ] Admin dashboard
-
-## Documentation
-
-### Getting Started
-- **[QUICKSTART.md](QUICKSTART.md)** - Get started in 5 minutes
-- **[PROJECT_STATUS.md](PROJECT_STATUS.md)** - Current project status
-- **[docs/README.md](docs/README.md)** - Documentation index
-- **[docs/LIVE_STREAMING_GUIDE.md](docs/LIVE_STREAMING_GUIDE.md)** - Streaming guide
-- **[docs/MEDIAMTX_MIGRATION.md](docs/MEDIAMTX_MIGRATION.md)** - Architecture details
-
-### User Tools & Scripts
-- **[scripts/user/prepare-video.sh](scripts/user/prepare-video.sh)** - Offline video preparation tool (HLS transcoding)
-- **[scripts/README.md](scripts/README.md)** - Complete scripts documentation
-
-### Docker Deployment
-- **[docker/](docker/)** - Docker deployment files
-- **[docker/README.md](docker/README.md)** - Docker quick start guide
-- **[docker/DOCKER.md](docker/DOCKER.md)** - Complete Docker documentation
-- **[docker/docker-compose.yml](docker/docker-compose.yml)** - Two-service orchestration
-
-### Observability & Monitoring
-- **[OBSERVABILITY_QUICKSTART.md](OBSERVABILITY_QUICKSTART.md)** - Quick setup with Vector + SigNoz
-- **[VECTOR_SIGNOZ_SETUP.md](VECTOR_SIGNOZ_SETUP.md)** - Detailed Vector + SigNoz configuration
-- **[INSTRUMENTATION.md](INSTRUMENTATION.md)** - Complete instrumentation reference
-
-All handlers are instrumented with OpenTelemetry for distributed tracing. Traces can be exported to:
-- **SigNoz** (recommended) - Complete observability platform
-- **Jaeger** - Trace visualization
-- **Grafana Tempo** - Trace backend for Grafana
-
-## Why MediaMTX?
-
-MediaMTX is a production-ready streaming server that handles:
-- ✅ Multiple protocols (RTMP, HLS, WebRTC, RTSP, SRT)
-- ✅ Ultra-low latency options
-- ✅ Automatic error recovery
-- ✅ Built-in authentication hooks
-- ✅ Recording and playback
-- ✅ Metrics and monitoring
-- ✅ Horizontal scaling
-
-This allows our Rust server to focus on:
-- Business logic
-- Authentication
-- Database management
-- API endpoints
-- User experience
-
-## Performance
-
-### Resource Usage (Typical)
-- **CPU:** ~5-10% (server just proxies)
-- **RAM:** ~100-200 MB (Rust server)
-- **Network:** Depends on stream bitrate
-- **Disk:** ~500 MB/hour for recordings
-
-### Scalability
-- Supports unlimited concurrent viewers
-- Single live stream (extensible to multiple)
-- Recording scales with disk space
-- MediaMTX can be horizontally scaled
-
-## License
-
-This is a reference implementation for educational purposes.
-
-## Support
-
-For issues or questions:
-1. Check the troubleshooting section above
-2. Review documentation in `docs/` folder
-3. Check MediaMTX logs for streaming issues
-4. Check Rust server logs for API issues
-
-## Contributing
-
-When making changes:
-1. Test both live streaming and VOD playback
-2. Update relevant documentation
-3. Check authentication still works
-4. Verify on multiple browsers
-5. Update PROJECT_STATUS.md
+|---|---|---|
+| 3000 | AppKask | Web UI, API, media serving |
+| 1935 | MediaMTX | RTMP ingest |
+| 8888 | MediaMTX | HLS output |
+| 8889 | MediaMTX | WebRTC output |
+
+### System dependencies
+
+| Tool | Purpose |
+|---|---|
+| FFmpeg + ffprobe | Video transcoding, metadata extraction |
+| MediaMTX | RTMP/HLS/WebRTC streaming |
+| Ghostscript (`gs`) | PDF thumbnail generation |
+| cwebp | WebP image conversion |
 
 ---
 
-**Built with:** Rust 🦀 + MediaMTX 📡 + Axum ⚡  
-**Status:** Production Ready ✅  
-**Last Updated:** January 2025
+## Media Pipeline
+
+Every file uploaded goes through a processing pipeline:
+
+- **Video** — Upload MP4, get adaptive HLS streaming (1080p, 720p, 480p, 360p auto-selected based on source). Real-time progress via WebSocket.
+- **Images** — Auto-converted to WebP. Originals preserved. SVGs served with CSP protection. Thumbnails auto-generated.
+- **Documents** — PDFs viewable inline. Markdown editable in-browser. BPMN diagrams interactive.
+
+### Storage layout
+
+```
+storage/vaults/{vault_id}/
+  media/
+    images/{slug}.webp
+    videos/{slug}/           # HLS output (index.m3u8 + segments)
+    documents/{filename}
+  thumbnails/
+    images/{slug}_thumb.webp
+    videos/{slug}_thumb.webp
+```
+
+---
+
+## Access Control
+
+Four layers, designed for consulting workflows:
+
+| Layer | Use case |
+|---|---|
+| **Public** | Marketing materials, portfolio pieces. Visible to everyone. |
+| **Access Codes** | Per-folder sharing. Link + code. No account needed. Set expiry for time-limited engagements. |
+| **Groups** | Ongoing clients get role-based access (Viewer, Contributor, Editor, Admin). |
+| **Ownership** | You always have full control over your deliverables. |
+
+Every access decision — granted or denied — is logged with user, IP, resource, and timestamp.
+
+---
+
+## Rate Limiting
+
+Three tiers based on resource intensity:
+
+| Tier | Limit | Endpoints |
+|---|---|---|
+| Default | 60 RPM | Most endpoints |
+| Upload | 15 RPM | File uploads, transcoding |
+| Serving | 300 RPM | Media delivery, thumbnails |
+
+---
+
+## Development
+
+```bash
+# Build
+cargo build
+
+# Build specific crate
+cargo build --package media-manager
+
+# Run tests
+cargo test
+
+# Run with tracing
+OTLP_ENDPOINT=http://localhost:4317 cargo run
+```
+
+### Database migrations
+
+SQLite migrations are applied automatically on startup via `sqlx::migrate!("./migrations")`. New migrations: add a timestamped `.sql` file to `migrations/`.
+
+---
+
+## Production Deployment
+
+### Docker Compose
+
+```bash
+cd docker
+docker compose up -d
+```
+
+### With Caddy (HTTPS)
+
+```bash
+caddy run  # Uses included Caddyfile
+```
+
+### Security checklist
+
+- [ ] Configure OIDC authentication (Casdoor or compatible provider)
+- [ ] Set `RUN_MODE=production`
+- [ ] Enable HTTPS via reverse proxy
+- [ ] Set strong RTMP publish token
+- [ ] Review firewall rules (expose only port 443)
+- [ ] Set up automated backups (`media.db` + `storage/`)
+
+---
+
+## FAQ
+
+**What does a client need to run a standalone instance?**
+A single VPS with 2-8 cores and 2-8 GB RAM. External tools in PATH: FFmpeg, ffprobe, Ghostscript, cwebp. Docker Compose is the simplest deployment.
+
+**Can I white-label it?**
+Yes. Each tenant has its own branding configuration (logo, colors, name).
+
+**Does it support PostgreSQL?**
+No. SQLite is a deliberate choice — zero configuration, single-file backup, trivial to move between servers.
+
+**Can clients upload their own media?**
+Yes. Give them a user account via OIDC and they can upload, organize, and share within their scoped workspace.
+
+**How do I extend the platform?**
+Deploy Vue3/Preact apps as *js-tool* workspace folders for quick delivery. For deeper integration, create a Rust crate implementing the `FolderTypeRenderer` trait.
+
+---
+
+## Built With
+
+Rust (Axum 0.8) / SQLite (sqlx) / Askama 0.13 / MediaMTX / Astro / Babylon.js / bpmn-js / Reveal.js
+
+---
+
+## License
+
+License TBD.
+
+---
+
+Built by a consultant who got tired of handing clients links.

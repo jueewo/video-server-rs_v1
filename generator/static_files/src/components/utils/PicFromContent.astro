@@ -37,6 +37,14 @@ const getImage = (imagePath: string) => {
         normalizedPath = normalizedPath.substring(1);
     }
 
+    // Handle relative paths like ../../assets/images/foo.webp (used in page.yaml)
+    const relAssets = "../../assets/";
+    if (normalizedPath.includes(relAssets)) {
+        normalizedPath = normalizedPath.substring(
+            normalizedPath.indexOf(relAssets) + relAssets.length,
+        );
+    }
+
     // Remove src/assets/ prefix if somehow included
     if (normalizedPath.startsWith("src/assets/")) {
         normalizedPath = normalizedPath.substring("src/assets/".length);

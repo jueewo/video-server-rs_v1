@@ -88,11 +88,14 @@ import { b } from '../utils/siteBase';
                                         <span>
                                             <a
                                                 href={
-                                                    lang
-                                                        ? `${b}/${lang}${category.link}`
-                                                        : category.link
+                                                    category.external || category.link.startsWith("http")
+                                                        ? category.link
+                                                        : lang
+                                                            ? `${b}/${lang}${category.link}`
+                                                            : category.link
                                                 }
                                                 class="transition-colors duration-300 text-base-content hover:text-primary hover:underline"
+                                                {...(category.external || category.link.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                                             >
                                                 {category.header}
                                             </a>
@@ -109,11 +112,14 @@ import { b } from '../utils/siteBase';
                                                 link.link.length > 0 ? (
                                                     <a
                                                         href={
-                                                            lang
-                                                                ? `${b}/${lang}${link.link}`
-                                                                : link.link
+                                                            link.external || link.link.startsWith("http")
+                                                                ? link.link
+                                                                : lang
+                                                                    ? `${b}/${lang}${link.link}`
+                                                                    : link.link
                                                         }
                                                         class="transition-colors duration-300 text-base-content hover:text-primary"
+                                                        {...(link.external || link.link.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                                                     >
                                                         <span class="hover:underline">
                                                             {link.name}{" "}

@@ -215,7 +215,9 @@ const pageid = lang + '-' + collection + '-' + entry.id.replace(/\.(md|mdx)$/, "
 
 
 
+        {Config.datatool &&
         <LikeButton label="Like" showicon url={Config.datatool.url} websiteid={Config.datatool.websiteid} pageid={pageid} token={Config.datatool.token} client:visible />
+        }
 
         {Config.datatool &&
           <>

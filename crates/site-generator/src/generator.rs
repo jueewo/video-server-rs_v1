@@ -55,6 +55,14 @@ fn generate_pages(sitedef: &SiteDef, locales: &[String], out: &Path) -> Result<(
     let lang_static_array = build_lang_static_array(locales);
     let lang_array = serde_json::to_string(locales)?;
 
+    // Collect content collection names so we only generate [...slug].astro
+    // for pages that have a matching content collection.
+    let collection_names: std::collections::HashSet<&str> = sitedef
+        .collections
+        .iter()
+        .map(|c| c.name.as_str())
+        .collect();
+
     for page in &sitedef.pages {
         let page_dir = out.join("src").join("pages").join("[lang]").join(&page.slug);
         std::fs::create_dir_all(&page_dir)?;
@@ -74,15 +82,17 @@ fn generate_pages(sitedef: &SiteDef, locales: &[String], out: &Path) -> Result<(
         );
         std::fs::write(page_dir.join("index.astro"), index)?;
 
-        // [...slug].astro
-        let slug_page = apply_template(
-            TEMPLATE_SLUG,
-            &[
-                ("collection", page.slug.clone()),
-                ("langarray", lang_array.clone()),
-            ],
-        );
-        std::fs::write(page_dir.join("[...slug].astro"), slug_page)?;
+        // [...slug].astro — only if a content collection with this name exists
+        if collection_names.contains(page.slug.as_str()) {
+            let slug_page = apply_template(
+                TEMPLATE_SLUG,
+                &[
+                    ("collection", page.slug.clone()),
+                    ("langarray", lang_array.clone()),
+                ],
+            );
+            std::fs::write(page_dir.join("[...slug].astro"), slug_page)?;
+        }
 
         info!("Generated page: {}", page.slug);
     }
@@ -442,7 +452,7 @@ fn build_header_nav(sitedef: &SiteDef) -> serde_json::Value {
                     "children": submenu.iter().map(|s| json!({
                         "name": s.name,
                         "link": s.path,
-                        "external": false,
+                        "external": s.external.unwrap_or(false),
                     })).collect::<Vec<_>>(),
                 })
             } else {
@@ -450,7 +460,7 @@ fn build_header_nav(sitedef: &SiteDef) -> serde_json::Value {
                     "name": item.name,
                     "link": item.path.as_deref().unwrap_or(&format!("/{}", item.name.to_lowercase())),
                     "icon": item.icon.as_deref().unwrap_or(""),
-                    "external": false,
+                    "external": item.external.unwrap_or(false),
                 })
             }
         })

@@ -4,6 +4,7 @@
 
 # Display name shown in browser tabs, navbar, and footer
 name: "Media Server | appkask"
+title: "Media Server"
 
 # Path to the logo/icon (relative URLs served from /static/)
 logo: "/static/icon.webp"

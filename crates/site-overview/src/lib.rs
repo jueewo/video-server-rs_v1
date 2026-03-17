@@ -50,6 +50,8 @@ struct SiteOverviewTemplate {
     languages: Vec<String>,
     // Navigation preview (flat label list)
     nav_preview: Vec<String>,
+    // JSON for the site structure canvas (nodes + edges)
+    structure_json: String,
     // Full path breadcrumbs: (label, url) — excludes the root "Workspaces" entry
     breadcrumbs: Vec<(String, String)>,
     // Forgejo connection
@@ -276,6 +278,228 @@ fn build_breadcrumbs(ctx_workspace_id: &str, ctx_workspace_name: &str, folder_pa
     breadcrumbs
 }
 
+/// Build a JSON string describing the site structure graph (nodes + edges).
+///
+/// Nodes: pages, collections, and (lazily) collection items.
+/// Edges: page→collection links discovered from:
+///   - `Collection` elements (field `collection`)
+///   - `MdText` elements (always reference the `mdcontent` collection)
+///   - `legal` entries in sitedef (field `collection`)
+///   - page slug matching a collection name (implicit route)
+fn build_structure_json(
+    pages: &[PageOverview],
+    collections: &[CollectionOverview],
+    folder_dir: &std::path::Path,
+    locales: &[String],
+    legal: &[(String, Option<String>)],
+    menu: &[MenuItem],
+) -> String {
+    use std::collections::HashSet;
+
+    let collection_names: HashSet<&str> = collections.iter().map(|c| c.name.as_str()).collect();
+
+    // Which page slugs appear in the navigation menu?
+    let mut menu_page_slugs: HashSet<String> = HashSet::new();
+    for item in menu {
+        if let Some(ref path) = item.path {
+            let slug = path.trim_start_matches('/');
+            if !slug.is_empty() && !slug.contains("://") {
+                menu_page_slugs.insert(slug.to_string());
+            }
+        }
+        if let Some(ref subs) = item.submenu {
+            for sub in subs {
+                let slug = sub.path.trim_start_matches('/');
+                if !slug.is_empty() && !slug.contains("://") {
+                    menu_page_slugs.insert(slug.to_string());
+                }
+            }
+        }
+    }
+
+    // Edges: (page_slug, collection_name, label)
+    let mut edges: Vec<(String, String, String)> = Vec::new();
+    let mut seen: HashSet<(String, String)> = HashSet::new();
+
+    let add_edge = |edges: &mut Vec<(String, String, String)>,
+                    seen: &mut HashSet<(String, String)>,
+                    page: &str, col: &str, label: &str| {
+        let key = (page.to_string(), col.to_string());
+        if !seen.contains(&key) {
+            seen.insert(key);
+            edges.push((page.to_string(), col.to_string(), label.to_string()));
+        }
+    };
+
+    // Scan page elements for Collection and MdText references
+    let first_locale = locales.first().map(|s| s.as_str()).unwrap_or("en");
+    for page in pages {
+        let data_dir = folder_dir
+            .join("data")
+            .join(format!("page_{}", page.slug))
+            .join(first_locale);
+
+        let elements = if data_dir.join("page.yaml").exists() {
+            compile_yaml_elements(&data_dir.join("page.yaml")).unwrap_or_default()
+        } else if data_dir.join("page.json").exists() {
+            std::fs::read_to_string(data_dir.join("page.json"))
+                .ok()
+                .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+                .and_then(|v| v.get("elements").and_then(|e| e.as_array()).cloned())
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+
+        // Recursively scan elements (including nested Section elements)
+        fn scan_elements(
+            elements: &[serde_json::Value],
+            page_slug: &str,
+            collection_names: &HashSet<&str>,
+            edges: &mut Vec<(String, String, String)>,
+            seen: &mut HashSet<(String, String)>,
+        ) {
+            for el in elements {
+                let el_type = el.get("element").and_then(|v| v.as_str()).unwrap_or("");
+                match el_type {
+                    "Collection" => {
+                        if let Some(col) = el.get("collection").and_then(|v| v.as_str()) {
+                            if collection_names.contains(col) {
+                                let key = (page_slug.to_string(), col.to_string());
+                                if !seen.contains(&key) {
+                                    seen.insert(key);
+                                    edges.push((page_slug.to_string(), col.to_string(), "Collection".to_string()));
+                                }
+                            }
+                        }
+                    }
+                    "MdText" => {
+                        if collection_names.contains("mdcontent") {
+                            let key = (page_slug.to_string(), "mdcontent".to_string());
+                            if !seen.contains(&key) {
+                                seen.insert(key);
+                                edges.push((page_slug.to_string(), "mdcontent".to_string(), "MdText".to_string()));
+                            }
+                        }
+                    }
+                    "Section" => {
+                        if let Some(nested) = el.get("elements").and_then(|v| v.as_array()) {
+                            scan_elements(nested, page_slug, collection_names, edges, seen);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        scan_elements(&elements, &page.slug, &collection_names, &mut edges, &mut seen);
+
+        // Implicit: page slug matches a collection name
+        if collection_names.contains(page.slug.as_str()) {
+            add_edge(&mut edges, &mut seen, &page.slug, &page.slug, "route");
+        }
+    }
+
+    // Legal entries referencing collections
+    for (legal_name, col_opt) in legal {
+        if let Some(col) = col_opt {
+            if collection_names.contains(col.as_str()) {
+                let source = pages.iter()
+                    .find(|p| p.slug == *col)
+                    .map(|p| p.slug.clone())
+                    .unwrap_or_else(|| format!("legal:{}", legal_name));
+                add_edge(&mut edges, &mut seen, &source, col, "legal");
+            }
+        }
+    }
+
+    // ── Collect collection items (articles) ──
+    // For each collection, list the entry titles from the first locale.
+    let content_dir = folder_dir.join("content");
+    let mut collection_items: std::collections::HashMap<String, Vec<serde_json::Value>> = std::collections::HashMap::new();
+    for col in collections {
+        let locale_dir = content_dir.join(&col.name).join(first_locale);
+        if !locale_dir.is_dir() { continue; }
+        let Ok(rd) = std::fs::read_dir(&locale_dir) else { continue };
+        let mut items: Vec<(String, String, bool)> = rd // (slug, title, draft)
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                let p = e.path();
+                p.is_file() && matches!(p.extension().and_then(|x| x.to_str()), Some("md") | Some("mdx"))
+            })
+            .filter_map(|e| {
+                let path = e.path();
+                let slug = path.file_stem()?.to_str()?.to_string();
+                let raw = std::fs::read_to_string(&path).ok()?;
+                let (fm, _) = split_mdx(&raw);
+                let title = fm_str(&fm, "title").unwrap_or_else(|| slug.clone());
+                let draft = fm_bool(&fm, "draft").unwrap_or(false);
+                Some((slug, title, draft))
+            })
+            .collect();
+        items.sort_by(|a, b| a.1.cmp(&b.1));
+        let json_items: Vec<serde_json::Value> = items.into_iter().map(|(slug, title, draft)| {
+            serde_json::json!({ "slug": slug, "title": title, "draft": draft })
+        }).collect();
+        collection_items.insert(col.name.clone(), json_items);
+    }
+
+    // Build edge lookup: which collections does each page connect to?
+    let mut page_connections: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    let mut col_connected: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for (from, to, _) in &edges {
+        page_connections.entry(from.clone()).or_default().push(to.clone());
+        col_connected.insert(to.clone());
+    }
+
+    // Build JSON
+    let mut nodes: Vec<serde_json::Value> = Vec::new();
+    for (i, page) in pages.iter().enumerate() {
+        let total: usize = page.elements_per_locale.iter().map(|(_, c)| c).sum();
+        let conns = page_connections.get(&page.slug).cloned().unwrap_or_default();
+        nodes.push(serde_json::json!({
+            "id": format!("page:{}", page.slug),
+            "type": "page",
+            "label": page.title,
+            "slug": page.slug,
+            "elements": total,
+            "inMenu": menu_page_slugs.contains(&page.slug),
+            "connectedTo": conns,
+            "x": 80,
+            "y": 60 + i * 80,
+        }));
+    }
+    for (i, col) in collections.iter().enumerate() {
+        let total: usize = col.articles_per_locale.iter().map(|(_, c)| c).sum();
+        let items = collection_items.remove(&col.name).unwrap_or_default();
+        nodes.push(serde_json::json!({
+            "id": format!("col:{}", col.name),
+            "type": "collection",
+            "label": col.name,
+            "coltype": col.coltype,
+            "articles": total,
+            "items": items,
+            "searchable": col.searchable,
+            "referenced": col_connected.contains(&col.name),
+            "x": 500,
+            "y": 60 + i * 80,
+        }));
+    }
+
+    let json_edges: Vec<serde_json::Value> = edges.iter().map(|(from, to, label)| {
+        serde_json::json!({
+            "from": format!("page:{}", from),
+            "to": format!("col:{}", to),
+            "label": label,
+        })
+    }).collect();
+
+    serde_json::json!({
+        "nodes": nodes,
+        "edges": json_edges,
+    }).to_string()
+}
+
 // ── Site-overview renderer ────────────────────────────────────────────────────
 
 pub struct SiteOverviewRenderer;
@@ -320,7 +544,7 @@ fn build_template_data(
 
     // Pages with element counts per locale
     let data_dir = folder_dir.join("data");
-    let pages = sitedef
+    let pages: Vec<PageOverview> = sitedef
         .pages
         .iter()
         .map(|p| PageOverview {
@@ -335,7 +559,7 @@ fn build_template_data(
 
     // Collections with article counts per locale
     let content_dir = folder_dir.join("content");
-    let collections = sitedef
+    let collections: Vec<CollectionOverview> = sitedef
         .collections
         .iter()
         .map(|c| CollectionOverview {
@@ -345,6 +569,15 @@ fn build_template_data(
             articles_per_locale: count_files_per_locale(&content_dir.join(&c.name), &locales),
         })
         .collect();
+
+    // Legal entries for structure graph
+    let legal_refs: Vec<(String, Option<String>)> = sitedef
+        .legal
+        .as_ref()
+        .map(|v| v.iter().map(|l| (l.name.clone(), l.collection.clone())).collect())
+        .unwrap_or_default();
+
+    let structure_json = build_structure_json(&pages, &collections, folder_dir, &locales, &legal_refs, &sitedef.menu);
 
     let nav_preview = nav_labels(&sitedef.menu, 8);
     let breadcrumbs = build_breadcrumbs(&ctx.workspace_id, &ctx.workspace_name, &ctx.folder_path);
@@ -377,6 +610,7 @@ fn build_template_data(
         collections,
         languages: locales,
         nav_preview,
+        structure_json,
         breadcrumbs,
         forgejo_repo,
         forgejo_branch,

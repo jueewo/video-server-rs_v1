@@ -4693,6 +4693,96 @@ async fn delete_collection_entry(
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
+// ── Create page ───────────────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct CreatePageRequest {
+    folder_path: String,
+    slug: String,
+    title: String,
+}
+
+async fn create_site_page(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(req): Json<CreatePageRequest>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "write")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    // Validate slug: lowercase letters, digits, hyphens, underscores
+    if req.slug.is_empty()
+        || !req.slug.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Ok(Json(serde_json::json!({ "error": "Invalid page slug (lowercase a-z, 0-9, - _)" })));
+    }
+    let title = if req.title.is_empty() { req.slug.clone() } else { req.title.clone() };
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let site_dir = workspace_root.join(&req.folder_path);
+    let sitedef_path = site_dir.join("sitedef.yaml");
+
+    let yaml_text = std::fs::read_to_string(&sitedef_path)
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+    let mut root: serde_yaml::Value = serde_yaml::from_str(&yaml_text)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Get languages list
+    let languages: Vec<String> = root
+        .get("languages")
+        .and_then(|v| v.as_sequence())
+        .map(|seq| {
+            seq.iter()
+                .filter_map(|item| item.get("locale").and_then(|l| l.as_str()).map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    // Check for duplicate page slug
+    if let Some(pages) = root.get("pages").and_then(|v| v.as_sequence()) {
+        for p in pages {
+            if p.get("slug").and_then(|s| s.as_str()) == Some(&req.slug) {
+                return Ok(Json(serde_json::json!({ "error": "Page slug already exists" })));
+            }
+        }
+    }
+
+    // Append the new page entry
+    let new_page = serde_yaml::Value::Mapping({
+        let mut m = serde_yaml::Mapping::new();
+        m.insert(serde_yaml::Value::String("slug".into()), serde_yaml::Value::String(req.slug.clone()));
+        m.insert(serde_yaml::Value::String("title".into()), serde_yaml::Value::String(title));
+        m
+    });
+    root.as_mapping_mut()
+        .and_then(|m| m.get_mut("pages"))
+        .and_then(|v| v.as_sequence_mut())
+        .map(|seq| seq.push(new_page));
+
+    // Write sitedef.yaml back
+    let updated_yaml = serde_yaml::to_string(&root)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    std::fs::write(&sitedef_path, updated_yaml)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Create data/page_{slug}/{locale}/ directories with empty page.yaml
+    let data_dir = site_dir.join("data").join(format!("page_{}", req.slug));
+    let locales = if languages.is_empty() { vec!["en".to_string()] } else { languages };
+    for locale in &locales {
+        let locale_dir = data_dir.join(locale);
+        std::fs::create_dir_all(&locale_dir).ok();
+        let page_yaml = locale_dir.join("page.yaml");
+        if !page_yaml.exists() {
+            std::fs::write(&page_yaml, "elements: []\n").ok();
+        }
+    }
+
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
 // ── Create collection ─────────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
@@ -4786,6 +4876,333 @@ async fn create_site_collection(
     }
 
     Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+// ── Site status (JSON) ────────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct SiteFolderQuery {
+    folder_path: String,
+}
+
+async fn site_status_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Query(req): Query<SiteFolderQuery>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "read")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let site_dir = workspace_root.join(&req.folder_path);
+    let sitedef = site_generator::load_sitedef(&site_dir)
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+
+    Ok(Json(serde_json::json!({
+        "title": sitedef.title,
+        "baseURL": sitedef.settings.base_url,
+        "siteName": sitedef.settings.site_name,
+        "themedark": sitedef.settings.themedark,
+        "themelight": sitedef.settings.themelight,
+        "componentLib": sitedef.settings.component_lib,
+        "languages": sitedef.languages.iter().map(|l| &l.locale).collect::<Vec<_>>(),
+        "defaultLanguage": sitedef.defaultlanguage.locale,
+        "pages": sitedef.pages.iter().map(|p| serde_json::json!({
+            "slug": p.slug, "title": p.title,
+            "icon": p.icon, "external": p.external,
+        })).collect::<Vec<_>>(),
+        "collections": sitedef.collections.iter().map(|c| serde_json::json!({
+            "name": c.name, "coltype": c.coltype, "searchable": c.searchable,
+        })).collect::<Vec<_>>(),
+    })))
+}
+
+// ── List pages ────────────────────────────────────────────────────────────────
+
+async fn list_site_pages_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Query(req): Query<SiteFolderQuery>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "read")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let site_dir = workspace_root.join(&req.folder_path);
+    let sitedef = site_generator::load_sitedef(&site_dir)
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+
+    let pages: Vec<serde_json::Value> = sitedef.pages.iter().map(|p| serde_json::json!({
+        "slug": p.slug, "title": p.title,
+        "icon": p.icon, "external": p.external,
+    })).collect();
+
+    Ok(Json(serde_json::json!({ "pages": pages })))
+}
+
+// ── Remove page ───────────────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct RemovePageQuery {
+    folder_path: String,
+    slug: String,
+}
+
+async fn remove_site_page_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Query(req): Query<RemovePageQuery>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "write")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let site_dir = workspace_root.join(&req.folder_path);
+    let sitedef_path = site_dir.join("sitedef.yaml");
+
+    let yaml_text = std::fs::read_to_string(&sitedef_path)
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+    let mut root: serde_yaml::Value = serde_yaml::from_str(&yaml_text)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let removed = if let Some(seq) = root
+        .as_mapping_mut()
+        .and_then(|m| m.get_mut("pages"))
+        .and_then(|v| v.as_sequence_mut())
+    {
+        let before = seq.len();
+        seq.retain(|item| {
+            item.get("slug").and_then(|s| s.as_str()) != Some(&req.slug)
+        });
+        seq.len() < before
+    } else {
+        false
+    };
+
+    if !removed {
+        return Ok(Json(serde_json::json!({ "error": "Page not found" })));
+    }
+
+    let updated_yaml = serde_yaml::to_string(&root)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    std::fs::write(&sitedef_path, updated_yaml)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+// ── List collections ──────────────────────────────────────────────────────────
+
+async fn list_site_collections_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Query(req): Query<SiteFolderQuery>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "read")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let site_dir = workspace_root.join(&req.folder_path);
+    let sitedef = site_generator::load_sitedef(&site_dir)
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+
+    let cols: Vec<serde_json::Value> = sitedef.collections.iter().map(|c| serde_json::json!({
+        "name": c.name, "coltype": c.coltype, "searchable": c.searchable,
+    })).collect();
+
+    Ok(Json(serde_json::json!({ "collections": cols })))
+}
+
+// ── Remove collection ─────────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct RemoveCollectionQuery {
+    folder_path: String,
+    name: String,
+}
+
+async fn remove_site_collection_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Query(req): Query<RemoveCollectionQuery>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "write")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let site_dir = workspace_root.join(&req.folder_path);
+    let sitedef_path = site_dir.join("sitedef.yaml");
+
+    let yaml_text = std::fs::read_to_string(&sitedef_path)
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+    let mut root: serde_yaml::Value = serde_yaml::from_str(&yaml_text)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let removed = if let Some(seq) = root
+        .as_mapping_mut()
+        .and_then(|m| m.get_mut("collections"))
+        .and_then(|v| v.as_sequence_mut())
+    {
+        let before = seq.len();
+        seq.retain(|item| {
+            item.get("name").and_then(|s| s.as_str()) != Some(&req.name)
+        });
+        seq.len() < before
+    } else {
+        false
+    };
+
+    if !removed {
+        return Ok(Json(serde_json::json!({ "error": "Collection not found" })));
+    }
+
+    let updated_yaml = serde_yaml::to_string(&root)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    std::fs::write(&sitedef_path, updated_yaml)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+// ── List collection entries ───────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct ListEntriesQuery {
+    folder_path: String,
+    collection: String,
+    locale: Option<String>,
+}
+
+async fn list_collection_entries_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Query(req): Query<ListEntriesQuery>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "read")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let site_dir = workspace_root.join(&req.folder_path);
+
+    // Determine locale
+    let locale = req.locale.unwrap_or_else(|| {
+        site_generator::load_sitedef(&site_dir)
+            .map(|s| s.defaultlanguage.locale)
+            .unwrap_or_else(|_| "en".to_string())
+    });
+
+    let locale_dir = site_dir.join("content").join(&req.collection).join(&locale);
+    if !locale_dir.exists() {
+        return Ok(Json(serde_json::json!({ "entries": [], "locale": locale })));
+    }
+
+    let mut entries = Vec::new();
+    if let Ok(dir) = std::fs::read_dir(&locale_dir) {
+        for entry in dir.flatten() {
+            let path = entry.path();
+            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+            if ext != "mdx" && ext != "md" { continue; }
+
+            let slug = path.file_stem().and_then(|s| s.to_str()).unwrap_or("").to_string();
+            let content = std::fs::read_to_string(&path).unwrap_or_default();
+
+            // Parse frontmatter
+            let mut title = String::new();
+            let mut date = String::new();
+            let mut draft = false;
+            if let Some(rest) = content.strip_prefix("---") {
+                if let Some(end) = rest.find("\n---") {
+                    if let Ok(fm) = serde_yaml::from_str::<serde_yaml::Value>(&rest[..end]) {
+                        title = fm.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        date = fm.get("pubDate").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        draft = fm.get("draft").and_then(|v| v.as_bool()).unwrap_or(false);
+                    }
+                }
+            }
+
+            entries.push(serde_json::json!({
+                "slug": slug, "title": title, "pubDate": date, "draft": draft,
+            }));
+        }
+    }
+
+    entries.sort_by(|a, b| {
+        let sa = a.get("slug").and_then(|v| v.as_str()).unwrap_or("");
+        let sb = b.get("slug").and_then(|v| v.as_str()).unwrap_or("");
+        sa.cmp(sb)
+    });
+
+    Ok(Json(serde_json::json!({ "entries": entries, "locale": locale })))
+}
+
+// ── Site validate ─────────────────────────────────────────────────────────────
+
+async fn site_validate_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Query(req): Query<SiteFolderQuery>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "read")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let site_dir = workspace_root.join(&req.folder_path);
+    let sitedef = site_generator::load_sitedef(&site_dir)
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+
+    let mut errors: Vec<String> = Vec::new();
+    let mut warnings: Vec<String> = Vec::new();
+
+    // Check page data directories
+    for page in &sitedef.pages {
+        let page_dir = site_dir.join("data").join(format!("page_{}", page.slug));
+        if !page_dir.exists() {
+            errors.push(format!("Page '{}': missing data/page_{}/", page.slug, page.slug));
+            continue;
+        }
+        for lang in &sitedef.languages {
+            let locale_dir = page_dir.join(&lang.locale);
+            if !locale_dir.exists() {
+                warnings.push(format!("Page '{}': missing locale dir {}", page.slug, lang.locale));
+            }
+        }
+    }
+
+    // Check collection content directories
+    for col in &sitedef.collections {
+        let content_dir = site_dir.join("content").join(&col.name);
+        if !content_dir.exists() {
+            errors.push(format!("Collection '{}': missing content/{}/", col.name, col.name));
+        }
+    }
+
+    Ok(Json(serde_json::json!({
+        "errors": errors,
+        "warnings": warnings,
+        "errorCount": errors.len(),
+        "warningCount": warnings.len(),
+    })))
 }
 
 // ============================================================================
@@ -4967,11 +5384,27 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         )
         .route(
             "/api/workspaces/{workspace_id}/site-collections",
-            post(create_site_collection),
+            post(create_site_collection).get(list_site_collections_handler).delete(remove_site_collection_handler),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/site-pages",
+            post(create_site_page).get(list_site_pages_handler).delete(remove_site_page_handler),
         )
         .route(
             "/api/workspaces/{workspace_id}/site-collection/entries",
             post(create_collection_entry).put(save_collection_entry).delete(delete_collection_entry),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/site-collection/entries/list",
+            get(list_collection_entries_handler),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/site/status",
+            get(site_status_handler),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/site/validate",
+            get(site_validate_handler),
         )
         .route("/workspace-access-codes", get(workspace_access_codes_page))
         // ── Tenant admin API (Phase 6B) ───────────────────────────────────

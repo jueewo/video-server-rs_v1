@@ -4618,8 +4618,13 @@ name = "site-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "dotenvy",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "serde_yaml",
  "site-generator",
  "site-publisher",
  "tokio",

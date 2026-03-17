@@ -96,6 +96,33 @@ fn generate_pages(sitedef: &SiteDef, locales: &[String], out: &Path) -> Result<(
 
         info!("Generated page: {}", page.slug);
     }
+
+    // Generate [...slug].astro for collections that don't have a matching page.
+    // This ensures article detail routes work when a Collection element references
+    // a collection from a differently-named page (e.g. page "tech" shows "updates").
+    let page_slugs: std::collections::HashSet<&str> = sitedef
+        .pages
+        .iter()
+        .map(|p| p.slug.as_str())
+        .collect();
+
+    for col in &sitedef.collections {
+        if page_slugs.contains(col.name.as_str()) {
+            continue; // already handled above
+        }
+        let col_dir = out.join("src").join("pages").join("[lang]").join(&col.name);
+        std::fs::create_dir_all(&col_dir)?;
+        let slug_page = apply_template(
+            TEMPLATE_SLUG,
+            &[
+                ("collection", col.name.clone()),
+                ("langarray", lang_array.clone()),
+            ],
+        );
+        std::fs::write(col_dir.join("[...slug].astro"), slug_page)?;
+        info!("Generated collection detail route: {}", col.name);
+    }
+
     Ok(())
 }
 

@@ -75,6 +75,49 @@
         </div>
     </div>
 
+    <!-- Site Structure Canvas -->
+    <div class="collapse collapse-arrow bg-base-100 border border-base-300 shadow-sm mb-6" id="structure-collapse">
+        <input type="checkbox" checked />
+        <div class="collapse-title font-medium flex items-center gap-2 text-base">
+            <i data-lucide="network" class="w-4 h-4"></i> Site Structure
+        </div>
+        <div class="collapse-content p-0">
+            <div class="relative w-full overflow-hidden rounded-b-box" style="background: oklch(var(--b2));">
+                <!-- Toolbar -->
+                <div class="absolute top-2 right-2 z-10 flex gap-1">
+                    <input id="structure-search" type="text" placeholder="Search pages, collections, articles…"
+                           class="input input-xs input-bordered bg-base-100/80 backdrop-blur w-48 font-mono text-xs" />
+                    <button id="structure-reset" class="btn btn-xs btn-ghost bg-base-100/70 backdrop-blur gap-1" title="Reset positions & zoom">
+                        <i data-lucide="maximize-2" class="w-3 h-3"></i> Reset
+                    </button>
+                    <button id="structure-fit" class="btn btn-xs btn-ghost bg-base-100/70 backdrop-blur gap-1" title="Fit all nodes in view">
+                        <i data-lucide="scan" class="w-3 h-3"></i> Fit
+                    </button>
+                    <button id="structure-zoom-in" class="btn btn-xs btn-ghost bg-base-100/70 backdrop-blur" title="Zoom in">
+                        <i data-lucide="zoom-in" class="w-3 h-3"></i>
+                    </button>
+                    <button id="structure-zoom-out" class="btn btn-xs btn-ghost bg-base-100/70 backdrop-blur" title="Zoom out">
+                        <i data-lucide="zoom-out" class="w-3 h-3"></i>
+                    </button>
+                </div>
+                <!-- Legend -->
+                <div class="absolute bottom-2 left-2 z-10 flex gap-3 text-[10px] text-base-content/50">
+                    <span class="flex items-center gap-1"><span class="inline-block w-3 h-2 rounded-sm" style="background:oklch(0.65 0.18 250)"></span> Page</span>
+                    <span class="flex items-center gap-1"><span class="inline-block w-3 h-2 rounded-sm" style="background:oklch(0.65 0.18 150)"></span> Collection</span>
+                    <span class="flex items-center gap-1"><span class="inline-block w-3 h-2 rounded-sm" style="background:oklch(0.70 0.12 55)"></span> Article</span>
+                    <span class="text-base-content/30">Scroll to zoom &middot; Drag to pan</span>
+                </div>
+                <svg id="structure-svg" class="w-full" style="cursor:grab; min-height:350px;"
+                     data-graph="{{ structure_json }}"></svg>
+                <!-- Tooltip (positioned by JS) -->
+                <div id="structure-tooltip" class="absolute pointer-events-none hidden z-20
+                     bg-base-100 border border-base-300 rounded-lg shadow-lg px-3 py-2
+                     text-xs max-w-[220px]" style="transition: opacity 0.12s;">
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         <!-- Left column: pages + collections -->
@@ -87,8 +130,14 @@
                         <h2 class="card-title text-base">
                             <i data-lucide="layout" class="w-4 h-4"></i> Pages
                         </h2>
-                        <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}/data"
-                           class="btn btn-xs btn-ghost">Browse →</a>
+                        <div class="flex gap-1">
+                            <button onclick="document.getElementById('add-page-modal').showModal()"
+                                    class="btn btn-xs btn-primary gap-1">
+                                <i data-lucide="plus" class="w-3 h-3"></i> Add
+                            </button>
+                            <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}/data"
+                               class="btn btn-xs btn-ghost">Browse →</a>
+                        </div>
                     </div>
                     {% if pages.is_empty() %}
                     <p class="text-sm text-base-content/50">No pages defined yet. Add them to <code>sitedef.yaml</code>.</p>
@@ -383,6 +432,34 @@
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
+<!-- Add Page Modal -->
+<dialog id="add-page-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">Add Page</h3>
+        <div class="space-y-3">
+            <div class="form-control">
+                <label class="label py-0 pb-1">
+                    <span class="label-text text-sm">Slug</span>
+                    <span class="label-text-alt text-xs text-base-content/40">lowercase, a-z 0-9 - _</span>
+                </label>
+                <input id="np-slug" type="text" placeholder="about" class="input input-bordered input-sm w-full font-mono" />
+            </div>
+            <div class="form-control">
+                <label class="label py-0 pb-1">
+                    <span class="label-text text-sm">Title</span>
+                </label>
+                <input id="np-title" type="text" placeholder="About Us" class="input input-bordered input-sm w-full" />
+            </div>
+            <p id="np-error" class="text-xs text-error hidden"></p>
+        </div>
+        <div class="modal-action">
+            <button onclick="doAddPage()" class="btn btn-primary btn-sm">Create</button>
+            <button onclick="document.getElementById('add-page-modal').close()" class="btn btn-ghost btn-sm">Cancel</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
 <!-- Publish result toast -->
 <div id="publish-toast" class="toast toast-top toast-end hidden" style="top:4.5rem;z-index:60">
     <div id="publish-toast-msg" class="alert shadow-lg max-w-sm"></div>
@@ -470,6 +547,32 @@ async function buildAndPreview() {
     setTimeout(() => window.location.reload(), ok ? 3000 : 5000);
 }
 
+// ── Add Page ─────────────────────────────────────────────────────────────────
+
+async function doAddPage() {
+    const slug   = document.getElementById('np-slug').value.trim();
+    const title  = document.getElementById('np-title').value.trim();
+    const errEl  = document.getElementById('np-error');
+
+    if (!slug) { errEl.textContent = 'Slug is required.'; errEl.classList.remove('hidden'); return; }
+    if (!/^[a-z0-9_-]+$/.test(slug)) {
+        errEl.textContent = 'Slug must be lowercase letters, digits, hyphens, or underscores.';
+        errEl.classList.remove('hidden'); return;
+    }
+    errEl.classList.add('hidden');
+
+    const res = await fetch('/api/workspaces/{{ workspace_id }}/site-pages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder_path: '{{ folder_path }}', slug, title: title || slug }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (data.error) { errEl.textContent = data.error; errEl.classList.remove('hidden'); return; }
+
+    document.getElementById('add-page-modal').close();
+    window.location.reload();
+}
+
 // ── Add Collection ────────────────────────────────────────────────────────────
 
 async function doAddCollection() {
@@ -496,6 +599,644 @@ async function doAddCollection() {
     document.getElementById('add-collection-modal').close();
     window.location.reload();
 }
+
+// ── Site Structure Canvas ─────────────────────────────────────────────────────
+(function() {
+    const svg = document.getElementById('structure-svg');
+    if (!svg) return;
+    const graph = JSON.parse(svg.dataset.graph || '{"nodes":[],"edges":[]}');
+    if (!graph.nodes || !graph.nodes.length) return;
+
+    const NS = 'http://www.w3.org/2000/svg';
+    const NODE_W = 150, NODE_H = 44, NODE_R = 8;
+    const ITEM_W = 130, ITEM_H = 22, ITEM_R = 4;
+    const PAD = 30, STEP_Y = 58, HEADER_H = 24;
+
+    // Colours
+    const PAGE_FILL      = 'oklch(0.65 0.18 250)';
+    const COL_FILL       = 'oklch(0.65 0.18 150)';
+    const ITEM_FILL      = 'oklch(0.70 0.12 55)';
+    const EDGE_STROKE    = 'oklch(0.60 0.10 260 / 0.55)';
+    const EDGE_STROKE_HI = 'oklch(0.75 0.18 260)';
+    const EDGE_STROKE_DIM= 'oklch(0.50 0.04 260 / 0.15)';
+    const TEXT_FILL      = '#fff';
+    const DIM_OPACITY    = '0.25';
+    const MENU_ICON_FILL = 'oklch(0.85 0.15 80)';
+    const WARN_FILL      = 'oklch(0.80 0.20 60)';
+
+    const pages = graph.nodes.filter(n => n.type === 'page');
+    const cols  = graph.nodes.filter(n => n.type === 'collection');
+    const tooltip = document.getElementById('structure-tooltip');
+    const svgContainer = svg.parentElement;
+
+    // ─ Layout ─
+    const W = svg.clientWidth || 700;
+    const leftX = PAD, rightX = W - NODE_W - PAD;
+    const nodeMap = {};
+    let y;
+
+    y = PAD + HEADER_H;
+    pages.forEach(n => { n.x = leftX; n.y = y; y += STEP_Y; nodeMap[n.id] = n; });
+    const bottomLeft = y;
+
+    y = PAD + HEADER_H;
+    cols.forEach(n => { n.x = rightX; n.y = y; y += STEP_Y; nodeMap[n.id] = n; });
+    const bottomRight = y;
+
+    const totalH = Math.max(bottomLeft, bottomRight) + PAD;
+    const viewH = Math.max(350, totalH);
+
+    // Initial positions for reset (includes item visibility state)
+    const initialPositions = {};
+    graph.nodes.forEach(n => { initialPositions[n.id] = { x: n.x, y: n.y }; });
+
+    let vb = { x: 0, y: 0, w: W, h: viewH };
+    const initVb = { ...vb };
+    function applyViewBox() { svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`); }
+    svg.style.height = Math.min(viewH, 500) + 'px';
+    applyViewBox();
+
+    const root = document.createElementNS(NS, 'g');
+    svg.appendChild(root);
+
+    // ─ Column headers ─
+    function addHeader(text, x, yy) {
+        const t = document.createElementNS(NS, 'text');
+        t.setAttribute('x', x); t.setAttribute('y', yy);
+        t.setAttribute('font-size', '11'); t.setAttribute('font-weight', '600');
+        t.setAttribute('fill', 'oklch(0.55 0.05 260)');
+        t.setAttribute('letter-spacing', '1');
+        t.textContent = text;
+        root.appendChild(t);
+    }
+    addHeader('PAGES', leftX, PAD + 10);
+    addHeader('COLLECTIONS', rightX, PAD + 10);
+
+    // ─ Edges ─
+    const edgeGroup = document.createElementNS(NS, 'g');
+    root.appendChild(edgeGroup);
+    const edgeLabelGroup = document.createElementNS(NS, 'g');
+    edgeLabelGroup.setAttribute('opacity', '0');
+    root.appendChild(edgeLabelGroup);
+    const edgeEls = [];
+
+    function drawEdges() {
+        edgeGroup.innerHTML = ''; edgeLabelGroup.innerHTML = ''; edgeEls.length = 0;
+        for (const e of graph.edges) {
+            const from = nodeMap[e.from], to = nodeMap[e.to];
+            if (!from || !to) continue;
+            const x1 = from.x + NODE_W, y1 = from.y + NODE_H / 2;
+            const x2 = to.x,            y2 = to.y + NODE_H / 2;
+            const cx = (x1 + x2) / 2;
+            const path = document.createElementNS(NS, 'path');
+            path.setAttribute('d', `M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}`);
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke', EDGE_STROKE);
+            path.setAttribute('stroke-width', '2');
+            path.dataset.from = e.from; path.dataset.to = e.to;
+            edgeGroup.appendChild(path);
+            edgeEls.push(path);
+            if (e.label) {
+                const lx = (x1 + x2) / 2, ly = (y1 + y2) / 2 - 6;
+                const txt = document.createElementNS(NS, 'text');
+                txt.setAttribute('x', lx); txt.setAttribute('y', ly);
+                txt.setAttribute('text-anchor', 'middle'); txt.setAttribute('font-size', '9');
+                txt.setAttribute('fill', 'oklch(0.55 0.05 260)');
+                txt.dataset.from = e.from; txt.dataset.to = e.to;
+                txt.textContent = e.label;
+                edgeLabelGroup.appendChild(txt);
+            }
+        }
+    }
+
+    // ─ Tooltip ─
+    let tooltipTimer = null;
+    function showTooltip(n, ev) {
+        if (!tooltip) return;
+        clearTimeout(tooltipTimer);
+        tooltipTimer = setTimeout(() => {
+            let html = '';
+            if (n.type === 'page') {
+                html += `<div class="font-semibold mb-1">${n.label}</div>`;
+                html += `<div class="text-base-content/60">slug: <span class="font-mono">${n.slug}</span></div>`;
+                html += `<div>${n.elements || 0} elements</div>`;
+                if (n.inMenu) html += `<div class="text-success">In navigation menu</div>`;
+                else html += `<div class="text-base-content/40">Not in menu</div>`;
+                if (n.connectedTo && n.connectedTo.length) {
+                    html += `<div class="mt-1 text-base-content/50">Collections: ${n.connectedTo.join(', ')}</div>`;
+                }
+                if ((n.elements || 0) === 0) html += `<div class="text-warning mt-1">No elements — page is empty</div>`;
+            } else {
+                html += `<div class="font-semibold mb-1">${n.label}</div>`;
+                html += `<div class="text-base-content/60">type: <span class="font-mono">${n.coltype}</span></div>`;
+                html += `<div>${n.articles || 0} articles</div>`;
+                html += `<div>${n.searchable ? 'Searchable' : 'Not searchable'}</div>`;
+                if (!n.referenced) html += `<div class="text-warning mt-1">Not referenced by any page</div>`;
+                if ((n.articles || 0) === 0) html += `<div class="text-warning mt-1">Collection is empty</div>`;
+                if (n.items && n.items.length) {
+                    const drafts = n.items.filter(i => i.draft).length;
+                    if (drafts) html += `<div class="text-base-content/50">${drafts} draft${drafts > 1 ? 's' : ''}</div>`;
+                }
+            }
+            tooltip.innerHTML = html;
+            tooltip.classList.remove('hidden');
+            positionTooltip(ev);
+        }, 400);
+    }
+    function positionTooltip(ev) {
+        if (!tooltip || tooltip.classList.contains('hidden')) return;
+        const cr = svgContainer.getBoundingClientRect();
+        let x = ev.clientX - cr.left + 16;
+        let y = ev.clientY - cr.top - 10;
+        if (x + 220 > cr.width) x = ev.clientX - cr.left - 230;
+        if (y + 120 > cr.height) y = cr.height - 130;
+        if (y < 0) y = 4;
+        tooltip.style.left = x + 'px';
+        tooltip.style.top = y + 'px';
+    }
+    function hideTooltip() {
+        clearTimeout(tooltipTimer);
+        if (tooltip) tooltip.classList.add('hidden');
+    }
+
+    // ─ Warning detection ─
+    function nodeWarnings(n) {
+        const w = [];
+        if (n.type === 'page' && (n.elements || 0) === 0) w.push('empty');
+        if (n.type === 'collection' && (n.articles || 0) === 0) w.push('empty');
+        if (n.type === 'collection' && !n.referenced) w.push('unreferenced');
+        return w;
+    }
+
+    // ─ Node group ─
+    const nodeGroup = document.createElementNS(NS, 'g');
+    root.appendChild(nodeGroup);
+    const nodeEls = {};          // id → { g, rect, fill, n }
+    const expandedCols = {};     // col id → { itemGroup, items: [{g, rect, data}] }
+
+    // ─ Build a collection item sub-node ─
+    function makeItemNode(item, parentNode, index) {
+        const ix = parentNode.x + NODE_W + 12;
+        const iy = parentNode.y + (index + 1) * (ITEM_H + 4);
+        item._x = ix; item._y = iy;
+
+        const g = document.createElementNS(NS, 'g');
+        g.setAttribute('transform', `translate(${ix},${iy})`);
+        g.style.cursor = 'pointer';
+
+        const r = document.createElementNS(NS, 'rect');
+        r.setAttribute('width', ITEM_W); r.setAttribute('height', ITEM_H);
+        r.setAttribute('rx', ITEM_R);
+        r.setAttribute('fill', item.draft ? 'oklch(0.50 0.06 55)' : ITEM_FILL);
+        r.setAttribute('stroke', 'oklch(0.3 0.02 55 / 0.3)'); r.setAttribute('stroke-width', '1');
+        g.appendChild(r);
+
+        const label = document.createElementNS(NS, 'text');
+        label.setAttribute('x', 8); label.setAttribute('y', 15);
+        label.setAttribute('font-size', '10'); label.setAttribute('fill', TEXT_FILL);
+        const maxLen = 16;
+        let text = item.title || item.slug;
+        if (text.length > maxLen) text = text.slice(0, maxLen) + '\u2026';
+        if (item.draft) text = '\u25CC ' + text;
+        label.textContent = text;
+        g.appendChild(label);
+
+        // Click → open entry editor (uses default language)
+        g.addEventListener('click', () => {
+            window.location.href = `/workspaces/{{ workspace_id }}/site-entry?path={{ folder_path }}&collection=${parentNode.label}&locale={{ default_language }}&slug=${item.slug}`;
+        });
+
+        return { g, rect: r, data: item };
+    }
+
+    // ─ Toggle expand/collapse items for a collection ─
+    function toggleItems(n) {
+        const existing = expandedCols[n.id];
+        if (existing) {
+            existing.itemGroup.remove();
+            delete expandedCols[n.id];
+            return;
+        }
+        if (!n.items || !n.items.length) return;
+
+        const itemGroup = document.createElementNS(NS, 'g');
+        const items = n.items.map((item, i) => {
+            const node = makeItemNode(item, n, i);
+            itemGroup.appendChild(node.g);
+            return node;
+        });
+
+        // Connector lines from collection to items
+        const lineGroup = document.createElementNS(NS, 'g');
+        const cx = n.x + NODE_W + 4;
+        items.forEach(it => {
+            const line = document.createElementNS(NS, 'line');
+            line.setAttribute('x1', cx); line.setAttribute('y1', n.y + NODE_H / 2);
+            line.setAttribute('x2', it.data._x); line.setAttribute('y2', it.data._y + ITEM_H / 2);
+            line.setAttribute('stroke', 'oklch(0.60 0.08 55 / 0.35)'); line.setAttribute('stroke-width', '1');
+            lineGroup.appendChild(line);
+        });
+        itemGroup.insertBefore(lineGroup, itemGroup.firstChild);
+
+        root.appendChild(itemGroup);
+        expandedCols[n.id] = { itemGroup, items };
+    }
+
+    // ─ Make a page or collection node ─
+    function makeNode(n) {
+        const g = document.createElementNS(NS, 'g');
+        g.setAttribute('transform', `translate(${n.x},${n.y})`);
+        g.style.cursor = 'grab';
+
+        const fill = n.type === 'page' ? PAGE_FILL : COL_FILL;
+        const rect = document.createElementNS(NS, 'rect');
+        rect.setAttribute('width', NODE_W); rect.setAttribute('height', NODE_H);
+        rect.setAttribute('rx', NODE_R); rect.setAttribute('fill', fill);
+        rect.setAttribute('stroke', 'oklch(0.3 0.02 260 / 0.3)'); rect.setAttribute('stroke-width', '1');
+        g.appendChild(rect);
+        nodeEls[n.id] = { g, rect, fill, n };
+
+        // Icon
+        const icon = document.createElementNS(NS, 'text');
+        icon.setAttribute('x', 12); icon.setAttribute('y', 18);
+        icon.setAttribute('font-size', '12'); icon.setAttribute('fill', TEXT_FILL);
+        icon.textContent = n.type === 'page' ? '\u25A1' : '\u25CB';
+        g.appendChild(icon);
+
+        // Warning dot
+        const warnings = nodeWarnings(n);
+        if (warnings.length) {
+            const dot = document.createElementNS(NS, 'circle');
+            dot.setAttribute('cx', 6); dot.setAttribute('cy', 6);
+            dot.setAttribute('r', 4);
+            dot.setAttribute('fill', WARN_FILL);
+            g.appendChild(dot);
+            // Dashed border for nodes with warnings
+            rect.setAttribute('stroke-dasharray', '4 2');
+            rect.setAttribute('stroke', 'oklch(0.70 0.15 60 / 0.6)');
+        }
+
+        // Menu badge for pages in navigation
+        if (n.type === 'page' && n.inMenu) {
+            const mx = NODE_W - 8, my = 4;
+            const menuDot = document.createElementNS(NS, 'text');
+            menuDot.setAttribute('x', mx); menuDot.setAttribute('y', my + 10);
+            menuDot.setAttribute('text-anchor', 'middle');
+            menuDot.setAttribute('font-size', '11'); menuDot.setAttribute('fill', MENU_ICON_FILL);
+            menuDot.textContent = '\u2630'; // hamburger menu icon
+            g.appendChild(menuDot);
+        }
+
+        // Expand button for collections with items
+        let toggleClicked = false;
+        if (n.type === 'collection' && n.items && n.items.length) {
+            const btnG = document.createElementNS(NS, 'g');
+            btnG.style.cursor = 'pointer';
+            // Position: right side of node, vertically centered
+            const btnW = 36, btnH = 20;
+            const bx = NODE_W - btnW - 4, by = (NODE_H - btnH) / 2;
+            const btnRect = document.createElementNS(NS, 'rect');
+            btnRect.setAttribute('x', bx); btnRect.setAttribute('y', by);
+            btnRect.setAttribute('width', btnW); btnRect.setAttribute('height', btnH);
+            btnRect.setAttribute('rx', 10);
+            btnRect.setAttribute('fill', 'rgba(255,255,255,0.18)');
+            btnG.appendChild(btnRect);
+            const btnLabel = document.createElementNS(NS, 'text');
+            btnLabel.setAttribute('x', bx + btnW / 2); btnLabel.setAttribute('y', by + 14);
+            btnLabel.setAttribute('text-anchor', 'middle');
+            btnLabel.setAttribute('font-size', '10'); btnLabel.setAttribute('font-weight', '600');
+            btnLabel.setAttribute('fill', 'rgba(255,255,255,0.8)');
+            btnLabel.textContent = `${n.items.length} \u25B6`;
+            btnG.appendChild(btnLabel);
+            btnG.addEventListener('pointerenter', () => { btnRect.setAttribute('fill', 'rgba(255,255,255,0.35)'); });
+            btnG.addEventListener('pointerleave', () => { btnRect.setAttribute('fill', 'rgba(255,255,255,0.18)'); });
+            btnG.addEventListener('pointerdown', (ev) => {
+                ev.stopPropagation(); // prevent drag
+                toggleClicked = true;
+            });
+            btnG.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                toggleItems(n);
+                btnLabel.textContent = expandedCols[n.id] ? `${n.items.length} \u25BC` : `${n.items.length} \u25B6`;
+            });
+            g.appendChild(btnG);
+        }
+
+        // Label
+        const label = document.createElementNS(NS, 'text');
+        label.setAttribute('x', 28); label.setAttribute('y', 18);
+        label.setAttribute('font-size', '13'); label.setAttribute('font-weight', '600');
+        label.setAttribute('fill', TEXT_FILL);
+        const hasBtn = n.type === 'collection' && n.items && n.items.length;
+        const maxLen = hasBtn ? 10 : (n.type === 'page' && n.inMenu ? 12 : 14);
+        label.textContent = n.label.length > maxLen ? n.label.slice(0, maxLen) + '\u2026' : n.label;
+        g.appendChild(label);
+
+        // Sub-label
+        const sub = document.createElementNS(NS, 'text');
+        sub.setAttribute('x', 28); sub.setAttribute('y', 34);
+        sub.setAttribute('font-size', '10'); sub.setAttribute('fill', 'rgba(255,255,255,0.65)');
+        if (n.type === 'page') {
+            sub.textContent = `${n.elements || 0} elements`;
+        } else {
+            sub.textContent = `${n.articles || 0} articles \u00B7 ${n.coltype || ''}`.slice(0, 24);
+        }
+        g.appendChild(sub);
+
+        // ─ Hover highlight + tooltip ─
+        g.addEventListener('pointerenter', (ev) => {
+            if (!activeSearch) highlightNode(n.id);
+            showTooltip(n, ev);
+        });
+        g.addEventListener('pointermove', (ev) => { positionTooltip(ev); });
+        g.addEventListener('pointerleave', () => {
+            if (!activeSearch) clearHighlight();
+            hideTooltip();
+        });
+
+        // ─ Drag ─
+        let dragging = false, startX, startY, origX, origY;
+        g.addEventListener('pointerdown', (ev) => {
+            dragging = true;
+            startX = ev.clientX; startY = ev.clientY;
+            origX = n.x; origY = n.y;
+            g.style.cursor = 'grabbing';
+            g.setPointerCapture(ev.pointerId);
+            ev.stopPropagation();
+            hideTooltip();
+        });
+        g.addEventListener('pointermove', (ev) => {
+            if (!dragging) return;
+            const r = svg.getBoundingClientRect();
+            const scale = vb.w / r.width;
+            n.x = origX + (ev.clientX - startX) * scale;
+            n.y = origY + (ev.clientY - startY) * scale;
+            g.setAttribute('transform', `translate(${n.x},${n.y})`);
+            drawEdges();
+            // Reposition expanded items if this is a collection
+            const exp = expandedCols[n.id];
+            if (exp) {
+                exp.items.forEach((it, i) => {
+                    it.data._x = n.x + NODE_W + 12;
+                    it.data._y = n.y + (i + 1) * (ITEM_H + 4);
+                    it.g.setAttribute('transform', `translate(${it.data._x},${it.data._y})`);
+                });
+                // Redraw connector lines
+                const lineGroup = exp.itemGroup.querySelector('g');
+                if (lineGroup) {
+                    lineGroup.innerHTML = '';
+                    const cx2 = n.x + NODE_W + 4;
+                    exp.items.forEach(it => {
+                        const line = document.createElementNS(NS, 'line');
+                        line.setAttribute('x1', cx2); line.setAttribute('y1', n.y + NODE_H / 2);
+                        line.setAttribute('x2', it.data._x); line.setAttribute('y2', it.data._y + ITEM_H / 2);
+                        line.setAttribute('stroke', 'oklch(0.60 0.08 55 / 0.35)'); line.setAttribute('stroke-width', '1');
+                        lineGroup.appendChild(line);
+                    });
+                }
+            }
+        });
+        g.addEventListener('pointerup', () => { dragging = false; g.style.cursor = 'grab'; });
+
+        // ─ Click → navigate ─
+        g.addEventListener('click', (ev) => {
+            if (toggleClicked) { toggleClicked = false; return; }
+            if (Math.abs(ev.clientX - startX) > 5 || Math.abs(ev.clientY - startY) > 5) return;
+            if (n.type === 'page') {
+                window.location.href = `/workspaces/{{ workspace_id }}/site-editor?path={{ folder_path }}&page=${n.slug}`;
+            } else {
+                window.location.href = `/workspaces/{{ workspace_id }}/site-collection?path={{ folder_path }}&collection=${n.label}`;
+            }
+        });
+
+        nodeGroup.appendChild(g);
+    }
+
+    // ─ Highlight helpers ─
+    let activeSearch = false;
+
+    function highlightSet(matchedIds) {
+        // Also include edge-connected nodes for matched nodes
+        const related = new Set(matchedIds);
+        graph.edges.forEach(e => {
+            if (related.has(e.from) || related.has(e.to)) { related.add(e.from); related.add(e.to); }
+        });
+
+        for (const [nid, el] of Object.entries(nodeEls)) {
+            if (related.has(nid)) {
+                el.rect.setAttribute('fill', el.fill);
+                el.rect.setAttribute('stroke', matchedIds.has(nid) ? EDGE_STROKE_HI : 'oklch(0.3 0.02 260 / 0.3)');
+                el.rect.setAttribute('stroke-width', matchedIds.has(nid) ? '2.5' : '1');
+                el.g.style.opacity = '1';
+            } else {
+                el.g.style.opacity = DIM_OPACITY;
+            }
+        }
+        edgeEls.forEach(p => {
+            if (related.has(p.dataset.from) && related.has(p.dataset.to)) {
+                p.setAttribute('stroke', EDGE_STROKE_HI); p.setAttribute('stroke-width', '2.5');
+            } else {
+                p.setAttribute('stroke', EDGE_STROKE_DIM); p.setAttribute('stroke-width', '1');
+            }
+        });
+        edgeLabelGroup.setAttribute('opacity', '1');
+        for (const t of edgeLabelGroup.children) {
+            t.style.display = (related.has(t.dataset.from) && related.has(t.dataset.to)) ? '' : 'none';
+        }
+        // Dim/highlight expanded items
+        for (const [colId, exp] of Object.entries(expandedCols)) {
+            exp.items.forEach(it => {
+                it.g.style.opacity = related.has(colId) ? '1' : DIM_OPACITY;
+            });
+        }
+    }
+
+    function highlightNode(id) {
+        highlightSet(new Set([id]));
+    }
+
+    function clearHighlight() {
+        for (const [, el] of Object.entries(nodeEls)) {
+            el.rect.setAttribute('fill', el.fill);
+            el.rect.setAttribute('stroke', 'oklch(0.3 0.02 260 / 0.3)');
+            el.rect.setAttribute('stroke-width', '1');
+            el.g.style.opacity = '1';
+        }
+        edgeEls.forEach(p => {
+            p.setAttribute('stroke', EDGE_STROKE); p.setAttribute('stroke-width', '2');
+        });
+        edgeLabelGroup.setAttribute('opacity', '0');
+        for (const [, exp] of Object.entries(expandedCols)) {
+            exp.items.forEach(it => { it.g.style.opacity = '1'; });
+        }
+    }
+
+    // Render
+    graph.nodes.forEach(makeNode);
+    drawEdges();
+
+    // ─ Search ─
+    const searchInput = document.getElementById('structure-search');
+    searchInput?.addEventListener('input', () => {
+        const q = searchInput.value.trim().toLowerCase();
+        if (!q) {
+            activeSearch = false;
+            clearHighlight();
+            // Reset expanded item highlighting
+            for (const [, exp] of Object.entries(expandedCols)) {
+                exp.items.forEach(it => {
+                    it.rect.setAttribute('fill', it.data.draft ? 'oklch(0.50 0.06 55)' : ITEM_FILL);
+                    it.rect.setAttribute('stroke-width', '1');
+                });
+            }
+            return;
+        }
+        activeSearch = true;
+
+        // Match page/collection nodes
+        const matched = new Set();
+        for (const n of graph.nodes) {
+            const text = `${n.label} ${n.slug || ''} ${n.coltype || ''}`.toLowerCase();
+            if (text.includes(q)) matched.add(n.id);
+        }
+
+        // Match collection items — also highlight parent collection
+        for (const n of cols) {
+            if (n.items) {
+                for (const item of n.items) {
+                    const text = `${item.title} ${item.slug}`.toLowerCase();
+                    if (text.includes(q)) { matched.add(n.id); break; }
+                }
+            }
+        }
+
+        // Highlight expanded items individually
+        for (const [colId, exp] of Object.entries(expandedCols)) {
+            exp.items.forEach(it => {
+                const text = `${it.data.title} ${it.data.slug}`.toLowerCase();
+                const isMatch = text.includes(q);
+                it.rect.setAttribute('fill', isMatch ? 'oklch(0.80 0.18 55)' : (it.data.draft ? 'oklch(0.50 0.06 55)' : ITEM_FILL));
+                it.rect.setAttribute('stroke-width', isMatch ? '2' : '1');
+                it.g.style.opacity = matched.has(colId) ? '1' : DIM_OPACITY;
+            });
+        }
+
+        if (matched.size) {
+            highlightSet(matched);
+        } else {
+            clearHighlight();
+            // Dim everything when search has no matches
+            for (const [, el] of Object.entries(nodeEls)) { el.g.style.opacity = DIM_OPACITY; }
+            edgeEls.forEach(p => { p.setAttribute('stroke', EDGE_STROKE_DIM); p.setAttribute('stroke-width', '1'); });
+        }
+    });
+
+    // ─ Zoom (scroll wheel) ─
+    svg.addEventListener('wheel', (ev) => {
+        ev.preventDefault();
+        const factor = ev.deltaY > 0 ? 1.12 : 0.89;
+        const r = svg.getBoundingClientRect();
+        const mx = vb.x + (ev.clientX - r.left) / r.width * vb.w;
+        const my = vb.y + (ev.clientY - r.top) / r.height * vb.h;
+        vb.w *= factor; vb.h *= factor;
+        vb.x = mx - (ev.clientX - r.left) / r.width * vb.w;
+        vb.y = my - (ev.clientY - r.top) / r.height * vb.h;
+        applyViewBox();
+    }, { passive: false });
+
+    // ─ Pan (drag background) ─
+    let panning = false, panSX, panSY, panVX, panVY;
+    svg.addEventListener('pointerdown', (ev) => {
+        if (ev.target !== svg && ev.target.parentNode !== svg) return;
+        panning = true; panSX = ev.clientX; panSY = ev.clientY;
+        panVX = vb.x; panVY = vb.y;
+        svg.style.cursor = 'grabbing';
+        svg.setPointerCapture(ev.pointerId);
+    });
+    svg.addEventListener('pointermove', (ev) => {
+        if (!panning) return;
+        const r = svg.getBoundingClientRect();
+        vb.x = panVX - (ev.clientX - panSX) * (vb.w / r.width);
+        vb.y = panVY - (ev.clientY - panSY) * (vb.h / r.height);
+        applyViewBox();
+    });
+    svg.addEventListener('pointerup', () => { panning = false; svg.style.cursor = 'grab'; });
+
+    // ─ Toolbar ─
+    document.getElementById('structure-reset')?.addEventListener('click', () => {
+        // Collapse all expanded items
+        for (const [id, exp] of Object.entries(expandedCols)) {
+            exp.itemGroup.remove(); delete expandedCols[id];
+        }
+        // Reset node positions
+        graph.nodes.forEach(n => {
+            const init = initialPositions[n.id];
+            n.x = init.x; n.y = init.y;
+            nodeEls[n.id]?.g.setAttribute('transform', `translate(${n.x},${n.y})`);
+        });
+        // Reset expand button labels
+        for (const [, el] of Object.entries(nodeEls)) {
+            if (el.n.items && el.n.items.length) {
+                const texts = el.g.querySelectorAll('text');
+                texts.forEach(t => {
+                    if (t.textContent.includes('\u25BC')) t.textContent = `${el.n.items.length} \u25B6`;
+                });
+            }
+        }
+        // Reset viewbox
+        vb = { ...initVb };
+        applyViewBox();
+        drawEdges();
+        // Clear search
+        if (searchInput) { searchInput.value = ''; activeSearch = false; }
+        clearHighlight();
+    });
+    document.getElementById('structure-zoom-in')?.addEventListener('click', () => {
+        const cx = vb.x + vb.w / 2, cy = vb.y + vb.h / 2;
+        vb.w *= 0.8; vb.h *= 0.8; vb.x = cx - vb.w / 2; vb.y = cy - vb.h / 2;
+        applyViewBox();
+    });
+    document.getElementById('structure-zoom-out')?.addEventListener('click', () => {
+        const cx = vb.x + vb.w / 2, cy = vb.y + vb.h / 2;
+        vb.w *= 1.25; vb.h *= 1.25; vb.x = cx - vb.w / 2; vb.y = cy - vb.h / 2;
+        applyViewBox();
+    });
+    document.getElementById('structure-fit')?.addEventListener('click', () => {
+        // Compute bounding box of all current node positions
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const n of graph.nodes) {
+            minX = Math.min(minX, n.x);
+            minY = Math.min(minY, n.y);
+            maxX = Math.max(maxX, n.x + NODE_W);
+            maxY = Math.max(maxY, n.y + NODE_H);
+        }
+        // Include expanded items
+        for (const [, exp] of Object.entries(expandedCols)) {
+            for (const it of exp.items) {
+                maxX = Math.max(maxX, it.data._x + ITEM_W);
+                maxY = Math.max(maxY, it.data._y + ITEM_H);
+            }
+        }
+        const pad = 40;
+        const bw = maxX - minX + pad * 2;
+        const bh = maxY - minY + pad * 2;
+        // Maintain aspect ratio of the SVG container
+        const svgRect = svg.getBoundingClientRect();
+        const aspect = svgRect.width / svgRect.height;
+        if (bw / bh > aspect) {
+            // Width-constrained
+            vb.w = bw; vb.h = bw / aspect;
+            vb.x = minX - pad;
+            vb.y = minY - pad - (vb.h - bh) / 2;
+        } else {
+            // Height-constrained
+            vb.h = bh; vb.w = bh * aspect;
+            vb.y = minY - pad;
+            vb.x = minX - pad - (vb.w - bw) / 2;
+        }
+        applyViewBox();
+    });
+})();
 
 // Format ISO timestamps as relative time ("2 hours ago")
 document.querySelectorAll('[data-publish-time]').forEach(el => {

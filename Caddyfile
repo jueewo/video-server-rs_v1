@@ -40,6 +40,15 @@ app.appkask.com {
         respond 204
     }
     
+    # Astro hashed assets — content-hash filenames, safe to cache forever
+    @astro_assets {
+        path /_astro/*
+    }
+    handle @astro_assets {
+        header Cache-Control "public, max-age=31536000, immutable"
+        reverse_proxy localhost:3000
+    }
+
     # HLS streaming paths - no buffering for live streams
     @hls_paths {
         path /hls/* /live/*

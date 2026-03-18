@@ -23,25 +23,18 @@ const {title, page_metatags, enablelatex, enablemermaid} = Astro.props;
     <!-- Preconnect to external origins -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+    {(enablelatex || enablemermaid) && <link rel="preconnect" href="https://cdn.jsdelivr.net" />}
     {Config.datatool?.url && <link rel="preconnect" href={Config.datatool.url} />}
 
-    <!-- Google Fonts: Syne (headings) + Outfit (body) -->
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Outfit:wght@400;500&display=swap" rel="stylesheet" />
+    <!-- Google Fonts: Syne (headings) + Outfit (body) — loaded async to avoid render-blocking -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Outfit:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Outfit:wght@400;500&display=swap" /></noscript>
 
-    <!-- DNS Prefetch for less critical resources -->
-    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
     {Config.datatool?.url && <link rel="dns-prefetch" href={Config.datatool.url} />}
 
     <link rel="icon" type="image/x-icon" href={Config.favicon} />
     <title>{Config.siteTitle} {title && ' | ' + title}</title>
 
-
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=5"
-  />
   <meta name="application-name" content={Config.siteName} />
 
   <meta name="generator" content=`yhm using ${Astro.generator}` />

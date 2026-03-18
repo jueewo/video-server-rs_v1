@@ -4,9 +4,8 @@
 // Supports images from assets/slides/<presentation-name>/ folder
 // WITH LAZY LOADING - Only initializes when visible
 
-import "reveal.js/reveal.css";
-import "reveal.js/theme/black.css";
-import "reveal.js/plugin/highlight/monokai.css";
+// reveal.js CSS is loaded dynamically alongside the JS to avoid bundling
+// ~200 KiB of CSS on every page (see initializePresentation below).
 import { getImage } from "astro:assets";
 import type { ImageMetadata } from "astro";
 
@@ -246,7 +245,20 @@ const desc: string = Array.isArray(descRaw) ? descRaw.join(' ') : (descRaw || ''
             if (!revealElement) return;
 
             try {
-                // Dynamically import reveal.js (code splitting!)
+                // Load reveal.js CSS on demand — injected as <link> tags only when
+                // a presentation is actually initialized, avoiding ~630 KiB of
+                // render-blocking CSS on every page.
+                const loadCSS = (href: string) => new Promise<void>((resolve) => {
+                    if (document.querySelector(`link[href="${href}"]`)) { resolve(); return; }
+                    const link = document.createElement("link");
+                    link.rel = "stylesheet";
+                    link.href = href;
+                    link.onload = () => resolve();
+                    document.head.appendChild(link);
+                });
+
+                // Load CSS and JS in parallel
+                const base = import.meta.env.BASE_URL.replace(/\/$/, "");
                 const [
                     { default: Reveal },
                     { default: Markdown },
@@ -256,6 +268,9 @@ const desc: string = Array.isArray(descRaw) ? descRaw.join(' ') : (descRaw || ''
                     import("reveal.js"),
                     import("reveal.js/plugin/markdown"),
                     import("reveal.js/plugin/highlight"),
+                    loadCSS(`${base}/vendor/reveal/reveal.css`),
+                    loadCSS(`${base}/vendor/reveal/simple.css`),
+                    loadCSS(`${base}/vendor/reveal/monokai.css`),
                 ]);
 
                 // Initialize reveal.js with selector

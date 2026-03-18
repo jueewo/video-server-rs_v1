@@ -32,6 +32,7 @@ export default defineConfig({
   outDir: "./dist",
   publicDir: "./public",
   site: siteUrl,
+  compressHTML: true,
   ...(astroBase ? { base: astroBase } : {}),
 
   server: {

@@ -44,6 +44,7 @@ pub fn generate(config: &GeneratorConfig) -> Result<SiteDef> {
     copy_content(&sitedef, &config.source_dir, out)?;
     write_website_config(&sitedef, out)?;
     write_redirects(&sitedef, out)?;
+    patch_global_css(&sitedef, out)?;
 
     info!("Generation complete → {}", out.display());
     Ok(sitedef)
@@ -493,6 +494,143 @@ fn build_header_nav(sitedef: &SiteDef) -> serde_json::Value {
         })
         .collect();
     json!(items)
+}
+
+// ── CSS theme patching ───────────────────────────────────────────────────────
+
+/// Rewrite global.css to only include the DaisyUI themes the site actually uses.
+/// This dramatically reduces CSS bundle size (one theme ≈ 150 KiB saved).
+fn patch_global_css(sitedef: &SiteDef, out: &Path) -> Result<()> {
+    let css_path = out.join("src/styles/global.css");
+    if !css_path.exists() {
+        return Ok(()); // No global.css to patch (custom component lib?)
+    }
+
+    let css = std::fs::read_to_string(&css_path)?;
+    let light = &sitedef.settings.themelight;
+    let dark = &sitedef.settings.themedark;
+
+    // 1. Rewrite the `themes:` line inside `@plugin "daisyui" { ... }`
+    //    From: themes: corporate --default, synthwave, business, venturepro, ventureprodark;
+    //    To:   themes: <light> --default, <dark>;
+    let patched = if let Some(start) = css.find("themes:") {
+        if let Some(semi) = css[start..].find(';') {
+            let new_themes = format!("themes: {} --default, {};", light, dark);
+            format!("{}{}{}", &css[..start], new_themes, &css[start + semi + 1..])
+        } else {
+            css.clone()
+        }
+    } else {
+        css.clone()
+    };
+
+    // 2. Remove @plugin "daisyui/theme" blocks for custom themes not used by this site.
+    //    Each block starts with `@plugin "daisyui/theme" {` and ends with a matching `}`.
+    let used_themes: std::collections::HashSet<&str> =
+        [light.as_str(), dark.as_str()].into_iter().collect();
+    let patched = remove_unused_custom_themes(&patched, &used_themes);
+
+    std::fs::write(&css_path, patched)?;
+    info!(
+        "Patched global.css — themes: {} (light), {} (dark)",
+        light, dark
+    );
+    Ok(())
+}
+
+/// Remove `@plugin "daisyui/theme" { name: <theme>; ... }` blocks
+/// where the theme name is NOT in `used`.
+fn remove_unused_custom_themes(css: &str, used: &std::collections::HashSet<&str>) -> String {
+    let marker = r#"@plugin "daisyui/theme""#;
+    let mut result = String::with_capacity(css.len());
+    let mut remaining = css;
+
+    while let Some(block_start) = remaining.find(marker) {
+        // Copy everything before this block
+        result.push_str(&remaining[..block_start]);
+
+        // Find the opening brace
+        let after_marker = &remaining[block_start..];
+        let Some(brace_open) = after_marker.find('{') else {
+            result.push_str(after_marker);
+            remaining = "";
+            break;
+        };
+
+        // Find matching closing brace (simple: count depth)
+        let mut depth = 0u32;
+        let mut brace_close = None;
+        for (i, ch) in after_marker[brace_open..].char_indices() {
+            match ch {
+                '{' => depth += 1,
+                '}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        brace_close = Some(brace_open + i);
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let Some(brace_close) = brace_close else {
+            // Malformed — keep as-is
+            result.push_str(after_marker);
+            remaining = "";
+            break;
+        };
+
+        let block = &after_marker[..brace_close + 1];
+        let block_content = &after_marker[brace_open + 1..brace_close];
+
+        // Extract theme name from `name: <theme>;`
+        let theme_name = block_content
+            .lines()
+            .find_map(|line| {
+                let trimmed = line.trim();
+                if trimmed.starts_with("name:") {
+                    Some(
+                        trimmed
+                            .trim_start_matches("name:")
+                            .trim()
+                            .trim_end_matches(';')
+                            .trim()
+                            .trim_end_matches("/* Theme name – use in data-theme */")
+                            .trim(),
+                    )
+                } else {
+                    None
+                }
+            });
+
+        if let Some(name) = theme_name {
+            if used.contains(name) {
+                // Keep block
+                result.push_str(block);
+            } else {
+                // Skip block — also eat any preceding comment line
+                // (trim trailing whitespace to avoid blank gaps)
+                let trimmed = result.trim_end_matches('\n');
+                let trimmed = trimmed.trim_end_matches('\r');
+                // If the last line is a comment like `/* Optional: ... */`, remove it too
+                if let Some(last_line_start) = trimmed.rfind('\n') {
+                    let last_line = trimmed[last_line_start + 1..].trim();
+                    if last_line.starts_with("/*") && last_line.ends_with("*/") {
+                        result.truncate(last_line_start + 1);
+                    }
+                }
+            }
+        } else {
+            // Can't determine name — keep the block
+            result.push_str(block);
+        }
+
+        remaining = &after_marker[brace_close + 1..];
+    }
+
+    result.push_str(remaining);
+    result
 }
 
 // ── Filesystem helpers ─────────────────────────────────────────────────────────

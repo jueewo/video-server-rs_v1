@@ -1347,9 +1347,19 @@ async fn main() -> anyhow::Result<()> {
                                     Some("txt") => "text/plain",
                                     _ => "application/octet-stream",
                                 };
+                                // Astro hashed assets (_astro/) are immutable — cache for 1 year.
+                                // HTML and other files get short cache with revalidation.
+                                let cache_control = if path.contains("/_astro/") {
+                                    "public, max-age=31536000, immutable"
+                                } else {
+                                    "public, max-age=0, must-revalidate"
+                                };
                                 (
                                     axum::http::StatusCode::OK,
-                                    [(axum::http::header::CONTENT_TYPE, mime)],
+                                    [
+                                        (axum::http::header::CONTENT_TYPE, mime),
+                                        (axum::http::header::CACHE_CONTROL, cache_control),
+                                    ],
                                     content,
                                 )
                                     .into_response()

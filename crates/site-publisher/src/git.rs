@@ -72,12 +72,19 @@ pub fn push(config: &GitPushConfig) -> Result<String> {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /// Open existing repo cache or clone fresh.
+/// Handles empty (unborn) remote repos by initializing locally.
 fn open_or_clone(config: &GitPushConfig) -> Result<git2::Repository> {
     if config.repo_cache_dir.join(".git").exists() {
-        info!("Opening cached repo at {}", config.repo_cache_dir.display());
         let repo = git2::Repository::open(&config.repo_cache_dir)?;
 
-        // Fetch + reset to remote branch
+        // If repo has no commits (empty/unborn), skip fetch — just return it
+        if repo.is_empty()? {
+            info!("Cached repo is empty (no commits yet) — skipping fetch");
+            ensure_remote(&repo, &config.repo_url)?;
+            return Ok(repo);
+        }
+
+        info!("Opening cached repo at {}", config.repo_cache_dir.display());
         fetch_and_reset(&repo, config)?;
         Ok(repo)
     } else {
@@ -87,15 +94,44 @@ fn open_or_clone(config: &GitPushConfig) -> Result<git2::Repository> {
         let mut fetch_opts = git2::FetchOptions::new();
         fetch_opts.remote_callbacks(make_callbacks(&config.token));
 
-        let repo = git2::build::RepoBuilder::new()
+        // Try clone — fails on empty repos (no HEAD to checkout)
+        match git2::build::RepoBuilder::new()
             .fetch_options(fetch_opts)
             .clone(&config.repo_url, &config.repo_cache_dir)
-            .with_context(|| format!("cloning {}", config.repo_url))?;
+        {
+            Ok(repo) => {
+                checkout_branch(&repo, &config.branch)?;
+                Ok(repo)
+            }
+            Err(_) => {
+                info!("Clone failed (likely empty repo) — initializing locally");
+                // Clean up any partial clone artifacts
+                let _ = std::fs::remove_dir_all(&config.repo_cache_dir);
+                std::fs::create_dir_all(&config.repo_cache_dir)?;
 
-        // Checkout the target branch if not already on it
-        checkout_branch(&repo, &config.branch)?;
-        Ok(repo)
+                // Init a fresh local repo and add the remote
+                let repo = git2::Repository::init(&config.repo_cache_dir)?;
+                repo.remote("origin", &config.repo_url)?;
+                Ok(repo)
+            }
+        }
     }
+}
+
+/// Ensure the "origin" remote exists and points to the right URL.
+fn ensure_remote(repo: &git2::Repository, url: &str) -> Result<()> {
+    match repo.find_remote("origin") {
+        Ok(remote) => {
+            if remote.url() != Some(url) {
+                drop(remote);
+                repo.remote_set_url("origin", url)?;
+            }
+        }
+        Err(_) => {
+            repo.remote("origin", url)?;
+        }
+    }
+    Ok(())
 }
 
 /// Fetch from origin and hard-reset to remote branch HEAD.
@@ -104,11 +140,11 @@ fn fetch_and_reset(repo: &git2::Repository, config: &GitPushConfig) -> Result<()
     let mut fetch_opts = git2::FetchOptions::new();
     fetch_opts.remote_callbacks(make_callbacks(&config.token));
 
-    remote.fetch(
-        &[&format!("refs/heads/{0}:refs/remotes/origin/{0}", config.branch)],
-        Some(&mut fetch_opts),
-        None,
-    )?;
+    // Fetch — may fail on empty remote; that's fine
+    let refspec = format!("refs/heads/{0}:refs/remotes/origin/{0}", config.branch);
+    if let Err(e) = remote.fetch(&[&refspec], Some(&mut fetch_opts), None) {
+        info!("Fetch failed ({}), continuing anyway", e.message());
+    }
 
     let remote_ref = format!("refs/remotes/origin/{}", config.branch);
     if let Ok(remote_commit) = repo
@@ -137,8 +173,11 @@ fn checkout_branch(repo: &git2::Repository, branch: &str) -> Result<()> {
     }
 
     let refname = format!("refs/heads/{branch}");
-    repo.set_head(&refname)?;
-    repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))?;
+    if repo.find_reference(&refname).is_ok() {
+        repo.set_head(&refname)?;
+        repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))?;
+    }
+    // If ref doesn't exist yet (unborn), HEAD is already symbolic from init — leave it
     Ok(())
 }
 

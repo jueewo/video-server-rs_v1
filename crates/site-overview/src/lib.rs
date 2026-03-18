@@ -63,6 +63,9 @@ struct SiteOverviewTemplate {
     last_publish_status: String,
     last_publish_message: String,
     last_preview_url: String,
+    // Separate push/build timestamps
+    last_push_time: String,
+    last_build_time: String,
 }
 
 #[derive(Template)]
@@ -221,35 +224,48 @@ fn load_page_json(folder_dir: &Path, page_slug: &str, locale: &str) -> String {
     }
 
     // 3. Auto-migrate from legacy multi-file format
-    let elements = load_elements_from_files(&dir);
+    let element_files = collect_element_files(&dir);
+    let elements = load_elements_from_collected(&element_files);
     let page = serde_json::json!({ "elements": elements });
     let json = serde_json::to_string_pretty(&page)
         .unwrap_or_else(|_| r#"{"elements":[]}"#.to_string());
 
-    // Write page.json so future opens use it directly
-    if dir.exists() {
+    // Write page.json and remove numbered files so page.json is the sole source
+    if dir.exists() && !elements.is_empty() {
         let _ = std::fs::write(&page_file, &json);
+        for path in &element_files {
+            let _ = std::fs::remove_file(path);
+        }
     }
 
     json
 }
 
-/// Read legacy *.json element files from a directory, sorted by weight then filename.
-fn load_elements_from_files(dir: &Path) -> Vec<serde_json::Value> {
+/// Collect legacy numbered element file paths from a directory.
+fn collect_element_files(dir: &Path) -> Vec<std::path::PathBuf> {
     let Ok(rd) = std::fs::read_dir(dir) else {
         return vec![];
     };
-
-    let mut entries: Vec<(i64, String, serde_json::Value)> = rd
-        .filter_map(|e| e.ok())
+    rd.filter_map(|e| e.ok())
         .filter(|e| {
             let name = e.file_name();
-            let name = name.to_string_lossy();
-            name.ends_with(".json") && name != "page.json"
+            let s = name.to_string_lossy();
+            !s.starts_with('_')
+                && s != "page.json"
+                && s != "page.yaml"
+                && (s.ends_with(".json") || s.ends_with(".yaml"))
         })
-        .filter_map(|e| {
-            let filename = e.file_name().to_string_lossy().into_owned();
-            let content = std::fs::read_to_string(e.path()).ok()?;
+        .map(|e| e.path())
+        .collect()
+}
+
+/// Read and parse collected element files, sorted by weight then filename.
+fn load_elements_from_collected(files: &[std::path::PathBuf]) -> Vec<serde_json::Value> {
+    let mut entries: Vec<(i64, String, serde_json::Value)> = files
+        .iter()
+        .filter_map(|path| {
+            let filename = path.file_name()?.to_string_lossy().into_owned();
+            let content = std::fs::read_to_string(path).ok()?;
             let v: serde_json::Value = serde_json::from_str(&content).ok()?;
             let weight = v.get("weight").and_then(|x| x.as_i64()).unwrap_or(0);
             Some((weight, filename, v))
@@ -593,6 +609,8 @@ fn build_template_data(
     let last_publish_status = ctx.meta_str("last_publish_status").unwrap_or("").to_string();
     let last_publish_message = ctx.meta_str("last_publish_message").unwrap_or("").to_string();
     let last_preview_url = ctx.meta_str("last_preview_url").unwrap_or("").to_string();
+    let last_push_time = ctx.meta_str("last_push_time").unwrap_or("").to_string();
+    let last_build_time = ctx.meta_str("last_build_time").unwrap_or("").to_string();
 
     Ok(SiteOverviewTemplate {
         authenticated: true,
@@ -619,6 +637,8 @@ fn build_template_data(
         last_publish_status,
         last_publish_message,
         last_preview_url,
+        last_push_time,
+        last_build_time,
     })
 }
 
@@ -965,6 +985,8 @@ struct VitepressOverviewTemplate {
     last_publish_status: String,
     last_publish_message: String,
     last_preview_url: String,
+    last_push_time: String,
+    last_build_time: String,
     // docs/ structure: root-level files and subfolders with their files
     doc_root_files: Vec<String>,
     doc_subfolders: Vec<DocSubfolder>,
@@ -1041,6 +1063,8 @@ fn build_vitepress_template_data(
     let last_publish_status = ctx.meta_str("last_publish_status").unwrap_or("").to_string();
     let last_publish_message = ctx.meta_str("last_publish_message").unwrap_or("").to_string();
     let last_preview_url = ctx.meta_str("last_preview_url").unwrap_or("").to_string();
+    let last_push_time = ctx.meta_str("last_push_time").unwrap_or("").to_string();
+    let last_build_time = ctx.meta_str("last_build_time").unwrap_or("").to_string();
     let has_git = !forgejo_repo.is_empty();
 
     let breadcrumbs = build_breadcrumbs(&ctx.workspace_id, &ctx.workspace_name, &ctx.folder_path);
@@ -1069,6 +1093,8 @@ fn build_vitepress_template_data(
         last_publish_status,
         last_publish_message,
         last_preview_url,
+        last_push_time,
+        last_build_time,
         doc_root_files,
         doc_subfolders,
         sidebar_detail,

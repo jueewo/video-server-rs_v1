@@ -227,6 +227,21 @@ If more than one locale:
 
 ---
 
+## Fonts — Self-Hosting Rule
+
+**Never use external font CDNs** (Google Fonts, Adobe Fonts, etc.). All fonts must be self-hosted from `public/fonts/` to comply with GDPR — loading from external servers transfers visitor IPs to third parties without consent.
+
+The default template includes self-hosted Outfit (body) and Syne (headings) fonts. If a site needs additional fonts:
+
+1. Download `.woff2` files (e.g. from Google Fonts CSS, or font vendor)
+2. Place them in the site's `public/fonts/` directory
+3. Add `@font-face` rules with relative `url(./...)` paths
+4. Reference the CSS file in `_header.astro` using the `${b}` base-path prefix
+
+See reference.md → Fonts section for file layout details.
+
+---
+
 ## Step 8 — Validate and Build
 
 ```bash

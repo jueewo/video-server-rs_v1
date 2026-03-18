@@ -13,6 +13,7 @@ type Props = {
   desc?: string;
   showbuttons?: boolean;
   lang?: string;
+  base?: string;
 };
 
 export default function NewsBanner({
@@ -20,30 +21,19 @@ export default function NewsBanner({
   desc,
   showbuttons = false,
   lang,
+  base = "",
 }: Props) {
   const [loadeddata, setLoadeddata] = useState<NewsItem[]>([]);
 
-  const fetchData = () => {
-    // console.log("NewsBanner: fetching data from /api/const/bannerposts");
-    fetch("/api/const/bannerposts")
-      .then((response) => {
-        // console.log("NewsBanner: response", response);
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
-        }
-        response.json().then((data) => {
-          // console.log("NewsBanner: data fetched", data);
-          setLoadeddata(data.posts);
-        });
-      })
-      .catch((error) => {
-        console.error("NewsBanner: fetch error", error);
-      });
-  };
-
   useEffect(() => {
-    // console.log("NewsBanner: component mounted");
-    fetchData();
+    fetch(base + "/api/const/bannerposts")
+      .then((r) => r.ok ? r.json() : { posts: [] })
+      .then((data) => setLoadeddata((data.posts || []).map((p: NewsItem) => ({
+        ...p,
+        img: p.img && !p.img.startsWith("http") ? base + p.img : p.img,
+        link: p.link && !p.link.startsWith("http") ? base + p.link : p.link,
+      }))))
+      .catch(() => {});
   }, []);
 
   return (

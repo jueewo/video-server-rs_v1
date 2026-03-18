@@ -70,7 +70,10 @@ const title = entry.data.title;
 
 // const { title, pubDate, updatedDate, heroImage } = Astro.props;
 
-const pageid = lang + '-' + collection + '-' + entry.id.replace(/\.(md|mdx)$/, "");
+// Strip lang prefix from entry.id (e.g. "en/c-intro-ai-ml" → "c-intro-ai-ml")
+// and replace any remaining slashes to avoid breaking webhook URL paths.
+const entrySlug = entry.id.replace(/\.(md|mdx)$/, "").split("/").slice(1).join("-");
+const pageid = lang + '-' + collection + '-' + entrySlug;
 
 ---
 

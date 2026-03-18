@@ -43,6 +43,8 @@ const { element, alt, index } = Astro.props;
 
 let actlang = lang ? lang : "en";
 
+import { b } from '../../utils/siteBase';
+
 // Helper: read flat field with legacy props/content fallback
 const p = (key: string) => element[key] ?? element.props?.[key] ?? element.content?.[key];
 
@@ -233,6 +235,7 @@ const scrollEffectConfig = getScrollEffectConfig(
                         desc={p("desc")}
                         showbuttons={false}
                         lang={actlang}
+                        base={b}
                         client:visible
                     />
                 )}

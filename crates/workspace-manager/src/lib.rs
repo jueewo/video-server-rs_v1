@@ -4039,6 +4039,9 @@ pub struct GenerateSiteRequest {
     pub components_dir: Option<String>,
     /// When true, run `bun install && bun run build` after generation.
     pub build: Option<bool>,
+    /// When true, push to Forgejo after building (requires git config in folder metadata).
+    /// Default: true for backwards compatibility. Set to false for local-only builds.
+    pub push: Option<bool>,
 }
 
 #[derive(Serialize)]
@@ -4116,7 +4119,7 @@ pub async fn generate_site_handler(
         .or_else(|| std::env::var("SITE_COMPONENTS_DIR").ok().map(Into::into));
 
     // Output path: storage/site-builds/{workspace_id}/{folder_slug}
-    let folder_slug = clean.replace('/', "_");
+    let folder_slug = clean.replace('/', "_").replace(' ', "-");
     let output_dir = state
         .storage
         .base_dir()
@@ -4161,6 +4164,9 @@ pub async fn generate_site_handler(
     });
 
     let do_build = request.build.unwrap_or(false);
+    let do_push = request.push.unwrap_or(true);
+    // Only use git config when push is requested
+    let effective_git_config = if do_push { git_config } else { None };
     let folder_slug_for_preview = folder_slug.clone();
     let workspace_id_for_preview = workspace_id.clone();
     let source_dir_for_sitedef = source_dir.clone();
@@ -4169,7 +4175,7 @@ pub async fn generate_site_handler(
     let publish_result: Result<String, String> = tokio::task::spawn_blocking(move || {
         if folder_type == "vitepress-docs" {
             let static_dir = std::env::current_dir().ok().map(|d| d.join("static"));
-            let vp_base = if do_build && git_config.is_none() {
+            let vp_base = if do_build && effective_git_config.is_none() {
                 Some(format!("/storage/site-builds/{workspace_id}/{folder_slug}/dist/"))
             } else {
                 None
@@ -4181,14 +4187,14 @@ pub async fn generate_site_handler(
                 static_dir,
                 base_path: vp_base,
             };
-            if let Some(git) = git_config {
+            if let Some(git) = effective_git_config {
                 site_publisher::publish_vitepress_and_push(&vp_config, &git)
             } else {
                 site_publisher::publish_vitepress(&vp_config)?;
                 Ok(format!("VitePress docs generated at {folder_slug} (no Forgejo repo configured)"))
             }
         } else {
-            let preview_base = if do_build && git_config.is_none() {
+            let preview_base = if do_build && effective_git_config.is_none() {
                 Some(format!("/site-builds/{workspace_id}/{folder_slug}/dist"))
             } else {
                 None
@@ -4200,14 +4206,14 @@ pub async fn generate_site_handler(
                 build: do_build,
                 base_path: preview_base,
             };
-            if let Some(git) = git_config {
+            if let Some(git) = effective_git_config {
                 site_publisher::publish_and_push(&publish_config, &git)
             } else {
                 site_publisher::publish(&publish_config)?;
                 if do_build {
                     Ok(format!("Site built at {folder_slug}"))
                 } else {
-                    Ok(format!("Site generated at {folder_slug} (no Forgejo repo configured)"))
+                    Ok(format!("Site generated at {folder_slug}"))
                 }
             }
         }
@@ -4221,8 +4227,9 @@ pub async fn generate_site_handler(
     let folder_path_key = clean.to_string(); // no leading slash — matches how folders are keyed in workspace.yaml
     let (publish_status, save_message, preview_url) = match &publish_result {
         Ok(msg) => {
-            let status = if forgejo_repo.is_some() { "pushed" } else if do_build { "built" } else { "generated" };
-            let url = if do_build && forgejo_repo.is_none() {
+            let did_push = forgejo_repo.is_some() && do_push;
+            let status = if did_push { "pushed" } else if do_build { "built" } else { "generated" };
+            let url = if do_build && !did_push {
                 if folder_type_for_preview == "vitepress-docs" {
                     // VitePress outputs to dist/ (outDir: 'dist' in config.ts)
                     // Served via /storage route (VitePress uses .html extension, no redirect issue)
@@ -4253,6 +4260,13 @@ pub async fn generate_site_handler(
         cfg.set_folder_metadata(&folder_path_key, "last_publish_status".into(), serde_yaml::Value::String(publish_status.to_string()));
         cfg.set_folder_metadata(&folder_path_key, "last_publish_message".into(), serde_yaml::Value::String(save_message.clone()));
         cfg.set_folder_metadata(&folder_path_key, "last_preview_url".into(), serde_yaml::Value::String(preview_url.clone()));
+        // Track push and build times separately for the UI
+        if publish_status == "pushed" {
+            cfg.set_folder_metadata(&folder_path_key, "last_push_time".into(), serde_yaml::Value::String(timestamp.clone()));
+        }
+        if publish_status == "built" {
+            cfg.set_folder_metadata(&folder_path_key, "last_build_time".into(), serde_yaml::Value::String(timestamp.clone()));
+        }
         if let Err(e) = cfg.save(&workspace_root) {
             warn!("Failed to save publish metadata to workspace.yaml: {e}");
         }

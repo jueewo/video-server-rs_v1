@@ -1,4 +1,5 @@
 ---
+import { b } from '../utils/siteBase';
 // Props to make the component configurable/reusable
 export interface Props {
     id?: string;
@@ -62,8 +63,8 @@ const effectiveFallbackImage = fallbackImage || poster;
     }
 </div>
 
-<!-- Load hls.js only on the client -->
-<script is:inline src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<!-- Load hls.js only on the client (self-hosted, no external CDN) -->
+<script is:inline src={`${b}/vendor/hls/hls.min.js`}></script>
 <script>
     // This runs only in the browser
     declare const Hls: any;

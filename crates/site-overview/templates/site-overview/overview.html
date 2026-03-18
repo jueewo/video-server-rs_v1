@@ -35,10 +35,10 @@
             {% endif %}
         </div>
         <div class="flex gap-2 flex-shrink-0">
-            <button onclick="publishSite()" id="publish-btn" class="btn btn-sm btn-primary gap-1">
+            <button onclick="publishSite()" id="publish-btn" class="btn btn-sm btn-primary gap-1" title="Generate Astro project and push to git repo">
                 <i data-lucide="rocket" class="w-4 h-4"></i> Publish Site
             </button>
-            <button onclick="buildAndPreview()" id="build-btn" class="btn btn-sm btn-secondary gap-1">
+            <button onclick="buildAndPreview()" id="build-btn" class="btn btn-sm btn-secondary gap-1" title="Generate and build site locally for preview">
                 <i data-lucide="play-circle" class="w-4 h-4"></i> Build &amp; Preview
             </button>
             <a href="/workspaces/{{ workspace_id }}/site-editor?path={{ folder_path }}"
@@ -323,33 +323,37 @@
                     </p>
                     {% endif %}
 
-                    {% if last_publish_time != "" %}
+                    {% if last_push_time != "" || last_build_time != "" || last_publish_time != "" %}
                     <div class="divider my-2"></div>
-                    <div class="text-xs space-y-1">
-                        <div class="font-medium text-base-content/70">Last Published</div>
+                    <div class="text-xs space-y-2">
+                        {% if last_push_time != "" %}
                         <div class="flex gap-2 items-center">
-                            {% if last_publish_status == "pushed" %}
                             <span class="badge badge-success badge-xs gap-1">
                                 <i data-lucide="git-commit-horizontal" class="w-3 h-3"></i> pushed
                             </span>
-                            {% elif last_publish_status == "built" %}
+                            <span class="text-base-content/50 font-mono" title="{{ last_push_time }}">
+                                <span data-publish-time="{{ last_push_time }}">{{ last_push_time }}</span>
+                            </span>
+                        </div>
+                        {% endif %}
+                        {% if last_build_time != "" %}
+                        <div class="flex gap-2 items-center">
                             <span class="badge badge-info badge-xs gap-1">
                                 <i data-lucide="package-check" class="w-3 h-3"></i> built
                             </span>
-                            {% elif last_publish_status == "error" %}
+                            <span class="text-base-content/50 font-mono" title="{{ last_build_time }}">
+                                <span data-publish-time="{{ last_build_time }}">{{ last_build_time }}</span>
+                            </span>
+                        </div>
+                        {% endif %}
+                        {% if last_publish_status == "error" %}
+                        <div class="flex gap-2 items-center">
                             <span class="badge badge-error badge-xs gap-1">
                                 <i data-lucide="x-circle" class="w-3 h-3"></i> error
                             </span>
-                            {% else %}
-                            <span class="badge badge-warning badge-xs gap-1">
-                                <i data-lucide="folder-output" class="w-3 h-3"></i> local only
-                            </span>
-                            {% endif %}
-                            <span class="text-base-content/50 font-mono" title="{{ last_publish_time }}">
-                                <span data-publish-time="{{ last_publish_time }}">{{ last_publish_time }}</span>
-                            </span>
+                            <span class="text-base-content/50 break-all">{{ last_publish_message }}</span>
                         </div>
-                        <div class="text-base-content/50 break-all">{{ last_publish_message }}</div>
+                        {% endif %}
                         {% if last_preview_url != "" %}
                         <a href="{{ last_preview_url }}" target="_blank" rel="noopener"
                            class="btn btn-xs btn-outline btn-info gap-1 mt-1">
@@ -479,7 +483,7 @@ async function publishSite() {
         const res = await fetch('/api/workspaces/{{ workspace_id }}/site/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ folder_path: '{{ folder_path }}' }),
+            body: JSON.stringify({ folder_path: '{{ folder_path }}', build: false, push: true }),
         });
         const data = await res.json().catch(() => ({}));
         ok = res.ok;
@@ -519,7 +523,7 @@ async function buildAndPreview() {
         const res = await fetch('/api/workspaces/{{ workspace_id }}/site/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ folder_path: '{{ folder_path }}', build: true }),
+            body: JSON.stringify({ folder_path: '{{ folder_path }}', build: true, push: false }),
         });
         const data = await res.json().catch(() => ({}));
         ok = res.ok;

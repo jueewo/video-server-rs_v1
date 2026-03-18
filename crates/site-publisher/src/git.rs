@@ -27,16 +27,29 @@ pub fn push(config: &GitPushConfig) -> Result<String> {
     let repo = open_or_clone(config)?;
     let workdir = repo.workdir().context("repo has no workdir")?.to_path_buf();
 
-    // Overlay only the built dist/ output onto the working tree.
-    // The source_dir contains the full Astro project (src/, node_modules/, .astro/),
-    // but only dist/ should be published.
-    let dist_dir = config.source_dir.join("dist");
-    let source = if dist_dir.exists() { &dist_dir } else { &config.source_dir };
-    copy_dir_all(source, &workdir)?;
+    // Push the merged Astro source (not dist/) so the CI pipeline can run
+    // `bun install && bun build` itself.  Skip build artifacts that the CI
+    // will regenerate: node_modules/, dist/, .astro/, bun.lock
+    copy_dir_all_filtered(&config.source_dir, &workdir)?;
 
-    // Stage all changes
+    // Stage all changes (including deletions)
     let mut index = repo.index()?;
-    index.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)?;
+    index.add_all(
+        ["*"].iter(),
+        git2::IndexAddOption::DEFAULT | git2::IndexAddOption::CHECK_PATHSPEC,
+        None,
+    )?;
+    // Remove index entries for files that no longer exist on disk
+    let mut to_remove = Vec::new();
+    for entry in index.iter() {
+        let path = String::from_utf8_lossy(&entry.path).to_string();
+        if !workdir.join(&path).exists() {
+            to_remove.push(path);
+        }
+    }
+    for path in &to_remove {
+        index.remove_path(Path::new(path))?;
+    }
     index.write()?;
 
     let tree_oid = index.write_tree()?;
@@ -77,65 +90,56 @@ pub fn push(config: &GitPushConfig) -> Result<String> {
 
 /// Open existing repo cache or clone fresh.
 /// Handles empty (unborn) remote repos by initializing locally.
+/// If the remote URL changed, discards the cache and re-clones.
 fn open_or_clone(config: &GitPushConfig) -> Result<git2::Repository> {
+    // Check if cached repo exists and has the right remote URL
     if config.repo_cache_dir.join(".git").exists() {
         let repo = git2::Repository::open(&config.repo_cache_dir)?;
+        let url_changed = repo
+            .find_remote("origin")
+            .ok()
+            .and_then(|r| r.url().map(|u| u != config.repo_url))
+            .unwrap_or(true);
 
-        // If repo has no commits (empty/unborn), skip fetch — just return it
-        if repo.is_empty()? {
+        if url_changed {
+            info!("Remote URL changed — discarding cached repo");
+            drop(repo);
+            let _ = std::fs::remove_dir_all(&config.repo_cache_dir);
+            // Fall through to clone below
+        } else if repo.is_empty()? {
             info!("Cached repo is empty (no commits yet) — skipping fetch");
-            ensure_remote(&repo, &config.repo_url)?;
+            return Ok(repo);
+        } else {
+            info!("Opening cached repo at {}", config.repo_cache_dir.display());
+            fetch_and_reset(&repo, config)?;
             return Ok(repo);
         }
-
-        info!("Opening cached repo at {}", config.repo_cache_dir.display());
-        fetch_and_reset(&repo, config)?;
-        Ok(repo)
-    } else {
-        info!("Cloning {} into {}", config.repo_url, config.repo_cache_dir.display());
-        std::fs::create_dir_all(&config.repo_cache_dir)?;
-
-        let mut fetch_opts = git2::FetchOptions::new();
-        fetch_opts.remote_callbacks(make_callbacks(&config.token));
-
-        // Try clone — fails on empty repos (no HEAD to checkout)
-        match git2::build::RepoBuilder::new()
-            .fetch_options(fetch_opts)
-            .clone(&config.repo_url, &config.repo_cache_dir)
-        {
-            Ok(repo) => {
-                checkout_branch(&repo, &config.branch)?;
-                Ok(repo)
-            }
-            Err(_) => {
-                info!("Clone failed (likely empty repo) — initializing locally");
-                // Clean up any partial clone artifacts
-                let _ = std::fs::remove_dir_all(&config.repo_cache_dir);
-                std::fs::create_dir_all(&config.repo_cache_dir)?;
-
-                // Init a fresh local repo and add the remote
-                let repo = git2::Repository::init(&config.repo_cache_dir)?;
-                repo.remote("origin", &config.repo_url)?;
-                Ok(repo)
-            }
-        }
     }
-}
 
-/// Ensure the "origin" remote exists and points to the right URL.
-fn ensure_remote(repo: &git2::Repository, url: &str) -> Result<()> {
-    match repo.find_remote("origin") {
-        Ok(remote) => {
-            if remote.url() != Some(url) {
-                drop(remote);
-                repo.remote_set_url("origin", url)?;
-            }
+    // Clone fresh (or re-clone after URL change)
+    info!("Cloning {} into {}", config.repo_url, config.repo_cache_dir.display());
+    std::fs::create_dir_all(&config.repo_cache_dir)?;
+
+    let mut fetch_opts = git2::FetchOptions::new();
+    fetch_opts.remote_callbacks(make_callbacks(&config.token));
+
+    match git2::build::RepoBuilder::new()
+        .fetch_options(fetch_opts)
+        .clone(&config.repo_url, &config.repo_cache_dir)
+    {
+        Ok(repo) => {
+            checkout_branch(&repo, &config.branch)?;
+            Ok(repo)
         }
         Err(_) => {
-            repo.remote("origin", url)?;
+            info!("Clone failed (likely empty repo) — initializing locally");
+            let _ = std::fs::remove_dir_all(&config.repo_cache_dir);
+            std::fs::create_dir_all(&config.repo_cache_dir)?;
+            let repo = git2::Repository::init(&config.repo_cache_dir)?;
+            repo.remote("origin", &config.repo_url)?;
+            Ok(repo)
         }
     }
-    Ok(())
 }
 
 /// Fetch from origin and hard-reset to remote branch HEAD.
@@ -207,19 +211,49 @@ fn make_callbacks(token: &str) -> git2::RemoteCallbacks<'_> {
     callbacks
 }
 
-fn copy_dir_all(src: &Path, dst: &Path) -> Result<()> {
+/// Directories to exclude from the git push — build artifacts that CI regenerates.
+const SKIP_DIRS: &[&str] = &[".git", "node_modules", "dist", ".astro"];
+const SKIP_FILES: &[&str] = &["bun.lock"];
+
+/// Copy source tree into git working dir, skipping build artifacts.
+/// Also removes files/dirs in dst that no longer exist in src (clean sync).
+fn copy_dir_all_filtered(src: &Path, dst: &Path) -> Result<()> {
     std::fs::create_dir_all(dst)?;
+
+    // Remove entries in dst that don't exist in src (except .git)
+    if let Ok(entries) = std::fs::read_dir(dst) {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            if name == ".git" {
+                continue;
+            }
+            if !src.join(&name).exists() {
+                let p = entry.path();
+                if p.is_dir() {
+                    let _ = std::fs::remove_dir_all(&p);
+                } else {
+                    let _ = std::fs::remove_file(&p);
+                }
+            }
+        }
+    }
+
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
         let name = entry.file_name();
-        // Skip .git to avoid overwriting the repo metadata
-        if name == ".git" {
+        let name_str = name.to_string_lossy();
+
+        if SKIP_DIRS.iter().any(|&s| name_str == s) {
             continue;
         }
+        if SKIP_FILES.iter().any(|&s| name_str == s) {
+            continue;
+        }
+
         let src_path = entry.path();
         let dst_path = dst.join(&name);
         if src_path.is_dir() {
-            copy_dir_all(&src_path, &dst_path)?;
+            copy_dir_all_filtered(&src_path, &dst_path)?;
         } else {
             std::fs::copy(&src_path, &dst_path)?;
         }

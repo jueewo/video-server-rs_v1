@@ -274,11 +274,25 @@ async function savePage() {
           body: JSON.stringify({ content: JSON.stringify(pageData, null, 2) }) }
     );
     if (res && res.ok) {
-        // Delete page.yaml so this page.json becomes the source of truth.
-        // The generator will now use page.json (not page.yaml) on next publish.
+        // Delete page.yaml and legacy numbered element files so page.json
+        // becomes the sole source of truth for the generator.
         var yamlPath = PAGE_FILE_PATH.replace(/page\.json$/, 'page.yaml');
         fetch('/api/workspaces/' + WORKSPACE_ID + '/files?path=' + encodeURIComponent(yamlPath),
               { method: 'DELETE' }).catch(function() {});
+        // Clean up numbered element files (e.g. 1-academy.json, 2-collection.json)
+        var dirPath = PAGE_FILE_PATH.replace(/\/page\.json$/, '');
+        fetch('/api/workspaces/' + WORKSPACE_ID + '/files/list?path=' + encodeURIComponent(dirPath))
+            .then(function(r) { return r.ok ? r.json() : {}; })
+            .then(function(data) {
+                (data.files || []).forEach(function(f) {
+                    if (f.name !== 'page.json' && f.name !== 'page.yaml' && !f.name.startsWith('_')
+                        && (f.name.endsWith('.json') || f.name.endsWith('.yaml'))) {
+                        var fp = dirPath + '/' + f.name;
+                        fetch('/api/workspaces/' + WORKSPACE_ID + '/files?path=' + encodeURIComponent(fp),
+                              { method: 'DELETE' }).catch(function() {});
+                    }
+                });
+            }).catch(function() {});
     }
     return res;
 }

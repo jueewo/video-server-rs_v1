@@ -1,7 +1,7 @@
 ---
 
 import Config from "../website.config.cjs";
-
+import { b } from '../utils/siteBase';
 
 interface Props {
   // lang: string;
@@ -21,18 +21,14 @@ const {title, page_metatags, enablelatex, enablemermaid} = Astro.props;
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5" />
 
     <!-- Preconnect to external origins -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    {(enablelatex || enablemermaid) && <link rel="preconnect" href="https://cdn.jsdelivr.net" />}
     {Config.datatool?.url && <link rel="preconnect" href={Config.datatool.url} />}
 
-    <!-- Google Fonts: Syne (headings) + Outfit (body) — loaded async to avoid render-blocking -->
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Outfit:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Outfit:wght@400;500&display=swap" /></noscript>
+    <!-- Self-hosted fonts: Syne (headings) + Outfit (body) — no Google Fonts GDPR issue -->
+    <link rel="stylesheet" href={`${b}/fonts/google-fonts.css`} />
 
     {Config.datatool?.url && <link rel="dns-prefetch" href={Config.datatool.url} />}
 
-    <link rel="icon" type="image/x-icon" href={Config.favicon} />
+    <link rel="icon" type="image/x-icon" href={`${b}${Config.favicon}`} />
     <title>{Config.siteTitle} {title && ' | ' + title}</title>
 
   <meta name="application-name" content={Config.siteName} />
@@ -52,9 +48,9 @@ const {title, page_metatags, enablelatex, enablemermaid} = Astro.props;
   ))}
 
   <meta name="apple-mobile-web-app-title" content={Config.siteTitle} />
-  <link rel="apple-touch-icon" href={Config.siteLogoIconTouch} />
+  <link rel="apple-touch-icon" href={`${b}${Config.siteLogoIconTouch}`} />
 
-  <link rel="sitemap" href="/sitemap-index.xml" />
+  <link rel="sitemap" href={`${b}/sitemap-index.xml`} />
 
   <slot name="head" />
 
@@ -63,55 +59,53 @@ const {title, page_metatags, enablelatex, enablemermaid} = Astro.props;
   {enablelatex && (
     <link
       rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
-      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
-      crossorigin="anonymous"
+      href={`${b}/vendor/katex/katex.min.css`}
     />
     <script
       defer
-      src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
-      integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
-      crossorigin="anonymous"
+      is:inline
+      src={`${b}/vendor/katex/katex.min.js`}
     ></script>
     <script
       defer
-      src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
-      integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
-      crossorigin="anonymous"
+      is:inline
+      src={`${b}/vendor/katex/contrib/auto-render.min.js`}
       onload="renderMathInElement(document.body);"
     ></script>
   )}
 
   {enablemermaid && (
-    <script type="module">
-      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    <script is:inline src={`${b}/vendor/mermaid/mermaid.min.js`}></script>
+    <script is:inline>
+      (function() {
+        var darkThemes = ["synthwave", "business", "dark", "night", "dracula", "coffee", "halloween", "forest", "black", "luxury"];
 
-      const darkThemes = ["synthwave", "business", "dark", "night", "dracula", "coffee", "halloween", "forest", "black", "luxury"];
+        function getMermaidTheme() {
+          var current = document.documentElement.getAttribute("data-theme") || "";
+          return darkThemes.includes(current) ? "dark" : "default";
+        }
 
-      function getMermaidTheme() {
-        const current = document.documentElement.getAttribute("data-theme") || "";
-        return darkThemes.includes(current) ? "dark" : "default";
-      }
+        function renderMermaid() {
+          document.querySelectorAll("pre.mermaid").forEach(function(el) {
+            if (!el.hasAttribute("data-src")) {
+              el.setAttribute("data-src", el.textContent.trim());
+            }
+            el.textContent = el.getAttribute("data-src");
+            el.removeAttribute("data-processed");
+          });
+          mermaid.initialize({ startOnLoad: false, theme: getMermaidTheme() });
+          mermaid.run();
+        }
 
-      function renderMermaid() {
-        // Save original source before Mermaid overwrites innerHTML
-        document.querySelectorAll("pre.mermaid").forEach(el => {
-          if (!el.hasAttribute("data-src")) {
-            el.setAttribute("data-src", el.textContent.trim());
-          }
-          // Restore original source so Mermaid can re-parse it
-          el.textContent = el.getAttribute("data-src");
-          el.removeAttribute("data-processed");
-        });
-        mermaid.initialize({ startOnLoad: false, theme: getMermaidTheme() });
-        mermaid.run();
-      }
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", renderMermaid);
+        } else {
+          renderMermaid();
+        }
 
-      renderMermaid();
-
-      // Re-render on theme change
-      const observer = new MutationObserver(renderMermaid);
-      observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+        var observer = new MutationObserver(renderMermaid);
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+      })();
     </script>
   )}
 

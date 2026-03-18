@@ -107,7 +107,7 @@ const getImage = (imagePath: string) => {
                     class="btn btn-ghost text-xl uppercase"
                     href={b + "/" + actlang + "/home"}
                 >
-                    {Config.siteName}
+                    <span class="hidden sm:inline">{Config.siteName}</span>
 
                     <Image
                         src={getImage(Config.siteLogoIcon)}

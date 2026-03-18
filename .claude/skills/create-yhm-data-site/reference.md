@@ -544,6 +544,33 @@ Missing `tags` or `typetags` will cause a build error: `data does not match coll
 
 ---
 
+## Fonts
+
+**All fonts must be self-hosted** — never load fonts from external CDNs (Google Fonts, Adobe, etc.) because visitor IPs would be transferred to third parties without consent, which violates GDPR.
+
+Self-hosted font files live in `public/fonts/`:
+
+```
+public/fonts/
+  google-fonts.css          ← @font-face rules with relative url(./...) paths
+  outfit-latin.woff2        ← Outfit 400+500 (body text)
+  outfit-latin-ext.woff2
+  syne-latin.woff2          ← Syne 600+700+800 (headings)
+  syne-latin-ext.woff2
+  syne-greek.woff2
+```
+
+The CSS is loaded in `_header.astro` via `<link rel="stylesheet" href="${b}/fonts/google-fonts.css" />` (base-path aware).
+
+To add a new font:
+1. Download `.woff2` files to `public/fonts/`
+2. Add `@font-face` rules to `public/fonts/google-fonts.css` (or a new CSS file)
+3. Use relative `url(./filename.woff2)` paths so it works with any base path
+4. Reference the CSS in `_header.astro` using `${b}/fonts/...`
+5. Always set `font-display: swap` for performance
+
+---
+
 ## DaisyUI Themes
 
 Common theme pairs:

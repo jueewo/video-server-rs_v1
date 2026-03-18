@@ -162,15 +162,25 @@ fn copy_data(sitedef: &SiteDef, source: &Path, out: &Path) -> Result<()> {
                 .join(&lang.locale);
             if src.exists() {
                 copy_dir_all(&src, &dst)?;
+                // Check for numbered element files (e.g. 1-hero.json, 2-stats.yaml)
+                let has_numbered_files = std::fs::read_dir(&src)?
+                    .filter_map(|e| e.ok())
+                    .any(|e| {
+                        let s = e.file_name().to_string_lossy().to_string();
+                        !s.starts_with('_')
+                            && s != "page.json"
+                            && s != "page.yaml"
+                            && (s.ends_with(".json") || s.ends_with(".yaml"))
+                    });
                 if src.join("page.yaml").exists() {
                     // page.yaml is the authoritative source — always recompile it
                     compile_page_from_yaml(&dst)?;
-                } else if src.join("page.json").exists() {
-                    // pre-built page.json — copy as-is (already done by copy_dir_all)
-                } else {
-                    // Numbered element files (*.json / *.yaml) → compile to page.json
+                } else if has_numbered_files {
+                    // Numbered element files take precedence over page.json
+                    // (page.json may be stale compiled output)
                     compile_page_json(&dst)?;
                 }
+                // else: only page.json exists — already copied by copy_dir_all
                 // Validate compiled page.json
                 let page_json_dst = dst.join("page.json");
                 if page_json_dst.exists() {

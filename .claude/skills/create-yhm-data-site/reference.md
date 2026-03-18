@@ -101,9 +101,13 @@ socialmedia:
 
 legal:
   - name: Impressum
+    collection: info                       # must match a collection name
     link: /impressum
+    external: false
   - name: Privacy
+    collection: info
     link: /privacy
+    external: false
 
 footercontent:
   sitename: "My Site"
@@ -373,7 +377,9 @@ HLS/MP4 video player.
 ---
 
 ### NewsBanner
-Dynamic banner pulling from a collection (blog/updates).
+Rotating news/update banner. Fetches data at **runtime** from the prerendered `/api/const/bannerposts` endpoint (a static JSON file generated during `astro build` from `bannerposts.js`). The component automatically handles base path prefixing for images and links.
+
+Requires a `bannerposts.js` API route in the Astro project (provided by the component library).
 
 ```yaml
 - element: NewsBanner
@@ -586,14 +592,23 @@ Full list: https://daisyui.com/docs/themes/
 
 ---
 
-## Build & Preview
+## Publish vs Build & Preview
 
-The site is generated and built via the AppKask site-overview UI:
-1. **Generate** — runs `site-generator` crate, writes `src/` from workspace data
-2. **Build** — runs `bun run build` (Astro), outputs to `dist/`
+The site can be published or built locally via the AppKask site-overview UI or site-cli:
+
+### Publish Site (`--push`)
+1. **Generate** — runs `site-generator` crate, merges workspace data + component library into Astro source
+2. **Push** — pushes the merged **Astro source** (src/, public/, package.json, etc.) to Forgejo
+3. **CI builds** — the Forgejo CI pipeline runs `bun install && bun run build` to produce the live site
+
+Files excluded from push: `node_modules/`, `dist/`, `.astro/`, `bun.lock`.
+
+### Build & Preview (`--build`)
+1. **Generate** — same as above
+2. **Build** — runs `bun install && bun run build` locally
 3. **Preview** — served at `/site-builds/{workspace_id}/{folder_slug}/dist/`
 
-Or manually from the build directory:
-```bash
-bun run build
-```
+No git push happens. This is for local preview only.
+
+### NewsBanner Runtime Fetch
+`NewsBanner` is a Preact component that fetches `/api/const/bannerposts` at **runtime** (not build-time). The `bannerposts.js` API route is prerendered to static JSON during `astro build`. The `base` prop (from `siteBase`) prefixes the fetch URL and returned image/link paths for correct resolution under any base path.

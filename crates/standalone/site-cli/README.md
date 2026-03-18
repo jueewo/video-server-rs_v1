@@ -127,9 +127,13 @@ site-cli --remote http://localhost:3000 -w workspace-abc -f websites/mysite \
 site-cli --remote http://localhost:3000 -w workspace-abc -f websites/mysite \
   entry list --collection blog
 
-# Generate + build on server
+# Build locally on server for preview
 site-cli --remote http://localhost:3000 -w workspace-abc -f websites/mysite \
   publish --build
+
+# Push source to Forgejo (CI builds the live site)
+site-cli --remote http://localhost:3000 -w workspace-abc -f websites/mysite \
+  publish --push
 ```
 
 ---
@@ -239,9 +243,15 @@ Runs the site generator: reads `sitedef.yaml` + `data/` + `content/`, writes Ast
 ```
 --output <PATH>             Output directory (required)
 --components-dir <PATH>     Component library path (optional)
---build                     Run bun install && bun build (flag)
---push                      Push to Forgejo (flag, requires FORGEJO_TOKEN + FORGEJO_REPO env vars)
+--build                     Build locally: run bun install && bun run build for preview
+--push                      Push merged Astro source to Forgejo for CI build (requires FORGEJO_TOKEN + FORGEJO_REPO env vars)
 ```
+
+**Publish vs Build & Preview:**
+
+- `--push` pushes the **merged Astro source** (src/, public/, package.json, etc.) to Forgejo — not `dist/`. The CI pipeline runs `bun install && bun run build` to produce the live site. Files like `node_modules/`, `dist/`, `.astro/`, and `bun.lock` are excluded from the push.
+- `--build` runs `bun install && bun run build` **locally** for preview. The built site is served at `/site-builds/{workspace}/{folder_slug}/dist/`.
+- You can use both flags together: `--build --push` builds locally AND pushes source to CI.
 
 ---
 
@@ -264,7 +274,7 @@ All endpoints require authentication and workspace ownership.
 | GET | `/api/workspaces/{id}/site-collection/entries/list?folder_path=...&collection=...&locale=...` | List entries |
 | POST | `/api/workspaces/{id}/site-collection/entries` | Add entry (JSON body: folder_path, collection, locale, slug, title) |
 | DELETE | `/api/workspaces/{id}/site-collection/entries?folder_path=...&collection=...&locale=...&slug=...` | Remove entry |
-| POST | `/api/workspaces/{id}/site/generate` | Generate + optionally build (JSON body: folder_path, build) |
+| POST | `/api/workspaces/{id}/site/generate` | Generate + optionally build/push (JSON body: folder_path, build, push) |
 
 ---
 

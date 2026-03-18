@@ -242,7 +242,7 @@ See reference.md → Fonts section for file layout details.
 
 ---
 
-## Step 8 — Validate and Build
+## Step 8 — Validate, Build & Publish
 
 ```bash
 # Validate structure
@@ -250,11 +250,25 @@ $SITE_CLI -s $SITE validate
 
 # Fix any errors/warnings reported
 
-# Generate + Build (via server UI or CLI)
+# Generate source only (no build, no push)
 $SITE_CLI -s $SITE generate --output /tmp/site-out
-# or via publish:
+
+# Build locally for preview
 $SITE_CLI -s $SITE publish --output /tmp/site-out --build
+
+# Push source to Forgejo (CI builds the live site)
+$SITE_CLI -s $SITE publish --output /tmp/site-out --push
+
+# Both: build locally AND push to CI
+$SITE_CLI -s $SITE publish --output /tmp/site-out --build --push
 ```
+
+**Publish** pushes the merged Astro source (not `dist/`) to Forgejo. The CI pipeline runs `bun install && bun run build`.
+**Build & Preview** builds locally and serves from `/site-builds/`. No git push.
+
+### Folder slug naming
+
+The workspace folder slug becomes part of `ASTRO_BASE` for local preview builds. **Folder slugs must not contain spaces** — Astro's prerender route resolver breaks with "Missing parameter" errors when the base path has spaces. The server sanitises folder slugs automatically (`replace('/', "_").replace(' ', "-")`), but when creating sites manually, use hyphens or underscores.
 
 ### Pre-build sanity check
 

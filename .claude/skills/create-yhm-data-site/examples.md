@@ -643,3 +643,4 @@ If a locale file is missing, Astro falls back to the default language. A `TitleA
 | MDX in non-`mdcontent` collection with minimal frontmatter | `data does not match collection schema` | Add required `tags`, `typetags`, `featured`, `draft`, `image`, `heroImage` fields |
 | Image as Astro asset with public path | Build error or missing image | Use `../../assets/images/` for Astro-optimized, `/images/` for public/ |
 | `draft: true` on an element | Element missing from page | Set `draft: false` when ready to publish |
+| Folder slug with spaces | `Missing parameter: lang` during Astro build | Use hyphens/underscores: `jueewo-ventures` not `jueewo ventures` |

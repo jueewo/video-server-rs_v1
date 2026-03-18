@@ -418,13 +418,14 @@ pub async fn validate(cfg: &RemoteConfig) -> Result<()> {
 
 // ── Generate ──────────────────────────────────────────────────────────────────
 
-pub async fn generate(cfg: &RemoteConfig, build: bool) -> Result<()> {
+pub async fn generate(cfg: &RemoteConfig, build: bool, push: bool) -> Result<()> {
     let client = cfg.client()?;
     let resp: Value = client
         .post(cfg.api_url("site/generate"))
         .json(&serde_json::json!({
             "folder_path": cfg.folder_path,
             "build": build,
+            "push": push,
         }))
         .send()
         .await?

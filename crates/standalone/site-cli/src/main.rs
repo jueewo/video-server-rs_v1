@@ -89,14 +89,18 @@ enum Commands {
     /// Validate site structure and report issues.
     Validate,
 
-    /// Generate Astro source from sitedef + data.
+    /// Generate Astro source from sitedef + data (local only, no build or push).
     Generate {
         /// Output directory for the assembled Astro project
         #[arg(short, long)]
         output: PathBuf,
     },
 
-    /// Generate, optionally build, and optionally push to Forgejo.
+    /// Generate Astro source, optionally build locally, and/or push source to Forgejo for CI.
+    ///
+    /// --push: pushes the merged Astro source (not dist/) to Forgejo.
+    ///         CI runs `bun install && bun run build` to produce the live site.
+    /// --build: runs `bun install && bun run build` locally for preview.
     Publish {
         /// Output directory
         #[arg(short, long)]
@@ -104,10 +108,10 @@ enum Commands {
         /// Path to the component library (overrides SITE_COMPONENTS_BASE)
         #[arg(long)]
         components_dir: Option<PathBuf>,
-        /// Run `bun install && bun run build` after assembly
+        /// Build locally: run `bun install && bun run build` for preview
         #[arg(long, default_value_t = false)]
         build: bool,
-        /// Push to configured Forgejo repo (requires FORGEJO_TOKEN, FORGEJO_REPO env vars)
+        /// Push merged Astro source to Forgejo (CI builds the site). Requires FORGEJO_TOKEN + FORGEJO_REPO env vars
         #[arg(long, default_value_t = false)]
         push: bool,
     },
@@ -300,12 +304,12 @@ async fn dispatch_remote(cfg: &remote::RemoteConfig, command: Commands) -> Resul
         Commands::Components { name } => cmd_components(name.as_deref()),
         Commands::Validate => remote::validate(cfg).await,
         Commands::Generate { .. } => {
-            // Remote generate uses the server's generate endpoint
-            remote::generate(cfg, false).await
+            // Remote generate = generate source only (no build, no push)
+            remote::generate(cfg, false, false).await
         }
-        Commands::Publish { build, .. } => {
-            // Remote publish = generate + optional build on server
-            remote::generate(cfg, build).await
+        Commands::Publish { build, push, .. } => {
+            // Remote publish = generate + optional build + optional push
+            remote::generate(cfg, build, push).await
         }
     }
 }

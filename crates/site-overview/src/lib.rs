@@ -437,7 +437,7 @@ fn build_structure_json(
         let locale_dir = content_dir.join(&col.name).join(first_locale);
         if !locale_dir.is_dir() { continue; }
         let Ok(rd) = std::fs::read_dir(&locale_dir) else { continue };
-        let mut items: Vec<(String, String, bool)> = rd // (slug, title, draft)
+        let mut items: Vec<(String, String, bool, bool, bool)> = rd // (slug, title, draft, draft_content, draft_content_clickable)
             .filter_map(|e| e.ok())
             .filter(|e| {
                 let p = e.path();
@@ -450,12 +450,14 @@ fn build_structure_json(
                 let (fm, _) = split_mdx(&raw);
                 let title = fm_str(&fm, "title").unwrap_or_else(|| slug.clone());
                 let draft = fm_bool(&fm, "draft").unwrap_or(false);
-                Some((slug, title, draft))
+                let draft_content = fm_bool(&fm, "draft_content").unwrap_or(false);
+                let draft_content_clickable = fm_bool(&fm, "draft_content_clickable").unwrap_or(true);
+                Some((slug, title, draft, draft_content, draft_content_clickable))
             })
             .collect();
         items.sort_by(|a, b| a.1.cmp(&b.1));
-        let json_items: Vec<serde_json::Value> = items.into_iter().map(|(slug, title, draft)| {
-            serde_json::json!({ "slug": slug, "title": title, "draft": draft })
+        let json_items: Vec<serde_json::Value> = items.into_iter().map(|(slug, title, draft, draft_content, draft_content_clickable)| {
+            serde_json::json!({ "slug": slug, "title": title, "draft": draft, "draft_content": draft_content, "draft_content_clickable": draft_content_clickable })
         }).collect();
         collection_items.insert(col.name.clone(), json_items);
     }

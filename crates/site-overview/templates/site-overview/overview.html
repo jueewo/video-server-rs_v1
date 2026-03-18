@@ -739,7 +739,11 @@ async function doAddCollection() {
                 if ((n.articles || 0) === 0) html += `<div class="text-warning mt-1">Collection is empty</div>`;
                 if (n.items && n.items.length) {
                     const drafts = n.items.filter(i => i.draft).length;
-                    if (drafts) html += `<div class="text-base-content/50">${drafts} draft${drafts > 1 ? 's' : ''}</div>`;
+                    const contentHidden = n.items.filter(i => !i.draft && i.draft_content).length;
+                    const visible = n.items.length - drafts - contentHidden;
+                    if (visible) html += `<div class="text-success">\u25CF ${visible} visible</div>`;
+                    if (contentHidden) html += `<div class="text-warning">\u25D1 ${contentHidden} content hidden</div>`;
+                    if (drafts) html += `<div class="text-base-content/50">\u25CC ${drafts} draft</div>`;
                 }
             }
             tooltip.innerHTML = html;
@@ -791,7 +795,11 @@ async function doAddCollection() {
         const r = document.createElementNS(NS, 'rect');
         r.setAttribute('width', ITEM_W); r.setAttribute('height', ITEM_H);
         r.setAttribute('rx', ITEM_R);
-        r.setAttribute('fill', item.draft ? 'oklch(0.50 0.06 55)' : ITEM_FILL);
+        // Three states: draft (hidden), draft_content (card visible, content hidden), visible
+        let fillColor = ITEM_FILL;
+        if (item.draft) fillColor = 'oklch(0.45 0.06 15)';           // muted red — fully hidden
+        else if (item.draft_content) fillColor = 'oklch(0.60 0.12 85)'; // amber — card visible, content hidden
+        r.setAttribute('fill', fillColor);
         r.setAttribute('stroke', 'oklch(0.3 0.02 55 / 0.3)'); r.setAttribute('stroke-width', '1');
         g.appendChild(r);
 
@@ -801,7 +809,10 @@ async function doAddCollection() {
         const maxLen = 16;
         let text = item.title || item.slug;
         if (text.length > maxLen) text = text.slice(0, maxLen) + '\u2026';
+        // Status prefix: ◌ draft (hidden), ◑ content hidden, ● visible
         if (item.draft) text = '\u25CC ' + text;
+        else if (item.draft_content) text = '\u25D1 ' + text;
+        else text = '\u25CF ' + text;
         label.textContent = text;
         g.appendChild(label);
 

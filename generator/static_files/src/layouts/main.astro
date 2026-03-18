@@ -84,7 +84,7 @@ const getImage = (imagePath: string) => {
         <ProgressRing />
         <ProgressBar class="bg-green-600" />
 
-        <div class="navbar bg-base-100/90 backdrop-blur-md z-50 border-b border-base-300/30" style="position: fixed; top: 0px;">
+        <header class="navbar bg-base-100/90 backdrop-blur-md z-50 border-b border-base-300/30" style="position: fixed; top: 0px;">
             <div class="navbar-start">
                 <!-- MENU BTN  -->
                 <label for="my-drawer-2" class="btn btn-ghost">
@@ -125,18 +125,18 @@ const getImage = (imagePath: string) => {
                 <ThemeToggle showtext={false} />
                 <!-- <UserMenu /> -->
             </div>
-        </div>
+        </header>
 
         <div class="drawer min-h-screen">
             <input id="my-drawer-2" type="checkbox" class="drawer-toggle" />
 
-            <div class="mt-20 drawer-content">
+            <main class="mt-20 drawer-content">
                 <slot />
 
                 <slot name="actionbanner" />
-            </div>
+            </main>
 
-            <div class="drawer-side z-50">
+            <nav class="drawer-side z-50" aria-label="Main navigation">
                 <label for="my-drawer-2" class="drawer-overlay"></label>
                 <ul class="menu p-4 w-60 h-full bg-base-200 text-base-content">
                     <!-- Sidebar content here -->
@@ -173,7 +173,7 @@ const getImage = (imagePath: string) => {
                     <hr class="my-8" />
                     <slot name="menuaddon" />
                 </ul>
-            </div>
+            </nav>
         </div>
 
         <footer

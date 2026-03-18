@@ -27,8 +27,12 @@ pub fn push(config: &GitPushConfig) -> Result<String> {
     let repo = open_or_clone(config)?;
     let workdir = repo.workdir().context("repo has no workdir")?.to_path_buf();
 
-    // Overlay generated files onto the working tree
-    copy_dir_all(&config.source_dir, &workdir)?;
+    // Overlay only the built dist/ output onto the working tree.
+    // The source_dir contains the full Astro project (src/, node_modules/, .astro/),
+    // but only dist/ should be published.
+    let dist_dir = config.source_dir.join("dist");
+    let source = if dist_dir.exists() { &dist_dir } else { &config.source_dir };
+    copy_dir_all(source, &workdir)?;
 
     // Stage all changes
     let mut index = repo.index()?;

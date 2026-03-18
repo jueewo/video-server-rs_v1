@@ -5,7 +5,9 @@ const { headerNavigationMenu } = Astro.props;
 
 const currentPath = Astro.url.pathname;
 
-const regex = new RegExp(`^\\/${lang}`);
+// Strip siteBase prefix for language switching (newPath = path without lang prefix)
+const baseAndLang = b ? `${b}/${lang}` : `/${lang}`;
+const regex = new RegExp(`^${baseAndLang.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
 const newPath = currentPath.replace(regex, '');
 
 // console.log(newPath);
@@ -41,7 +43,7 @@ for (const menu of headerNavigationMenu) {
     // console.log("\nmenu > "+menu.name)
     for (const child of menu.children) {
       // console.log("child > "+child.name+" | "+ '/'+lang+child.link+'/' + " | "+currentPath  )
-      if (currentPath == '/'+lang+child.link || currentPath == '/'+lang+child.link+'/') {
+      if (currentPath == b+'/'+lang+child.link || currentPath == b+'/'+lang+child.link+'/') {
         // console.log("push > "+child.name)
         openMenues.push(menu.name)
       }
@@ -85,7 +87,7 @@ for (const menu of headerNavigationMenu) {
                   href={menu.external || menu.link.startsWith("http")
                     ? menu.link
                     : lang ? b+'/'+lang+ menu.link : menu.link}
-                  class=`justify-between text-2xl md:text-lg ${ !menu.external && (currentPath == '/' + lang + menu.link || currentPath == '/' + lang + menu.link + '/') && 'menu-active'}`
+                  class=`justify-between text-2xl md:text-lg ${ !menu.external && (currentPath == b + '/' + lang + menu.link || currentPath == b + '/' + lang + menu.link + '/') && 'menu-active'}`
                   aria-label={menu.name}
                   {...(menu.external || menu.link.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                 >
@@ -108,7 +110,7 @@ for (const menu of headerNavigationMenu) {
                           href={submenu.external || submenu.link.startsWith("http")
                             ? submenu.link
                             : lang ? b+'/'+lang+ submenu.link : submenu.link}
-                          class=`justify-between text-xl md:text-lg ${ !submenu.external && (currentPath == '/' + lang + submenu.link || currentPath == '/' + lang + submenu.link + '/') && 'menu-active' }`
+                          class=`justify-between text-xl md:text-lg ${ !submenu.external && (currentPath == b + '/' + lang + submenu.link || currentPath == b + '/' + lang + submenu.link + '/') && 'menu-active' }`
                           aria-label={submenu.name}
                           {...(submenu.external || submenu.link.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                         >

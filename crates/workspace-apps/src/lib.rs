@@ -8,10 +8,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 /// Mount all workspace apps onto a single router.
-pub fn workspace_app_routes(pool: SqlitePool, storage_base: PathBuf) -> Router {
+pub fn workspace_app_routes(pool: SqlitePool, storage_base: PathBuf, apps_dir: PathBuf) -> Router {
     let app_pub_state = Arc::new(AppPublisherState {
         pool: pool.clone(),
         storage_base: storage_base.clone(),
+        apps_dir,
     });
     let js_state = Arc::new(JsToolViewerState {
         pool: pool.clone(),

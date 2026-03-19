@@ -29,17 +29,19 @@ use tower_sessions::Session;
 #[derive(Clone)]
 pub struct AppPublisherState {
     pub pool: SqlitePool,
+    /// Base storage directory (for reading workspace source folders).
     pub storage_base: PathBuf,
+    /// Root directory for published app snapshots (default: `./storage-apps`).
+    pub apps_dir: PathBuf,
 }
 
 impl AppPublisherState {
-    /// Where published app snapshots live: storage/apps/{app_id}/
     pub fn apps_dir(&self) -> PathBuf {
-        self.storage_base.join("apps")
+        self.apps_dir.clone()
     }
 
     pub fn app_snapshot_dir(&self, app_id: &str) -> PathBuf {
-        self.apps_dir().join(app_id)
+        self.apps_dir.join(app_id)
     }
 }
 

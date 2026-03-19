@@ -16,6 +16,7 @@ use docs_viewer::{editor::EditorTemplate, MarkdownRenderer};
 use pdf_viewer::PdfViewerTemplate;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
+use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 use time::OffsetDateTime;
@@ -40,6 +41,8 @@ pub use workspace_config::{FolderConfig, FolderType, WorkspaceConfig};
 pub struct WorkspaceManagerState {
     pub pool: SqlitePool,
     pub storage: Arc<UserStorageManager>,
+    /// Root directory for site builds and git repo caches (default: `./storage-sites`).
+    pub sites_dir: PathBuf,
     pub markdown_renderer: Arc<MarkdownRenderer>,
     pub folder_type_registry: Arc<RwLock<FolderTypeRegistry>>,
     /// Registered folder-type renderers, keyed by type_id (e.g. "bpmn-simulator").
@@ -47,7 +50,7 @@ pub struct WorkspaceManagerState {
 }
 
 impl WorkspaceManagerState {
-    pub fn new(pool: SqlitePool, storage: Arc<UserStorageManager>) -> Self {
+    pub fn new(pool: SqlitePool, storage: Arc<UserStorageManager>, sites_dir: PathBuf) -> Self {
         let registry_dir = storage.base_dir().join("folder-type-registry");
 
         if let Err(e) = FolderTypeRegistry::ensure_defaults(&registry_dir) {
@@ -69,6 +72,7 @@ impl WorkspaceManagerState {
         Self {
             pool,
             storage,
+            sites_dir,
             markdown_renderer: Arc::new(MarkdownRenderer::new()),
             folder_type_registry: Arc::new(RwLock::new(registry)),
             renderers: Arc::new(std::collections::HashMap::new()),
@@ -4065,7 +4069,7 @@ fn site_home_subpath(source_dir: &std::path::Path) -> Option<String> {
 /// POST /api/workspaces/{workspace_id}/site/generate
 ///
 /// Generates the merged Astro project from the sitedef.yaml + data files in the
-/// specified yhm-site-data folder. Output is written to storage/site-builds/.
+/// specified yhm-site-data folder. Output is written to {SITES_DIR}/builds/.
 pub async fn generate_site_handler(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
@@ -4118,12 +4122,11 @@ pub async fn generate_site_handler(
         })
         .or_else(|| std::env::var("SITE_COMPONENTS_DIR").ok().map(Into::into));
 
-    // Output path: storage/site-builds/{workspace_id}/{folder_slug}
+    // Output path: {sites_dir}/builds/{workspace_id}/{folder_slug}
     let folder_slug = clean.replace('/', "_").replace(' ', "-");
     let output_dir = state
-        .storage
-        .base_dir()
-        .join("site-builds")
+        .sites_dir
+        .join("builds")
         .join(&workspace_id)
         .join(&folder_slug);
 
@@ -4141,11 +4144,10 @@ pub async fn generate_site_handler(
     let forgejo_token = meta_str("forgejo_token")
         .or_else(|| std::env::var("FORGEJO_TOKEN").ok());
 
-    // Persistent repo cache: storage/site-repos/{workspace_id}/{folder_slug}
+    // Persistent repo cache: {sites_dir}/repos/{workspace_id}/{folder_slug}
     let repo_cache_dir = state
-        .storage
-        .base_dir()
-        .join("site-repos")
+        .sites_dir
+        .join("repos")
         .join(&workspace_id)
         .join(&folder_slug);
 
@@ -4176,7 +4178,7 @@ pub async fn generate_site_handler(
         if folder_type == "vitepress-docs" {
             let static_dir = std::env::current_dir().ok().map(|d| d.join("static"));
             let vp_base = if do_build && effective_git_config.is_none() {
-                Some(format!("/storage/site-builds/{workspace_id}/{folder_slug}/dist/"))
+                Some(format!("/site-builds/{workspace_id}/{folder_slug}/dist/"))
             } else {
                 None
             };
@@ -4232,8 +4234,8 @@ pub async fn generate_site_handler(
             let url = if do_build && !did_push {
                 if folder_type_for_preview == "vitepress-docs" {
                     // VitePress outputs to dist/ (outDir: 'dist' in config.ts)
-                    // Served via /storage route (VitePress uses .html extension, no redirect issue)
-                    format!("/storage/site-builds/{workspace_id_for_preview}/{folder_slug_for_preview}/dist/")
+                    // Served via /site-builds route
+                    format!("/site-builds/{workspace_id_for_preview}/{folder_slug_for_preview}/dist/")
                 } else {
                     // Astro preview: served via /site-builds route which handles
                     // directory→index.html without the nest+ServeDir redirect bug.

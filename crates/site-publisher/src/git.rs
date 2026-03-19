@@ -18,7 +18,7 @@ pub struct GitPushConfig {
     /// Where the assembled Astro project lives (our publish output_dir)
     pub source_dir: PathBuf,
     /// Persistent clone location — repo is kept here between runs for fast incremental pushes.
-    /// Typically: storage/site-repos/{workspace_id}/{folder_slug}/
+    /// Typically: {SITES_DIR}/repos/{workspace_id}/{folder_slug}/
     pub repo_cache_dir: PathBuf,
 }
 

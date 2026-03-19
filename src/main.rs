@@ -971,6 +971,19 @@ async fn main() -> anyhow::Result<()> {
     let storage_dir = std::env::current_dir()?.join("storage");
     std::fs::create_dir_all(&storage_dir)?;
 
+    // Site builds & git repo caches live outside storage (configurable via SITES_DIR)
+    let sites_dir = std::env::var("SITES_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| std::env::current_dir().unwrap().join("storage-sites"));
+    std::fs::create_dir_all(sites_dir.join("builds"))?;
+    std::fs::create_dir_all(sites_dir.join("repos"))?;
+
+    // Published apps live outside storage (configurable via APPS_DIR)
+    let apps_dir = std::env::var("APPS_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| std::env::current_dir().unwrap().join("storage-apps"));
+    std::fs::create_dir_all(&apps_dir)?;
+
     // Create legacy video directory (still used by video-manager for HLS)
     std::fs::create_dir_all(storage_dir.join("videos"))?;
 
@@ -1032,7 +1045,7 @@ async fn main() -> anyhow::Result<()> {
     let vault_state = Arc::new(VaultManagerState::new(pool.clone(), user_storage.clone()));
 
     // Initialize Workspace Manager State
-    let mut workspace_state = WorkspaceManagerState::new(pool.clone(), user_storage.clone());
+    let mut workspace_state = WorkspaceManagerState::new(pool.clone(), user_storage.clone(), sites_dir.clone());
     workspace_renderers::register_all(&mut workspace_state, pool.clone(), (*user_storage).clone());
     let workspace_state = Arc::new(workspace_state);
 
@@ -1285,7 +1298,7 @@ async fn main() -> anyhow::Result<()> {
 
     // ── Apps feature (js-tool-viewer, app-publisher, 3d-gallery) ─────────────
     #[cfg(feature = "apps")]
-    let app = app.merge(workspace_app_routes(pool.clone(), storage_dir.clone()));
+    let app = app.merge(workspace_app_routes(pool.clone(), storage_dir.clone(), apps_dir.clone()));
 
     let app = app
         // Documentation viewer (markdown preview)
@@ -1298,21 +1311,21 @@ async fn main() -> anyhow::Result<()> {
                     api_key_or_session_auth,
                 )),
         )
-        // Serve prebuilt Astro preview sites.
+        // Serve prebuilt Astro/VitePress preview sites.
         // Route: /site-builds/{workspace_id}/{folder_slug}/{*path}
-        // Maps to: ./storage/site-builds/{workspace_id}/{folder_slug}/{path}
+        // Maps to: {SITES_DIR}/builds/{workspace_id}/{folder_slug}/{path}
         // Uses a direct route (not nest) so the full URI path is preserved in any
         // redirects — avoiding the nest+ServeDir trailing-slash redirect bug.
         .route(
             "/site-builds/{*path}",
             get({
-                let sd = storage_dir.clone();
+                let sd = sites_dir.clone();
                 move |axum::extract::Path(path): axum::extract::Path<String>,
                       uri: axum::http::Uri,
                       _req: axum::http::Request<axum::body::Body>| {
-                    let storage_dir = sd.clone();
+                    let sites_dir = sd.clone();
                     async move {
-                        let fs_path = storage_dir.join("site-builds").join(&path);
+                        let fs_path = sites_dir.join("builds").join(&path);
                         // Directory without trailing slash → redirect so browser URL is correct
                         if fs_path.is_dir() && !uri.path().ends_with('/') {
                             let redirect_to = format!("{}/", uri.path());

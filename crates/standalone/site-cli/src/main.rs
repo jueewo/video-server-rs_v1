@@ -10,6 +10,8 @@
 //! site-cli --source ./websites/mysite page list
 //! site-cli --source ./websites/mysite page add --slug about --title "About Us"
 //! site-cli --source ./websites/mysite validate
+//! site-cli --source ./websites/mysite summarize   # generate sitemap.md
+//! site-cli --source ./websites/mysite brief        # create/show brief.md
 //! ```
 //!
 //! # Remote usage
@@ -88,6 +90,12 @@ enum Commands {
 
     /// Validate site structure and report issues.
     Validate,
+
+    /// Generate sitemap.md — a content inventory for agents and humans.
+    Summarize,
+
+    /// Create or show brief.md — the site's purpose, audience, and tone.
+    Brief,
 
     /// Generate Astro source from sitedef + data (local only, no build or push).
     Generate {
@@ -251,6 +259,8 @@ async fn main() -> Result<()> {
         Commands::Entry { action } => cmd_entry(source, action),
         Commands::Components { name } => cmd_components(name.as_deref()),
         Commands::Validate => cmd_validate(source),
+        Commands::Summarize => cmd_summarize(source),
+        Commands::Brief => cmd_brief(source),
         Commands::Generate { output } => cmd_generate(source, &output),
         Commands::Publish {
             output,
@@ -303,6 +313,12 @@ async fn dispatch_remote(cfg: &remote::RemoteConfig, command: Commands) -> Resul
         },
         Commands::Components { name } => cmd_components(name.as_deref()),
         Commands::Validate => remote::validate(cfg).await,
+        Commands::Summarize => {
+            bail!("summarize is local-only — run without --remote");
+        }
+        Commands::Brief => {
+            bail!("brief is local-only — run without --remote");
+        }
         Commands::Generate { .. } => {
             // Remote generate = generate source only (no build, no push)
             remote::generate(cfg, false, false).await
@@ -995,6 +1011,260 @@ fn cmd_publish(
         }
     }
 
+    Ok(())
+}
+
+// ============================================================================
+// Summarize — generate sitemap.md
+// ============================================================================
+
+fn cmd_summarize(source: &Path) -> Result<()> {
+    let sitedef = site_generator::load_sitedef(source)?;
+    let locales: Vec<&str> = sitedef.languages.iter().map(|l| l.locale.as_str()).collect();
+    let default_locale = &sitedef.defaultlanguage.locale;
+
+    let mut out = String::new();
+    out.push_str(&format!("# Sitemap — {}\n\n", sitedef.title));
+    out.push_str(&format!(
+        "Generated: {}\n\n",
+        chrono::Utc::now().format("%Y-%m-%d %H:%M UTC")
+    ));
+
+    // Pages table
+    out.push_str(&format!("## Pages ({})\n\n", sitedef.pages.len()));
+    // Header row
+    out.push_str("| Page |");
+    for locale in &locales {
+        out.push_str(&format!(" Elements ({}) |", locale));
+    }
+    out.push('\n');
+    // Separator row
+    out.push_str("|------|");
+    for _ in &locales {
+        out.push_str("------|");
+    }
+    out.push('\n');
+    // Data rows
+    for page in &sitedef.pages {
+        out.push_str(&format!("| {} |", page.slug));
+        for locale in &locales {
+            let page_dir = source
+                .join("data")
+                .join(format!("page_{}", page.slug))
+                .join(locale);
+            let elements = read_page_elements(&page_dir);
+            let cell = if elements.is_empty() {
+                "\u{2014}".to_string() // em dash
+            } else {
+                elements.join(", ")
+            };
+            out.push_str(&format!(" {} |", cell));
+        }
+        out.push('\n');
+    }
+
+    // Collections table
+    if !sitedef.collections.is_empty() {
+        out.push_str(&format!("\n## Collections ({})\n\n", sitedef.collections.len()));
+        out.push_str("| Collection | Type |");
+        for locale in &locales {
+            out.push_str(&format!(" Entries ({}) |", locale));
+        }
+        out.push('\n');
+        out.push_str("|------|------|");
+        for _ in &locales {
+            out.push_str("------|");
+        }
+        out.push('\n');
+        for col in &sitedef.collections {
+            out.push_str(&format!("| {} | {} |", col.name, col.coltype));
+            for locale in &locales {
+                let locale_dir = source.join("content").join(&col.name).join(locale);
+                let count = count_mdx_files(&locale_dir);
+                let cell = if count == 0 {
+                    "\u{2014}".to_string()
+                } else {
+                    count.to_string()
+                };
+                out.push_str(&format!(" {} |", cell));
+            }
+            out.push('\n');
+        }
+    }
+
+    // Languages
+    out.push_str("\n## Languages\n\n");
+    let lang_list: Vec<String> = sitedef
+        .languages
+        .iter()
+        .map(|l| {
+            if l.locale == *default_locale {
+                format!("{} (default)", l.locale)
+            } else {
+                l.locale.clone()
+            }
+        })
+        .collect();
+    out.push_str(&lang_list.join(", "));
+    out.push('\n');
+
+    // Navigation
+    if !sitedef.menu.is_empty() {
+        out.push_str("\n## Navigation\n\n");
+        for item in &sitedef.menu {
+            if let Some(submenu) = &item.submenu {
+                out.push_str(&format!("- {}\n", item.name));
+                for sub in submenu {
+                    out.push_str(&format!("  - {} → {}\n", sub.name, sub.path));
+                }
+            } else {
+                let path = item.path.as_deref().unwrap_or("");
+                out.push_str(&format!("- {} → {}\n", item.name, path));
+            }
+        }
+    }
+
+    let sitemap_path = source.join("sitemap.md");
+    std::fs::write(&sitemap_path, &out)?;
+    println!("Written {}", sitemap_path.display());
+    println!();
+    print!("{}", out);
+    Ok(())
+}
+
+/// Read element type names from a page data directory.
+/// Tries page.yaml first, then page.json, then numbered files.
+fn read_page_elements(dir: &Path) -> Vec<String> {
+    if !dir.exists() {
+        return vec![];
+    }
+
+    // Try page.yaml
+    let page_yaml = dir.join("page.yaml");
+    if page_yaml.exists() {
+        if let Ok(text) = std::fs::read_to_string(&page_yaml) {
+            if let Ok(val) = serde_yaml::from_str::<serde_yaml::Value>(&text) {
+                let elements = match &val {
+                    serde_yaml::Value::Mapping(m) => {
+                        m.get("elements").and_then(|e| e.as_sequence())
+                    }
+                    serde_yaml::Value::Sequence(_) => val.as_sequence(),
+                    _ => None,
+                };
+                if let Some(seq) = elements {
+                    return seq
+                        .iter()
+                        .filter_map(|e| {
+                            let draft = e.get("draft").and_then(|d| d.as_bool()).unwrap_or(false);
+                            if draft {
+                                return None;
+                            }
+                            e.get("element").and_then(|v| v.as_str()).map(String::from)
+                        })
+                        .collect();
+                }
+            }
+        }
+    }
+
+    // Try page.json
+    let page_json = dir.join("page.json");
+    if page_json.exists() {
+        if let Ok(text) = std::fs::read_to_string(&page_json) {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) {
+                if let Some(seq) = val.get("elements").and_then(|e| e.as_array()) {
+                    return seq
+                        .iter()
+                        .filter_map(|e| {
+                            let draft = e.get("draft").and_then(|d| d.as_bool()).unwrap_or(false);
+                            if draft {
+                                return None;
+                            }
+                            e.get("element").and_then(|v| v.as_str()).map(String::from)
+                        })
+                        .collect();
+                }
+            }
+        }
+    }
+
+    // Try numbered element files
+    let mut files: Vec<_> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            let s = e.file_name().to_string_lossy().to_string();
+            !s.starts_with('_')
+                && s != "page.json"
+                && s != "page.yaml"
+                && (s.ends_with(".json") || s.ends_with(".yaml"))
+        })
+        .collect();
+    files.sort_by(|a, b| {
+        a.file_name()
+            .to_string_lossy()
+            .cmp(&b.file_name().to_string_lossy())
+    });
+    files
+        .iter()
+        .filter_map(|e| {
+            let text = std::fs::read_to_string(e.path()).ok()?;
+            let val: serde_json::Value = if e.path().extension().map_or(false, |x| x == "yaml") {
+                let y: serde_yaml::Value = serde_yaml::from_str(&text).ok()?;
+                serde_json::to_value(serde_yaml::from_value::<serde_json::Value>(y).ok()?).ok()?
+            } else {
+                serde_json::from_str(&text).ok()?
+            };
+            let draft = val.get("draft").and_then(|d| d.as_bool()).unwrap_or(false);
+            if draft {
+                return None;
+            }
+            val.get("element").and_then(|v| v.as_str()).map(String::from)
+        })
+        .collect()
+}
+
+// ============================================================================
+// Brief — create or show brief.md
+// ============================================================================
+
+const BRIEF_TEMPLATE: &str = r#"# Site Brief
+
+## Purpose
+
+What this site does and why it exists.
+
+## Audience
+
+Who this site is for.
+
+## Tone & Voice
+
+How content should sound (formal, casual, technical...).
+
+## Constraints
+
+- Brand guidelines, do's and don'ts
+- Language requirements
+- Visual style notes
+
+## Goals
+
+What success looks like for this site.
+"#;
+
+fn cmd_brief(source: &Path) -> Result<()> {
+    let brief_path = source.join("brief.md");
+    if brief_path.exists() {
+        let content = std::fs::read_to_string(&brief_path)?;
+        print!("{}", content);
+    } else {
+        std::fs::write(&brief_path, BRIEF_TEMPLATE)?;
+        println!("Created {}", brief_path.display());
+        println!();
+        print!("{}", BRIEF_TEMPLATE);
+    }
     Ok(())
 }
 

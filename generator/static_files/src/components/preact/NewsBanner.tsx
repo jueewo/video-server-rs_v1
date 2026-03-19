@@ -53,7 +53,7 @@ export default function NewsBanner({
             <div key={index} class="carousel-item w-4/5">
               <div
                 id={`item-${index}`}
-                class={`card h-64 w-full bg-gradient-to-r from-primary to-blue-900 text-primary-content ${newsitem.img ? "card-side" : ""}`}
+                class={`card h-64 w-full bg-gradient-to-r from-primary to-blue-900 text-white ${newsitem.img ? "card-side" : ""}`}
               >
                 {newsitem.img && (
                   <figure>
@@ -87,7 +87,7 @@ export default function NewsBanner({
 
       {(!loadeddata || loadeddata.length === 0) && (
         <div class="p-4 space-x-4 bg-neutral rounded-box my-9 w-full">
-          <div class="card w-full h-64 bg-primary text-primary-content">
+          <div class="card w-full h-64 bg-base-200 text-base-content">
             <div class="card-body items-center text-center">
               <h2 class="card-title mt-8">Loading news data</h2>
               <span class="loading loading-ball loading-lg"></span>

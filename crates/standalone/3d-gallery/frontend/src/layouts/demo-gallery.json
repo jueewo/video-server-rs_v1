@@ -64,7 +64,7 @@
       "floor_color": [0.25, 0.22, 0.18],
       "ceiling_color": [0.95, 0.95, 0.95],
       "wall_color": [0.98, 0.98, 0.98],
-      "height": 5,
+      "height": 6,
       "spotlight_count": 9,
       "walls": [
         {

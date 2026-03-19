@@ -907,20 +907,21 @@ async function doAddCollection() {
         if (n.type === 'collection' && n.items && n.items.length) {
             const btnG = document.createElementNS(NS, 'g');
             btnG.style.cursor = 'pointer';
-            // Position: right side of node, vertically centered
-            const btnW = 36, btnH = 20;
-            const bx = NODE_W - btnW - 4, by = (NODE_H - btnH) / 2;
+            // Position: right side of node, full height for easy clicking
+            const btnW = 40, btnH = NODE_H;
+            const bx = NODE_W - btnW, by = 0;
             const btnRect = document.createElementNS(NS, 'rect');
             btnRect.setAttribute('x', bx); btnRect.setAttribute('y', by);
             btnRect.setAttribute('width', btnW); btnRect.setAttribute('height', btnH);
-            btnRect.setAttribute('rx', 10);
+            btnRect.setAttribute('rx', NODE_R);
             btnRect.setAttribute('fill', 'rgba(255,255,255,0.18)');
             btnG.appendChild(btnRect);
             const btnLabel = document.createElementNS(NS, 'text');
-            btnLabel.setAttribute('x', bx + btnW / 2); btnLabel.setAttribute('y', by + 14);
+            btnLabel.setAttribute('x', bx + btnW / 2); btnLabel.setAttribute('y', by + NODE_H / 2 + 4);
             btnLabel.setAttribute('text-anchor', 'middle');
             btnLabel.setAttribute('font-size', '10'); btnLabel.setAttribute('font-weight', '600');
             btnLabel.setAttribute('fill', 'rgba(255,255,255,0.8)');
+            btnLabel.setAttribute('pointer-events', 'none');
             btnLabel.textContent = `${n.items.length} \u25B6`;
             btnG.appendChild(btnLabel);
             btnG.addEventListener('pointerenter', () => { btnRect.setAttribute('fill', 'rgba(255,255,255,0.35)'); });
@@ -937,24 +938,26 @@ async function doAddCollection() {
             g.appendChild(btnG);
         }
 
-        // Label
+        // Label (pointer-events none so it doesn't block the expand button)
         const label = document.createElementNS(NS, 'text');
         label.setAttribute('x', 28); label.setAttribute('y', 18);
         label.setAttribute('font-size', '13'); label.setAttribute('font-weight', '600');
         label.setAttribute('fill', TEXT_FILL);
+        label.setAttribute('pointer-events', 'none');
         const hasBtn = n.type === 'collection' && n.items && n.items.length;
         const maxLen = hasBtn ? 10 : (n.type === 'page' && n.inMenu ? 12 : 14);
         label.textContent = n.label.length > maxLen ? n.label.slice(0, maxLen) + '\u2026' : n.label;
         g.appendChild(label);
 
-        // Sub-label
+        // Sub-label (pointer-events none so it doesn't block the expand button)
         const sub = document.createElementNS(NS, 'text');
         sub.setAttribute('x', 28); sub.setAttribute('y', 34);
         sub.setAttribute('font-size', '10'); sub.setAttribute('fill', 'rgba(255,255,255,0.65)');
+        sub.setAttribute('pointer-events', 'none');
         if (n.type === 'page') {
             sub.textContent = `${n.elements || 0} elements`;
         } else {
-            sub.textContent = `${n.articles || 0} articles \u00B7 ${n.coltype || ''}`.slice(0, 24);
+            sub.textContent = `${n.articles || 0} articles`;
         }
         g.appendChild(sub);
 

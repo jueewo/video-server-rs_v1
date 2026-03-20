@@ -21,6 +21,7 @@ const { lang } = Astro.params;
 
 import { getRelativeLocaleUrl } from "astro:i18n";
 import { b } from '../utils/siteBase';
+import { t } from '../utils/localize';
 
 // const preferredLocale = Astro.preferredLocale;
 // const preferredLocales = Astro.preferredLocaleList;
@@ -97,11 +98,11 @@ import { b } from '../utils/siteBase';
                                                 class="transition-colors duration-300 text-base-content hover:text-primary hover:underline"
                                                 {...(category.external || category.link.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                                             >
-                                                {category.header}
+                                                {t(category.header, lang)}
                                             </a>
                                         </span>
                                     ) : (
-                                        <span>{category.header}</span>
+                                        <span>{t(category.header, lang)}</span>
                                     )}
                                 </p>
                                 <ul class="mt-2 space-y-2">
@@ -122,7 +123,7 @@ import { b } from '../utils/siteBase';
                                                         {...(link.external || link.link.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                                                     >
                                                         <span class="hover:underline">
-                                                            {link.name}{" "}
+                                                            {t(link.name, lang)}{" "}
                                                             {/* {link.link} */}
                                                         </span>
                                                         {link.external && (
@@ -134,7 +135,7 @@ import { b } from '../utils/siteBase';
                                                     </a>
                                                 ) : (
                                                     <span class="text-base-content/60">
-                                                        {link.name}
+                                                        {t(link.name, lang)}
                                                     </span>
                                                 )}
                                             </li>
@@ -191,7 +192,7 @@ import { b } from '../utils/siteBase';
                                         : legalitem.link
                                 }
                             >
-                                {legalitem.name}
+                                {t(legalitem.name, lang)}
                             </a>
                         </span>
                     ))

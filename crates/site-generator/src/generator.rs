@@ -19,12 +19,34 @@ pub struct GeneratorConfig {
 }
 
 /// Parse and validate sitedef.yaml from the source directory.
+/// If a `menus.yaml` file exists alongside sitedef.yaml, its menu/footermenu/legal
+/// fields override the ones in sitedef.yaml. This keeps the main config short.
 pub fn load_sitedef(source_dir: &Path) -> Result<SiteDef> {
     let path = source_dir.join("sitedef.yaml");
     let text = std::fs::read_to_string(&path)
         .with_context(|| format!("reading {}", path.display()))?;
-    let sitedef: SiteDef = serde_yaml::from_str(&text)
+    let mut sitedef: SiteDef = serde_yaml::from_str(&text)
         .with_context(|| format!("parsing {}", path.display()))?;
+
+    // Overlay menus.yaml if present
+    let menus_path = source_dir.join("menus.yaml");
+    if menus_path.exists() {
+        let menus_text = std::fs::read_to_string(&menus_path)
+            .with_context(|| format!("reading {}", menus_path.display()))?;
+        let menus: crate::schema::MenuOverlay = serde_yaml::from_str(&menus_text)
+            .with_context(|| format!("parsing {}", menus_path.display()))?;
+        if let Some(menu) = menus.menu {
+            sitedef.menu = menu;
+        }
+        if let Some(footermenu) = menus.footermenu {
+            sitedef.footermenu = Some(footermenu);
+        }
+        if let Some(legal) = menus.legal {
+            sitedef.legal = Some(legal);
+        }
+        info!("Loaded menu overrides from menus.yaml");
+    }
+
     Ok(sitedef)
 }
 
@@ -496,7 +518,7 @@ fn build_header_nav(sitedef: &SiteDef) -> serde_json::Value {
             } else {
                 json!({
                     "name": item.name,
-                    "link": item.path.as_deref().unwrap_or(&format!("/{}", item.name.to_lowercase())),
+                    "link": item.path.as_deref().unwrap_or(&format!("/{}", item.name.as_fallback().to_lowercase())),
                     "icon": item.icon.as_deref().unwrap_or(""),
                     "external": item.external.unwrap_or(false),
                 })

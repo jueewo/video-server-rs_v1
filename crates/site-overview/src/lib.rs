@@ -154,7 +154,7 @@ fn nav_labels(menu: &[MenuItem], limit: usize) -> Vec<String> {
         if labels.len() >= limit {
             break;
         }
-        labels.push(item.name.clone());
+        labels.push(item.name.to_string());
         if let Some(subs) = &item.submenu {
             for sub in subs {
                 if labels.len() >= limit {
@@ -592,7 +592,7 @@ fn build_template_data(
     let legal_refs: Vec<(String, Option<String>)> = sitedef
         .legal
         .as_ref()
-        .map(|v| v.iter().map(|l| (l.name.clone(), l.collection.clone())).collect())
+        .map(|v| v.iter().map(|l| (l.name.to_string(), l.collection.clone())).collect())
         .unwrap_or_default();
 
     let structure_json = build_structure_json(&pages, &collections, folder_dir, &locales, &legal_refs, &sitedef.menu);

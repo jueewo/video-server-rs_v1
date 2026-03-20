@@ -16,6 +16,7 @@ const newPath = currentPath.replace(regex, '');
 import config from '../website.config.cjs';
 const languages = config.languages;
 import { b } from '../utils/siteBase';
+import { t } from '../utils/localize';
 
 // import { getRelativeLocaleUrl } from 'astro:i18n';
 
@@ -45,7 +46,7 @@ for (const menu of headerNavigationMenu) {
       // console.log("child > "+child.name+" | "+ '/'+lang+child.link+'/' + " | "+currentPath  )
       if (currentPath == b+'/'+lang+child.link || currentPath == b+'/'+lang+child.link+'/') {
         // console.log("push > "+child.name)
-        openMenues.push(menu.name)
+        openMenues.push(t(menu.name, lang))
       }
     }
   }
@@ -88,10 +89,10 @@ for (const menu of headerNavigationMenu) {
                     ? menu.link
                     : lang ? b+'/'+lang+ menu.link : menu.link}
                   class=`justify-between text-2xl md:text-lg ${ !menu.external && (currentPath == b + '/' + lang + menu.link || currentPath == b + '/' + lang + menu.link + '/') && 'menu-active'}`
-                  aria-label={menu.name}
+                  aria-label={t(menu.name, lang)}
                   {...(menu.external || menu.link.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                 >
-                {menu.name}
+                {t(menu.name, lang)}
                 {menu.external && <span class="text-xs ml-1">↗</span>}
                 </a>
                 // {menu.name}{" "}{currentPath} {'/' + lang + menu.link}
@@ -100,8 +101,8 @@ for (const menu of headerNavigationMenu) {
                 //   {menu.name}{" "}
                 // </a>
               ) : (
-                <details open={openMenues.includes(menu.name)}>
-                  <summary class="justify-between text-2xl md:text-lg">{menu.name}</summary>
+                <details open={openMenues.includes(t(menu.name, lang))}>
+                  <summary class="justify-between text-2xl md:text-lg">{t(menu.name, lang)}</summary>
                   <ul class="rounded-box p-2 ">
                     {menu.children.map((submenu: any, index: number) => (
                       <li>
@@ -111,10 +112,10 @@ for (const menu of headerNavigationMenu) {
                             ? submenu.link
                             : lang ? b+'/'+lang+ submenu.link : submenu.link}
                           class=`justify-between text-xl md:text-lg ${ !submenu.external && (currentPath == b + '/' + lang + submenu.link || currentPath == b + '/' + lang + submenu.link + '/') && 'menu-active' }`
-                          aria-label={submenu.name}
+                          aria-label={t(submenu.name, lang)}
                           {...(submenu.external || submenu.link.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                         >
-                          {submenu.name}
+                          {t(submenu.name, lang)}
                           {submenu.external && <span class="text-xs ml-1">↗</span>}
                         </a>
 

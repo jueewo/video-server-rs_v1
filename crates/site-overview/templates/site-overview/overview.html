@@ -344,6 +344,11 @@
                             <span class="text-base-content/50 font-mono" title="{{ last_build_time }}">
                                 <span data-publish-time="{{ last_build_time }}">{{ last_build_time }}</span>
                             </span>
+                            <button onclick="deleteBuild()" id="delete-build-btn"
+                                    class="btn btn-ghost btn-xs btn-circle text-base-content/40 hover:text-error"
+                                    title="Remove local build to free disk space">
+                                <i data-lucide="x" class="w-3 h-3"></i>
+                            </button>
                         </div>
                         {% endif %}
                         {% if last_publish_status == "error" %}
@@ -549,6 +554,43 @@ async function buildAndPreview() {
 
     // Reload in both cases — success shows preview link, failure shows error badge in dashboard
     setTimeout(() => window.location.reload(), ok ? 3000 : 5000);
+}
+
+// ── Delete Build ─────────────────────────────────────────────────────────────
+
+async function deleteBuild() {
+    if (!confirm('Remove local build? This frees disk space. You can rebuild anytime.')) return;
+
+    const btn = document.getElementById('delete-build-btn');
+    const toast = document.getElementById('publish-toast');
+    const msg = document.getElementById('publish-toast-msg');
+
+    btn.disabled = true;
+
+    try {
+        const res = await fetch('/api/workspaces/{{ workspace_id }}/site/build', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folder_path: '{{ folder_path }}' }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+            msg.className = 'alert alert-success shadow-lg max-w-sm';
+            msg.innerHTML = `<i data-lucide="check-circle" class="w-5 h-5"></i><span>${data.message || 'Build removed'}</span>`;
+        } else {
+            msg.className = 'alert alert-error shadow-lg max-w-sm';
+            msg.innerHTML = `<i data-lucide="x-circle" class="w-5 h-5"></i><span>${data.error || 'Failed to remove build'}</span>`;
+        }
+    } catch (e) {
+        msg.className = 'alert alert-error shadow-lg max-w-sm';
+        msg.innerHTML = `<i data-lucide="x-circle" class="w-5 h-5"></i><span>Network error</span>`;
+    }
+
+    toast.classList.remove('hidden');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    btn.disabled = false;
+
+    setTimeout(() => window.location.reload(), 2000);
 }
 
 // ── Add Page ─────────────────────────────────────────────────────────────────

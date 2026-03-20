@@ -4290,6 +4290,84 @@ pub async fn generate_site_handler(
     }
 }
 
+/// DELETE /api/workspaces/{workspace_id}/site/build
+///
+/// Removes the local build directory for a site folder, freeing disk space.
+/// Clears build-related metadata (preview URL, build time) but preserves push metadata.
+pub async fn delete_site_build_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+    Json(request): Json<DeleteSiteBuildRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let je = |s: StatusCode| (s, Json(serde_json::json!({})));
+    check_scope(&user, "write").map_err(je)?;
+    let user_id = require_auth(&session).await.map_err(je)?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await.map_err(je)?;
+
+    let clean = request.folder_path.trim_start_matches('/');
+    for seg in clean.split('/') {
+        if seg == ".." || seg == "." {
+            return Err(je(StatusCode::BAD_REQUEST));
+        }
+    }
+
+    let folder_slug = clean.replace('/', "_").replace(' ', "-");
+    let build_dir = state.sites_dir.join("builds").join(&workspace_id).join(&folder_slug);
+
+    let mut removed_bytes: u64 = 0;
+    if build_dir.exists() {
+        // Calculate size before removing
+        removed_bytes = dir_size(&build_dir);
+        if let Err(e) = std::fs::remove_dir_all(&build_dir) {
+            warn!("Failed to remove build dir {}: {e}", build_dir.display());
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": format!("Failed to remove build: {e}") })),
+            ));
+        }
+        info!("Removed local build: {} ({} bytes)", build_dir.display(), removed_bytes);
+    }
+
+    // Clear build-related metadata, preserve push metadata
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+    let folder_path_key = clean.to_string();
+    {
+        let mut cfg = WorkspaceConfig::load(&workspace_root).unwrap_or_else(|_| {
+            WorkspaceConfig::new("Workspace".to_string(), String::new())
+        });
+        cfg.set_folder_metadata(&folder_path_key, "last_build_time".into(), serde_yaml::Value::String(String::new()));
+        cfg.set_folder_metadata(&folder_path_key, "last_preview_url".into(), serde_yaml::Value::String(String::new()));
+        if let Err(e) = cfg.save(&workspace_root) {
+            warn!("Failed to clear build metadata: {e}");
+        }
+    }
+
+    let freed_mb = removed_bytes as f64 / 1_048_576.0;
+    Ok(Json(serde_json::json!({
+        "message": format!("Build removed, freed {freed_mb:.1} MB"),
+        "freed_bytes": removed_bytes,
+    })))
+}
+
+#[derive(Deserialize)]
+pub struct DeleteSiteBuildRequest {
+    pub folder_path: String,
+}
+
+/// Recursively calculate directory size in bytes.
+fn dir_size(path: &std::path::Path) -> u64 {
+    std::fs::read_dir(path)
+        .map(|entries| {
+            entries.filter_map(|e| e.ok()).map(|e| {
+                let p = e.path();
+                if p.is_dir() { dir_size(&p) } else { e.metadata().map(|m| m.len()).unwrap_or(0) }
+            }).sum()
+        })
+        .unwrap_or(0)
+}
+
 // ============================================================================
 // VitePress: Add Page
 // ============================================================================
@@ -5301,6 +5379,10 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         .route(
             "/api/workspaces/{workspace_id}/site/generate",
             post(generate_site_handler),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/site/build",
+            delete(delete_site_build_handler),
         )
         .route(
             "/api/workspaces/{workspace_id}/vitepress/add-page",

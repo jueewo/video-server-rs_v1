@@ -1,0 +1,194 @@
+{% extends "base-tailwind.html" %}
+{% block title %}Add AI Provider - Media Server{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+    <!-- Page Header -->
+    {% let page_title = "Add AI Provider" %}
+    {% let page_subtitle = "Configure a new LLM provider for AI-assisted editing" %}
+    <div class="page-header">
+        {% include "components/page-header.html" %}
+        <div class="page-header-actions">
+            <a href="/settings/llm-providers" class="btn btn-ghost btn-sm gap-2">
+                <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                All Providers
+            </a>
+        </div>
+    </div>
+
+    <!-- Error Display -->
+    {% if error.is_some() %}
+    <div class="alert alert-error shadow-lg mb-6">
+        <i data-lucide="x-circle" class="shrink-0 w-6 h-6"></i>
+        <span>{{ error.as_ref().unwrap() }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Create Form -->
+    <form method="post" action="/settings/llm-providers/create" class="card bg-base-200 shadow-xl" x-data="providerForm()">
+        <div class="card-body">
+            <!-- Name -->
+            <div>
+                <label class="label">
+                    <span class="font-semibold">Name <span class="text-error">*</span></span>
+                </label>
+                <input
+                    type="text"
+                    name="name"
+                    placeholder="e.g., My Anthropic, Local Ollama"
+                    class="input w-full"
+                    required
+                />
+                <label class="label">
+                    <span class="text-xs text-base-content/50">A memorable label for this provider</span>
+                </label>
+            </div>
+
+            <!-- Provider Type -->
+            <div>
+                <label class="label">
+                    <span class="font-semibold">Provider Type <span class="text-error">*</span></span>
+                </label>
+                <select name="provider" class="select w-full" x-model="providerType" required>
+                    <option value="anthropic">Anthropic (Claude)</option>
+                    <option value="openai-compatible">OpenAI-compatible (OpenAI, Ollama, etc.)</option>
+                </select>
+            </div>
+
+            <!-- API URL -->
+            <div>
+                <label class="label">
+                    <span class="font-semibold">API URL <span class="text-error">*</span></span>
+                </label>
+                <input
+                    type="url"
+                    name="api_url"
+                    class="input w-full"
+                    required
+                    x-bind:placeholder="providerType === 'anthropic' ? 'https://api.anthropic.com/v1' : 'http://localhost:11434/v1'"
+                    x-bind:value="providerType === 'anthropic' ? 'https://api.anthropic.com/v1' : ''"
+                />
+                <label class="label">
+                    <span class="text-xs text-base-content/50">
+                        <span x-show="providerType === 'anthropic'">Anthropic API base URL (default: https://api.anthropic.com/v1)</span>
+                        <span x-show="providerType === 'openai-compatible'">OpenAI-compatible endpoint (e.g., http://localhost:11434/v1 for Ollama)</span>
+                    </span>
+                </label>
+            </div>
+
+            <!-- API Key -->
+            <div>
+                <label class="label">
+                    <span class="font-semibold">API Key</span>
+                </label>
+                <input
+                    type="password"
+                    name="api_key"
+                    class="input w-full"
+                    placeholder="sk-..."
+                />
+                <label class="label">
+                    <span class="text-xs text-base-content/50">Leave empty for local providers (e.g., Ollama). Encrypted at rest with AES-256-GCM.</span>
+                </label>
+            </div>
+
+            <!-- Default Model -->
+            <div>
+                <label class="label">
+                    <span class="font-semibold">Default Model <span class="text-error">*</span></span>
+                </label>
+                <input
+                    type="text"
+                    name="default_model"
+                    class="input w-full"
+                    required
+                    x-bind:placeholder="providerType === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4o'"
+                />
+                <label class="label">
+                    <span class="text-xs text-base-content/50">Model identifier to use by default</span>
+                </label>
+            </div>
+
+            <!-- Set as Default -->
+            <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-3">
+                    <input type="checkbox" name="is_default" class="checkbox checkbox-primary" />
+                    <div>
+                        <span class="font-semibold">Set as default provider</span>
+                        <p class="text-xs text-base-content/60">Used when no specific provider is selected</p>
+                    </div>
+                </label>
+            </div>
+
+            <!-- Test Connection -->
+            <div>
+                <button type="button" class="btn btn-outline btn-sm gap-2" @click="testConnection()" :disabled="testing">
+                    <span x-show="!testing"><i data-lucide="wifi" class="w-4 h-4"></i></span>
+                    <span x-show="testing" class="loading loading-spinner loading-xs"></span>
+                    <span x-text="testing ? 'Testing...' : 'Test Connection'"></span>
+                </button>
+                <template x-if="testResult">
+                    <div class="mt-2 text-sm" :class="testResult.success ? 'text-success' : 'text-error'" x-text="testResult.success ? 'Connected! Model: ' + testResult.model : 'Failed: ' + testResult.error"></div>
+                </template>
+            </div>
+
+            <!-- Actions -->
+            <div class="card-actions justify-end mt-4">
+                <a href="/settings/llm-providers" class="btn btn-ghost">Cancel</a>
+                <button type="submit" class="btn btn-primary gap-2">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                    Add Provider
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Security Info -->
+    <div class="alert alert-warning shadow-lg mt-6">
+        <i data-lucide="shield" class="shrink-0 w-6 h-6"></i>
+        <div>
+            <h3 class="font-bold">Security</h3>
+            <div class="text-sm">
+                API keys are encrypted using AES-256-GCM before storage. The encryption key is read from the
+                <code class="bg-base-300 px-1 rounded">LLM_ENCRYPTION_KEY</code> environment variable.
+                Only the first 8 characters of your key are stored for display.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function providerForm() {
+    return {
+        providerType: 'anthropic',
+        testing: false,
+        testResult: null,
+
+        async testConnection() {
+            this.testing = true;
+            this.testResult = null;
+
+            const form = this.$el.closest('form');
+            const body = {
+                provider: form.querySelector('[name=provider]').value,
+                api_url: form.querySelector('[name=api_url]').value,
+                api_key: form.querySelector('[name=api_key]').value || undefined,
+                model: form.querySelector('[name=default_model]').value,
+            };
+
+            try {
+                const resp = await fetch('/api/llm/providers/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                this.testResult = await resp.json();
+            } catch (e) {
+                this.testResult = { success: false, error: e.message };
+            } finally {
+                this.testing = false;
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

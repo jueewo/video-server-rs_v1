@@ -32,6 +32,7 @@ members = [
     "crates/site-publisher",
     "crates/site-overview",
     "crates/standalone/site-cli",
+    "crates/llm-provider",
 ]
 resolver = "2"
 
@@ -79,6 +80,7 @@ pdf-viewer = { path = "crates/pdf-viewer" }
 vault-manager = { path = "crates/vault-manager" }
 workspace-manager = { path = "crates/workspace-manager" }
 rate-limiter = { path = "crates/rate-limiter" }
+llm-provider = { path = "crates/llm-provider" }
 course = { path = "crates/course", optional = true }
 media-viewer = { path = "crates/media-viewer", optional = true }
 

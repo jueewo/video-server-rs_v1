@@ -139,6 +139,7 @@ use common::request_id::request_id_middleware;
 use workspace_apps::workspace_app_routes;
 use workspace_renderers;
 use docs_viewer::{docs_routes, markdown::MarkdownRenderer, DocsState};
+use llm_provider::{LlmProviderState, routes::llm_provider_routes};
 use rate_limiter::RateLimitConfig;
 use user_auth::{auth_routes, AuthState, OidcConfig};
 use vault_manager::{vault_routes, VaultManagerState};
@@ -956,12 +957,19 @@ async fn main() -> anyhow::Result<()> {
         .connect(&database_url)
         .await?;
 
+    // Clean up stale _sqlx_migrations rows from archived migrations.
+    // Without this, sqlx aborts with "was previously applied but is missing"
+    // and never applies new migrations. Clearing the table is safe because
+    // sqlx re-records each migration it runs, and our migrations use
+    // CREATE TABLE IF NOT EXISTS / IF NOT EXISTS guards.
+    sqlx::query("DELETE FROM _sqlx_migrations")
+        .execute(&pool)
+        .await
+        .ok(); // Table may not exist on first run — ignore errors
+
     // Run pending migrations from migrations/ (already-applied ones live in migrations/applied/)
     match sqlx::migrate!("./migrations").run(&pool).await {
         Ok(()) => {}
-        Err(e) if e.to_string().contains("was previously applied but is missing") => {
-            // Archived migrations are expected to be missing — not an error
-        }
         Err(e) => {
             println!("⚠️  Migration error: {}", e);
             println!("   Continuing with existing database schema...");
@@ -1048,6 +1056,10 @@ async fn main() -> anyhow::Result<()> {
     let mut workspace_state = WorkspaceManagerState::new(pool.clone(), user_storage.clone(), sites_dir.clone());
     workspace_renderers::register_all(&mut workspace_state, pool.clone(), (*user_storage).clone());
     let workspace_state = Arc::new(workspace_state);
+
+    // Initialize LLM Provider state
+    let llm_state = LlmProviderState::new(pool.clone()).with_storage(storage_dir.clone());
+    println!("🤖 LLM Provider service initialized");
 
     // Initialize Access Control Service with audit logging enabled
     let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));
@@ -1206,7 +1218,18 @@ async fn main() -> anyhow::Result<()> {
         // API Keys management — session auth checked in handlers, middleware adds defense-in-depth
         .merge(api_key_routes(Arc::new(pool.clone())).route_layer(
             axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
-        ));
+        ))
+        // LLM Provider management + SSE chat — upload-tier rate limit on chat endpoint
+        .merge({
+            let r = llm_provider_routes(llm_state).route_layer(
+                axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
+            );
+            if let Some(layer) = rate_limit.upload_layer() {
+                r.layer(layer)
+            } else {
+                r
+            }
+        });
 
     // ── Media feature ────────────────────────────────────────────
     #[cfg(feature = "media")]

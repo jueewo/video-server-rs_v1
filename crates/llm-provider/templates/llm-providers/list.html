@@ -1,0 +1,123 @@
+{% extends "base-tailwind.html" %}
+{% block title %}AI Providers - Media Server{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-6xl" x-data="{ ...confirmDialog() }">
+{% include "components/confirm-dialog.html" %}
+    <!-- Page Header -->
+    {% let page_title = "AI Providers" %}
+    {% let page_subtitle = "Configure LLM providers for AI-assisted editing" %}
+    <div class="page-header">
+        {% include "components/page-header.html" %}
+        <div class="page-header-actions">
+            <a href="/settings/llm-providers/create" class="btn btn-primary gap-2">
+                <i data-lucide="plus" class="w-5 h-5"></i>
+                Add Provider
+            </a>
+        </div>
+    </div>
+
+    {% if providers.is_empty() %}
+    <!-- Empty State -->
+    <div class="card bg-base-200 shadow-xl">
+        <div class="card-body items-center text-center py-16">
+            <i data-lucide="brain" class="w-20 h-20 text-base-content/30 mb-4"></i>
+            <h2 class="card-title text-2xl mb-2">No AI Providers Yet</h2>
+            <p class="text-base-content/70 mb-6 max-w-md">
+                Add an LLM provider to enable AI-assisted writing in the editor.
+                Supports Anthropic (Claude), OpenAI, Ollama, and other compatible APIs.
+            </p>
+            <a href="/settings/llm-providers/create" class="btn btn-primary gap-2">
+                <i data-lucide="plus" class="w-5 h-5"></i>
+                Add Your First Provider
+            </a>
+        </div>
+    </div>
+    {% else %}
+    <!-- Providers Table -->
+    <div class="overflow-x-auto">
+        <table class="table table-zebra w-full">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>API URL</th>
+                    <th>API Key</th>
+                    <th>Default Model</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in providers %}
+                <tr>
+                    <td>
+                        <div class="font-bold">{{ p.name }}</div>
+                    </td>
+                    <td>
+                        <span class="badge badge-sm badge-outline">{{ p.provider }}</span>
+                    </td>
+                    <td>
+                        <code class="text-xs">{{ p.api_url }}</code>
+                    </td>
+                    <td>
+                        <code class="px-2 py-1 bg-base-300 rounded text-sm">{{ p.api_key_prefix }}</code>
+                    </td>
+                    <td>
+                        <code class="text-xs">{{ p.default_model }}</code>
+                    </td>
+                    <td>
+                        {% if p.is_default %}
+                        <span class="badge badge-success badge-sm">Default</span>
+                        {% else %}
+                        <span class="text-base-content/40 text-sm">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="flex gap-1">
+                        <a href="/settings/llm-providers/{{ p.id }}/edit" class="btn btn-ghost btn-xs" title="Edit">
+                            <i data-lucide="pencil" class="w-3 h-3"></i>
+                        </a>
+                        {% if !p.is_default %}
+                        <form method="post" action="/settings/llm-providers/{{ p.id }}/default">
+                            <button type="submit" class="btn btn-ghost btn-xs" title="Set as default">
+                                <i data-lucide="star" class="w-3 h-3"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                        <button
+                            type="button"
+                            class="btn btn-error btn-xs"
+                            @click="show('Delete Provider?', 'This will remove the provider configuration. The API key will be permanently deleted.', '/settings/llm-providers/{{ p.id }}/delete', 'POST')"
+                        >
+                            <i data-lucide="trash-2" class="w-3 h-3"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Info Box -->
+    <div class="alert alert-info shadow-lg mt-6">
+        <i data-lucide="info" class="w-6 h-6 shrink-0"></i>
+        <div>
+            <h3 class="font-bold">Supported Providers</h3>
+            <div class="text-sm">
+                <strong>Anthropic</strong> — Claude models via the Messages API.
+                <strong>OpenAI-compatible</strong> — OpenAI, Ollama, or any API that implements the Chat Completions format.
+                API keys are encrypted at rest using AES-256-GCM.
+            </div>
+        </div>
+    </div>
+
+    <!-- Back Button -->
+    <div class="mt-8">
+        <a href="/settings" class="btn btn-ghost gap-2">
+            <i data-lucide="arrow-left" class="w-5 h-5"></i>
+            Back to Settings
+        </a>
+    </div>
+</div>
+{% endblock %}

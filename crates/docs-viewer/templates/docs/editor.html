@@ -150,6 +150,7 @@
                     <a class="tab tab-active" id="tab-media" onclick="switchTab('media')">Media</a>
                     <a class="tab" id="tab-files" onclick="switchTab('files')">Files</a>
                     <a class="tab" id="tab-apps" onclick="switchTab('apps')">Apps</a>
+                    <a class="tab" id="tab-ai" onclick="switchTab('ai')">AI</a>
                 </div>
 
                 <!-- Media Tab -->
@@ -188,6 +189,10 @@
                     <div id="apps-list" class="space-y-1">
                         <div class="text-xs opacity-50 text-center py-4">Loading...</div>
                     </div>
+                </div>
+
+                <!-- AI Tab -->
+                <div id="panel-ai" class="insert-tab-content" x-data="aiPanel()" x-html="renderHtml()">
                 </div>
             </div>
         </div>
@@ -331,7 +336,20 @@
 </script>
 
 {% if language == "markdown" %}
+<script src="/static/js/panels/ai-panel.js"></script>
 <script>
+    // Expose editor for ai-panel.js
+    Object.defineProperty(window, 'activeEditor', { get: () => editor });
+
+    // Expose file context for AI panel
+    window.aiContext = {
+        filename: {{ filename|tojson|safe }},
+        language: {{ language|tojson|safe }},
+        workspaceId: {{ slug|tojson|safe }},
+        folderPath: {{ folder_path|tojson|safe }},
+        getContent: () => editor ? editor.getValue() : '',
+    };
+
     // Insert panel state
     const WORKSPACE_ID = {{ slug|tojson|safe }};
     const FOLDER_PATH = {{ folder_path|tojson|safe }};

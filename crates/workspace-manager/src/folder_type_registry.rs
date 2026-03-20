@@ -125,7 +125,7 @@ pub struct FolderTypeRegistry {
 }
 
 impl FolderTypeRegistry {
-    /// Write the six built-in YAML files to `registry_dir` if they do not already exist.
+    /// Write the built-in YAML files to `registry_dir`, overwriting if content changed.
     /// Creates the directory if necessary.
     pub fn ensure_defaults(registry_dir: &Path) -> Result<()> {
         std::fs::create_dir_all(registry_dir)
@@ -133,7 +133,11 @@ impl FolderTypeRegistry {
 
         for (filename, content) in BUILTINS {
             let path = registry_dir.join(filename);
-            if !path.exists() {
+            let needs_write = match std::fs::read_to_string(&path) {
+                Ok(existing) => existing != *content,
+                Err(_) => true,
+            };
+            if needs_write {
                 std::fs::write(&path, content).with_context(|| {
                     format!("Failed to write builtin type file {:?}", path)
                 })?;

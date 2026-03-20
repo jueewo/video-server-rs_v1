@@ -201,21 +201,21 @@
                     <div class="text-xs space-y-1 mb-3">
                         <div class="flex items-start gap-1">
                             <i data-lucide="git-branch" class="w-3 h-3 mt-0.5 shrink-0 text-base-content/50"></i>
-                            <span class="break-all">{{ forgejo_repo }}</span>
+                            <span class="break-all">{{ git_repo }}</span>
                         </div>
                         <div class="flex items-center gap-1 text-base-content/50">
                             <i data-lucide="git-merge" class="w-3 h-3 shrink-0"></i>
-                            branch: {{ forgejo_branch }}
+                            branch: {{ git_branch }}
                         </div>
                     </div>
                     {% else %}
-                    <p class="text-xs text-base-content/50 mb-3">No Forgejo repo configured. Click "Edit folder type" to add one.</p>
+                    <p class="text-xs text-base-content/50 mb-3">No Git repo configured. Set provider and repo in folder settings.</p>
                     {% endif %}
 
                     <div class="flex gap-2">
                         <button onclick="publishDocs()" id="publish-btn-2" class="btn btn-sm btn-primary flex-1 gap-1">
                             <i data-lucide="rocket" class="w-4 h-4"></i>
-                            {% if has_git %}Push to Forgejo{% else %}Generate{% endif %}
+                            {% if has_git %}Push to Git{% else %}Generate{% endif %}
                         </button>
                         <button onclick="buildAndPreview()" id="build-btn-2" class="btn btn-sm btn-secondary flex-1 gap-1">
                             <i data-lucide="play-circle" class="w-4 h-4"></i> Build

@@ -140,6 +140,7 @@ use workspace_apps::workspace_app_routes;
 use workspace_renderers;
 use docs_viewer::{docs_routes, markdown::MarkdownRenderer, DocsState};
 use llm_provider::{LlmProviderState, routes::llm_provider_routes};
+use git_provider::{GitProviderState, routes::git_provider_routes};
 use rate_limiter::RateLimitConfig;
 use user_auth::{auth_routes, AuthState, OidcConfig};
 use vault_manager::{vault_routes, VaultManagerState};
@@ -1061,6 +1062,10 @@ async fn main() -> anyhow::Result<()> {
     let llm_state = LlmProviderState::new(pool.clone()).with_storage(storage_dir.clone());
     println!("🤖 LLM Provider service initialized");
 
+    // Initialize Git Provider state
+    let git_state = GitProviderState::new(pool.clone());
+    println!("🔀 Git Provider service initialized");
+
     // Initialize Access Control Service with audit logging enabled
     let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));
     println!("🔐 Access Control Service initialized with audit logging enabled");
@@ -1229,7 +1234,11 @@ async fn main() -> anyhow::Result<()> {
             } else {
                 r
             }
-        });
+        })
+        // Git Provider management
+        .merge(git_provider_routes(git_state).route_layer(
+            axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
+        ));
 
     // ── Media feature ────────────────────────────────────────────
     #[cfg(feature = "media")]

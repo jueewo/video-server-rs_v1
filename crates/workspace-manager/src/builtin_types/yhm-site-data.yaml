@@ -11,22 +11,4 @@ metadata_schema:
     default: ""
     required: false
     description: "Server path to the static Astro components/layouts directory"
-  - key: forgejo_repo
-    label: "Forgejo Repository URL"
-    type: string
-    default: ""
-    required: false
-    description: "Forgejo repo URL for git push (e.g. https://forgejo.example.com/user/repo.git)"
-  - key: forgejo_branch
-    label: "Forgejo Branch"
-    type: string
-    default: "main"
-    required: false
-    description: "Branch to push generated site to"
-  - key: forgejo_token
-    label: "Forgejo Token"
-    type: string
-    default: ""
-    required: false
-    description: "Personal access token for Forgejo authentication"
 apps: []

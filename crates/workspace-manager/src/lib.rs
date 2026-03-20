@@ -1757,6 +1757,10 @@ pub async fn workspace_dashboard(
                         folder.folder_type = Some(type_id.to_string());
                     }
                 }
+                // Check if folder has a git repo configured
+                folder.has_git_repo = fc.metadata.get("git_repo")
+                    .and_then(|v| v.as_str())
+                    .map_or(false, |s| !s.is_empty());
             }
             // Check if any configured typed path lives under this folder
             if folder.folder_type.is_none() {
@@ -1963,6 +1967,10 @@ async fn file_browser_handler(
                         folder.folder_type = Some(type_id.to_string());
                     }
                 }
+                // Check if folder has a git repo configured
+                folder.has_git_repo = fc.metadata.get("git_repo")
+                    .and_then(|v| v.as_str())
+                    .map_or(false, |s| !s.is_empty());
             }
             // Check if any configured typed path lives under this folder
             if folder.folder_type.is_none() {
@@ -4138,7 +4146,7 @@ pub async fn generate_site_handler(
         .join(&workspace_id)
         .join(&folder_slug);
 
-    // Pull git config from folder metadata
+    // Pull git config from folder metadata (new provider-based system)
     let meta_str = |key: &str| -> Option<String> {
         folder_config
             .metadata
@@ -4147,10 +4155,37 @@ pub async fn generate_site_handler(
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string())
     };
-    let forgejo_repo = meta_str("forgejo_repo");
-    let forgejo_branch = meta_str("forgejo_branch").unwrap_or_else(|| "main".into());
-    let forgejo_token = meta_str("forgejo_token")
-        .or_else(|| std::env::var("FORGEJO_TOKEN").ok());
+
+    // Resolve git repo URL and token from the registered git provider
+    let git_provider_name = meta_str("git_provider");
+    let git_repo_slug = meta_str("git_repo"); // "owner/repo"
+    let git_branch = meta_str("git_branch").unwrap_or_else(|| "main".into());
+
+    // Look up provider from DB if configured, build the full repo URL
+    let (forgejo_repo, forgejo_token) = if let (Some(provider_name), Some(repo_slug)) =
+        (&git_provider_name, &git_repo_slug)
+    {
+        match git_provider::db::get_provider_by_name(&state.pool, &user_id, provider_name).await {
+            Ok(Some(provider)) => {
+                let token = git_provider::db::decrypt_provider_token(&provider)
+                    .ok()
+                    .or_else(|| std::env::var("FORGEJO_TOKEN").ok());
+                let repo_url = format!("{}/{}.git", provider.base_url.trim_end_matches('/'), repo_slug);
+                (Some(repo_url), token)
+            }
+            _ => {
+                tracing::warn!("Git provider '{}' not found for user", provider_name);
+                (None, None)
+            }
+        }
+    } else {
+        // Fallback: check old-style forgejo_repo metadata for backwards compatibility
+        let legacy_repo = meta_str("forgejo_repo");
+        let legacy_token = meta_str("forgejo_token")
+            .or_else(|| std::env::var("FORGEJO_TOKEN").ok());
+        (legacy_repo, legacy_token)
+    };
+    let forgejo_branch = git_branch;
 
     // Persistent repo cache: {sites_dir}/repos/{workspace_id}/{folder_slug}
     let repo_cache_dir = state
@@ -4201,7 +4236,7 @@ pub async fn generate_site_handler(
                 site_publisher::publish_vitepress_and_push(&vp_config, &git)
             } else {
                 site_publisher::publish_vitepress(&vp_config)?;
-                Ok(format!("VitePress docs generated at {folder_slug} (no Forgejo repo configured)"))
+                Ok(format!("VitePress docs generated at {folder_slug} (no git repo configured)"))
             }
         } else {
             let preview_base = if do_build && effective_git_config.is_none() {

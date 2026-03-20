@@ -305,17 +305,17 @@
             <div class="card bg-base-100 border border-base-300 shadow-sm">
                 <div class="card-body p-4">
                     <h2 class="card-title text-sm mb-2">
-                        <i data-lucide="git-branch" class="w-4 h-4"></i> Forgejo
+                        <i data-lucide="git-branch" class="w-4 h-4"></i> Git Repository
                     </h2>
                     {% if has_git %}
                     <div class="space-y-1 text-xs">
                         <div class="flex gap-2">
                             <span class="text-base-content/50 w-14 flex-shrink-0">Repo</span>
-                            <span class="font-mono break-all text-base-content/80">{{ forgejo_repo }}</span>
+                            <span class="font-mono break-all text-base-content/80">{{ git_repo }}</span>
                         </div>
                         <div class="flex gap-2">
                             <span class="text-base-content/50 w-14 flex-shrink-0">Branch</span>
-                            <span class="badge badge-ghost badge-xs">{{ forgejo_branch }}</span>
+                            <span class="badge badge-ghost badge-xs">{{ git_branch }}</span>
                         </div>
                     </div>
                     <div class="mt-2">
@@ -325,10 +325,10 @@
                     </div>
                     {% else %}
                     <p class="text-xs text-base-content/50">
-                        No Forgejo repo configured. Publish will generate files locally only.
+                        No Git repo configured. Publish will generate files locally only.
                     </p>
                     <p class="text-xs text-base-content/40 mt-1">
-                        Set <code>forgejo_repo</code> in folder settings to enable git push.
+                        Set a Git provider and repo in folder settings to enable git push.
                     </p>
                     {% endif %}
 

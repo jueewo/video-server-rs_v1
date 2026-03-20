@@ -1,0 +1,179 @@
+{% extends "base-tailwind.html" %}
+{% block title %}Add Git Provider - Media Server{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+    <!-- Page Header -->
+    {% let page_title = "Add Git Provider" %}
+    {% let page_subtitle = "Configure a new Git hosting provider" %}
+    <div class="page-header">
+        {% include "components/page-header.html" %}
+        <div class="page-header-actions">
+            <a href="/settings/git-providers" class="btn btn-ghost btn-sm gap-2">
+                <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                All Providers
+            </a>
+        </div>
+    </div>
+
+    <!-- Error Display -->
+    {% if error.is_some() %}
+    <div class="alert alert-error shadow-lg mb-6">
+        <i data-lucide="x-circle" class="shrink-0 w-6 h-6"></i>
+        <span>{{ error.as_ref().unwrap() }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Create Form -->
+    <form method="post" action="/settings/git-providers/create" class="card bg-base-200 shadow-xl" x-data="gitProviderForm()">
+        <div class="card-body">
+            <!-- Name -->
+            <div>
+                <label class="label">
+                    <span class="font-semibold">Name <span class="text-error">*</span></span>
+                </label>
+                <input
+                    type="text"
+                    name="name"
+                    placeholder="e.g., My Forgejo, GitHub"
+                    class="input w-full"
+                    required
+                />
+                <label class="label">
+                    <span class="text-xs text-base-content/50">A memorable label for this provider</span>
+                </label>
+            </div>
+
+            <!-- Provider Type -->
+            <div>
+                <label class="label">
+                    <span class="font-semibold">Provider Type <span class="text-error">*</span></span>
+                </label>
+                <select name="provider_type" class="select w-full" x-model="providerType" required>
+                    <option value="forgejo">Forgejo</option>
+                    <option value="gitea">Gitea</option>
+                    <option value="github">GitHub</option>
+                    <option value="gitlab">GitLab</option>
+                </select>
+            </div>
+
+            <!-- Base URL -->
+            <div>
+                <label class="label">
+                    <span class="font-semibold">Base URL <span class="text-error">*</span></span>
+                </label>
+                <input
+                    type="url"
+                    name="base_url"
+                    class="input w-full"
+                    required
+                    x-bind:placeholder="providerType === 'github' ? 'https://github.com' : providerType === 'gitlab' ? 'https://gitlab.com' : 'https://git.example.com'"
+                />
+                <label class="label">
+                    <span class="text-xs text-base-content/50">
+                        <span x-show="providerType === 'forgejo' || providerType === 'gitea'">Your Forgejo/Gitea instance URL (e.g., https://git.example.com)</span>
+                        <span x-show="providerType === 'github'">Use https://github.com for GitHub.com or your GitHub Enterprise URL</span>
+                        <span x-show="providerType === 'gitlab'">Use https://gitlab.com for GitLab.com or your self-hosted GitLab URL</span>
+                    </span>
+                </label>
+            </div>
+
+            <!-- API Token -->
+            <div>
+                <label class="label">
+                    <span class="font-semibold">API Token <span class="text-error">*</span></span>
+                </label>
+                <input
+                    type="password"
+                    name="token"
+                    class="input w-full"
+                    placeholder="Enter your API token"
+                    required
+                />
+                <label class="label">
+                    <span class="text-xs text-base-content/50">Personal access token with repo permissions. Encrypted at rest with AES-256-GCM.</span>
+                </label>
+            </div>
+
+            <!-- Set as Default -->
+            <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-3">
+                    <input type="checkbox" name="is_default" class="checkbox checkbox-primary" />
+                    <div>
+                        <span class="font-semibold">Set as default provider</span>
+                        <p class="text-xs text-base-content/60">Used when no specific provider is selected in folder settings</p>
+                    </div>
+                </label>
+            </div>
+
+            <!-- Test Connection -->
+            <div>
+                <button type="button" class="btn btn-outline btn-sm gap-2" @click="testConnection()" :disabled="testing">
+                    <span x-show="!testing"><i data-lucide="wifi" class="w-4 h-4"></i></span>
+                    <span x-show="testing" class="loading loading-spinner loading-xs"></span>
+                    <span x-text="testing ? 'Testing...' : 'Test Connection'"></span>
+                </button>
+                <template x-if="testResult">
+                    <div class="mt-2 text-sm" :class="testResult.success ? 'text-success' : 'text-error'" x-text="testResult.success ? 'Connected as: ' + testResult.username : 'Failed: ' + testResult.error"></div>
+                </template>
+            </div>
+
+            <!-- Actions -->
+            <div class="card-actions justify-end mt-4">
+                <a href="/settings/git-providers" class="btn btn-ghost">Cancel</a>
+                <button type="submit" class="btn btn-primary gap-2">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                    Add Provider
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Security Info -->
+    <div class="alert alert-warning shadow-lg mt-6">
+        <i data-lucide="shield" class="shrink-0 w-6 h-6"></i>
+        <div>
+            <h3 class="font-bold">Security</h3>
+            <div class="text-sm">
+                API tokens are encrypted using AES-256-GCM before storage. The encryption key is read from the
+                <code class="bg-base-300 px-1 rounded">LLM_ENCRYPTION_KEY</code> environment variable.
+                Only the first 8 characters of your token are stored for display.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function gitProviderForm() {
+    return {
+        providerType: 'forgejo',
+        testing: false,
+        testResult: null,
+
+        async testConnection() {
+            this.testing = true;
+            this.testResult = null;
+
+            const form = this.$el.closest('form');
+            const body = {
+                provider_type: form.querySelector('[name=provider_type]').value,
+                base_url: form.querySelector('[name=base_url]').value,
+                token: form.querySelector('[name=token]').value || undefined,
+            };
+
+            try {
+                const resp = await fetch('/api/git/providers/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                this.testResult = await resp.json();
+            } catch (e) {
+                this.testResult = { success: false, error: e.message };
+            } finally {
+                this.testing = false;
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

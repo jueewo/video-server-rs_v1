@@ -54,9 +54,9 @@ struct SiteOverviewTemplate {
     structure_json: String,
     // Full path breadcrumbs: (label, url) — excludes the root "Workspaces" entry
     breadcrumbs: Vec<(String, String)>,
-    // Forgejo connection
-    forgejo_repo: String,
-    forgejo_branch: String,
+    // Git repository connection
+    git_repo: String,
+    git_branch: String,
     has_git: bool,
     // Last publish status (from workspace.yaml metadata)
     last_publish_time: String,
@@ -602,12 +602,15 @@ fn build_template_data(
     let nav_preview = nav_labels(&sitedef.menu, 8);
     let breadcrumbs = build_breadcrumbs(&ctx.workspace_id, &ctx.workspace_name, &ctx.folder_path);
 
-    let forgejo_repo = ctx.meta_str("forgejo_repo").unwrap_or("").to_string();
-    let forgejo_branch = ctx
-        .meta_str("forgejo_branch")
+    let git_repo = ctx.meta_str("git_repo")
+        .or_else(|| ctx.meta_str("forgejo_repo"))
+        .unwrap_or("")
+        .to_string();
+    let git_branch = ctx.meta_str("git_branch")
+        .or_else(|| ctx.meta_str("forgejo_branch"))
         .unwrap_or("main")
         .to_string();
-    let has_git = !forgejo_repo.is_empty();
+    let has_git = !git_repo.is_empty();
 
     let last_publish_time = ctx.meta_str("last_publish_time").unwrap_or("").to_string();
     let last_publish_status = ctx.meta_str("last_publish_status").unwrap_or("").to_string();
@@ -635,8 +638,8 @@ fn build_template_data(
         nav_preview,
         structure_json,
         breadcrumbs,
-        forgejo_repo,
-        forgejo_branch,
+        git_repo,
+        git_branch,
         has_git,
         last_publish_time,
         last_publish_status,
@@ -982,9 +985,9 @@ struct VitepressOverviewTemplate {
     doc_count: usize,
     nav_item_count: usize,
     sidebar_group_count: usize,
-    // Forgejo connection
-    forgejo_repo: String,
-    forgejo_branch: String,
+    // Git repository connection
+    git_repo: String,
+    git_branch: String,
     has_git: bool,
     // Last publish status
     last_publish_time: String,
@@ -1063,15 +1066,21 @@ fn build_vitepress_template_data(
     let (doc_root_files, doc_subfolders) = scan_docs_dir(&folder_dir.join("docs"));
 
     // Extract all metadata strings before partially moving ctx fields
-    let forgejo_repo = ctx.meta_str("forgejo_repo").unwrap_or("").to_string();
-    let forgejo_branch = ctx.meta_str("forgejo_branch").unwrap_or("main").to_string();
+    let git_repo = ctx.meta_str("git_repo")
+        .or_else(|| ctx.meta_str("forgejo_repo"))
+        .unwrap_or("")
+        .to_string();
+    let git_branch = ctx.meta_str("git_branch")
+        .or_else(|| ctx.meta_str("forgejo_branch"))
+        .unwrap_or("main")
+        .to_string();
     let last_publish_time = ctx.meta_str("last_publish_time").unwrap_or("").to_string();
     let last_publish_status = ctx.meta_str("last_publish_status").unwrap_or("").to_string();
     let last_publish_message = ctx.meta_str("last_publish_message").unwrap_or("").to_string();
     let last_preview_url = ctx.meta_str("last_preview_url").unwrap_or("").to_string();
     let last_push_time = ctx.meta_str("last_push_time").unwrap_or("").to_string();
     let last_build_time = ctx.meta_str("last_build_time").unwrap_or("").to_string();
-    let has_git = !forgejo_repo.is_empty();
+    let has_git = !git_repo.is_empty();
 
     let breadcrumbs = build_breadcrumbs(&ctx.workspace_id, &ctx.workspace_name, &ctx.folder_path);
     let folder_name = std::path::Path::new(&ctx.folder_path)
@@ -1092,8 +1101,8 @@ fn build_vitepress_template_data(
         doc_count,
         nav_item_count,
         sidebar_group_count,
-        forgejo_repo,
-        forgejo_branch,
+        git_repo,
+        git_branch,
         has_git,
         last_publish_time,
         last_publish_status,

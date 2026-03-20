@@ -32,6 +32,8 @@ pub struct FolderEntry {
     pub icon_url: Option<String>,
     /// True if the workspace config has typed sub-folders under this path.
     pub has_typed_children: bool,
+    /// True if this folder has a git_repo set in metadata.
+    pub has_git_repo: bool,
 }
 
 pub struct DirListing {
@@ -132,6 +134,7 @@ pub fn list_dir(workspace_root: &Path, subpath: &str) -> Result<DirListing> {
                 type_name: None,
                 icon_url: None,
                 has_typed_children: false,
+                has_git_repo: false,
             });
         } else if file_type.is_file() {
             let metadata = entry.metadata()?;

@@ -24,7 +24,12 @@ const {title, page_metatags, enablelatex, enablemermaid} = Astro.props;
     {Config.datatool?.url && <link rel="preconnect" href={Config.datatool.url} />}
 
     <!-- Self-hosted fonts: Syne (headings) + Outfit (body) — no Google Fonts GDPR issue -->
-    <link rel="stylesheet" href={`${b}/fonts/google-fonts.css`} />
+    <!-- Preload critical latin font files so browser fetches them immediately -->
+    <link rel="preload" href={`${b}/fonts/outfit-latin.woff2`} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={`${b}/fonts/syne-latin.woff2`} as="font" type="font/woff2" crossorigin />
+    <!-- Load font CSS without blocking render; swap to stylesheet once loaded -->
+    <link rel="stylesheet" href={`${b}/fonts/google-fonts.css`} media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href={`${b}/fonts/google-fonts.css`} /></noscript>
 
     {Config.datatool?.url && <link rel="dns-prefetch" href={Config.datatool.url} />}
 

@@ -72,6 +72,7 @@ const getImage = (imagePath: string) => {
 // Determine loading strategy based on priority
 const loadingStrategy = priority ? "eager" : "lazy";
 const decodingStrategy = priority ? "sync" : "async";
+const fetchPriority = priority ? "high" : "auto";
 ---
 
 <div class={className}>
@@ -84,6 +85,7 @@ const decodingStrategy = priority ? "sync" : "async";
                     class="w-full lg:max-w-xl m-auto rounded-lg"
                     loading={loadingStrategy}
                     decoding={decodingStrategy}
+                    fetchpriority={fetchPriority}
                 />
             ) : (
                 <Image
@@ -92,6 +94,7 @@ const decodingStrategy = priority ? "sync" : "async";
                     class="w-full lg:max-w-xl m-auto rounded-lg"
                     loading={loadingStrategy}
                     decoding={decodingStrategy}
+                    fetchpriority={fetchPriority}
                     widths={widths}
                     format="webp"
                     sizes={sizes}

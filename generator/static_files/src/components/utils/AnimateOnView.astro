@@ -96,7 +96,7 @@ const animConfig = effect ? JSON.stringify({ type, direction }) : "";
 
             htmlEl.style.transform = initialTransform;
 
-            // Animate when in view
+            // Animate when scrolled into view
             inView(
                 el,
                 () => {

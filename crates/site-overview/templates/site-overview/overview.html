@@ -284,10 +284,19 @@
                         <li class="text-base-content/70 font-mono text-xs whitespace-pre">{{ label }}</li>
                         {% endfor %}
                     </ul>
-                    <a href="/workspaces/{{ workspace_id }}/edit?file={{ folder_path }}/sitedef.yaml"
-                       class="btn btn-xs btn-ghost mt-2 gap-1">
-                        <i data-lucide="edit-3" class="w-3 h-3"></i> Edit sitedef.yaml
-                    </a>
+                    <div class="flex gap-1 mt-2">
+                        {% if has_menus_yaml %}
+                        <a href="/workspaces/{{ workspace_id }}/edit?file={{ folder_path }}/menus.yaml"
+                           class="btn btn-xs btn-ghost gap-1">
+                            <i data-lucide="edit-3" class="w-3 h-3"></i> Edit menus.yaml
+                        </a>
+                        {% else %}
+                        <a href="/workspaces/{{ workspace_id }}/edit?file={{ folder_path }}/sitedef.yaml"
+                           class="btn btn-xs btn-ghost gap-1">
+                            <i data-lucide="edit-3" class="w-3 h-3"></i> Edit sitedef.yaml
+                        </a>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             {% endif %}
@@ -389,6 +398,12 @@
                            class="btn btn-xs btn-ghost justify-start gap-2">
                             <i data-lucide="file-code" class="w-3 h-3"></i> Edit sitedef.yaml
                         </a>
+                        {% if has_menus_yaml %}
+                        <a href="/workspaces/{{ workspace_id }}/edit?file={{ folder_path }}/menus.yaml"
+                           class="btn btn-xs btn-ghost justify-start gap-2">
+                            <i data-lucide="navigation" class="w-3 h-3"></i> Edit menus.yaml
+                        </a>
+                        {% endif %}
                         <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}/data"
                            class="btn btn-xs btn-ghost justify-start gap-2">
                             <i data-lucide="layout-grid" class="w-3 h-3"></i> Page Elements

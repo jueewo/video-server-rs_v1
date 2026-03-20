@@ -66,6 +66,8 @@ struct SiteOverviewTemplate {
     // Separate push/build timestamps
     last_push_time: String,
     last_build_time: String,
+    // Whether menus.yaml exists (for quick-link target)
+    has_menus_yaml: bool,
 }
 
 #[derive(Template)]
@@ -613,6 +615,7 @@ fn build_template_data(
     let last_preview_url = ctx.meta_str("last_preview_url").unwrap_or("").to_string();
     let last_push_time = ctx.meta_str("last_push_time").unwrap_or("").to_string();
     let last_build_time = ctx.meta_str("last_build_time").unwrap_or("").to_string();
+    let has_menus_yaml = folder_dir.join("menus.yaml").exists();
 
     Ok(SiteOverviewTemplate {
         authenticated: true,
@@ -641,6 +644,7 @@ fn build_template_data(
         last_preview_url,
         last_push_time,
         last_build_time,
+        has_menus_yaml,
     })
 }
 

@@ -347,6 +347,8 @@ pub struct WorkspaceBrowserTemplate {
     pub current_type_apps: Vec<(String, String)>,
     /// The raw type id (e.g. "js-tool") — used by the publish-as-app flow.
     pub current_type_id: Option<String>,
+    /// Preview URL for built sites (from folder metadata).
+    pub last_preview_url: String,
 }
 
 #[derive(Template)]
@@ -1918,6 +1920,7 @@ async fn file_browser_handler(
     let mut current_type_color: Option<String> = None;
     let mut current_type_apps: Vec<(String, String)> = Vec::new();
     let mut current_type_id: Option<String> = None;
+    let mut last_preview_url = String::new();
 
     if let Some(ws_config) = ws_config_opt {
         let registry = state.folder_type_registry.read().unwrap();
@@ -1925,6 +1928,10 @@ async fn file_browser_handler(
         // Current directory type + resolved app links
         if !subpath.is_empty() {
             if let Some(fc) = ws_config.get_folder(&subpath) {
+                // Read preview URL from folder metadata
+                if let Some(serde_yaml::Value::String(url)) = fc.metadata.get("last_preview_url") {
+                    last_preview_url = url.clone();
+                }
                 let type_id = fc.folder_type.as_str();
                 if type_id != "default" {
                     current_type_id = Some(type_id.to_string());
@@ -2015,6 +2022,7 @@ async fn file_browser_handler(
         current_type_color,
         current_type_apps,
         current_type_id,
+        last_preview_url,
     };
 
     let html = template

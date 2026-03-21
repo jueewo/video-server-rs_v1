@@ -21,6 +21,15 @@ function aiPanel() {
         hasSelection: false,
         _selectionListener: null,
 
+        // Context scope: 'file', 'folder', or 'workspace'
+        contextScope: 'file',
+        contextFiles: [],       // cached context files from API
+        contextLoading: false,
+
+        // Collapsible sections
+        showSettings: false,
+        showQuickActions: false,
+
         // Chat mode
         chatMode: false,
         chatHistory: [],  // Array of { role, content } for multi-turn
@@ -160,6 +169,41 @@ function aiPanel() {
 
         // ---- Chat Mode ----
 
+        async _fetchContextFiles() {
+            const ctx = window.aiContext;
+            if (!ctx || !ctx.workspaceId) return;
+
+            this.contextLoading = true;
+            try {
+                const scope = this.contextScope;
+                const path = ctx.folderPath || '';
+                const url = '/api/workspaces/' + ctx.workspaceId + '/files/context?scope=' + scope + '&path=' + encodeURIComponent(path);
+                const resp = await fetch(url);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    this.contextFiles = data.files || [];
+                } else {
+                    this.contextFiles = [];
+                }
+            } catch (e) {
+                console.error('Failed to fetch context files:', e);
+                this.contextFiles = [];
+            } finally {
+                this.contextLoading = false;
+            }
+        },
+
+        async onContextScopeChange() {
+            this.contextFiles = [];
+            if (this.contextScope !== 'file') {
+                await this._fetchContextFiles();
+            }
+            // Reset chat system prompt on scope change
+            if (this.chatHistory.length > 0 && this.chatHistory[0].role === 'system') {
+                this.chatHistory[0].content = this._buildSystemPrompt();
+            }
+        },
+
         _buildRequestBody(messages) {
             const ctx = window.aiContext;
             const body = {
@@ -183,6 +227,23 @@ function aiPanel() {
                 if (ctx.filename) prompt += '\nFilename: ' + ctx.filename;
                 if (ctx.language) prompt += '\nLanguage: ' + ctx.language;
                 if (truncated) prompt += '\n\nCurrent file content:\n```\n' + truncated + '\n```';
+
+                // Include context files from folder/workspace
+                if (this.contextFiles.length > 0) {
+                    const scopeLabel = this.contextScope === 'workspace' ? 'workspace' : 'folder';
+                    prompt += '\n\nOther files in the ' + scopeLabel + ' (for context):';
+                    for (const f of this.contextFiles) {
+                        // Skip the current file to avoid duplication
+                        if (ctx.folderPath && ctx.filename) {
+                            const currentPath = ctx.folderPath ? ctx.folderPath + '/' + ctx.filename : ctx.filename;
+                            if (f.path === currentPath) continue;
+                        }
+                        const fContent = f.content.length > 3000
+                            ? f.content.slice(0, 3000) + '\n... (truncated)'
+                            : f.content;
+                        prompt += '\n\n--- ' + f.path + ' ---\n```\n' + fContent + '\n```';
+                    }
+                }
             }
             return prompt;
         },
@@ -402,54 +463,98 @@ function aiPanel() {
             this.error = '';
         },
 
+        _settingsSummary() {
+            let parts = [];
+            if (this.selectedProvider) parts.push(this.selectedProvider);
+            if (this.contextScope !== 'file') parts.push('ctx: ' + this.contextScope);
+            return parts.length ? parts.join(' · ') : 'Configure';
+        },
+
         renderHtml() {
-            return '<div class="space-y-3">' +
-                // Provider selector
-                '<div>' +
-                    '<label class="text-xs font-semibold opacity-60 mb-1 block">Provider</label>' +
-                    '<select class="select select-xs w-full" x-model="selectedProvider" @change="onProviderChange()">' +
-                        '<template x-for="p in providers" :key="p.name">' +
-                            '<option :value="p.name" x-text="p.name + \' (\' + p.provider + \')\'"></option>' +
-                        '</template>' +
-                    '</select>' +
-                    '<template x-if="providers.length === 0">' +
-                        '<p class="text-xs opacity-50 mt-1">No providers configured. <a href="/settings/llm-providers" class="link link-primary">Add one</a></p>' +
-                    '</template>' +
-                '</div>' +
+            return '<div class="space-y-2">' +
 
-                // Model override
-                '<div>' +
-                    '<label class="text-xs font-semibold opacity-60 mb-1 block">Model</label>' +
-                    '<input type="text" class="input input-xs w-full" x-model="selectedModel" placeholder="Model ID" />' +
-                '</div>' +
-
-                // Mode toggle
+                // ── Mode toggle (always visible, top) ──
                 '<div class="flex gap-1">' +
                     '<button class="btn btn-xs flex-1" :class="!chatMode ? \'btn-primary\' : \'btn-ghost\'" @click="chatMode = false">Actions</button>' +
                     '<button class="btn btn-xs flex-1" :class="chatMode ? \'btn-primary\' : \'btn-ghost\'" @click="toggleChat()">Chat</button>' +
                 '</div>' +
 
-                // --- Actions Mode ---
-                '<template x-if="!chatMode">' +
-                '<div class="space-y-3">' +
-                    // Quick actions
-                    '<div>' +
-                        '<label class="text-xs font-semibold opacity-60 mb-1 block">Quick Actions</label>' +
-                        '<div class="flex flex-wrap gap-1">' +
-                            '<template x-for="action in actions" :key="action.label">' +
-                                '<button class="btn btn-xs btn-outline gap-1" :disabled="streaming || !hasSelection" @click="runAction(action.prompt)">' +
-                                    '<span x-text="action.label"></span>' +
-                                '</button>' +
+                // ── Settings (collapsible) ──
+                '<div class="border border-base-300 rounded-lg overflow-hidden">' +
+                    '<button class="w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold opacity-70 hover:opacity-100 hover:bg-base-200 transition-colors" @click="showSettings = !showSettings">' +
+                        '<span class="flex items-center gap-1">' +
+                            '<svg class="w-3 h-3 transition-transform" :class="showSettings ? \'rotate-90\' : \'\'" viewBox="0 0 20 20" fill="currentColor"><polygon points="6,4 14,10 6,16"/></svg>' +
+                            'Settings' +
+                        '</span>' +
+                        '<span class="font-normal opacity-50 text-[10px] truncate max-w-[60%] text-right" x-text="_settingsSummary()" x-show="!showSettings"></span>' +
+                    '</button>' +
+                    '<div x-show="showSettings" x-transition class="px-2 pb-2 space-y-2 border-t border-base-300">' +
+                        // Provider
+                        '<div class="pt-2">' +
+                            '<label class="text-xs font-semibold opacity-60 mb-1 block">Provider</label>' +
+                            '<select class="select select-xs w-full" x-model="selectedProvider" @change="onProviderChange()">' +
+                                '<template x-for="p in providers" :key="p.name">' +
+                                    '<option :value="p.name" x-text="p.name + \' (\' + p.provider + \')\'"></option>' +
+                                '</template>' +
+                            '</select>' +
+                            '<template x-if="providers.length === 0">' +
+                                '<p class="text-xs opacity-50 mt-1">No providers configured. <a href="/settings/llm-providers" class="link link-primary">Add one</a></p>' +
                             '</template>' +
                         '</div>' +
-                        '<template x-if="!hasSelection">' +
-                            '<p class="text-xs opacity-40 mt-1">Select text in the editor to enable</p>' +
-                        '</template>' +
+                        // Model
+                        '<div>' +
+                            '<label class="text-xs font-semibold opacity-60 mb-1 block">Model</label>' +
+                            '<input type="text" class="input input-xs w-full" x-model="selectedModel" placeholder="Model ID" />' +
+                        '</div>' +
+                        // Context scope
+                        '<div>' +
+                            '<label class="text-xs font-semibold opacity-60 mb-1 block">Context</label>' +
+                            '<div class="flex gap-1">' +
+                                '<button class="btn btn-xs flex-1" :class="contextScope === \'file\' ? \'btn-secondary\' : \'btn-ghost\'" @click="contextScope = \'file\'; onContextScopeChange()">File</button>' +
+                                '<button class="btn btn-xs flex-1" :class="contextScope === \'folder\' ? \'btn-secondary\' : \'btn-ghost\'" @click="contextScope = \'folder\'; onContextScopeChange()">Folder</button>' +
+                                '<button class="btn btn-xs flex-1" :class="contextScope === \'workspace\' ? \'btn-secondary\' : \'btn-ghost\'" @click="contextScope = \'workspace\'; onContextScopeChange()">Workspace</button>' +
+                            '</div>' +
+                            '<template x-if="contextLoading">' +
+                                '<p class="text-xs opacity-40 mt-1"><span class="loading loading-spinner loading-xs"></span> Loading context...</p>' +
+                            '</template>' +
+                            '<template x-if="!contextLoading && contextFiles.length > 0">' +
+                                '<p class="text-xs opacity-40 mt-1" x-text="contextFiles.length + \' files included as context\'"></p>' +
+                            '</template>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+
+                // ── Actions Mode ──
+                '<template x-if="!chatMode">' +
+                '<div class="space-y-2">' +
+
+                    // Quick actions (collapsible)
+                    '<div class="border border-base-300 rounded-lg overflow-hidden">' +
+                        '<button class="w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold opacity-70 hover:opacity-100 hover:bg-base-200 transition-colors" @click="showQuickActions = !showQuickActions">' +
+                            '<span class="flex items-center gap-1">' +
+                                '<svg class="w-3 h-3 transition-transform" :class="showQuickActions ? \'rotate-90\' : \'\'" viewBox="0 0 20 20" fill="currentColor"><polygon points="6,4 14,10 6,16"/></svg>' +
+                                'Quick Actions' +
+                            '</span>' +
+                            '<template x-if="!hasSelection && !showQuickActions">' +
+                                '<span class="font-normal opacity-40 text-[10px]">select text first</span>' +
+                            '</template>' +
+                        '</button>' +
+                        '<div x-show="showQuickActions" x-transition class="px-2 pb-2 border-t border-base-300">' +
+                            '<div class="flex flex-wrap gap-1 pt-2">' +
+                                '<template x-for="action in actions" :key="action.label">' +
+                                    '<button class="btn btn-xs btn-outline gap-1" :disabled="streaming || !hasSelection" @click="runAction(action.prompt)">' +
+                                        '<span x-text="action.label"></span>' +
+                                    '</button>' +
+                                '</template>' +
+                            '</div>' +
+                            '<template x-if="!hasSelection">' +
+                                '<p class="text-xs opacity-40 mt-1">Select text in the editor to enable</p>' +
+                            '</template>' +
+                        '</div>' +
                     '</div>' +
 
-                    // Custom prompt
+                    // Custom prompt (always visible)
                     '<div>' +
-                        '<label class="text-xs font-semibold opacity-60 mb-1 block">Custom Prompt</label>' +
                         '<textarea class="textarea textarea-xs w-full" rows="2" x-model="customPrompt" :placeholder="hasSelection ? \'Describe what to do with the selected text...\' : \'Describe what to generate (inserted at cursor)...\'" :disabled="streaming"></textarea>' +
                         '<button class="btn btn-primary btn-xs w-full mt-1 gap-1" :disabled="streaming || !customPrompt.trim()" @click="runCustom()">' +
                             '<span x-show="!streaming" x-text="hasSelection ? \'Apply to Selection\' : \'Generate & Insert\'"></span>' +
@@ -477,10 +582,9 @@ function aiPanel() {
                 '</div>' +
                 '</template>' +
 
-                // --- Chat Mode ---
+                // ── Chat Mode ──
                 '<template x-if="chatMode">' +
                 '<div class="space-y-2">' +
-                    // Chat messages
                     '<div class="max-h-72 overflow-y-auto space-y-2 border border-base-300 rounded-lg p-2 bg-base-100">' +
                         '<template x-if="chatHistory.filter(m => m.role !== \'system\').length === 0">' +
                             '<p class="text-xs opacity-40 text-center py-4">Start a conversation with the AI assistant</p>' +
@@ -498,8 +602,6 @@ function aiPanel() {
                             '</template>' +
                         '</template>' +
                     '</div>' +
-
-                    // Chat input
                     '<div class="flex gap-1">' +
                         '<input type="text" class="input input-xs flex-1" x-model="chatInput" placeholder="Ask the AI..." :disabled="streaming" @keydown.enter="sendChatMessage()" />' +
                         '<button class="btn btn-primary btn-xs" :disabled="streaming || !chatInput.trim()" @click="sendChatMessage()">' +
@@ -507,14 +609,10 @@ function aiPanel() {
                             '<span x-show="streaming" class="loading loading-spinner loading-xs"></span>' +
                         '</button>' +
                     '</div>' +
-
-                    // Chat controls
                     '<div class="flex justify-between">' +
                         '<button class="btn btn-ghost btn-xs opacity-60" @click="clearChat()">Clear</button>' +
                         '<span class="text-xs opacity-40" x-text="(chatHistory.filter(m => m.role !== \'system\').length) + \' messages\'"></span>' +
                     '</div>' +
-
-                    // Error
                     '<template x-if="error && chatMode">' +
                         '<div class="text-xs text-error" x-text="error"></div>' +
                     '</template>' +

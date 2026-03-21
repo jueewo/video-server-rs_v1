@@ -5502,6 +5502,10 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
             get(search_files_handler),
         )
         .route(
+            "/api/workspaces/{workspace_id}/files/context",
+            get(context_files_handler),
+        )
+        .route(
             "/api/workspaces/{workspace_id}/files/save-text",
             post(save_text_content),
         )

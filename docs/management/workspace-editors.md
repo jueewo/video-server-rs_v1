@@ -77,6 +77,64 @@ Selecting "Custom" leaves the filename blank for free entry.
 
 ---
 
+## Markdown Editor Sidebar (Insert Panel)
+
+When editing a `.md` file, a sidebar panel appears with four tabs for inserting
+content into the document:
+
+### Media Tab
+
+Searches the user's vault media (images, videos, documents) via `/api/media`.
+Paginated with type filter dropdown and search box.
+
+- **Images** → inserts ` ```media-image\n{slug}\n``` `
+- **Videos** → inserts ` ```media-video\n{slug}\n``` `
+
+### Files Tab
+
+Browses workspace files with folder navigation, breadcrumb, and search.
+Starts in the current folder; click folders to drill down, click breadcrumb
+segments to navigate up, or type in the search box to search across the entire
+workspace.
+
+**File type filter chips:** All | Images | Video | Markdown | Diagrams | Data
+
+| Chip | Matches |
+|------|---------|
+| Images | `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`, `.ico` |
+| Video | `.mp4`, `.webm`, `.mov`, `.avi`, `.mkv` |
+| Markdown | `.md`, `.mdx` |
+| Diagrams | `.mmd`, `.mermaid`, `.drawio`, `.excalidraw`, `.bpmn`, `.svg` |
+| Data | `.yaml`, `.yml`, `.json`, `.csv`, `.toml` |
+
+When a filter is active, **folders are only shown if they recursively contain at
+least one matching file** (server-side check with early bail-out for efficiency).
+
+Inserts relative paths: images as `![name](path)`, videos as ` ```workspace-video `,
+other files as markdown links.
+
+**Backend endpoints:**
+- `GET /api/workspaces/{id}/files/list?path=...&type_filter=...` — directory listing with optional type filter
+- `GET /api/workspaces/{id}/files/search?q=...&type_filter=...` — workspace-wide filename search
+
+### Publications Tab (formerly "Apps")
+
+Shows all of the user's publications with a type filter dropdown (All / Apps / Courses / Presentations). Type-aware insertion:
+
+| Publication Type | Inserted Syntax |
+|-----------------|-----------------|
+| App | ` ```app-embed height=480\n/pub/{slug}\n``` ` |
+| Presentation | ` ```app-embed height=480\n/pub/{slug}\n``` ` |
+| Course | `[Course Title](/pub/{slug})` (markdown link) |
+
+Color-coded type badges: blue (app), amber (course), violet (presentation).
+
+### AI Tab
+
+LLM-powered text assistance panel. See `static/js/panels/ai-panel.js`.
+
+---
+
 ## Adding a new editor type
 
 1. Create `crates/workspace-manager/templates/workspaces/<name>_editor.html`

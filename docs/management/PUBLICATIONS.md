@@ -58,11 +58,45 @@ Slugs are derived from the publication title:
 
 ---
 
+## Tags
+
+Publications can be tagged with arbitrary strings for categorization and discovery.
+Tags are stored in `publication_tags(publication_id, tag)` — plain lowercase strings,
+no global tag table.
+
+### Adding tags
+
+- **My Publications dashboard**: click the tag icon on any card to inline-edit tags
+  (comma-separated). Or open the Edit modal — it has a Tags field.
+- **API**: `PUT /api/publications/{slug}/tags` with `{ "tags": ["rust", "beginner"] }`
+
+Tags are normalized to lowercase on save. Duplicates are ignored.
+
+### Tag filtering
+
+- **Catalog** (`/catalog`): tag filter chips appear below the type tabs. Click one or
+  more tags to filter (OR logic — shows items matching *any* selected tag). Combined
+  with type filter (AND — both must match).
+- **API autocomplete**: `GET /api/publications/tags/search?q=ru` returns matching tags
+  from the user's own publications (for typeahead UIs).
+
+### Data model
+
+```sql
+CREATE TABLE publication_tags (
+    publication_id  INTEGER NOT NULL REFERENCES publications(id) ON DELETE CASCADE,
+    tag             TEXT NOT NULL,
+    PRIMARY KEY (publication_id, tag)
+);
+```
+
+---
+
 ## Pages
 
 ### `/catalog` — Public Catalog
 
-Grid of cards showing all public publications. Filter tabs: All / Apps / Courses / Presentations / Collections. No auth required.
+Grid of cards showing all public publications. Filter tabs: All / Apps / Courses / Presentations / Collections. Tag filter chips below (only tags used by public publications are shown). No auth required.
 
 ### `/my-publications` — Admin Dashboard
 
@@ -70,8 +104,9 @@ Lists all of the user's publications across all access levels. Actions per item:
 
 - **Open** — view the publication
 - **Copy** — copy shareable link (includes `?code=` for code-gated items)
-- **Edit** — change title, description, access level, regenerate code, upload thumbnail
-- **Republish** — refresh app snapshot from workspace (app type only)
+- **Edit** — change title, description, access level, tags, regenerate code, upload thumbnail
+- **Tags** — click tag icon for inline editing, or edit via the modal
+- **Republish** — refresh app snapshot or rescan bundles (app/course types)
 - **Delete** — unpublish and remove snapshot
 
 ---
@@ -150,5 +185,7 @@ CREATE TABLE publications (
 ## Related Docs
 
 - `docs/management/PUBLICATION_BUNDLES.md` — access inheritance for bundled content (courses embedding apps)
+- `docs/management/workspace-editors.md` — editor sidebar panels (insert published content into lessons)
 - `docs/apps/course-viewer.md` — course viewer and publishing modes
 - `docs/apps/course-app-embed.md` — embed syntax for apps, images, videos, presentations
+- `docs/design/PUBLICATIONS_ARCHITECTURE.md` — technical crate design and route table

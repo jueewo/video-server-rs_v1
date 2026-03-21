@@ -54,6 +54,8 @@ Created in `workspace_app_routes()` and passed alongside `JsToolViewerState`.
 | `POST` | `/api/publications/{slug}/republish` | `republish_handler` | Refresh app snapshot |
 | `POST` | `/api/publications/{slug}/thumbnail` | `upload_thumbnail_handler` | Upload thumbnail |
 | `GET` | `/api/publications/{slug}/thumbnail` | `serve_api_thumbnail_handler` | Serve thumbnail (auth) |
+| `PUT` | `/api/publications/{slug}/tags` | `update_tags_handler` | Set tags (replace all) |
+| `GET` | `/api/publications/tags/search` | `search_tags_handler` | Autocomplete tag search |
 
 ### Public
 
@@ -77,10 +79,11 @@ Created in `workspace_app_routes()` and passed alongside `JsToolViewerState`.
 
 ```
 1. Look up publication by slug
-2. Access gate:
+2. Access gate (async — may query DB):
    - public → pass
-   - code → check ?code= query param
-   - private → return 403 (session auth not yet integrated)
+   - code → check ?code= (own code OR parent bundle code)
+   - bundled → check ?code= (parent bundle code only)
+   - private → return 403
 3. Dispatch by pub_type:
    ┌──────────────┬──────────────────────────────────────────────┐
    │ app           │ Serve static files from apps_dir/{slug}/    │
@@ -94,6 +97,23 @@ Created in `workspace_app_routes()` and passed alongside `JsToolViewerState`.
 ---
 
 ## Internal Modules
+
+### `db.rs` — Database Operations
+
+CRUD for publications, bundles, and tags.
+
+**Tag functions:**
+
+| Function | Purpose |
+|---|---|
+| `get_tags(pool, pub_id)` | Get all tags for a publication |
+| `set_tags(pool, pub_id, tags)` | Replace all tags (delete + insert) |
+| `search_tags(pool, user_id, prefix)` | Autocomplete from user's own publications |
+| `list_public_tags(pool)` | All distinct tags on public publications (for catalog) |
+| `get_tags_for_ids(pool, ids)` | Batch-load tags for multiple publications → HashMap |
+
+Tags are normalized to lowercase on save. `get_tags_for_ids` builds a dynamic
+`IN (?, ?, ...)` query for efficient batch loading on list pages.
 
 ### `helpers.rs` — Shared Utilities
 
@@ -125,12 +145,17 @@ These extract the core rendering logic from the existing `course_viewer_handler`
 
 ## Database Schema
 
-Migration: `migrations/20260321120000_publications.sql`
+**Migrations:**
+- `migrations/20260321120000_publications.sql` — main `publications` table + data migration from `published_apps`
+- `migrations/20260321140000_publication_bundles.sql` — `publication_bundles` table for parent-child relationships
+- `migrations/20260321160000_publication_tags.sql` — `publication_tags` table for tagging
 
 **Indexes:**
 - `idx_publications_user_id` — list user's publications
 - `idx_publications_pub_type` — filter by type
 - `idx_publications_access` — catalog query (WHERE access = 'public')
+- `idx_pub_bundles_parent`, `idx_pub_bundles_child` — bundle lookups
+- `idx_publication_tags_tag` — tag search
 
 **Data migration:** existing `published_apps` rows are inserted into `publications` with `slug = app_id` and `legacy_app_id = app_id`.
 

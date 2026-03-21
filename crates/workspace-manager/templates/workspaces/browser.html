@@ -61,6 +61,85 @@
             <button onclick="document.getElementById('upload-files-input').click()" class="btn btn-sm btn-outline gap-1"><i data-lucide="upload" class="w-4 h-4"></i> Upload Files</button>
             <button onclick="document.getElementById('upload-folder-input').click()" class="btn btn-sm btn-outline gap-1"><i data-lucide="package-open" class="w-4 h-4"></i> Upload Folder</button>
             <button id="select-mode-btn" onclick="toggleSelectMode()" class="btn btn-sm btn-outline gap-1"><i data-lucide="check-square" class="w-4 h-4"></i> Select</button>
+            <!-- Filter button -->
+            <div class="relative" id="browser-filter-container">
+                <button id="browser-filter-btn" onclick="toggleBrowserFilter()"
+                        class="btn btn-sm btn-outline gap-1.5">
+                    <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+                    Filter
+                    <span id="browser-filter-badge" class="badge badge-primary badge-xs hidden">0</span>
+                </button>
+                <div id="browser-filter-panel"
+                     class="hidden absolute right-0 top-full mt-2 w-[28rem] bg-base-100 border border-base-300 rounded-2xl shadow-2xl z-50 p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="font-semibold text-sm">Filter</span>
+                        <button onclick="clearBrowserFilters()" class="btn btn-ghost btn-xs text-base-content/50">Clear all</button>
+                    </div>
+
+                    <!-- Search -->
+                    <div class="mb-4">
+                        <label class="label pb-1 pt-0">
+                            <span class="text-xs font-medium text-base-content/60 uppercase tracking-wide">Search</span>
+                        </label>
+                        <div class="relative">
+                            <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-base-content/40 pointer-events-none"></i>
+                            <input type="text" id="browser-search" placeholder="Folder or file name…"
+                                   class="input input-sm w-full pl-8 text-sm" oninput="applyBrowserFilters()" />
+                        </div>
+                    </div>
+
+                    <!-- Folder type filter -->
+                    {% if !folders.is_empty() %}
+                    <div class="mb-4">
+                        <label class="label pb-1 pt-0">
+                            <span class="text-xs font-medium text-base-content/60 uppercase tracking-wide">Folder Type</span>
+                        </label>
+                        <div class="flex flex-wrap gap-1.5" id="folder-type-btns">
+                            <button onclick="setFolderTypeFilter('all', this)"
+                                    class="btn btn-xs btn-primary" data-ftype="all">All</button>
+                            <button onclick="setFolderTypeFilter('untyped', this)"
+                                    class="btn btn-xs btn-ghost border border-base-300" data-ftype="untyped">
+                                <i data-lucide="folder" class="w-3 h-3"></i> Default
+                            </button>
+                            {% for folder in &folders %}
+                            {% if let Some(type_id) = &folder.folder_type %}
+                            <button onclick="setFolderTypeFilter('{{ type_id }}', this)"
+                                    class="btn btn-xs btn-ghost border border-base-300 browser-ftype-btn-{{ type_id }}" data-ftype="{{ type_id }}"
+                                    {% if let Some(color) = &folder.type_color %}
+                                    data-color="{{ color }}"
+                                    {% endif %}>
+                                {% if let Some(name) = &folder.type_name %}{{ name }}{% else %}{{ type_id }}{% endif %}
+                            </button>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- File type filter -->
+                    {% if !files.is_empty() %}
+                    <div class="mb-3">
+                        <label class="label pb-1 pt-0">
+                            <span class="text-xs font-medium text-base-content/60 uppercase tracking-wide">File Type</span>
+                        </label>
+                        <div class="flex flex-wrap gap-1.5" id="file-type-chips">
+                            <button class="badge badge-sm cursor-pointer badge-primary" data-filetype="" onclick="setFileTypeChip('', this)">All</button>
+                            <button class="badge badge-sm cursor-pointer badge-ghost" data-filetype="image" onclick="setFileTypeChip('image', this)">Images</button>
+                            <button class="badge badge-sm cursor-pointer badge-ghost" data-filetype="video" onclick="setFileTypeChip('video', this)">Video</button>
+                            <button class="badge badge-sm cursor-pointer badge-ghost" data-filetype="markdown" onclick="setFileTypeChip('markdown', this)">Markdown</button>
+                            <button class="badge badge-sm cursor-pointer badge-ghost" data-filetype="diagram" onclick="setFileTypeChip('diagram', this)">Diagrams</button>
+                            <button class="badge badge-sm cursor-pointer badge-ghost" data-filetype="data" onclick="setFileTypeChip('data', this)">Data</button>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="pt-3 border-t border-base-300 mt-1">
+                        <button onclick="toggleBrowserFilter()" class="btn btn-primary btn-sm w-full gap-2">
+                            <i data-lucide="check" class="w-4 h-4"></i> Done
+                        </button>
+                    </div>
+                </div>
+            </div>
             <div class="dropdown dropdown-end">
                 <button tabindex="0" class="btn btn-sm btn-outline btn-square" title="More options">
                     <i data-lucide="more-horizontal" class="w-4 h-4"></i>
@@ -100,14 +179,25 @@
         </div>
     </div>
 
+    <!-- Active filter summary -->
+    <div id="browser-filter-summary" class="hidden flex flex-wrap items-center gap-2 mb-4 text-sm">
+        <span class="text-base-content/50">Showing:</span>
+        <span id="browser-summary-badges"></span>
+        <span class="text-base-content/40">&middot;</span>
+        <span id="browser-visible-count" class="text-base-content/50"></span>
+        <button onclick="clearBrowserFilters()" class="btn btn-xs btn-ghost text-error ml-1">&times; Clear</button>
+    </div>
+
     <!-- Folders -->
     {% if !folders.is_empty() %}
-    <div class="mb-6">
+    <div class="mb-6" id="folders-section">
         <h2 class="text-lg font-semibold mb-3 text-base-content/70">Folders</h2>
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {% for folder in folders %}
-            <div class="card bg-base-100 border hover:shadow-md transition-all duration-150 relative
-                        {% if folder.folder_type.is_some() %}border-base-300{% else %}border-base-300{% endif %}">
+            <div class="card bg-base-100 border hover:shadow-md transition-all duration-150 relative browser-folder
+                        {% if folder.folder_type.is_some() %}border-base-300{% else %}border-base-300{% endif %}"
+                 data-name="{{ folder.name }}"
+                 data-ftype="{% if let Some(ft) = &folder.folder_type %}{{ ft }}{% else %}untyped{% endif %}">
                 <div class="absolute top-1 right-1 z-20"
                      x-data="{ open: false }" @click.outside="open = false">
                     <button @click.stop.prevent="open = !open"
@@ -189,7 +279,7 @@
 
     <!-- Files -->
     {% if !files.is_empty() %}
-    <div>
+    <div id="files-section">
         <h2 class="text-lg font-semibold mb-3 text-base-content/70">Files</h2>
         <div class="card bg-base-100 shadow border border-base-300">
             <div class="overflow-x-auto">
@@ -208,7 +298,7 @@
                     </thead>
                     <tbody>
                         {% for file in files %}
-                        <tr class="hover" data-path="{{ file.path }}" data-name="{{ file.name }}">
+                        <tr class="hover browser-file" data-path="{{ file.path }}" data-name="{{ file.name }}" data-mime="{{ file.mime_type }}">
                             <td class="select-col hidden w-8">
                                 <input type="checkbox" class="file-cb checkbox checkbox-sm" data-path="{{ file.path }}" onchange="onFileCheckbox(this)" />
                             </td>
@@ -245,6 +335,14 @@
         </div>
     </div>
     {% endif %}
+
+    <!-- No filter results (hidden by default) -->
+    <div id="browser-no-results" class="hidden text-center py-12 bg-base-200 rounded-lg mb-6">
+        <i data-lucide="search-x" class="w-12 h-12 text-base-content/30 mx-auto mb-3"></i>
+        <h3 class="text-lg font-semibold mb-2">No matches</h3>
+        <p class="text-base-content/60 mb-4">Try adjusting your search or filters</p>
+        <button onclick="clearBrowserFilters()" class="btn btn-primary btn-sm">Clear Filters</button>
+    </div>
 
     {% if folders.is_empty() && files.is_empty() %}
     <div class="card bg-base-200 shadow">
@@ -687,6 +785,157 @@
     {% else %}
     const CURRENT_TYPE_ID = "";
     {% endif %}
+
+    // ── Browser Filter ──────────────────────────────────────────────────────
+    let _bfFolderType = 'all';
+    let _bfFileType = '';
+
+    function toggleBrowserFilter() {
+        document.getElementById('browser-filter-panel').classList.toggle('hidden');
+    }
+    document.addEventListener('click', function(e) {
+        const c = document.getElementById('browser-filter-container');
+        if (c && !c.contains(e.target)) {
+            document.getElementById('browser-filter-panel')?.classList.add('hidden');
+        }
+    });
+
+    // De-duplicate folder type buttons (template may emit one per folder of that type)
+    (function dedupeTypeButtons() {
+        const seen = new Set();
+        document.querySelectorAll('#folder-type-btns button[data-ftype]').forEach(btn => {
+            const ft = btn.dataset.ftype;
+            if (seen.has(ft)) { btn.remove(); return; }
+            seen.add(ft);
+        });
+    })();
+
+    function setFolderTypeFilter(type, btn) {
+        _bfFolderType = type;
+        document.querySelectorAll('#folder-type-btns button').forEach(b => {
+            if (b.dataset.ftype === type) {
+                b.className = 'btn btn-xs btn-primary';
+            } else {
+                b.className = 'btn btn-xs btn-ghost border border-base-300';
+            }
+        });
+        applyBrowserFilters();
+    }
+
+    const FILE_TYPE_MAP = {
+        image: /^image\//,
+        video: /^video\//,
+        markdown: /\.(md|mdx|markdown)$/i,
+        diagram: /\.(mmd|mermaid|drawio|excalidraw|bpmn|svg)$/i,
+        data: /\.(yaml|yml|json|csv|toml)$/i,
+    };
+
+    function setFileTypeChip(type, btn) {
+        _bfFileType = type;
+        document.querySelectorAll('#file-type-chips .badge').forEach(b => {
+            if (b.dataset.filetype === type) {
+                b.classList.remove('badge-ghost');
+                b.classList.add('badge-primary');
+            } else {
+                b.classList.remove('badge-primary');
+                b.classList.add('badge-ghost');
+            }
+        });
+        applyBrowserFilters();
+    }
+
+    function clearBrowserFilters() {
+        _bfFolderType = 'all';
+        _bfFileType = '';
+        const search = document.getElementById('browser-search');
+        if (search) search.value = '';
+        document.querySelectorAll('#folder-type-btns button').forEach(b => {
+            b.className = b.dataset.ftype === 'all'
+                ? 'btn btn-xs btn-primary'
+                : 'btn btn-xs btn-ghost border border-base-300';
+        });
+        document.querySelectorAll('#file-type-chips .badge').forEach(b => {
+            if (b.dataset.filetype === '') {
+                b.classList.remove('badge-ghost'); b.classList.add('badge-primary');
+            } else {
+                b.classList.remove('badge-primary'); b.classList.add('badge-ghost');
+            }
+        });
+        applyBrowserFilters();
+    }
+
+    function applyBrowserFilters() {
+        const search = (document.getElementById('browser-search')?.value || '').toLowerCase().trim();
+        let visibleFolders = 0, visibleFiles = 0;
+
+        // Filter folders
+        document.querySelectorAll('.browser-folder').forEach(el => {
+            const name = (el.dataset.name || '').toLowerCase();
+            const ftype = el.dataset.ftype || 'untyped';
+            const typeMatch = _bfFolderType === 'all' || ftype === _bfFolderType;
+            const searchMatch = !search || name.includes(search);
+            const show = typeMatch && searchMatch;
+            el.style.display = show ? '' : 'none';
+            if (show) visibleFolders++;
+        });
+
+        // Filter files
+        document.querySelectorAll('.browser-file').forEach(el => {
+            const name = (el.dataset.name || '').toLowerCase();
+            const mime = el.dataset.mime || '';
+            let fileTypeMatch = true;
+            if (_bfFileType) {
+                const regex = FILE_TYPE_MAP[_bfFileType];
+                if (regex) {
+                    fileTypeMatch = _bfFileType === 'image' || _bfFileType === 'video'
+                        ? regex.test(mime)
+                        : regex.test(name);
+                }
+            }
+            const searchMatch = !search || name.includes(search);
+            const show = fileTypeMatch && searchMatch;
+            el.style.display = show ? '' : 'none';
+            if (show) visibleFiles++;
+        });
+
+        // Section visibility
+        const foldersSection = document.getElementById('folders-section');
+        const filesSection = document.getElementById('files-section');
+        if (foldersSection) foldersSection.style.display = visibleFolders > 0 ? '' : 'none';
+        if (filesSection) filesSection.style.display = visibleFiles > 0 ? '' : 'none';
+
+        // Filter count
+        let filterCount = 0;
+        if (_bfFolderType !== 'all') filterCount++;
+        if (_bfFileType) filterCount++;
+        if (search) filterCount++;
+
+        const badge = document.getElementById('browser-filter-badge');
+        if (filterCount > 0) { badge.textContent = filterCount; badge.classList.remove('hidden'); }
+        else { badge.classList.add('hidden'); }
+
+        // Summary bar
+        const summary = document.getElementById('browser-filter-summary');
+        const noResults = document.getElementById('browser-no-results');
+        const totalItems = document.querySelectorAll('.browser-folder').length + document.querySelectorAll('.browser-file').length;
+
+        if (filterCount > 0) {
+            summary.classList.remove('hidden');
+            let badges = '';
+            if (_bfFolderType !== 'all') badges += `<span class="badge badge-outline">folder: ${_bfFolderType}</span> `;
+            if (_bfFileType) badges += `<span class="badge badge-outline">type: ${_bfFileType}</span> `;
+            if (search) badges += `<span class="badge badge-outline">q: ${search}</span> `;
+            document.getElementById('browser-summary-badges').innerHTML = badges;
+            const total = visibleFolders + visibleFiles;
+            document.getElementById('browser-visible-count').textContent = `${total} item${total !== 1 ? 's' : ''}`;
+        } else {
+            summary.classList.add('hidden');
+        }
+
+        if (noResults) {
+            noResults.style.display = (visibleFolders + visibleFiles === 0 && totalItems > 0 && filterCount > 0) ? '' : 'none';
+        }
+    }
 
     // ── Folder Type Registry ─────────────────────────────────────────────────
 

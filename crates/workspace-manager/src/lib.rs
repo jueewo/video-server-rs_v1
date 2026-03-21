@@ -29,7 +29,7 @@ mod folder_type_registry;
 mod workspace_config;
 pub mod workspace_access;
 
-pub use file_browser::{FileEntry, FolderEntry};
+pub use file_browser::{ContextFile, FileEntry, FolderEntry};
 pub use folder_type_registry::{AppLink, FieldType, FolderTypeDefinition, FolderTypeRegistry, MetadataField};
 pub use workspace_config::{FolderConfig, FolderType, WorkspaceConfig};
 
@@ -1016,6 +1016,42 @@ pub async fn search_files_handler(
             "is_editable": f.is_editable,
         }))
         .collect();
+
+    Ok(Json(serde_json::json!({ "files": files })))
+}
+
+/// GET /api/workspaces/{workspace_id}/files/context?path=...&scope=folder|workspace
+///
+/// Collects text file contents for LLM context. Returns an array of
+/// `{ path, content, size }` objects. Scope "folder" reads files from the
+/// given path (non-recursive); "workspace" reads recursively from workspace root.
+/// Total payload is capped at ~100 KB to keep LLM context reasonable.
+pub async fn context_files_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    Query(query): Query<std::collections::HashMap<String, String>>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "read")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let path = query.get("path").cloned().unwrap_or_default();
+    let scope = query.get("scope").cloned().unwrap_or_else(|| "folder".to_string());
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+
+    let recursive = scope == "workspace";
+    let subpath = if recursive { "" } else { &path };
+
+    // Max 50 KB per file, 100 KB total context
+    let files = file_browser::collect_context_files(
+        &workspace_root,
+        subpath,
+        recursive,
+        50_000,
+        100_000,
+    );
 
     Ok(Json(serde_json::json!({ "files": files })))
 }

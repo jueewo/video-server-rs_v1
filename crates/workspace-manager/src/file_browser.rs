@@ -502,6 +502,98 @@ fn is_editable_by_extension(name: &str) -> bool {
         || lower.ends_with(".drawio")
 }
 
+/// A text file with its content, for LLM context gathering.
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct ContextFile {
+    pub path: String,
+    pub content: String,
+    pub size: u64,
+}
+
+/// Collect text file contents from a directory (optionally recursive) for LLM context.
+///
+/// - Skips hidden files, binary files, and files larger than `max_file_size`.
+/// - Stops collecting once `max_total_bytes` is reached.
+/// - Returns files sorted alphabetically by path.
+pub fn collect_context_files(
+    workspace_root: &Path,
+    subpath: &str,
+    recursive: bool,
+    max_file_size: u64,
+    max_total_bytes: u64,
+) -> Vec<ContextFile> {
+    let dir = match safe_resolve(workspace_root, if subpath.is_empty() { "." } else { subpath }) {
+        Ok(d) => d,
+        Err(_) => return Vec::new(),
+    };
+    // For workspace root (empty subpath), use workspace_root directly
+    let dir = if subpath.is_empty() { workspace_root.to_path_buf() } else { dir };
+
+    if !dir.exists() || !dir.is_dir() {
+        return Vec::new();
+    }
+
+    let walker = WalkDir::new(&dir)
+        .min_depth(1)
+        .max_depth(if recursive { 10 } else { 1 })
+        .into_iter()
+        .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.'));
+
+    let mut entries: Vec<(String, PathBuf, u64)> = walker
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+        .filter_map(|entry| {
+            let name = entry.file_name().to_string_lossy().to_lowercase();
+            let metadata = entry.metadata().ok()?;
+            let size = metadata.len();
+
+            // Skip large files
+            if size > max_file_size || size == 0 {
+                return None;
+            }
+
+            // Only include text-like files
+            let mime = mime_guess::from_path(&name).first_or_text_plain().to_string();
+            let mime_friendly = friendly_mime(&name, &mime);
+            if !is_text_mime(&mime_friendly) && !is_editable_by_extension(&name) {
+                return None;
+            }
+
+            let rel_path = entry
+                .path()
+                .strip_prefix(workspace_root)
+                .ok()?
+                .to_string_lossy()
+                .replace('\\', "/");
+
+            Some((rel_path, entry.path().to_path_buf(), size))
+        })
+        .collect();
+
+    // Sort alphabetically
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
+
+    let mut result = Vec::new();
+    let mut total_bytes: u64 = 0;
+
+    for (rel_path, abs_path, size) in entries {
+        if total_bytes + size > max_total_bytes {
+            break;
+        }
+
+        if let Ok(content) = std::fs::read_to_string(&abs_path) {
+            total_bytes += content.len() as u64;
+            result.push(ContextFile {
+                path: rel_path,
+                content,
+                size,
+            });
+        }
+    }
+
+    result
+}
+
 fn format_modified(secs: u64) -> String {
     // Simple: just show Unix timestamp as a human-readable relative string
     use std::time::{SystemTime, UNIX_EPOCH};

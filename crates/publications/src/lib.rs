@@ -749,6 +749,7 @@ struct PubWithBundles {
 struct MyPublicationsTemplate {
     authenticated: bool,
     items: Vec<PubWithBundles>,
+    all_tags: Vec<String>,
 }
 
 async fn my_publications_handler(
@@ -783,9 +784,18 @@ async fn my_publications_handler(
         items.push(PubWithBundles { pub_item: p, children, parents, tags });
     }
 
+    // Collect distinct tags across all user publications (sorted)
+    let mut all_tags: Vec<String> = items.iter()
+        .flat_map(|i| i.tags.iter().cloned())
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    all_tags.sort();
+
     let tmpl = MyPublicationsTemplate {
         authenticated: true,
         items,
+        all_tags,
     };
     let html = tmpl.render().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Html(html))

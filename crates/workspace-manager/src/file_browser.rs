@@ -375,6 +375,53 @@ pub fn icon_file_path(folder_abs: &Path) -> Option<std::path::PathBuf> {
 }
 
 
+/// Check whether a directory recursively contains at least one file matching a type filter.
+/// Bails early on first match for efficiency.
+///
+/// Filter values: "image", "video", "markdown", "diagram", "data".
+pub fn folder_contains_type(folder: &Path, type_filter: &str) -> bool {
+    WalkDir::new(folder)
+        .into_iter()
+        .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.'))
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+        .any(|entry| {
+            let name = entry.file_name().to_string_lossy().to_lowercase();
+            file_matches_type_filter(&name, type_filter)
+        })
+}
+
+/// Check if a filename matches a type filter category.
+pub fn file_matches_type_filter(name_lower: &str, type_filter: &str) -> bool {
+    match type_filter {
+        "image" => {
+            name_lower.ends_with(".png") || name_lower.ends_with(".jpg")
+                || name_lower.ends_with(".jpeg") || name_lower.ends_with(".gif")
+                || name_lower.ends_with(".webp") || name_lower.ends_with(".bmp")
+                || name_lower.ends_with(".ico")
+        }
+        "video" => {
+            name_lower.ends_with(".mp4") || name_lower.ends_with(".webm")
+                || name_lower.ends_with(".mov") || name_lower.ends_with(".avi")
+                || name_lower.ends_with(".mkv")
+        }
+        "markdown" => {
+            name_lower.ends_with(".md") || name_lower.ends_with(".mdx")
+        }
+        "diagram" => {
+            name_lower.ends_with(".mmd") || name_lower.ends_with(".mermaid")
+                || name_lower.ends_with(".drawio") || name_lower.ends_with(".excalidraw")
+                || name_lower.ends_with(".bpmn") || name_lower.ends_with(".svg")
+        }
+        "data" => {
+            name_lower.ends_with(".yaml") || name_lower.ends_with(".yml")
+                || name_lower.ends_with(".json") || name_lower.ends_with(".csv")
+                || name_lower.ends_with(".toml")
+        }
+        _ => true,
+    }
+}
+
 pub fn format_size(bytes: u64) -> String {
     if bytes < 1024 {
         format!("{} B", bytes)

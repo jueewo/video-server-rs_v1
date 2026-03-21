@@ -186,6 +186,14 @@
                         class="input input-xs w-full mb-2"
                         oninput="debounceFileSearch(this.value)"
                     />
+                    <div id="files-type-chips" class="flex flex-wrap gap-1 mb-2">
+                        <button class="badge badge-sm cursor-pointer badge-primary" onclick="setFileTypeFilter('')">All</button>
+                        <button class="badge badge-sm cursor-pointer badge-ghost" onclick="setFileTypeFilter('image')">Images</button>
+                        <button class="badge badge-sm cursor-pointer badge-ghost" onclick="setFileTypeFilter('video')">Video</button>
+                        <button class="badge badge-sm cursor-pointer badge-ghost" onclick="setFileTypeFilter('markdown')">Markdown</button>
+                        <button class="badge badge-sm cursor-pointer badge-ghost" onclick="setFileTypeFilter('diagram')">Diagrams</button>
+                        <button class="badge badge-sm cursor-pointer badge-ghost" onclick="setFileTypeFilter('data')">Data</button>
+                    </div>
                     <div id="files-breadcrumb" class="flex items-center gap-1 text-xs text-base-content/50 mb-2 flex-wrap"></div>
                     <div id="files-list" class="space-y-1">
                         <div class="text-xs opacity-50 text-center py-4">Loading...</div>
@@ -516,6 +524,30 @@
     let filesCurrentPath = FOLDER_PATH;
     let fileSearchTimer = null;
     let fileSearchActive = false;
+    let fileTypeFilter = '';
+
+    function setFileTypeFilter(filter) {
+        fileTypeFilter = filter;
+        // Update chip styles
+        document.querySelectorAll('#files-type-chips .badge').forEach(b => {
+            b.classList.remove('badge-primary');
+            b.classList.add('badge-ghost');
+        });
+        const idx = ['', 'image', 'video', 'markdown', 'diagram', 'data'].indexOf(filter);
+        const chips = document.querySelectorAll('#files-type-chips .badge');
+        if (idx >= 0 && chips[idx]) {
+            chips[idx].classList.remove('badge-ghost');
+            chips[idx].classList.add('badge-primary');
+        }
+        // Re-render current view
+        if (fileSearchActive) {
+            const q = document.getElementById('files-search').value.trim();
+            if (q) searchFiles(q); else loadFiles(filesCurrentPath);
+        } else {
+            loadFiles(filesCurrentPath);
+        }
+    }
+
 
     function debounceFileSearch(value) {
         clearTimeout(fileSearchTimer);
@@ -536,7 +568,9 @@
         document.getElementById('files-breadcrumb').innerHTML = '';
 
         try {
-            const resp = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/search?q=${encodeURIComponent(query)}`);
+            let searchUrl = `/api/workspaces/${WORKSPACE_ID}/files/search?q=${encodeURIComponent(query)}`;
+            if (fileTypeFilter) searchUrl += `&type_filter=${encodeURIComponent(fileTypeFilter)}`;
+            const resp = await fetch(searchUrl);
             if (!resp.ok) throw new Error('Search failed');
             const data = await resp.json();
             const files = data.files || [];
@@ -565,6 +599,7 @@
 
         try {
             const params = new URLSearchParams({ path });
+            if (fileTypeFilter) params.set('type_filter', fileTypeFilter);
             const resp = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/list?` + params.toString());
             if (!resp.ok) throw new Error('Failed to load files');
             const data = await resp.json();
@@ -573,7 +608,7 @@
             const files = data.files || [];
 
             if (folders.length === 0 && files.length === 0) {
-                list.innerHTML = '<div class="text-xs opacity-50 text-center py-4">Empty folder</div>';
+                list.innerHTML = '<div class="text-xs opacity-50 text-center py-4">' + (fileTypeFilter ? 'No matching files' : 'Empty folder') + '</div>';
                 return;
             }
 

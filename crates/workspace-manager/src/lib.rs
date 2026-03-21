@@ -912,10 +912,13 @@ pub async fn list_dirs(
     Ok(Json(dirs))
 }
 
-/// GET /api/workspaces/{workspace_id}/files/list?path=...
+/// GET /api/workspaces/{workspace_id}/files/list?path=...&type_filter=...
 ///
 /// Lists files in the given folder path (relative to workspace root).
-/// Returns JSON: `{ "files": [{ "name", "path", "mime_type" }] }`.
+/// Optional `type_filter` param: "image", "video", "markdown", "diagram", "data".
+/// When set, files are filtered by type and folders are only shown if they
+/// recursively contain at least one matching file.
+/// Returns JSON: `{ "folders": [...], "files": [...] }`.
 pub async fn list_files_handler(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
@@ -928,6 +931,7 @@ pub async fn list_files_handler(
     verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
     let path = query.get("path").cloned().unwrap_or_default();
+    let type_filter = query.get("type_filter").cloned().unwrap_or_default();
     let workspace_root = state.storage.workspace_root(&workspace_id);
 
     let listing = file_browser::list_dir(&workspace_root, &path)
@@ -936,6 +940,14 @@ pub async fn list_files_handler(
     let folders: Vec<serde_json::Value> = listing
         .folders
         .into_iter()
+        .filter(|f| {
+            if type_filter.is_empty() {
+                return true;
+            }
+            // Only show folders that contain at least one matching file
+            let folder_abs = workspace_root.join(&f.path);
+            file_browser::folder_contains_type(&folder_abs, &type_filter)
+        })
         .map(|f| serde_json::json!({
             "name": f.name,
             "path": f.path,
@@ -946,6 +958,13 @@ pub async fn list_files_handler(
     let files: Vec<serde_json::Value> = listing
         .files
         .into_iter()
+        .filter(|f| {
+            if type_filter.is_empty() {
+                return true;
+            }
+            let name_lower = f.name.to_lowercase();
+            file_browser::file_matches_type_filter(&name_lower, &type_filter)
+        })
         .map(|f| serde_json::json!({
             "name": f.name,
             "path": f.path,
@@ -958,9 +977,10 @@ pub async fn list_files_handler(
     Ok(Json(serde_json::json!({ "folders": folders, "files": files })))
 }
 
-/// GET /api/workspaces/{workspace_id}/files/search?q=...
+/// GET /api/workspaces/{workspace_id}/files/search?q=...&type_filter=...
 ///
 /// Searches files across the entire workspace by name/path substring.
+/// Optional `type_filter`: "image", "video", "markdown", "diagram", "data".
 /// Returns JSON: `{ "files": [{ "name", "path", "mime_type", "icon", "is_editable" }] }`.
 pub async fn search_files_handler(
     user: Option<Extension<AuthenticatedUser>>,
@@ -974,12 +994,20 @@ pub async fn search_files_handler(
     verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
     let q = query.get("q").cloned().unwrap_or_default();
+    let type_filter = query.get("type_filter").cloned().unwrap_or_default();
     let workspace_root = state.storage.workspace_root(&workspace_id);
 
     let results = file_browser::search_files(&workspace_root, &q, 50);
 
     let files: Vec<serde_json::Value> = results
         .into_iter()
+        .filter(|f| {
+            if type_filter.is_empty() {
+                return true;
+            }
+            let name_lower = f.name.to_lowercase();
+            file_browser::file_matches_type_filter(&name_lower, &type_filter)
+        })
         .map(|f| serde_json::json!({
             "name": f.name,
             "path": f.path,

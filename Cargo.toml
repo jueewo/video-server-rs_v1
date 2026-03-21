@@ -23,9 +23,10 @@ members = [
     "crates/course",
     "crates/media-viewer",
     "crates/standalone/js-tool-viewer",
-    "crates/standalone/app-publisher",
+
     "crates/standalone/media-cli",
     "crates/standalone/webdav",
+    "crates/publications",
     "crates/workspace-apps",
     "crates/workspace-renderers",
     "crates/site-generator",

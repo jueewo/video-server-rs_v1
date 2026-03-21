@@ -173,6 +173,95 @@ pub fn list_dir(workspace_root: &Path, subpath: &str) -> Result<DirListing> {
     Ok(DirListing { folders, files })
 }
 
+/// Search files across the entire workspace by name substring (case-insensitive).
+/// Returns up to `limit` matches sorted by relevance (exact name match first, then path match).
+pub fn search_files(workspace_root: &Path, query: &str, limit: usize) -> Vec<FileEntry> {
+    if !workspace_root.exists() || query.is_empty() {
+        return Vec::new();
+    }
+
+    let query_lower = query.to_lowercase();
+
+    let mut results: Vec<(u8, FileEntry)> = WalkDir::new(workspace_root)
+        .into_iter()
+        .filter_entry(|e| {
+            // Skip hidden directories entirely
+            !e.file_name().to_string_lossy().starts_with('.')
+        })
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+        .filter_map(|entry| {
+            let name = entry.file_name().to_string_lossy().to_string();
+            let name_lower = name.to_lowercase();
+            let rel_path = entry
+                .path()
+                .strip_prefix(workspace_root)
+                .ok()?
+                .to_string_lossy()
+                .replace('\\', "/");
+            let path_lower = rel_path.to_lowercase();
+
+            // Match against name or full path
+            if !name_lower.contains(&query_lower) && !path_lower.contains(&query_lower) {
+                return None;
+            }
+
+            let metadata = entry.metadata().ok()?;
+            let mime_type = friendly_mime(
+                &name,
+                &mime_guess::from_path(&name)
+                    .first_or_text_plain()
+                    .to_string(),
+            );
+            let is_editable = is_text_mime(&mime_type) || is_editable_by_extension(&name);
+            let is_viewable = mime_type.starts_with("image/");
+            let icon = file_icon_by_name(&name, &mime_type).to_string();
+            let size = metadata.len();
+            let size_str = format_size(size);
+            let modified = metadata
+                .modified()
+                .ok()
+                .and_then(|t| {
+                    t.duration_since(std::time::UNIX_EPOCH)
+                        .ok()
+                        .map(|d| format_modified(d.as_secs()))
+                })
+                .unwrap_or_default();
+
+            // Relevance: 0 = exact name match, 1 = name contains, 2 = path-only match
+            let rank = if name_lower == query_lower {
+                0u8
+            } else if name_lower.contains(&query_lower) {
+                1u8
+            } else {
+                2u8
+            };
+
+            Some((
+                rank,
+                FileEntry {
+                    name,
+                    path: rel_path,
+                    size,
+                    size_str,
+                    mime_type,
+                    icon,
+                    modified,
+                    is_editable,
+                    is_viewable,
+                },
+            ))
+        })
+        .collect();
+
+    results.sort_by_key(|(rank, _)| *rank);
+    results
+        .into_iter()
+        .take(limit)
+        .map(|(_, f)| f)
+        .collect()
+}
+
 /// Get recently modified files across the entire workspace (up to `limit`).
 pub fn recent_files(workspace_root: &Path, limit: usize) -> Vec<FileEntry> {
     if !workspace_root.exists() {

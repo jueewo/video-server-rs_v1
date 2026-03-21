@@ -13,12 +13,13 @@ The course viewer turns a workspace folder containing markdown files into a stru
 course — modules, lessons, optional metadata — with no database, no publishing step,
 and no vault. Files live in the workspace. Access codes control who can see them.
 
-Two modes from the same crate:
+Three access modes from the same crate:
 
 | Mode | URL | Auth |
 |---|---|---|
 | Embedded | Open a `course` folder in workspace browser | Session (owner) |
 | Standalone | `GET /course?code={code}&path={optional}` | Access code only |
+| Published | `GET /pub/{slug}?path={optional}` | Public or code-gated (via publications) |
 
 ---
 
@@ -99,47 +100,75 @@ the workspace owner with a session).
 
 ---
 
-## Standalone Mode (External Access)
+## Standalone Mode (Authenticated Preview)
 
-### 1. Create an access code
+The standalone route (`/course?code=...`) requires an authenticated session.
+It is intended for workspace owners to preview their courses while logged in.
+To share a course with unauthenticated users, use **Published Mode** below.
 
-In the workspace browser, click the **Share** button on the course folder.
-- Choose a memorable code (e.g. `sa-course-2026`)
-- Optionally set a description and expiry
-- Copy the code
+```
+/course?code=sa-course-2026
+/course?code=sa-course-2026&path=session1/chapter1/getting_started.md
+```
+
+- Full-page course viewer with own header (course title, description, instructor)
+- Left sidebar: module and lesson outline, active lesson highlighted
+- Right content area: rendered markdown with images served inline
+
+---
+
+## Published Mode (Clean URLs via Publications)
+
+Published mode provides clean, shareable URLs via the unified publications registry.
+Instead of exposing `workspace_id` and `folder_path` in the URL, a short slug identifies
+the course.
+
+### 1. Publish the course
+
+In the workspace browser, click the **Share / Publish** button on a course folder and
+choose **Publish**. This creates a publication record with:
+- A slug derived from the title (e.g. `intro-to-rust`)
+- Access level: **public** or **code-gated**
+- An auto-generated workspace access code for file serving
 
 Or via API:
 ```bash
-curl -X POST http://localhost:3000/api/workspace-access-codes \
+curl -X POST http://localhost:3000/api/publications \
   -H 'Content-Type: application/json' \
   -d '{
-    "code": "sa-course-2026",
-    "description": "Simulated annealing course — public cohort",
-    "folders": [{"workspace_id": "workspace-xxx", "folder_path": "courses/sa-intro"}]
+    "pub_type": "course",
+    "title": "Introduction to Rust",
+    "workspace_id": "workspace-xxx",
+    "folder_path": "courses/intro-to-rust",
+    "access": "public"
   }'
 ```
 
 ### 2. Share the URL
 
 ```
-https://your-platform.example.com/course?code=sa-course-2026
+https://your-platform.example.com/pub/intro-to-rust
 ```
 
-The recipient opens this URL in any browser — no account, no login.
+### 3. Link to a specific lesson
 
-### 3. What the recipient sees
-
-- Full-page course viewer with own header (course title, description, instructor)
-- Left sidebar: module and lesson outline, active lesson highlighted
-- Right content area: rendered markdown with images served inline
-- Clicking a lesson in the sidebar navigates to it (`?path=` query param)
-
-### 4. Direct lesson link
-
-Link to a specific lesson:
 ```
-/course?code=sa-course-2026&path=session1/chapter1/getting_started.md
+/pub/intro-to-rust?path=session1/chapter1/getting_started.md
 ```
+
+### How it works
+
+The publications dispatcher (`/pub/{slug}`) looks up the publication record,
+checks the access gate, then delegates to `course::render_public_course()` with
+the stored `workspace_id`, `folder_path`, and access code. The `base_url` is set
+to `/pub/{slug}` so all lesson links within the course use the clean URL format.
+
+### Managing publications
+
+- **Dashboard:** `/my-publications` — lists all your published courses, apps, and presentations
+- **Catalog:** `/catalog` — public catalog of all public publications
+- **Update:** `PUT /api/publications/{slug}` — change title, description, or access level
+- **Unpublish:** `DELETE /api/publications/{slug}`
 
 ---
 
@@ -235,11 +264,13 @@ let course_state = Arc::new(CourseState {
 .merge(course_routes(course_state))
 ```
 
-### Standalone route
+### Routes
 
 ```
-GET /course?code={code}               → course outline + first lesson
-GET /course?code={code}&path={path}   → specific lesson
+GET /course?code={code}               → course outline + first lesson (standalone)
+GET /course?code={code}&path={path}   → specific lesson (standalone)
+GET /pub/{slug}                       → course outline + first lesson (published)
+GET /pub/{slug}?path={path}           → specific lesson (published)
 ```
 
 The handler:
@@ -258,8 +289,10 @@ in the workspace browser folder settings UI (icon, color, metadata schema).
 
 ## See Also
 
-- `docs/apps/course-app-embed.md` — embedding apps, images, and videos inside lessons
+- `docs/apps/course-app-embed.md` — embedding apps, images, videos, and presentations inside lessons
 - `docs/management/course-media-setup.md` — making media items accessible via course code
+- `docs/management/PUBLICATIONS.md` — publications registry and `/pub/{slug}` URLs
+- `docs/management/PUBLICATION_BUNDLES.md` — access inheritance for courses embedding apps
 - `docs/apps/DUAL_USE_PATTERN.md` — how dual-use crates work in general
 - `docs/management/WORKSPACE_ACCESS_CODES.md` — access code management
 - `crates/workspace-core/src/lib.rs` — `FolderTypeRenderer` trait

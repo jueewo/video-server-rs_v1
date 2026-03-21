@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catalog</title>
+    <link href="/static/vendor/daisyui.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/static/vendor/lucide.min.js"></script>
+</head>
+<body class="min-h-screen bg-base-200">
+<div class="container mx-auto px-4 py-10 max-w-5xl">
+    <h1 class="text-3xl font-bold mb-2 text-center">Catalog</h1>
+    <p class="text-center text-base-content/60 mb-8">Browse published content</p>
+
+    <!-- Filter tabs -->
+    <div class="flex justify-center gap-2 mb-8 flex-wrap" id="filter-tabs">
+        <button class="btn btn-sm btn-primary" data-filter="all" onclick="filterPubs('all', this)">All</button>
+        <button class="btn btn-sm btn-ghost" data-filter="app" onclick="filterPubs('app', this)">Apps</button>
+        <button class="btn btn-sm btn-ghost" data-filter="course" onclick="filterPubs('course', this)">Courses</button>
+        <button class="btn btn-sm btn-ghost" data-filter="presentation" onclick="filterPubs('presentation', this)">Presentations</button>
+        <button class="btn btn-sm btn-ghost" data-filter="collection" onclick="filterPubs('collection', this)">Collections</button>
+    </div>
+
+    {% if publications.is_empty() %}
+    <div class="text-center py-16">
+        <i data-lucide="book-open" class="w-16 h-16 mb-3 mx-auto text-base-content/30"></i>
+        <h3 class="text-xl font-semibold mb-2">Nothing published yet</h3>
+        <p class="text-base-content/60">Check back later for new content.</p>
+    </div>
+    {% else %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" id="pub-grid">
+        {% for pub_item in &publications %}
+        <a href="/pub/{{ pub_item.slug }}" class="card bg-base-100 shadow hover:shadow-lg transition-all overflow-hidden pub-card" data-type="{{ pub_item.pub_type }}">
+            {% if let Some(thumb) = &pub_item.thumbnail_url %}
+            <figure class="h-40 bg-base-200">
+                <img src="/pub/{{ pub_item.slug }}/thumbnail" class="w-full h-full object-cover" alt="{{ pub_item.title }}" loading="lazy" />
+            </figure>
+            {% else %}
+            <figure class="h-40 bg-base-200 flex items-center justify-center">
+                {% if pub_item.pub_type == "app" %}
+                <i data-lucide="layout-grid" class="w-12 h-12 text-base-content/20"></i>
+                {% else if pub_item.pub_type == "course" %}
+                <i data-lucide="graduation-cap" class="w-12 h-12 text-base-content/20"></i>
+                {% else if pub_item.pub_type == "presentation" %}
+                <i data-lucide="presentation" class="w-12 h-12 text-base-content/20"></i>
+                {% else %}
+                <i data-lucide="folder" class="w-12 h-12 text-base-content/20"></i>
+                {% endif %}
+            </figure>
+            {% endif %}
+            <div class="card-body p-4">
+                <div class="flex items-center gap-2 mb-1">
+                    <h2 class="card-title text-base flex-1 truncate">{{ pub_item.title }}</h2>
+                    {% if pub_item.pub_type == "app" %}
+                    <span class="badge badge-info badge-sm">App</span>
+                    {% else if pub_item.pub_type == "course" %}
+                    <span class="badge badge-success badge-sm">Course</span>
+                    {% else if pub_item.pub_type == "presentation" %}
+                    <span class="badge badge-warning badge-sm">Slides</span>
+                    {% else %}
+                    <span class="badge badge-ghost badge-sm">Collection</span>
+                    {% endif %}
+                </div>
+                {% if !pub_item.description.is_empty() %}
+                <p class="text-sm text-base-content/70 line-clamp-2">{{ pub_item.description }}</p>
+                {% endif %}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+lucide.createIcons();
+
+function filterPubs(type, btn) {
+    // Update active tab
+    document.querySelectorAll('#filter-tabs button').forEach(b => {
+        b.className = b === btn ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-ghost';
+    });
+    // Filter cards
+    document.querySelectorAll('.pub-card').forEach(card => {
+        card.style.display = (type === 'all' || card.dataset.type === type) ? '' : 'none';
+    });
+}
+</script>
+</body>
+</html>

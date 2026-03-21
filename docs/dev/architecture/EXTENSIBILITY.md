@@ -83,7 +83,7 @@ and gets registered here.
 ## Workspace apps (`workspace-apps`)
 
 Apps are the embedded route groups that add full UI sections to the server:
-`app-publisher` (`/pub/`, `/my-apps`), `js-tool-viewer` (`/js-apps/`), and `gallery3d`
+`publications` (`/pub/`, `/my-publications`, `/catalog`), `js-tool-viewer` (`/js-apps/`), and `gallery3d`
 (`/3d-gallery/`).
 
 Unlike renderers, apps are **optional** — they are compiled only when the `apps`
@@ -104,7 +104,7 @@ media   = [video-manager, media-manager, media-viewer]
 course  = [course]
 bpmn    = [bpmn-viewer]
 apps    = [workspace-apps]
-           └── app-publisher
+           └── publications
            └── js-tool-viewer
            └── gallery3d
 ```

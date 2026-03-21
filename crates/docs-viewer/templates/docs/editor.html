@@ -149,7 +149,7 @@
                 <div class="tabs tabs-border tabs-sm mb-3">
                     <a class="tab tab-active" id="tab-media" onclick="switchTab('media')">Media</a>
                     <a class="tab" id="tab-files" onclick="switchTab('files')">Files</a>
-                    <a class="tab" id="tab-apps" onclick="switchTab('apps')">Apps</a>
+                    <a class="tab" id="tab-apps" onclick="switchTab('apps')">Publish</a>
                     <a class="tab" id="tab-ai" onclick="switchTab('ai')">AI</a>
                 </div>
 
@@ -179,13 +179,29 @@
 
                 <!-- Files Tab -->
                 <div id="panel-files" class="insert-tab-content">
+                    <input
+                        type="text"
+                        id="files-search"
+                        placeholder="Search workspace files..."
+                        class="input input-xs w-full mb-2"
+                        oninput="debounceFileSearch(this.value)"
+                    />
+                    <div id="files-breadcrumb" class="flex items-center gap-1 text-xs text-base-content/50 mb-2 flex-wrap"></div>
                     <div id="files-list" class="space-y-1">
                         <div class="text-xs opacity-50 text-center py-4">Loading...</div>
                     </div>
                 </div>
 
-                <!-- Apps Tab -->
+                <!-- Publications Tab -->
                 <div id="panel-apps" class="insert-tab-content">
+                    <div class="flex gap-1 mb-2">
+                        <select id="pub-type-filter" class="select select-xs flex-1" onchange="loadApps()">
+                            <option value="">All types</option>
+                            <option value="app">Apps</option>
+                            <option value="course">Courses</option>
+                            <option value="presentation">Presentations</option>
+                        </select>
+                    </div>
                     <div id="apps-list" class="space-y-1">
                         <div class="text-xs opacity-50 text-center py-4">Loading...</div>
                     </div>
@@ -497,57 +513,94 @@
 
     // ── Files Tab ──────────────────────────────────────────────────────────
 
-    async function loadFiles() {
+    let filesCurrentPath = FOLDER_PATH;
+    let fileSearchTimer = null;
+    let fileSearchActive = false;
+
+    function debounceFileSearch(value) {
+        clearTimeout(fileSearchTimer);
+        fileSearchTimer = setTimeout(() => {
+            if (value.trim()) {
+                fileSearchActive = true;
+                searchFiles(value.trim());
+            } else {
+                fileSearchActive = false;
+                loadFiles(filesCurrentPath);
+            }
+        }, 300);
+    }
+
+    async function searchFiles(query) {
         const list = document.getElementById('files-list');
-        list.innerHTML = '<div class="text-xs opacity-50 text-center py-4">Loading...</div>';
+        list.innerHTML = '<div class="text-xs opacity-50 text-center py-4">Searching...</div>';
+        document.getElementById('files-breadcrumb').innerHTML = '';
 
         try {
-            const params = new URLSearchParams({ path: FOLDER_PATH });
-            const resp = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/list?` + params.toString());
-            if (!resp.ok) throw new Error('Failed to load files');
+            const resp = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/search?q=${encodeURIComponent(query)}`);
+            if (!resp.ok) throw new Error('Search failed');
             const data = await resp.json();
-
-            const files = (data.files || []).filter(f => {
-                const mt = f.mime_type || '';
-                return mt.startsWith('video/') || mt.startsWith('image/');
-            });
+            const files = data.files || [];
 
             if (files.length === 0) {
-                list.innerHTML = '<div class="text-xs opacity-50 text-center py-4">No media files in this folder</div>';
+                list.innerHTML = '<div class="text-xs opacity-50 text-center py-4">No files found</div>';
                 return;
             }
 
             list.innerHTML = '';
-            files.forEach(f => {
-                const div = document.createElement('div');
-                div.className = 'media-item';
-                div.title = 'Insert ' + f.name;
-                div.onclick = () => insertFileSnippet(f);
+            files.forEach(f => renderFileItem(f, list, true));
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        } catch (e) {
+            list.innerHTML = '<div class="text-xs text-error text-center py-4">Search failed</div>';
+        }
+    }
 
-                const mt = f.mime_type || '';
+    async function loadFiles(path) {
+        if (path === undefined) path = filesCurrentPath;
+        filesCurrentPath = path;
+        const list = document.getElementById('files-list');
+        list.innerHTML = '<div class="text-xs opacity-50 text-center py-4">Loading...</div>';
+
+        // Build breadcrumb
+        renderFilesBreadcrumb(path);
+
+        try {
+            const params = new URLSearchParams({ path });
+            const resp = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/list?` + params.toString());
+            if (!resp.ok) throw new Error('Failed to load files');
+            const data = await resp.json();
+
+            const folders = data.folders || [];
+            const files = data.files || [];
+
+            if (folders.length === 0 && files.length === 0) {
+                list.innerHTML = '<div class="text-xs opacity-50 text-center py-4">Empty folder</div>';
+                return;
+            }
+
+            list.innerHTML = '';
+
+            // Render folders
+            folders.forEach(folder => {
+                const div = document.createElement('div');
+                div.className = 'media-item cursor-pointer';
+                div.title = 'Open ' + folder.name;
+                div.onclick = () => { document.getElementById('files-search').value = ''; fileSearchActive = false; loadFiles(folder.path); };
+
                 const icon = document.createElement('div');
-                icon.className = 'w-10 h-10 rounded bg-base-200 flex-shrink-0 overflow-hidden flex items-center justify-center';
-                if (mt.startsWith('image/')) {
-                    const serveUrl = `/api/workspaces/${WORKSPACE_ID}/files/serve?path=${encodeURIComponent(f.path)}`;
-                    icon.innerHTML = `<img src="${serveUrl}" class="w-full h-full object-cover" alt="" loading="lazy">`;
-                } else {
-                    icon.innerHTML = `<i data-lucide="video" class="w-5 h-5 opacity-60"></i>`;
-                }
+                icon.className = 'w-8 h-8 rounded bg-base-200 flex-shrink-0 flex items-center justify-center';
+                icon.innerHTML = `<i data-lucide="folder" class="w-4 h-4 text-amber-500"></i>`;
 
                 const info = document.createElement('div');
                 info.className = 'media-info';
-                info.innerHTML = `<div class="media-name">${escHtml(f.name)}</div><div class="media-type-badge">${escHtml(mt.split('/')[0] || '')}</div>`;
-
-                const btn = document.createElement('button');
-                btn.className = 'btn btn-ghost btn-xs';
-                btn.innerHTML = '<i data-lucide="plus" class="w-3 h-3"></i>';
-                btn.onclick = (e) => { e.stopPropagation(); insertFileSnippet(f); };
+                info.innerHTML = `<div class="media-name">${escHtml(folder.name)}</div><div class="media-type-badge">${folder.file_count} file${folder.file_count !== 1 ? 's' : ''}</div>`;
 
                 div.appendChild(icon);
                 div.appendChild(info);
-                div.appendChild(btn);
                 list.appendChild(div);
             });
+
+            // Render files
+            files.forEach(f => renderFileItem(f, list, false));
 
             if (typeof lucide !== 'undefined') lucide.createIcons();
         } catch (e) {
@@ -555,78 +608,194 @@
         }
     }
 
+    function renderFilesBreadcrumb(path) {
+        const bc = document.getElementById('files-breadcrumb');
+        bc.innerHTML = '';
+
+        // Root link
+        const root = document.createElement('a');
+        root.className = 'hover:text-primary cursor-pointer';
+        root.textContent = 'root';
+        root.onclick = () => { document.getElementById('files-search').value = ''; fileSearchActive = false; loadFiles(''); };
+        bc.appendChild(root);
+
+        if (!path) return;
+
+        const parts = path.split('/').filter(Boolean);
+        let accumulated = '';
+        parts.forEach(part => {
+            accumulated += (accumulated ? '/' : '') + part;
+            const sep = document.createElement('span');
+            sep.textContent = ' / ';
+            bc.appendChild(sep);
+
+            const link = document.createElement('a');
+            link.className = 'hover:text-primary cursor-pointer';
+            link.textContent = part;
+            const linkPath = accumulated;
+            link.onclick = () => { document.getElementById('files-search').value = ''; fileSearchActive = false; loadFiles(linkPath); };
+            bc.appendChild(link);
+        });
+    }
+
+    function renderFileItem(f, container, showFullPath) {
+        const mt = f.mime_type || '';
+        const div = document.createElement('div');
+        div.className = 'media-item';
+        div.title = 'Insert ' + f.name;
+        div.onclick = () => insertFileSnippet(f);
+
+        const icon = document.createElement('div');
+        icon.className = 'w-8 h-8 rounded bg-base-200 flex-shrink-0 overflow-hidden flex items-center justify-center';
+        if (mt.startsWith('image/')) {
+            const serveUrl = `/api/workspaces/${WORKSPACE_ID}/files/serve?path=${encodeURIComponent(f.path)}`;
+            icon.innerHTML = `<img src="${serveUrl}" class="w-full h-full object-cover" alt="" loading="lazy">`;
+        } else {
+            const lucideIcon = f.icon || (mt.startsWith('video/') ? 'video' : 'file');
+            icon.innerHTML = `<i data-lucide="${lucideIcon}" class="w-4 h-4 opacity-60"></i>`;
+        }
+
+        const info = document.createElement('div');
+        info.className = 'media-info';
+        const displayName = showFullPath ? f.path : f.name;
+        const typeLabel = mt.split('/')[0] || 'file';
+        info.innerHTML = `<div class="media-name">${escHtml(displayName)}</div><div class="media-type-badge">${escHtml(typeLabel)}</div>`;
+
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-ghost btn-xs';
+        btn.innerHTML = '<i data-lucide="plus" class="w-3 h-3"></i>';
+        btn.onclick = (e) => { e.stopPropagation(); insertFileSnippet(f); };
+
+        div.appendChild(icon);
+        div.appendChild(info);
+        div.appendChild(btn);
+        container.appendChild(div);
+    }
+
     function insertFileSnippet(f) {
         const mt = f.mime_type || '';
+        // Compute relative path from current folder to the file
+        let relPath = f.path;
+        if (FOLDER_PATH && f.path.startsWith(FOLDER_PATH + '/')) {
+            relPath = f.path.slice(FOLDER_PATH.length + 1);
+        }
         let snippet;
         if (mt.startsWith('video/') || f.name.match(/\.mp4$/i)) {
-            snippet = '```workspace-video\n' + f.name + '\n```';
+            snippet = '```workspace-video\n' + relPath + '\n```';
+        } else if (mt.startsWith('image/')) {
+            snippet = '![' + f.name + '](' + relPath + ')';
+        } else if (f.is_editable) {
+            // Link to editable files (markdown, yaml, etc.)
+            snippet = '[' + f.name + '](' + relPath + ')';
         } else {
-            snippet = '![' + f.name + '](' + f.name + ')';
+            snippet = '[' + f.name + '](' + relPath + ')';
         }
         insertAtCursor(snippet);
     }
 
-    // ── Apps Tab ──────────────────────────────────────────────────────────
+    // ── Publications Tab ─────────────────────────────────────────────────
+
+    let _allPublications = [];
 
     async function loadApps() {
         const list = document.getElementById('apps-list');
         list.innerHTML = '<div class="text-xs opacity-50 text-center py-4">Loading...</div>';
 
         try {
-            const resp = await fetch('/api/apps');
-            if (!resp.ok) throw new Error('Failed to load apps');
+            const resp = await fetch('/api/publications');
+            if (!resp.ok) throw new Error('Failed to load publications');
             const data = await resp.json();
-            const apps = data.apps || data || [];
+            _allPublications = (data.apps || data || []).filter(a => a.published !== false);
 
-            const published = apps.filter(a => a.published !== false);
-
-            if (published.length === 0) {
-                list.innerHTML = '<div class="text-xs opacity-50 text-center py-4">No published apps</div>';
-                return;
-            }
-
-            list.innerHTML = '';
-            published.forEach(app => {
-                const div = document.createElement('div');
-                div.className = 'media-item';
-                div.title = 'Insert ' + app.title;
-                div.onclick = () => insertAppSnippet(app);
-
-                const icon = document.createElement('div');
-                icon.className = 'w-10 h-10 flex items-center justify-center rounded bg-base-200 flex-shrink-0 overflow-hidden';
-                if (app.thumbnail_url) {
-                    icon.innerHTML = `<img src="${escHtml(app.thumbnail_url)}" class="w-full h-full object-cover" alt="" />`;
-                } else {
-                    icon.innerHTML = '<i data-lucide="layout-template" class="w-5 h-5 opacity-60"></i>';
-                }
-
-                const info = document.createElement('div');
-                info.className = 'media-info';
-                info.innerHTML = `<div class="media-name">${escHtml(app.title)}</div><div class="media-type-badge">app</div>`;
-
-                const btn = document.createElement('button');
-                btn.className = 'btn btn-ghost btn-xs';
-                btn.innerHTML = '<i data-lucide="plus" class="w-3 h-3"></i>';
-                btn.onclick = (e) => { e.stopPropagation(); insertAppSnippet(app); };
-
-                div.appendChild(icon);
-                div.appendChild(info);
-                div.appendChild(btn);
-                list.appendChild(div);
-            });
-
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+            renderPublications();
         } catch (e) {
             list.innerHTML = '<div class="text-xs text-error text-center py-4">Failed to load</div>';
         }
     }
 
-    function insertAppSnippet(app) {
-        let url = '/pub/' + app.app_id;
-        if (app.access === 'code' && app.access_code) {
-            url += '?code=' + encodeURIComponent(app.access_code);
+    function renderPublications() {
+        const list = document.getElementById('apps-list');
+        const typeFilter = document.getElementById('pub-type-filter').value;
+
+        const filtered = typeFilter
+            ? _allPublications.filter(p => p.pub_type === typeFilter)
+            : _allPublications;
+
+        if (filtered.length === 0) {
+            list.innerHTML = '<div class="text-xs opacity-50 text-center py-4">No publications found</div>';
+            return;
         }
-        const snippet = '```app-embed height=480\n' + url + '\n```';
+
+        list.innerHTML = '';
+        filtered.forEach(pub => {
+            const div = document.createElement('div');
+            div.className = 'media-item';
+            div.title = 'Insert ' + pub.title;
+            div.onclick = () => insertPubSnippet(pub);
+
+            const icon = document.createElement('div');
+            icon.className = 'w-8 h-8 flex items-center justify-center rounded bg-base-200 flex-shrink-0 overflow-hidden';
+            if (pub.thumbnail_url) {
+                icon.innerHTML = `<img src="${escHtml(pub.thumbnail_url)}" class="w-full h-full object-cover" alt="" />`;
+            } else {
+                const lucideIcon = pubTypeIcon(pub.pub_type);
+                icon.innerHTML = `<i data-lucide="${lucideIcon}" class="w-4 h-4 opacity-60"></i>`;
+            }
+
+            const info = document.createElement('div');
+            info.className = 'media-info';
+            const badgeColor = pubTypeBadgeColor(pub.pub_type);
+            info.innerHTML = `<div class="media-name">${escHtml(pub.title)}</div><div class="media-type-badge" style="color:${badgeColor}">${escHtml(pub.pub_type)}</div>`;
+
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-ghost btn-xs';
+            btn.innerHTML = '<i data-lucide="plus" class="w-3 h-3"></i>';
+            btn.onclick = (e) => { e.stopPropagation(); insertPubSnippet(pub); };
+
+            div.appendChild(icon);
+            div.appendChild(info);
+            div.appendChild(btn);
+            list.appendChild(div);
+        });
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function pubTypeIcon(type) {
+        switch (type) {
+            case 'app': return 'layout-template';
+            case 'course': return 'graduation-cap';
+            case 'presentation': return 'presentation';
+            default: return 'globe';
+        }
+    }
+
+    function pubTypeBadgeColor(type) {
+        switch (type) {
+            case 'app': return '#3b82f6';
+            case 'course': return '#f59e0b';
+            case 'presentation': return '#7c3aed';
+            default: return '#6b7280';
+        }
+    }
+
+    function insertPubSnippet(pub) {
+        let url = '/pub/' + pub.slug;
+        if (pub.access === 'code' && pub.access_code) {
+            url += '?code=' + encodeURIComponent(pub.access_code);
+        }
+
+        let snippet;
+        if (pub.pub_type === 'app') {
+            // Apps embed as interactive iframes
+            snippet = '```app-embed height=480\n' + url + '\n```';
+        } else if (pub.pub_type === 'presentation') {
+            // Presentations embed as iframes too
+            snippet = '```app-embed height=480\n' + url + '\n```';
+        } else {
+            // Courses and other types insert as markdown links
+            snippet = '[' + pub.title + '](' + url + ')';
+        }
         insertAtCursor(snippet);
     }
 

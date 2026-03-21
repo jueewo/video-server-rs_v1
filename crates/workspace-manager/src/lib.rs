@@ -933,6 +933,16 @@ pub async fn list_files_handler(
     let listing = file_browser::list_dir(&workspace_root, &path)
         .map_err(|_| StatusCode::NOT_FOUND)?;
 
+    let folders: Vec<serde_json::Value> = listing
+        .folders
+        .into_iter()
+        .map(|f| serde_json::json!({
+            "name": f.name,
+            "path": f.path,
+            "file_count": f.file_count,
+        }))
+        .collect();
+
     let files: Vec<serde_json::Value> = listing
         .files
         .into_iter()
@@ -940,6 +950,42 @@ pub async fn list_files_handler(
             "name": f.name,
             "path": f.path,
             "mime_type": f.mime_type,
+            "icon": f.icon,
+            "is_editable": f.is_editable,
+        }))
+        .collect();
+
+    Ok(Json(serde_json::json!({ "folders": folders, "files": files })))
+}
+
+/// GET /api/workspaces/{workspace_id}/files/search?q=...
+///
+/// Searches files across the entire workspace by name/path substring.
+/// Returns JSON: `{ "files": [{ "name", "path", "mime_type", "icon", "is_editable" }] }`.
+pub async fn search_files_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+    Path(workspace_id): Path<String>,
+    Query(query): Query<std::collections::HashMap<String, String>>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    check_scope(&user, "read")?;
+    let user_id = require_auth(&session).await?;
+    verify_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let q = query.get("q").cloned().unwrap_or_default();
+    let workspace_root = state.storage.workspace_root(&workspace_id);
+
+    let results = file_browser::search_files(&workspace_root, &q, 50);
+
+    let files: Vec<serde_json::Value> = results
+        .into_iter()
+        .map(|f| serde_json::json!({
+            "name": f.name,
+            "path": f.path,
+            "mime_type": f.mime_type,
+            "icon": f.icon,
+            "is_editable": f.is_editable,
         }))
         .collect();
 
@@ -5386,6 +5432,10 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         .route(
             "/api/workspaces/{workspace_id}/files/list",
             get(list_files_handler),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/files/search",
+            get(search_files_handler),
         )
         .route(
             "/api/workspaces/{workspace_id}/files/save-text",

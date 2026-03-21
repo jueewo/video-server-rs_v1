@@ -28,12 +28,12 @@ Workspace folder (typed)            App Template (optional)
                     for js-tools)
                          │
                          ▼
-              storage/apps/{app_id}/     ← static output snapshot
+              storage-apps/{slug}/       ← static output snapshot
                   ├── index.html
                   └── ...
                          │
                          ▼
-            /pub/{app_id}  ──►  end users access
+            /pub/{slug}  ──►  end users access
 ```
 
 **Key principle:** workspace stays clean — only the actual content lives there, no framework boilerplate. The app template provides the structure and UI. Build merges them.
@@ -49,7 +49,7 @@ Workspace folder (typed)            App Template (optional)
 | `bpmn-simulator` | Copy + generate index wrapping BPMN viewer | Minimal HTML wrapper |
 | *(future)* `3d-scene` | Copy + generate gallery index | Minimal HTML wrapper |
 
-Build runs async (like HLS transcoding): spawns a process, tracks progress, output lands in `storage/apps/{app_id}/`.
+Build runs async (like HLS transcoding): spawns a process, tracks progress, output lands in `storage-apps/{slug}/`.
 
 ---
 
@@ -76,61 +76,49 @@ Published apps reuse the existing access-code infrastructure:
 
 ## Data Model
 
-```sql
-CREATE TABLE published_apps (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    app_id       TEXT NOT NULL UNIQUE,      -- stable slug, e.g. "my-course"
-    workspace_id TEXT NOT NULL,
-    folder_path  TEXT NOT NULL,             -- source path within workspace
-    folder_type  TEXT NOT NULL,             -- "js-tool", "course", etc.
-    user_id      TEXT NOT NULL,
-    title        TEXT NOT NULL,
-    description  TEXT NOT NULL DEFAULT '',
-    access       TEXT NOT NULL DEFAULT 'private',  -- "public" | "code" | "private"
-    access_code  TEXT,
-    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
-);
-```
+> **Note:** The `published_apps` table has been superseded by the unified `publications` table. See [Publications Architecture](PUBLICATIONS_ARCHITECTURE.md) for the current schema. Existing `published_apps` rows were migrated into `publications` with `slug = app_id`.
 
-Published output stored at: `storage/apps/{app_id}/` (snapshot, separate from workspace).
+Published output stored at: `storage-apps/{slug}/` (snapshot, separate from workspace).
 
 ---
 
 ## URL Design
 
+> **Note:** App publishing is now handled by the unified publications system. See [Publications Architecture](PUBLICATIONS_ARCHITECTURE.md) for the current route table.
+
 | URL | Purpose |
 |---|---|
-| `/pub/{app_id}` | Public entry point for a published app |
-| `/pub/{app_id}/{*path}` | File serving within the app |
-| `/pub/{app_id}?code=XXX` | Access-code protected entry |
-| `/api/apps/publish` | POST: publish (copy/build) a workspace folder |
-| `/api/apps/{app_id}` | GET / PUT / DELETE: manage a published app |
-| `/my-apps` | Owner's dashboard of published apps |
+| `/pub/{slug}` | Public entry point for a published app |
+| `/pub/{slug}/{*path}` | File serving within the app |
+| `/pub/{slug}?code=XXX` | Access-code protected entry |
+| `/api/publications` | POST: publish a workspace folder; GET: list publications |
+| `/api/publications/{slug}` | PUT / DELETE: manage a publication |
+| `/my-publications` | Owner's dashboard of all publications |
 
-> `/apps` (platform apps page showing 3D gallery, Course Viewer, etc.) is distinct from `/pub/` (user-published apps).
+> `/apps` (platform apps page showing 3D gallery, Course Viewer, etc.) is distinct from `/pub/` (user-published content).
 
 ---
 
 ## Implementation Progress
 
-### Phase 1 — Foundation ✅ / 🔨
+### Phase 1 — Foundation ✅
 - [x] js-tool viewer crate — serves static files from workspace folders (auth-gated, owner-only)
 - [x] AppLink on folder type definitions — connects folder types to app URLs
 - [x] "Open App" button in workspace folder detail view
 - [x] Folder gallery at `/js-apps/{workspace_id}/{folder}` (owner preview)
-- [x] `published_apps` DB table — migration `022_published_apps.sql`
-- [x] Publish API: `POST /api/apps/publish` — copy files to `storage/apps/{app_id}/`
-- [x] Public serving: `GET /pub/{app_id}` + `GET /pub/{app_id}/{*path}` with access control
-- [x] Access control: public + code support on `/pub/` routes (app-publisher crate)
+- [x] `publications` DB table (migrated from `published_apps`) — unified registry
+- [x] Publish API: `POST /api/publications` — copy files to `storage-apps/{slug}/`
+- [x] Public serving: `GET /pub/{slug}` + `GET /pub/{slug}/{*path}` with access control
+- [x] Access control: public + code support on `/pub/` routes (publications crate)
 - [x] "Publish / Launch" button in workspace folder detail view (typed folders only)
 
-### Phase 2 — Management
-- [x] List API: `GET /api/apps` — user's published apps
-- [x] Edit API: `PUT /api/apps/{app_id}` — title, description, access mode
-- [x] Delete API: `DELETE /api/apps/{app_id}` — removes snapshot + DB record
-- [ ] Re-publish: copy workspace again (overwrite snapshot)
-- [x] `/my-apps` dashboard — list published apps with status, URLs, access settings
+### Phase 2 — Management ✅
+- [x] List API: `GET /api/publications` — user's publications
+- [x] Edit API: `PUT /api/publications/{slug}` — title, description, access mode
+- [x] Delete API: `DELETE /api/publications/{slug}` — removes snapshot + DB record
+- [x] Re-publish: `POST /api/publications/{slug}/republish` — copy workspace again
+- [x] `/my-publications` dashboard — all publications with status, URLs, access settings
+- [x] `/catalog` — public catalog of all public publications
 
 ### Phase 3 — Build Pipeline
 - [ ] App templates registry (`storage/app-templates/` or embedded)
@@ -157,11 +145,14 @@ Published output stored at: `storage/apps/{app_id}/` (snapshot, separate from wo
 
 | File | Role |
 |---|---|
+| `crates/publications/src/lib.rs` | Publications API + `/pub/{slug}` dispatch |
+| `crates/publications/src/serve.rs` | Type-based serving (app/course/presentation) |
+| `crates/publications/src/helpers.rs` | Snapshot copy, thumbnail, gallery generation |
+| `crates/publications/src/db.rs` | CRUD queries for publications table |
 | `crates/standalone/js-tool-viewer/src/lib.rs` | Owner-only workspace file serving (preview) |
-| `crates/standalone/app-publisher/src/lib.rs` | Publish API + `/pub/` serving with access control |
 | `crates/workspace-manager/src/folder_type_registry.rs` | AppLink struct, folder type definitions |
-| `crates/workspace-manager/src/lib.rs` | Workspace browser, "Open App" button |
+| `crates/workspace-manager/src/lib.rs` | Workspace browser, "Publish" button |
 | `crates/workspace-manager/src/builtin_types/js-tool.yaml` | js-tool folder type |
 | `src/apps-catalog.yaml` | Platform-level apps catalog |
-| `migrations/022_published_apps.sql` | published_apps table |
-| `storage/apps/{app_id}/` | Published app snapshot (static files) |
+| `migrations/20260321120000_publications.sql` | publications table + migration from published_apps |
+| `storage-apps/{slug}/` | Published app snapshot (static files) |

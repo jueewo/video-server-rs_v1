@@ -17,6 +17,7 @@ use std::path::Path;
 use std::sync::Arc;
 use workspace_core::{FolderTypeRenderer, FolderViewContext};
 use serde::Deserialize;
+use tower_sessions::Session;
 
 pub use presentation::{PresentationConfig, PresentationData};
 pub use structure::{CourseModule, CourseStructure, Lesson};
@@ -135,6 +136,10 @@ struct CourseViewerTemplate {
     /// the client-side image URL rewriter.
     lesson_folder: String,
     branding: ResolvedBranding,
+    /// Base URL for lesson links. When set (e.g. "/pub/my-course"), links become
+    /// "{base_url}?path={lesson}". When empty, falls back to the legacy
+    /// "/course?code={code}&workspace_id={ws}&folder={fp}&path={lesson}" format.
+    base_url: String,
 }
 
 #[derive(Template)]
@@ -199,10 +204,19 @@ struct CourseQuery {
 // ── Standalone handler ────────────────────────────────────────────────────────
 
 /// GET /course?code={code}&folder={optional}&path={optional_lesson}
+/// Requires an authenticated session. Unauthenticated users should use /pub/{slug} instead.
 async fn course_viewer_handler(
+    session: Session,
     Query(q): Query<CourseQuery>,
     State(state): State<Arc<CourseState>>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    // Require authenticated session — public access goes through /pub/{slug}
+    let _user_id: String = session
+        .get("user_id")
+        .await
+        .ok()
+        .flatten()
+        .ok_or(StatusCode::UNAUTHORIZED)?;
     // No code provided — show landing page with entry form
     let code = match q.code.as_deref() {
         Some(c) if !c.is_empty() => c.to_string(),
@@ -324,6 +338,97 @@ async fn course_viewer_handler(
         raw_markdown,
         lesson_folder,
         branding,
+        base_url: String::new(),
+    };
+
+    let html = tmpl.render().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Html(html))
+}
+
+/// Render course viewer for a resolved workspace folder. Called by publications dispatcher.
+/// `base_url` is the clean publication URL (e.g. "/pub/my-course") used for lesson navigation links.
+pub async fn render_public_course(
+    _pool: &SqlitePool,
+    storage: &UserStorageManager,
+    workspace_id: &str,
+    folder_path: &str,
+    code: &str,
+    lesson_path: Option<&str>,
+    base_url: &str,
+) -> Result<Html<String>, StatusCode> {
+    let workspace_root = storage.workspace_root(workspace_id);
+    let folder_abs = workspace_root.join(folder_path);
+
+    let course = structure::load_course(&folder_abs, folder_path)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let branding = resolve_branding(&workspace_root, workspace_id, folder_path, &folder_abs, code);
+
+    let active_lesson_path = lesson_path.map(|s| s.to_string()).or_else(|| {
+        course
+            .modules
+            .first()
+            .and_then(|m| m.sections.first())
+            .and_then(|s| s.lessons.first())
+            .map(|l| l.path.clone())
+    });
+
+    let (raw_markdown, lesson_folder) = if let Some(ref lpath) = active_lesson_path {
+        let file_abs = folder_abs.join(lpath);
+        let content = std::fs::read_to_string(&file_abs).ok();
+        let folder = lpath.rfind('/').map(|i| lpath[..i].to_string()).unwrap_or_default();
+        (content, folder)
+    } else {
+        (None, String::new())
+    };
+
+    let tmpl = CourseViewerTemplate {
+        authenticated: false,
+        course,
+        code: code.to_string(),
+        workspace_id: workspace_id.to_string(),
+        folder_path: folder_path.to_string(),
+        active_lesson_path,
+        raw_markdown,
+        lesson_folder,
+        branding,
+        base_url: base_url.to_string(),
+    };
+
+    let html = tmpl.render().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Html(html))
+}
+
+/// Render presentation viewer for a resolved workspace folder. Called by publications dispatcher.
+pub async fn render_public_presentation(
+    _pool: &SqlitePool,
+    storage: &UserStorageManager,
+    workspace_id: &str,
+    folder_path: &str,
+    code: &str,
+) -> Result<Html<String>, StatusCode> {
+    let workspace_root = storage.workspace_root(workspace_id);
+    let folder_abs = workspace_root.join(folder_path);
+
+    let data = presentation::load_presentation(&folder_abs)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let branding = resolve_branding(&workspace_root, workspace_id, folder_path, &folder_abs, code);
+
+    let tmpl = PresentationViewerTemplate {
+        title: data.title,
+        theme: data.theme,
+        transition: data.transition,
+        show_progress: data.show_progress,
+        show_slide_number: data.show_slide_number,
+        loop_: data.loop_,
+        auto_slide: data.auto_slide,
+        raw_slides: data.raw_slides,
+        mermaid_diagrams_json: data.mermaid_diagrams_json,
+        workspace_id: workspace_id.to_string(),
+        folder_path: folder_path.to_string(),
+        code: code.to_string(),
+        branding,
     };
 
     let html = tmpl.render().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -401,6 +506,8 @@ struct PresentationQuery {
 // ── Standalone handler ────────────────────────────────────────────────────────
 
 /// GET /presentation?code={code}&workspace_id={optional}&folder={optional}
+/// Note: kept open (no session required) because published courses embed presentations
+/// via iframe pointing to this route with the course access code.
 async fn presentation_viewer_handler(
     Query(q): Query<PresentationQuery>,
     State(state): State<Arc<CourseState>>,

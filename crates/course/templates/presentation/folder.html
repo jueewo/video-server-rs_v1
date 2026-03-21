@@ -31,18 +31,15 @@
             </div>
         </div>
         <div class="page-header-actions">
+            <button onclick="openPublishPresentationModal()" class="btn btn-success btn-sm gap-2">
+                <i data-lucide="rocket" class="w-4 h-4"></i> Publish
+            </button>
             {% if let Some(code) = preview_code %}
             <a href="/presentation?code={{ code }}&workspace_id={{ workspace_id }}&folder={{ folder_path }}"
                target="_blank"
                class="btn btn-primary btn-sm gap-2">
-                <i data-lucide="play" class="w-4 h-4"></i> Start Presentation
+                <i data-lucide="play" class="w-4 h-4"></i> Preview
             </a>
-            {% else %}
-            <div class="tooltip tooltip-left" data-tip="Share this folder with an access code to enable preview">
-                <button class="btn btn-sm btn-ghost gap-2" disabled>
-                    <i data-lucide="play" class="w-4 h-4"></i> Start Presentation
-                </button>
-            </div>
             {% endif %}
             <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}?files=1"
                class="btn btn-ghost btn-sm gap-2">
@@ -95,9 +92,171 @@
     {% endif %}
 
 </div>
+
+<!-- Publish Presentation Modal -->
+<dialog id="publish-pres-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4 flex items-center gap-2" id="publish-pres-title">
+            <i data-lucide="rocket" class="w-5 h-5"></i> Publish Presentation
+        </h3>
+        <div id="pres-existing-banner" class="hidden alert alert-info mb-3 text-sm">
+            <div class="w-full">
+                <p>This presentation is already published.</p>
+                <a id="pres-existing-link" href="#" target="_blank" class="link text-xs mt-0.5 block"></a>
+                <label class="flex items-center gap-2 mt-2 cursor-pointer">
+                    <input type="checkbox" id="pres-create-new" class="checkbox checkbox-sm" onchange="togglePresPublishMode()" />
+                    <span>Create a new publication instead</span>
+                </label>
+            </div>
+        </div>
+        <div id="pres-new-fields">
+            <div class="mb-3">
+                <label class="label"><span>Title</span></label>
+                <input type="text" id="pres-title-input" class="input" />
+            </div>
+            <div class="mb-3">
+                <label class="label"><span>Description <span class="text-base-content/50">(optional)</span></span></label>
+                <textarea id="pres-description" class="textarea" rows="2"></textarea>
+            </div>
+            <div class="mb-4">
+                <label class="label"><span>Access</span></label>
+                <select id="pres-access" class="select">
+                    <option value="public">Public — anyone with the link</option>
+                    <option value="code">Code — requires access code</option>
+                    <option value="bundled">Bundled — accessible only through a parent course</option>
+                    <option value="private">Private — owner only</option>
+                </select>
+            </div>
+        </div>
+        <div id="pres-result" class="hidden alert mb-3"></div>
+        <div class="modal-action">
+            <button onclick="document.getElementById('publish-pres-modal').close()" class="btn btn-ghost">Cancel</button>
+            <button onclick="submitPublishPresentation()" id="pres-submit-btn" class="btn btn-success">Publish</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
 {% endblock %}
 {% block extra_scripts %}
 <script>
+    const WORKSPACE_ID = '{{ workspace_id }}';
+    const FOLDER_PATH = '{{ folder_path }}';
+    let _existingPresSlug = null;
+
+    async function openPublishPresentationModal() {
+        const folderName = FOLDER_PATH.split('/').pop() || FOLDER_PATH;
+        document.getElementById('pres-title-input').value = folderName;
+        document.getElementById('pres-description').value = '';
+        document.getElementById('pres-access').value = 'public';
+        document.getElementById('pres-result').classList.add('hidden');
+        document.getElementById('pres-submit-btn').disabled = false;
+        document.getElementById('pres-create-new').checked = false;
+
+        _existingPresSlug = null;
+        const banner = document.getElementById('pres-existing-banner');
+        banner.classList.add('hidden');
+        document.getElementById('pres-new-fields').classList.remove('hidden');
+        document.getElementById('publish-pres-title').textContent = 'Publish Presentation';
+        document.getElementById('pres-submit-btn').textContent = 'Publish';
+
+        try {
+            const res = await fetch(`/api/publications/find?workspace_id=${encodeURIComponent(WORKSPACE_ID)}&folder_path=${encodeURIComponent(FOLDER_PATH)}`);
+            if (res.ok) {
+                const existing = await res.json();
+                _existingPresSlug = existing.slug;
+                const existingUrl = `/pub/${existing.slug}`;
+                document.getElementById('pres-existing-link').href = existingUrl;
+                document.getElementById('pres-existing-link').textContent = `${window.location.origin}${existingUrl}`;
+                banner.classList.remove('hidden');
+                document.getElementById('pres-new-fields').classList.add('hidden');
+                document.getElementById('publish-pres-title').textContent = 'Update Published Presentation';
+                document.getElementById('pres-submit-btn').textContent = 'Update';
+            }
+        } catch (_) {}
+
+        document.getElementById('publish-pres-modal').showModal();
+    }
+
+    function togglePresPublishMode() {
+        const createNew = document.getElementById('pres-create-new').checked;
+        document.getElementById('pres-new-fields').classList.toggle('hidden', !createNew);
+        if (createNew) {
+            document.getElementById('publish-pres-title').textContent = 'Publish Presentation';
+            document.getElementById('pres-submit-btn').textContent = 'Publish';
+        } else {
+            document.getElementById('publish-pres-title').textContent = 'Update Published Presentation';
+            document.getElementById('pres-submit-btn').textContent = 'Update';
+        }
+    }
+
+    async function submitPublishPresentation() {
+        const resultEl = document.getElementById('pres-result');
+        const submitBtn = document.getElementById('pres-submit-btn');
+        submitBtn.disabled = true;
+        resultEl.classList.add('hidden');
+
+        const isUpdate = _existingPresSlug && !document.getElementById('pres-create-new').checked;
+
+        try {
+            let r;
+            if (isUpdate) {
+                r = await fetch(`/api/publications/${_existingPresSlug}/republish`, { method: 'POST' });
+            } else {
+                const title = document.getElementById('pres-title-input').value.trim();
+                const description = document.getElementById('pres-description').value.trim();
+                const access = document.getElementById('pres-access').value;
+                if (!title) { submitBtn.disabled = false; alert('Please enter a title.'); return; }
+
+                r = await fetch('/api/publications', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        pub_type: 'presentation',
+                        workspace_id: WORKSPACE_ID,
+                        folder_path: FOLDER_PATH,
+                        title,
+                        description,
+                        access,
+                    }),
+                });
+            }
+
+            if (r.ok) {
+                const data = await r.json();
+                const shareUrl = data.access_code
+                    ? `${window.location.origin}${data.url}?code=${data.access_code}`
+                    : `${window.location.origin}${data.url}`;
+                const verb = isUpdate ? 'Updated!' : 'Published!';
+                resultEl.className = 'alert alert-success mb-3';
+                resultEl.innerHTML = `<div class="w-full">
+                    <p class="font-semibold">${verb}</p>
+                    <p class="text-sm mt-1 break-all">
+                        <a href="${data.url}" target="_blank" class="link">${shareUrl}</a>
+                    </p>
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="navigator.clipboard.writeText('${shareUrl}').then(() => showToast('URL copied!', 'success'))"
+                                class="btn btn-xs btn-ghost">Copy link</button>
+                        <a href="/my-publications" class="btn btn-xs btn-ghost">My Publications</a>
+                    </div>
+                </div>`;
+                resultEl.classList.remove('hidden');
+                if (typeof showToast === 'function') showToast(verb, 'success');
+            } else {
+                const text = await r.text();
+                resultEl.className = 'alert alert-error mb-3';
+                resultEl.textContent = `Error ${r.status}: ${text}`;
+                resultEl.classList.remove('hidden');
+                submitBtn.disabled = false;
+            }
+        } catch (e) {
+            resultEl.className = 'alert alert-error mb-3';
+            resultEl.textContent = 'Network error: ' + e.message;
+            resultEl.classList.remove('hidden');
+            submitBtn.disabled = false;
+        }
+    }
+
     async function syncPresentationYaml() {
         const btn = event.currentTarget;
         btn.disabled = true;

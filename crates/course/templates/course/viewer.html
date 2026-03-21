@@ -81,7 +81,7 @@
                 </div>
                 {% endif %}
                 {% for lesson in section.lessons %}
-                <a href="/course?code={{ code }}&workspace_id={{ workspace_id }}&folder={{ folder_path }}&path={{ lesson.path }}"
+                <a href="{% if !base_url.is_empty() %}{{ base_url }}?path={{ lesson.path }}{% else %}/course?code={{ code }}&workspace_id={{ workspace_id }}&folder={{ folder_path }}&path={{ lesson.path }}{% endif %}"
                    class="flex items-center gap-2 py-2 text-sm transition-colors
                           {% if section.title.is_some() %}pl-6 pr-4{% else %}px-4{% endif %}
                           {% if active_lesson_path == Some(lesson.path.clone()) %}bg-primary text-primary-content font-medium{% else %}hover:bg-base-300 text-base-content/80{% endif %}">
@@ -267,6 +267,26 @@ loading="lazy" allowfullscreen></iframe>
 </div>`;
     }
 
+    function buildPresentation(langOpts, content) {
+        const heightMatch = langOpts.match(/height=(\d+)/);
+        const height = heightMatch ? parseInt(heightMatch[1]) : 480;
+        const subfolder = content.trim();
+        const folder = FOLDER_PATH ? `${FOLDER_PATH}/${subfolder}` : subfolder;
+        const url = `/presentation?code=${encodeURIComponent(CODE)}&workspace_id=${encodeURIComponent(WORKSPACE_ID)}&folder=${encodeURIComponent(folder)}`;
+        const q = s => s.replace(/"/g, '&quot;');
+        return `<div class="app-embed-container">
+<div class="app-embed-header">
+<span class="app-embed-title">&#x1F4CA; Presentation</span>
+<div class="app-embed-actions">
+<button onclick="openAppPopup('${q(url)}','Presentation')">&#x26F6; Expand</button>
+<a href="${q(url)}" target="_blank" rel="noopener">&#x2197; New tab</a>
+</div></div>
+<iframe src="${q(url)}" height="${height}" class="app-embed-frame"
+sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+loading="lazy" allowfullscreen></iframe>
+</div>`;
+    }
+
     // Extract $$...$$ and $...$ math blocks BEFORE marked.js sees the text.
     // marked.js would consume \\ (LaTeX line breaks) as markdown escape sequences,
     // mangling multi-line aligned blocks. We store raw LaTeX in data-k (base64)
@@ -285,6 +305,7 @@ loading="lazy" allowfullscreen></iframe>
         .replace(/```mermaid[^\n]*\n([\s\S]*?)```/g, (_, diagram) =>
             `<div class="mermaid">${diagram.trim()}</div>`)
         .replace(/```app-embed([^\n]*)\n([\s\S]*?)```/g, (_, langOpts, content) => buildAppEmbed(langOpts, content))
+        .replace(/```presentation([^\n]*)\n([\s\S]*?)```/g, (_, langOpts, content) => buildPresentation(langOpts, content))
         .replace(/```media-image([^\n]*)\n([\s\S]*?)```/g, (_, langOpts, slug) => buildMediaImage(langOpts, slug))
         .replace(/```media-video([^\n]*)\n([\s\S]*?)```/g, (_, langOpts, slug) => buildMediaVideo(langOpts, slug))
         .replace(/```workspace-video([^\n]*)\n([\s\S]*?)```/g, (_, langOpts, file) => buildWorkspaceVideo(langOpts, file))

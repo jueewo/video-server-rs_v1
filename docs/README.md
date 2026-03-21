@@ -32,6 +32,8 @@ docs/
 | Self-host the platform (Tier 3 / standalone) | `deployment/STANDALONE_CONFIG.md` |
 | Add a new folder-type app (dual-use crate) | `apps/DUAL_USE_PATTERN.md` |
 | Understand media serving, access codes, sharing | `management/ACCESS_CODES.md` |
+| Understand the publications registry | `management/PUBLICATIONS.md` |
+| Publish apps, courses, presentations | `user/PUBLISHING_GUIDE.md` |
 | Use the platform as a user | `user/` |
 | Work on the Rust codebase | `dev/` |
 
@@ -72,6 +74,7 @@ a code unlocks one or more folders. No user account needed for consumers.
 | `media-server-folder-type.md` | How the media-server folder type works |
 | `SWOT.md` | Competitive analysis |
 | `personas.md` | Target user personas |
+| `PUBLICATIONS.md` | Unified publications registry — types, access, slugs, catalog |
 
 ---
 
@@ -92,6 +95,15 @@ a code unlocks one or more folders. No user account needed for consumers.
 | `design/SITE_GENERATOR.md` | Site generator architecture: sitedef.yaml, page compilation pipeline, element schema registry, validator, redirect/config generation |
 | `dev/features/PAGE_ELEMENTS.md` | Complete reference for all 21 page element types: fields, YAML examples, flat vs legacy structure |
 | `dev/features/FRONTEND_UI.md` | Astro frontend architecture: layouts, theme system, typography, card components, Mermaid, search |
+
+---
+
+## Design / Architecture
+
+| File | What it covers |
+|---|---|
+| `design/PUBLICATIONS_ARCHITECTURE.md` | Publications crate design: routes, dispatch, cross-crate deps, DB schema |
+| `design/APPS_ARCHITECTURE.md` | App lifecycle, build strategies, access control |
 
 ---
 

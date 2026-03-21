@@ -1,15 +1,15 @@
-# Course Embeds — Apps, Images & Videos
+# Course Embeds — Apps, Images, Videos & Presentations
 
 > Audience: course authors.
-> How to embed interactive apps, media-server images, and media-server videos inside lesson markdown files.
+> How to embed interactive apps, media-server images, media-server videos, and presentations inside lesson markdown files.
 
-**Status:** Implemented 2026-03-09
+**Status:** Updated 2026-03-21
 
 ---
 
 ## Overview
 
-Three embed types are available inside any `.md` lesson file.
+Four embed types are available inside any `.md` lesson file.
 All use fenced code blocks with a special language tag — they are converted to HTML
 before the markdown parser runs, so they work reliably in any lesson.
 
@@ -18,6 +18,7 @@ before the markdown parser runs, so they work reliably in any lesson.
 | `app-embed` | Published JS app (iframe) | Public or code-gated |
 | `media-image` | Image from media server | Access code forwarded |
 | `media-video` | Video from media server (HLS + MP4) | Access code forwarded |
+| `presentation` | Presentation from same workspace (iframe) | Access code forwarded |
 
 ---
 
@@ -128,6 +129,43 @@ The media item must be accessible via the course's access code — see
 
 ---
 
+## Presentations
+
+Embeds a Reveal.js presentation from the same workspace as an inline iframe.
+The presentation subfolder path is relative to the course folder.
+
+````markdown
+```presentation
+slides/intro
+```
+````
+
+Custom height (default 480 px):
+
+````markdown
+```presentation height=500
+slides/intro
+```
+````
+
+The embed renders with a header bar containing an **Expand** button (fullscreen dialog)
+and a **New tab** link, matching the style of app embeds.
+
+The presentation is loaded via the standalone presentation viewer at
+`/presentation?code={course-code}&workspace_id={id}&folder={course-folder}/{subfolder}`.
+The course's access code is forwarded automatically.
+
+### How it works
+
+The `presentation` fence block resolves the subfolder path relative to the course folder.
+For example, if the course lives at `courses/linear-programming` and the block says
+`slides/intro`, the viewer loads the presentation from `courses/linear-programming/slides/intro`.
+
+The subfolder must contain Reveal.js slides (markdown or HTML) that the presentation
+viewer can render.
+
+---
+
 ## Complete Lesson Example
 
 ```markdown
@@ -146,6 +184,12 @@ loss-surface-3d
 
 ```media-video title="Gradient descent walkthrough"
 lecture-grad-descent
+```
+
+### Slide deck
+
+```presentation height=500
+slides/gradient-descent
 ```
 
 ### Interactive demo
@@ -168,6 +212,7 @@ Try adjusting the learning rate to see how convergence changes:
 | `app-embed` | App must be **public** or viewer must be logged in |
 | `media-image` | Media item reachable via the **course access code** |
 | `media-video` | Media item reachable via the **course access code** |
+| `presentation` | Subfolder accessible via the **course access code** (same workspace) |
 
 The course access code is passed automatically to all `media-image` and `media-video`
 requests — no extra configuration in the lesson file.

@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-app-publisher  = { path = "../standalone/app-publisher" }
 js-tool-viewer = { path = "../standalone/js-tool-viewer" }
 gallery3d      = { path = "../standalone/3d-gallery" }
+publications   = { path = "../publications" }
+common         = { path = "../common" }
 axum  = { workspace = true }
 sqlx  = { workspace = true }

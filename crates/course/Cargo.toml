@@ -20,3 +20,4 @@ urlencoding = { workspace = true }
 pulldown-cmark = "0.13"
 walkdir = "2.5"
 anyhow = { workspace = true }
+tower-sessions = { workspace = true }

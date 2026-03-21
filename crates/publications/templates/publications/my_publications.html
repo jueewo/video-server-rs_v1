@@ -1,0 +1,322 @@
+{% extends "base-tailwind.html" %}
+{% block title %}My Publications{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-5xl">
+    <div class="page-header mb-8">
+        <div>
+            <h1 class="page-header-title flex items-center gap-3">
+                <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl shrink-0"
+                      style="background: linear-gradient(135deg, #667eea, #764ba2); box-shadow: 0 4px 12px rgba(102,126,234,0.35);">
+                    <i data-lucide="globe" class="w-5 h-5 text-white"></i>
+                </span>
+                <span class="text-gradient">My Publications</span>
+            </h1>
+            <p class="page-header-subtitle">All your published apps, courses, presentations, and collections</p>
+        </div>
+        <div class="page-header-actions">
+            <a href="/catalog" class="btn btn-ghost btn-sm gap-1">
+                <i data-lucide="book-open" class="w-4 h-4"></i> Public Catalog
+            </a>
+            <a href="/workspaces" class="btn btn-ghost btn-sm gap-1">
+                <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Workspaces
+            </a>
+        </div>
+    </div>
+
+    {% if items.is_empty() %}
+    <div class="card bg-base-200 shadow">
+        <div class="card-body items-center text-center py-12">
+            <i data-lucide="globe" class="w-16 h-16 mb-3 mx-auto text-base-content/30"></i>
+            <h3 class="text-xl font-semibold mb-2">No publications yet</h3>
+            <p class="text-base-content/60 mb-4">Open a workspace folder and click <strong>Publish</strong> to create your first publication.</p>
+            <a href="/workspaces" class="btn btn-primary">Go to Workspaces</a>
+        </div>
+    </div>
+    {% else %}
+    <div class="flex flex-col gap-4">
+        {% for item in &items %}
+        <div class="card bg-base-100 shadow border border-base-300" id="pub-card-{{ item.pub_item.slug }}">
+            <div class="card-body p-4">
+                <div class="flex items-start gap-4 flex-wrap">
+                    <!-- Thumbnail -->
+                    <div class="shrink-0 w-20 h-16 rounded overflow-hidden bg-base-200 flex items-center justify-center">
+                        {% if let Some(_thumb) = &item.pub_item.thumbnail_url %}
+                        <img src="/pub/{{ item.pub_item.slug }}/thumbnail" class="w-full h-full object-cover" alt="Thumbnail" loading="lazy" id="thumb-{{ item.pub_item.slug }}" />
+                        {% else %}
+                        {% if item.pub_item.pub_type == "app" %}
+                        <i data-lucide="layout-grid" class="w-8 h-8 text-base-content/30"></i>
+                        {% else if item.pub_item.pub_type == "course" %}
+                        <i data-lucide="graduation-cap" class="w-8 h-8 text-base-content/30"></i>
+                        {% else if item.pub_item.pub_type == "presentation" %}
+                        <i data-lucide="presentation" class="w-8 h-8 text-base-content/30"></i>
+                        {% else %}
+                        <i data-lucide="folder" class="w-8 h-8 text-base-content/30"></i>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                    <!-- Info -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap mb-1">
+                            <h2 class="font-semibold text-lg">{{ item.pub_item.title }}</h2>
+                            {% if item.pub_item.pub_type == "app" %}
+                            <span class="badge badge-info badge-sm">App</span>
+                            {% else if item.pub_item.pub_type == "course" %}
+                            <span class="badge badge-success badge-sm">Course</span>
+                            {% else if item.pub_item.pub_type == "presentation" %}
+                            <span class="badge badge-warning badge-sm">Slides</span>
+                            {% else %}
+                            <span class="badge badge-ghost badge-sm">Collection</span>
+                            {% endif %}
+                            {% if item.pub_item.access == "public" %}
+                            <span class="badge badge-success badge-sm">Public</span>
+                            {% else if item.pub_item.access == "code" %}
+                            <span class="badge badge-warning badge-sm">Code</span>
+                            {% else if item.pub_item.access == "bundled" %}
+                            <span class="badge badge-accent badge-sm">Bundled</span>
+                            {% else %}
+                            <span class="badge badge-ghost badge-sm">Private</span>
+                            {% endif %}
+                        </div>
+                        {% if !item.pub_item.description.is_empty() %}
+                        <p class="text-sm text-base-content/70 mb-2">{{ item.pub_item.description }}</p>
+                        {% endif %}
+                        <div class="text-xs text-base-content/50 flex flex-wrap gap-3">
+                            {% if let Some(ws) = &item.pub_item.workspace_id %}
+                            {% if let Some(fp) = &item.pub_item.folder_path %}
+                            <span>{{ ws }}/{{ fp }}</span>
+                            {% endif %}
+                            {% endif %}
+                            <span>{{ item.pub_item.created_at }}</span>
+                        </div>
+                    </div>
+                    <!-- Actions -->
+                    <div class="flex gap-2 flex-wrap items-center shrink-0">
+                        <a href="/pub/{{ item.pub_item.slug }}" target="_blank" class="btn btn-sm btn-primary">Open</a>
+                        {% if item.pub_item.access == "code" %}
+                        {% if let Some(code) = &item.pub_item.access_code %}
+                        <button onclick="copyPubLink('{{ item.pub_item.slug }}', '{{ code }}')"
+                                class="btn btn-sm btn-ghost">Copy</button>
+                        {% else %}
+                        <button onclick="copyPubLink('{{ item.pub_item.slug }}', '')"
+                                class="btn btn-sm btn-ghost">Copy</button>
+                        {% endif %}
+                        {% else %}
+                        <button onclick="copyPubLink('{{ item.pub_item.slug }}', '')"
+                                class="btn btn-sm btn-ghost">Copy</button>
+                        {% endif %}
+                        <button class="btn btn-sm btn-ghost"
+                                data-slug="{{ item.pub_item.slug }}"
+                                data-title="{{ item.pub_item.title }}"
+                                data-description="{{ item.pub_item.description }}"
+                                data-access="{{ item.pub_item.access }}"
+                                data-pub-type="{{ item.pub_item.pub_type }}"
+                                onclick="openEditModal(this)"><i data-lucide="settings" class="w-4 h-4"></i></button>
+                        {% if item.pub_item.pub_type == "app" || item.pub_item.pub_type == "course" %}
+                        <button onclick="republishPub('{{ item.pub_item.slug }}')"
+                                class="btn btn-sm btn-ghost" title="{% if item.pub_item.pub_type == "course" %}Rescan bundles{% else %}Republish{% endif %}"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
+                        {% endif %}
+                        <button onclick="deletePub('{{ item.pub_item.slug }}')"
+                                class="btn btn-sm btn-error btn-outline"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+                {% if item.pub_item.access == "code" %}
+                {% if let Some(code) = &item.pub_item.access_code %}
+                <div class="mt-2 flex items-center gap-2 bg-base-200 rounded px-3 py-2 text-sm">
+                    <span class="text-base-content/60">Access code:</span>
+                    <code class="font-mono">{{ code }}</code>
+                    <button onclick="navigator.clipboard.writeText('{{ code }}').then(() => showToast('Code copied!', 'success'))"
+                            class="btn btn-xs btn-ghost ml-1"><i data-lucide="clipboard" class="w-3 h-3"></i></button>
+                </div>
+                {% endif %}
+                {% endif %}
+                {% if !item.children.is_empty() %}
+                <div class="mt-2 bg-base-200 rounded px-3 py-2">
+                    <div class="flex items-center gap-2 text-sm text-base-content/60 mb-1">
+                        <i data-lucide="package" class="w-3.5 h-3.5"></i>
+                        <span class="font-medium">Bundled content ({{ item.children.len() }})</span>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        {% for child in &item.children %}
+                        <a href="/pub/{{ child.slug }}" target="_blank"
+                           class="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-base-100 text-xs hover:bg-primary/10 transition-colors">
+                            {% if child.pub_type == "app" %}
+                            <i data-lucide="layout-grid" class="w-3 h-3 text-info"></i>
+                            {% else if child.pub_type == "presentation" %}
+                            <i data-lucide="presentation" class="w-3 h-3 text-warning"></i>
+                            {% else %}
+                            <i data-lucide="file" class="w-3 h-3"></i>
+                            {% endif %}
+                            <span>{{ child.title }}</span>
+                            {% if child.access == "bundled" %}
+                            <span class="badge badge-accent" style="font-size:0.6rem; padding:0 4px; height:14px;">bundled</span>
+                            {% else if child.access == "public" %}
+                            <span class="badge badge-success" style="font-size:0.6rem; padding:0 4px; height:14px;">public</span>
+                            {% endif %}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if !item.parents.is_empty() %}
+                <div class="mt-2 flex items-center gap-2 bg-accent/10 rounded px-3 py-2 text-sm">
+                    <i data-lucide="link" class="w-3.5 h-3.5 text-accent"></i>
+                    <span class="text-base-content/70">Accessible via:
+                        {% for parent in &item.parents %}
+                        <a href="/pub/{{ parent.0 }}" class="link link-accent">{{ parent.1 }}</a>{% if !loop.last %}, {% endif %}
+                        {% endfor %}
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Edit Modal -->
+<dialog id="edit-pub-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">Edit Publication</h3>
+        <input type="hidden" id="edit-slug" />
+        <div class="mb-3">
+            <label class="label"><span>Title</span></label>
+            <input type="text" id="edit-title" class="input" />
+        </div>
+        <div class="mb-3">
+            <label class="label"><span>Description</span></label>
+            <textarea id="edit-description" class="textarea" rows="2"></textarea>
+        </div>
+        <div class="mb-3">
+            <label class="label"><span>Access</span></label>
+            <select id="edit-access" class="select">
+                <option value="public">Public — anyone with the link</option>
+                <option value="code">Code — requires access code</option>
+                <option value="bundled">Bundled — accessible only through a parent course</option>
+                <option value="private">Private — owner only</option>
+            </select>
+        </div>
+        <div class="mb-4">
+            <label class="label cursor-pointer justify-start gap-3">
+                <input type="checkbox" id="edit-regen-code" class="checkbox checkbox-sm" />
+                <span>Regenerate access code</span>
+            </label>
+        </div>
+        <div class="mb-4">
+            <label class="label"><span>Thumbnail</span></label>
+            <div class="flex items-center gap-3">
+                <img id="edit-thumb-preview" src="" class="hidden w-16 h-12 object-cover rounded" alt="Preview" />
+                <label class="btn btn-sm btn-outline cursor-pointer">
+                    Upload image
+                    <input type="file" id="edit-thumb-file" accept="image/*" class="hidden" onchange="previewThumb(this)" />
+                </label>
+                <span id="edit-thumb-filename" class="text-xs text-base-content/50"></span>
+            </div>
+        </div>
+        <div id="edit-result" class="hidden alert mb-3"></div>
+        <div class="modal-action">
+            <button onclick="document.getElementById('edit-pub-modal').close()" class="btn btn-ghost">Cancel</button>
+            <button onclick="submitEdit()" class="btn btn-primary">Save</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+{% endblock %}
+{% block extra_scripts %}
+<script>
+    function copyPubLink(slug, code) {
+        const url = code
+            ? `${window.location.origin}/pub/${slug}?code=${code}`
+            : `${window.location.origin}/pub/${slug}`;
+        navigator.clipboard.writeText(url).then(() => showToast('Link copied!', 'success'));
+    }
+
+    function openEditModal(btn) {
+        document.getElementById('edit-slug').value = btn.dataset.slug;
+        document.getElementById('edit-title').value = btn.dataset.title;
+        document.getElementById('edit-description').value = btn.dataset.description;
+        document.getElementById('edit-access').value = btn.dataset.access;
+        document.getElementById('edit-regen-code').checked = false;
+        document.getElementById('edit-result').classList.add('hidden');
+        document.getElementById('edit-thumb-file').value = '';
+        document.getElementById('edit-thumb-filename').textContent = '';
+        document.getElementById('edit-thumb-preview').classList.add('hidden');
+        document.getElementById('edit-pub-modal').showModal();
+    }
+
+    function previewThumb(input) {
+        const file = input.files[0];
+        if (!file) return;
+        document.getElementById('edit-thumb-filename').textContent = file.name;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = document.getElementById('edit-thumb-preview');
+            img.src = e.target.result;
+            img.classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function submitEdit() {
+        const slug = document.getElementById('edit-slug').value;
+        const title = document.getElementById('edit-title').value.trim();
+        const description = document.getElementById('edit-description').value.trim();
+        const access = document.getElementById('edit-access').value;
+        const regenerateCode = document.getElementById('edit-regen-code').checked;
+        const resultEl = document.getElementById('edit-result');
+
+        if (!title) { alert('Title cannot be empty.'); return; }
+
+        const r = await fetch(`/api/publications/${slug}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, description, access, regenerate_code: regenerateCode }),
+        });
+
+        if (r.ok) {
+            const thumbFile = document.getElementById('edit-thumb-file').files[0];
+            if (thumbFile) {
+                const fd = new FormData();
+                fd.append('file', thumbFile);
+                const tr = await fetch(`/api/publications/${slug}/thumbnail`, { method: 'POST', body: fd });
+                if (!tr.ok) {
+                    resultEl.className = 'alert alert-error mb-3';
+                    resultEl.textContent = `Thumbnail upload failed (${tr.status})`;
+                    resultEl.classList.remove('hidden');
+                    return;
+                }
+            }
+            document.getElementById('edit-pub-modal').close();
+            showToast('Saved!', 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            resultEl.className = 'alert alert-error mb-3';
+            resultEl.textContent = `Error ${r.status}`;
+            resultEl.classList.remove('hidden');
+        }
+    }
+
+    async function republishPub(slug) {
+        if (!confirm('Republish? The snapshot/bundles will be refreshed from the workspace.')) return;
+        const r = await fetch(`/api/publications/${slug}/republish`, { method: 'POST' });
+        if (r.ok) {
+            showToast('Republished!', 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showToast('Republish failed', 'error');
+        }
+    }
+
+    async function deletePub(slug) {
+        if (!confirm('Unpublish this? Any snapshots will be deleted.')) return;
+        const r = await fetch(`/api/publications/${slug}`, { method: 'DELETE' });
+        if (r.ok) {
+            document.getElementById('pub-card-' + slug).remove();
+            showToast('Unpublished', 'success');
+        } else {
+            showToast('Error deleting', 'error');
+        }
+    }
+</script>
+{% endblock %}

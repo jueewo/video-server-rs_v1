@@ -1330,7 +1330,7 @@ async fn main() -> anyhow::Result<()> {
 
     // ── Apps feature (js-tool-viewer, app-publisher, 3d-gallery) ─────────────
     #[cfg(feature = "apps")]
-    let app = app.merge(workspace_app_routes(pool.clone(), storage_dir.clone(), apps_dir.clone()));
+    let app = app.merge(workspace_app_routes(pool.clone(), storage_dir.clone(), apps_dir.clone(), (*user_storage).clone()));
 
     let app = app
         // Documentation viewer (markdown preview)

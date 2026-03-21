@@ -53,7 +53,7 @@ full    = ["media", "course", "bpmn", "apps"]
 media   = [video-manager, media-manager, media-viewer]
 course  = [course]
 bpmn    = [bpmn-viewer]
-apps    = [workspace-apps]  →  app-publisher, js-tool-viewer, gallery3d
+apps    = [workspace-apps]  →  publications, js-tool-viewer, gallery3d
 ```
 
 ```bash

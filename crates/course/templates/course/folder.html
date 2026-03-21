@@ -25,18 +25,15 @@
             {% endif %}
         </div>
         <div class="page-header-actions">
+            <button onclick="openPublishCourseModal()" class="btn btn-success btn-sm gap-2">
+                <i data-lucide="rocket" class="w-4 h-4"></i> Publish
+            </button>
             {% if let Some(code) = preview_code %}
             <a href="/course?code={{ code }}&workspace_id={{ workspace_id }}&folder={{ folder_path }}"
                target="_blank"
                class="btn btn-primary btn-sm gap-2">
-                <i data-lucide="play" class="w-4 h-4"></i> Start Course
+                <i data-lucide="play" class="w-4 h-4"></i> Preview
             </a>
-            {% else %}
-            <div class="tooltip tooltip-left" data-tip="Share this folder with an access code to enable preview">
-                <button class="btn btn-sm btn-ghost gap-2" disabled>
-                    <i data-lucide="play" class="w-4 h-4"></i> Start Course
-                </button>
-            </div>
             {% endif %}
             <button onclick="syncCourseYaml()" class="btn btn-ghost btn-sm gap-2" title="Create or update course.yaml from current .md files">
                 <i data-lucide="refresh-cw" class="w-4 h-4"></i> Sync course.yaml
@@ -98,9 +95,187 @@
     {% endif %}
 
 </div>
+
+<!-- Publish Course Modal -->
+<dialog id="publish-course-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4 flex items-center gap-2" id="publish-course-title">
+            <i data-lucide="rocket" class="w-5 h-5"></i> Publish Course
+        </h3>
+        <div id="course-existing-banner" class="hidden alert alert-info mb-3 text-sm">
+            <div class="w-full">
+                <p>This course is already published.</p>
+                <a id="course-existing-link" href="#" target="_blank" class="link text-xs mt-0.5 block"></a>
+                <label class="flex items-center gap-2 mt-2 cursor-pointer">
+                    <input type="checkbox" id="course-create-new" class="checkbox checkbox-sm" onchange="toggleCoursePublishMode()" />
+                    <span>Create a new publication instead</span>
+                </label>
+            </div>
+        </div>
+        <div id="course-new-fields">
+            <div class="mb-3">
+                <label class="label"><span>Title</span></label>
+                <input type="text" id="course-title" class="input" placeholder="e.g. Introduction to Rust" />
+            </div>
+            <div class="mb-3">
+                <label class="label"><span>Description <span class="text-base-content/50">(optional)</span></span></label>
+                <textarea id="course-description" class="textarea" rows="2" placeholder="What is this course about?"></textarea>
+            </div>
+            <div class="mb-4">
+                <label class="label"><span>Access</span></label>
+                <select id="course-access" class="select">
+                    <option value="public">Public — anyone with the link</option>
+                    <option value="code">Code — requires access code</option>
+                    <option value="private">Private — owner only</option>
+                </select>
+            </div>
+        </div>
+        <div id="course-result" class="hidden alert mb-3"></div>
+        <div class="modal-action">
+            <button onclick="document.getElementById('publish-course-modal').close()" class="btn btn-ghost">Cancel</button>
+            <button onclick="submitPublishCourse()" id="course-submit-btn" class="btn btn-success">Publish</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
 {% endblock %}
 {% block extra_scripts %}
 <script>
+    const WORKSPACE_ID = '{{ workspace_id }}';
+    const FOLDER_PATH = '{{ folder_path }}';
+    let _existingCourseSlug = null;
+
+    async function openPublishCourseModal() {
+        const folderName = FOLDER_PATH.split('/').pop() || FOLDER_PATH;
+        document.getElementById('course-title').value = folderName;
+        document.getElementById('course-description').value = '';
+        document.getElementById('course-access').value = 'public';
+        document.getElementById('course-result').classList.add('hidden');
+        document.getElementById('course-submit-btn').disabled = false;
+        document.getElementById('course-create-new').checked = false;
+
+        _existingCourseSlug = null;
+        const banner = document.getElementById('course-existing-banner');
+        banner.classList.add('hidden');
+        document.getElementById('course-new-fields').classList.remove('hidden');
+        document.getElementById('publish-course-title').textContent = 'Publish Course';
+        document.getElementById('course-submit-btn').textContent = 'Publish';
+
+        try {
+            const res = await fetch(`/api/publications/find?workspace_id=${encodeURIComponent(WORKSPACE_ID)}&folder_path=${encodeURIComponent(FOLDER_PATH)}`);
+            if (res.ok) {
+                const existing = await res.json();
+                _existingCourseSlug = existing.slug;
+                const existingUrl = `/pub/${existing.slug}`;
+                const shareUrl = `${window.location.origin}${existingUrl}`;
+                document.getElementById('course-existing-link').href = existingUrl;
+                document.getElementById('course-existing-link').textContent = shareUrl;
+                banner.classList.remove('hidden');
+                document.getElementById('course-new-fields').classList.add('hidden');
+                document.getElementById('publish-course-title').textContent = 'Update Published Course';
+                document.getElementById('course-submit-btn').textContent = 'Update';
+            }
+        } catch (_) {}
+
+        document.getElementById('publish-course-modal').showModal();
+    }
+
+    function toggleCoursePublishMode() {
+        const createNew = document.getElementById('course-create-new').checked;
+        document.getElementById('course-new-fields').classList.toggle('hidden', !createNew);
+        if (createNew) {
+            document.getElementById('publish-course-title').textContent = 'Publish Course';
+            document.getElementById('course-submit-btn').textContent = 'Publish';
+        } else {
+            document.getElementById('publish-course-title').textContent = 'Update Published Course';
+            document.getElementById('course-submit-btn').textContent = 'Update';
+        }
+    }
+
+    async function submitPublishCourse() {
+        const resultEl = document.getElementById('course-result');
+        const submitBtn = document.getElementById('course-submit-btn');
+        submitBtn.disabled = true;
+        resultEl.classList.add('hidden');
+
+        const isUpdate = _existingCourseSlug && !document.getElementById('course-create-new').checked;
+
+        try {
+            let r;
+            if (isUpdate) {
+                r = await fetch(`/api/publications/${_existingCourseSlug}/republish`, { method: 'POST' });
+            } else {
+                const title = document.getElementById('course-title').value.trim();
+                const description = document.getElementById('course-description').value.trim();
+                const access = document.getElementById('course-access').value;
+                if (!title) { submitBtn.disabled = false; alert('Please enter a title.'); return; }
+
+                r = await fetch('/api/publications', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        pub_type: 'course',
+                        workspace_id: WORKSPACE_ID,
+                        folder_path: FOLDER_PATH,
+                        title,
+                        description,
+                        access,
+                    }),
+                });
+            }
+
+            if (r.ok) {
+                const data = await r.json();
+                const shareUrl = data.access_code
+                    ? `${window.location.origin}${data.url}?code=${data.access_code}`
+                    : `${window.location.origin}${data.url}`;
+                const verb = isUpdate ? 'Updated!' : 'Published!';
+
+                let bundleHtml = '';
+                if (data.bundles && data.bundles.length > 0) {
+                    const items = data.bundles.map(b =>
+                        `<li class="flex items-center gap-1.5">
+                            <span class="badge badge-xs ${b.access === 'bundled' ? 'badge-accent' : 'badge-success'}">${b.access}</span>
+                            <a href="/pub/${b.slug}" target="_blank" class="link text-xs">${b.title}</a>
+                         </li>`
+                    ).join('');
+                    bundleHtml = `<div class="mt-2 text-sm">
+                        <p class="font-medium text-base-content/70">Bundled content (${data.bundles.length}):</p>
+                        <ul class="mt-1 space-y-1">${items}</ul>
+                    </div>`;
+                }
+
+                resultEl.className = 'alert alert-success mb-3';
+                resultEl.innerHTML = `<div class="w-full">
+                    <p class="font-semibold">${verb}</p>
+                    <p class="text-sm mt-1 break-all">
+                        <a href="${data.url}" target="_blank" class="link">${shareUrl}</a>
+                    </p>
+                    ${bundleHtml}
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="navigator.clipboard.writeText('${shareUrl}').then(() => showToast('URL copied!', 'success'))"
+                                class="btn btn-xs btn-ghost">Copy link</button>
+                        <a href="/my-publications" class="btn btn-xs btn-ghost">My Publications</a>
+                    </div>
+                </div>`;
+                resultEl.classList.remove('hidden');
+                if (typeof showToast === 'function') showToast(verb, 'success');
+            } else {
+                const text = await r.text();
+                resultEl.className = 'alert alert-error mb-3';
+                resultEl.textContent = `Error ${r.status}: ${text}`;
+                resultEl.classList.remove('hidden');
+                submitBtn.disabled = false;
+            }
+        } catch (e) {
+            resultEl.className = 'alert alert-error mb-3';
+            resultEl.textContent = 'Network error: ' + e.message;
+            resultEl.classList.remove('hidden');
+            submitBtn.disabled = false;
+        }
+    }
+
     async function syncCourseYaml() {
         const btn = event.currentTarget;
         btn.disabled = true;

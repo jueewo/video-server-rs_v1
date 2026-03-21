@@ -86,6 +86,6 @@ storage/
 
 ## Technical Reference
 
-See [`docs/design/WEBSITE_GEN_WORKSPACE_TYPE.md`](../design/WEBSITE_GEN_WORKSPACE_TYPE.md)
+See [`docs/architecture/WEBSITE_GEN_WORKSPACE_TYPE.md`](../architecture/WEBSITE_GEN_WORKSPACE_TYPE.md)
 for the full architecture: crate structure, API endpoint, sitedef.yaml format, page
 element schema, and AI agent integration plans.

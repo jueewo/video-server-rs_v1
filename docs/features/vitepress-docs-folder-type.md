@@ -98,6 +98,6 @@ storage/
 
 ## Technical Reference
 
-See [`docs/design/VITEPRESS_DOCS_WORKSPACE_TYPE.md`](../design/VITEPRESS_DOCS_WORKSPACE_TYPE.md)
+See [`docs/architecture/VITEPRESS_DOCS_WORKSPACE_TYPE.md`](../architecture/VITEPRESS_DOCS_WORKSPACE_TYPE.md)
 for the full architecture: crate structure, API endpoint, `vitepressdef.yaml` format,
 generate flow, and comparison with `yhm-site-data`.

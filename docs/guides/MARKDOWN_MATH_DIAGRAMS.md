@@ -191,5 +191,5 @@ gantt
 
 ## Related
 
-- [Markdown Docs Viewer (dev)](../dev/features/MARKDOWN_DOCS_VIEWER.md)
-- [Course viewer](../apps/course-viewer.md)
+- [Markdown Docs Viewer (dev)](../features/MARKDOWN_DOCS_VIEWER.md)
+- [Course viewer](../features/course-viewer.md)

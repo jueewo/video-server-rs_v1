@@ -87,7 +87,7 @@ Renders as a standard `<img>` tag. The viewer's access code is appended automati
 
 The media item must be accessible via that access code — either the code covers the
 media item directly (per-item code) or covers the vault/folder it belongs to.
-See [Access Codes](../management/ACCESS_CODES.md) for setup options.
+See [Access Codes](ACCESS_CODES.md) for setup options.
 
 ---
 
@@ -125,7 +125,7 @@ Renders a native `<video>` element with controls and a thumbnail poster.
 The embed includes a **Download** button (links to the MP4).
 
 The media item must be accessible via the course's access code — see
-[Access Codes](../management/ACCESS_CODES.md).
+[Access Codes](ACCESS_CODES.md).
 
 ---
 
@@ -217,7 +217,7 @@ Try adjusting the learning rate to see how convergence changes:
 The course access code is passed automatically to all `media-image` and `media-video`
 requests — no extra configuration in the lesson file.
 
-For setup, see [Course Media Setup](../management/course-media-setup.md).
+For setup, see [Course Media Setup](course-media-setup.md).
 
 ---
 

@@ -164,7 +164,7 @@ All routes under `/docs`:
 - KaTeX 0.16 (vendored at `static/vendor/katex/`) - Math rendering
 - Mermaid (vendored at `static/vendor/mermaid.min.js`) - Diagram rendering
 
-See [MARKDOWN_MATH_DIAGRAMS.md](../../user/MARKDOWN_MATH_DIAGRAMS.md) for authoring guide.
+See [MARKDOWN_MATH_DIAGRAMS.md](../guides/MARKDOWN_MATH_DIAGRAMS.md) for authoring guide.
 
 ### Crate Structure
 \`\`\`

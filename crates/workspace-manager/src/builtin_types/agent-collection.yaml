@@ -20,3 +20,10 @@ metadata_schema:
     type: multiline
     default: ""
     required: false
+agent_roles:
+  - role: agent-designer
+    description: Creates and refines AI agent definitions
+    default_actions:
+      - Create new agent
+      - Edit agent prompt
+      - Configure agent tools

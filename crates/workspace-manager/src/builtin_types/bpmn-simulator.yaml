@@ -30,3 +30,10 @@ metadata_schema:
     type: multiline
     default: ""
     required: false
+agent_roles:
+  - role: process-modeler
+    description: Creates and edits BPMN process definitions
+    default_actions:
+      - Create process diagram
+      - Add swimlane
+      - Generate subprocess

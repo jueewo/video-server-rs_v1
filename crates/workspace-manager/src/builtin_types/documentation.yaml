@@ -26,3 +26,16 @@ metadata_schema:
     type: multiline
     default: ""
     required: false
+agent_roles:
+  - role: content-writer
+    description: Creates and edits documentation pages
+    default_actions:
+      - Write new page
+      - Edit page content
+      - Generate API reference
+  - role: doc-reviewer
+    description: Reviews documentation for clarity and completeness
+    default_actions:
+      - Review for clarity
+      - Check for gaps
+      - Fix formatting

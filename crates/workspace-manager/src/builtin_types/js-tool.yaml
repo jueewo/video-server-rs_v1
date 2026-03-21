@@ -19,3 +19,10 @@ metadata_schema:
     type: multiline
     default: ""
     required: false
+agent_roles:
+  - role: tool-builder
+    description: Creates and edits self-contained HTML/JS tools
+    default_actions:
+      - Create new tool
+      - Edit tool logic
+      - Add UI component

@@ -26,3 +26,15 @@ metadata_schema:
     type: multiline
     default: ""
     required: false
+agent_roles:
+  - role: content-writer
+    description: Creates and edits presentation slides
+    default_actions:
+      - Write new slides
+      - Edit slide content
+      - Add speaker notes
+  - role: slide-designer
+    description: Improves slide structure and visual layout
+    default_actions:
+      - Restructure slides
+      - Improve visual hierarchy

@@ -35,8 +35,13 @@ function aiPanel() {
         chatHistory: [],  // Array of { role, content } for multi-turn
         chatInput: '',
 
-        // Quick action presets
-        actions: [
+        // Agent mode
+        availableAgents: [],
+        selectedAgentDef: null, // AgentDefinition from server
+        agentLoading: false,
+
+        // Quick action presets (default — overridden when an agent is selected)
+        defaultActions: [
             { label: 'Improve', icon: 'sparkles', prompt: 'Improve the following text. Make it clearer, more concise, and better structured. Preserve the original meaning and tone.' },
             { label: 'Simplify', icon: 'minimize-2', prompt: 'Simplify the following text. Use shorter sentences and simpler vocabulary while preserving the key information.' },
             { label: 'Expand', icon: 'maximize-2', prompt: 'Expand the following text with more detail, examples, and explanation. Keep the same style and tone.' },
@@ -45,9 +50,63 @@ function aiPanel() {
             { label: 'Translate DE', icon: 'languages', prompt: 'Translate the following text to German. Preserve formatting and structure.' },
         ],
 
+        get actions() {
+            if (this.selectedAgentDef && this.selectedAgentDef._quick_actions) {
+                return this.selectedAgentDef._quick_actions;
+            }
+            return this.defaultActions;
+        },
+
         async init() {
             await this.loadProviders();
             this._pollEditor();
+            this._loadAgents();
+        },
+
+        async _loadAgents() {
+            const ctx = window.aiContext;
+            if (!ctx || !ctx.workspaceId) return;
+            this.agentLoading = true;
+            try {
+                const path = ctx.folderPath || '';
+                const url = `/api/workspaces/${ctx.workspaceId}/folders/agents?path=${encodeURIComponent(path)}`;
+                const resp = await fetch(url);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    this.availableAgents = data.agents || [];
+                    // Match agent roles to get quick actions
+                    const roles = data.agent_roles || [];
+                    for (const agent of this.availableAgents) {
+                        const role = roles.find(r => r.role === agent.role);
+                        if (role && role.default_actions) {
+                            agent._quick_actions = role.default_actions.map(a => ({
+                                label: a, icon: 'zap', prompt: a
+                            }));
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load agents:', e);
+            } finally {
+                this.agentLoading = false;
+            }
+        },
+
+        selectAgent(agent) {
+            this.selectedAgentDef = agent;
+            // Override model if agent specifies one
+            if (agent.model) {
+                this.selectedModel = agent.model;
+            }
+            // Clear chat when switching agents
+            this.chatHistory = [];
+        },
+
+        clearAgent() {
+            this.selectedAgentDef = null;
+            // Restore default model
+            const p = this.providers.find(p => p.name === this.selectedProvider);
+            if (p) this.selectedModel = p.default_model;
         },
 
         // Poll until the editor is available, then attach a selection listener
@@ -219,7 +278,9 @@ function aiPanel() {
 
         _buildSystemPrompt() {
             const ctx = window.aiContext;
-            let prompt = 'You are a helpful writing assistant. Be concise and direct.';
+            let prompt = this.selectedAgentDef && this.selectedAgentDef.system_prompt
+                ? this.selectedAgentDef.system_prompt
+                : 'You are a helpful writing assistant. Be concise and direct.';
             if (ctx) {
                 const content = typeof ctx.getContent === 'function' ? ctx.getContent() : '';
                 const truncated = content.length > 6000 ? content.slice(0, 6000) + '\n... (truncated)' : content;
@@ -478,6 +539,24 @@ function aiPanel() {
                     '<button class="btn btn-xs flex-1" :class="!chatMode ? \'btn-primary\' : \'btn-ghost\'" @click="chatMode = false">Actions</button>' +
                     '<button class="btn btn-xs flex-1" :class="chatMode ? \'btn-primary\' : \'btn-ghost\'" @click="toggleChat()">Chat</button>' +
                 '</div>' +
+
+                // ── Agent selector (if agents available) ──
+                '<template x-if="availableAgents.length > 0">' +
+                    '<div class="border border-base-300 rounded-lg p-2">' +
+                        '<label class="text-xs font-semibold opacity-60 mb-1 block">Agent</label>' +
+                        '<div class="flex gap-1 items-center">' +
+                            '<select class="select select-xs flex-1" @change="$event.target.value === \'\' ? clearAgent() : selectAgent(availableAgents.find(a => a.name === $event.target.value))">' +
+                                '<option value="">Default (no agent)</option>' +
+                                '<template x-for="agent in availableAgents" :key="agent.name">' +
+                                    '<option :value="agent.name" :selected="selectedAgentDef && selectedAgentDef.name === agent.name" x-text="agent.name + \' (\' + agent.role + \')\'"></option>' +
+                                '</template>' +
+                            '</select>' +
+                        '</div>' +
+                        '<template x-if="selectedAgentDef">' +
+                            '<p class="text-[10px] opacity-40 mt-1" x-text="selectedAgentDef.model || \'default model\'"></p>' +
+                        '</template>' +
+                    '</div>' +
+                '</template>' +
 
                 // ── Settings (collapsible) ──
                 '<div class="border border-base-300 rounded-lg overflow-hidden">' +

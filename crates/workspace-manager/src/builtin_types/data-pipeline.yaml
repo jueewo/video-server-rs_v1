@@ -30,3 +30,10 @@ metadata_schema:
     type: multiline
     default: ""
     required: false
+agent_roles:
+  - role: pipeline-engineer
+    description: Creates and edits data pipeline configurations
+    default_actions:
+      - Add pipeline stage
+      - Edit transform logic
+      - Generate schema

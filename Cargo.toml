@@ -35,6 +35,7 @@ members = [
     "crates/standalone/site-cli",
     "crates/llm-provider",
     "crates/git-provider",
+    "crates/agent-tools",
 ]
 resolver = "2"
 

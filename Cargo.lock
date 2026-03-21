@@ -115,6 +115,18 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
+name = "agent-tools"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "tempfile",
  "tracing",
 ]
 
@@ -6881,6 +6893,8 @@ dependencies = [
 name = "workspace-manager"
 version = "0.1.0"
 dependencies = [
+ "agent-collection-processor",
+ "agent-tools",
  "anyhow",
  "api-keys",
  "askama",

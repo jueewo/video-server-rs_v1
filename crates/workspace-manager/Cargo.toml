@@ -31,6 +31,8 @@ site-publisher = { path = "../site-publisher" }
 site-generator = { path = "../site-generator" }
 site-overview  = { path = "../site-overview" }
 git-provider = { path = "../git-provider" }
+agent-collection-processor = { path = "../workspace-processors/agent-collection" }
+agent-tools = { path = "../agent-tools" }
 
 [dev-dependencies]
 tempfile = "3"

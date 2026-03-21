@@ -31,3 +31,15 @@ metadata_schema:
     type: multiline
     default: ""
     required: false
+agent_roles:
+  - role: content-writer
+    description: Creates and edits course modules and lessons
+    default_actions:
+      - Write new lesson
+      - Edit lesson content
+      - Generate quiz questions
+  - role: course-planner
+    description: Plans course structure, outlines modules and learning paths
+    default_actions:
+      - Plan module structure
+      - Generate course outline

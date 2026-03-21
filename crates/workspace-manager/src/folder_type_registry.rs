@@ -91,6 +91,18 @@ pub struct AppLink {
     pub url_template: String,
 }
 
+/// An AI agent role that can operate on folders of this type.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentRole {
+    /// Machine-readable role identifier, e.g. "content-writer".
+    pub role: String,
+    /// Human-readable description of what this agent does.
+    pub description: String,
+    /// Quick action labels shown in the UI (e.g. "Write new page").
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub default_actions: Vec<String>,
+}
+
 /// A folder type definition loaded from a YAML file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FolderTypeDefinition {
@@ -109,6 +121,9 @@ pub struct FolderTypeDefinition {
     /// Apps that can open folders of this type.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub apps: Vec<AppLink>,
+    /// AI agent roles that can operate on folders of this type.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub agent_roles: Vec<AgentRole>,
 }
 
 // ============================================================================
@@ -302,7 +317,7 @@ mod tests {
     #[test]
     fn test_load_builtin_types() {
         let (_dir, registry) = make_registry();
-        assert_eq!(registry.list_types().len(), 7);
+        assert_eq!(registry.list_types().len(), BUILTINS.len());
         assert!(registry.get_type("course").is_some());
         assert!(registry.get_type("static-site").is_some());
         assert!(registry.get_type("bpmn-simulator").is_some());
@@ -310,6 +325,21 @@ mod tests {
         assert!(registry.get_type("documentation").is_some());
         assert!(registry.get_type("data-pipeline").is_some());
         assert!(registry.get_type("js-tool").is_some());
+        assert!(registry.get_type("media-server").is_some());
+        assert!(registry.get_type("presentation").is_some());
+        assert!(registry.get_type("yhm-site-data").is_some());
+    }
+
+    #[test]
+    fn test_course_has_agent_roles() {
+        let (_dir, registry) = make_registry();
+        let course = registry.get_type("course").unwrap();
+        assert!(!course.agent_roles.is_empty(), "course should have agent_roles");
+        assert!(course.agent_roles.iter().any(|r| r.role == "content-writer"));
+        assert!(course.agent_roles.iter().any(|r| r.role == "course-planner"));
+        // Check default_actions
+        let writer = course.agent_roles.iter().find(|r| r.role == "content-writer").unwrap();
+        assert!(!writer.default_actions.is_empty());
     }
 
     #[test]
@@ -333,6 +363,7 @@ mod tests {
             git_template: None,
             metadata_schema: vec![],
             apps: vec![],
+            agent_roles: vec![],
         };
         registry.create_type(def.clone()).unwrap();
 
@@ -356,6 +387,7 @@ mod tests {
             git_template: None,
             metadata_schema: vec![],
             apps: vec![],
+            agent_roles: vec![],
         };
         assert!(registry.create_type(def).is_err());
     }
@@ -392,17 +424,34 @@ mod tests {
     }
 
     #[test]
-    fn test_ensure_defaults_does_not_overwrite() {
+    fn test_ensure_defaults_overwrites_changed_content() {
         let dir = TempDir::new().unwrap();
         FolderTypeRegistry::ensure_defaults(dir.path()).unwrap();
 
-        // Overwrite course.yaml with garbage
+        // Overwrite course.yaml with different content
         let course_path = dir.path().join("course.yaml");
         std::fs::write(&course_path, "id: custom\nname: Custom\nicon: x\n").unwrap();
 
-        // ensure_defaults must NOT overwrite it
+        // ensure_defaults re-syncs the builtin content (content differs)
         FolderTypeRegistry::ensure_defaults(dir.path()).unwrap();
         let content = std::fs::read_to_string(&course_path).unwrap();
-        assert!(content.contains("id: custom"));
+        assert!(content.contains("id: course"));
+    }
+
+    #[test]
+    fn test_ensure_defaults_skips_unchanged() {
+        let dir = TempDir::new().unwrap();
+        FolderTypeRegistry::ensure_defaults(dir.path()).unwrap();
+
+        let course_path = dir.path().join("course.yaml");
+        let before = std::fs::metadata(&course_path).unwrap().modified().unwrap();
+
+        // Wait a tick so mtime would differ if file is rewritten
+        std::thread::sleep(std::time::Duration::from_millis(50));
+
+        // Run again — content is identical, should not rewrite
+        FolderTypeRegistry::ensure_defaults(dir.path()).unwrap();
+        let after = std::fs::metadata(&course_path).unwrap().modified().unwrap();
+        assert_eq!(before, after, "File should not have been rewritten");
     }
 }

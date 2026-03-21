@@ -5,6 +5,13 @@ description: "Video, image, and document library with transcoding and HLS stream
 color: "#6366f1"
 git_template: null
 apps: []
+agent_roles:
+  - role: media-curator
+    description: Organizes and manages media assets, adds metadata
+    default_actions:
+      - Organize media
+      - Generate descriptions
+      - Tag assets
 metadata_schema:
   - key: vault_id
     label: Vault ID

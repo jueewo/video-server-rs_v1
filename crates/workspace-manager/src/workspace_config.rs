@@ -9,9 +9,11 @@ use std::collections::HashMap;
 use std::path::Path;
 
 /// Workspace configuration stored in workspace.yaml
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct WorkspaceConfig {
+    #[serde(default)]
     pub name: String,
+    #[serde(default)]
     pub description: String,
     #[serde(default)]
     pub folders: HashMap<String, FolderConfig>,

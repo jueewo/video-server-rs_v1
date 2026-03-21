@@ -12,3 +12,10 @@ metadata_schema:
     required: false
     description: "Server path to the static Astro components/layouts directory"
 apps: []
+agent_roles:
+  - role: content-writer
+    description: Creates and edits site data files and content
+    default_actions:
+      - Write new page
+      - Edit page content
+      - Update site config

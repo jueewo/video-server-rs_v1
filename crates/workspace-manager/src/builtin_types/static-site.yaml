@@ -26,3 +26,15 @@ metadata_schema:
     type: multiline
     default: ""
     required: false
+agent_roles:
+  - role: content-writer
+    description: Creates and edits site pages, updates navigation
+    default_actions:
+      - Write new page
+      - Edit page content
+      - Update navigation
+  - role: seo-optimizer
+    description: Analyzes and improves page SEO metadata
+    default_actions:
+      - Audit SEO
+      - Generate meta tags

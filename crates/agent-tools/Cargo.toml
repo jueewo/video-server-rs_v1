@@ -1,12 +1,11 @@
 [package]
-name = "agent-collection-processor"
+name = "agent-tools"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.9"
 serde_json = { workspace = true }
 tracing = { workspace = true }
 

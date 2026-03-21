@@ -270,6 +270,92 @@ pub async fn get_parents(pool: &SqlitePool, child_id: i64) -> Result<Vec<(String
     Ok(rows)
 }
 
+// ── Tag operations ──────────────────────────────────────────────
+
+/// Get all tags for a publication.
+pub async fn get_tags(pool: &SqlitePool, publication_id: i64) -> Result<Vec<String>, sqlx::Error> {
+    let tags: Vec<(String,)> = sqlx::query_as(
+        "SELECT tag FROM publication_tags WHERE publication_id = ? ORDER BY tag",
+    )
+    .bind(publication_id)
+    .fetch_all(pool)
+    .await?;
+    Ok(tags.into_iter().map(|(t,)| t).collect())
+}
+
+/// Replace all tags for a publication (delete + insert).
+pub async fn set_tags(pool: &SqlitePool, publication_id: i64, tags: &[String]) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM publication_tags WHERE publication_id = ?")
+        .bind(publication_id)
+        .execute(pool)
+        .await?;
+    for tag in tags {
+        let trimmed = tag.trim().to_lowercase();
+        if trimmed.is_empty() {
+            continue;
+        }
+        sqlx::query("INSERT OR IGNORE INTO publication_tags (publication_id, tag) VALUES (?, ?)")
+            .bind(publication_id)
+            .bind(&trimmed)
+            .execute(pool)
+            .await?;
+    }
+    Ok(())
+}
+
+/// Search distinct tags across a user's publications (for autocomplete).
+pub async fn search_tags(pool: &SqlitePool, user_id: &str, prefix: &str) -> Result<Vec<String>, sqlx::Error> {
+    let pattern = format!("{}%", prefix.to_lowercase());
+    let tags: Vec<(String,)> = sqlx::query_as(
+        "SELECT DISTINCT pt.tag FROM publication_tags pt
+         JOIN publications p ON pt.publication_id = p.id
+         WHERE p.user_id = ? AND pt.tag LIKE ?
+         ORDER BY pt.tag LIMIT 20",
+    )
+    .bind(user_id)
+    .bind(&pattern)
+    .fetch_all(pool)
+    .await?;
+    Ok(tags.into_iter().map(|(t,)| t).collect())
+}
+
+/// Get all distinct tags for public publications (for catalog filtering).
+pub async fn list_public_tags(pool: &SqlitePool) -> Result<Vec<String>, sqlx::Error> {
+    let tags: Vec<(String,)> = sqlx::query_as(
+        "SELECT DISTINCT pt.tag FROM publication_tags pt
+         JOIN publications p ON pt.publication_id = p.id
+         WHERE p.access = 'public'
+         ORDER BY pt.tag",
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(tags.into_iter().map(|(t,)| t).collect())
+}
+
+/// Get tags for multiple publications at once (batch load).
+pub async fn get_tags_for_ids(pool: &SqlitePool, ids: &[i64]) -> Result<std::collections::HashMap<i64, Vec<String>>, sqlx::Error> {
+    if ids.is_empty() {
+        return Ok(std::collections::HashMap::new());
+    }
+    // SQLite doesn't support array params, so build a query with placeholders
+    let placeholders: Vec<String> = ids.iter().map(|_| "?".to_string()).collect();
+    let query = format!(
+        "SELECT publication_id, tag FROM publication_tags WHERE publication_id IN ({}) ORDER BY tag",
+        placeholders.join(",")
+    );
+    let mut q = sqlx::query_as::<_, (i64, String)>(&query);
+    for id in ids {
+        q = q.bind(id);
+    }
+    let rows = q.fetch_all(pool).await?;
+
+    let mut map: std::collections::HashMap<i64, Vec<String>> = std::collections::HashMap::new();
+    for (pub_id, tag) in rows {
+        map.entry(pub_id).or_default().push(tag);
+    }
+    Ok(map)
+}
+
 /// Find a publication by workspace_id + folder_path for a user.
 pub async fn find_by_source(
     pool: &SqlitePool,

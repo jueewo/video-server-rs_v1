@@ -80,7 +80,19 @@
                         {% if !item.pub_item.description.is_empty() %}
                         <p class="text-sm text-base-content/70 mb-2">{{ item.pub_item.description }}</p>
                         {% endif %}
-                        <div class="text-xs text-base-content/50 flex flex-wrap gap-3">
+                        <!-- Tags -->
+                        <div class="flex flex-wrap items-center gap-1 mt-1" id="tags-{{ item.pub_item.slug }}">
+                            {% for tag in &item.tags %}
+                            <span class="badge badge-primary badge-sm badge-outline">{{ tag }}</span>
+                            {% endfor %}
+                            <button class="badge badge-ghost badge-sm cursor-pointer gap-0.5 opacity-60 hover:opacity-100"
+                                    onclick="openTagEditor('{{ item.pub_item.slug }}', this)"
+                                    title="Edit tags">
+                                <i data-lucide="tag" class="w-3 h-3"></i>
+                                {% if item.tags.is_empty() %}add tags{% endif %}
+                            </button>
+                        </div>
+                        <div class="text-xs text-base-content/50 flex flex-wrap gap-3 mt-1">
                             {% if let Some(ws) = &item.pub_item.workspace_id %}
                             {% if let Some(fp) = &item.pub_item.folder_path %}
                             <span>{{ ws }}/{{ fp }}</span>
@@ -110,6 +122,7 @@
                                 data-description="{{ item.pub_item.description }}"
                                 data-access="{{ item.pub_item.access }}"
                                 data-pub-type="{{ item.pub_item.pub_type }}"
+                                data-tags="{{ item.tags.join(",") }}"
                                 onclick="openEditModal(this)"><i data-lucide="settings" class="w-4 h-4"></i></button>
                         {% if item.pub_item.pub_type == "app" || item.pub_item.pub_type == "course" %}
                         <button onclick="republishPub('{{ item.pub_item.slug }}')"
@@ -196,6 +209,10 @@
                 <option value="private">Private — owner only</option>
             </select>
         </div>
+        <div class="mb-3">
+            <label class="label"><span>Tags <span class="text-base-content/50">(comma-separated)</span></span></label>
+            <input type="text" id="edit-tags" class="input" placeholder="e.g. rust, beginner, algorithms" />
+        </div>
         <div class="mb-4">
             <label class="label cursor-pointer justify-start gap-3">
                 <input type="checkbox" id="edit-regen-code" class="checkbox checkbox-sm" />
@@ -237,6 +254,7 @@
         document.getElementById('edit-title').value = btn.dataset.title;
         document.getElementById('edit-description').value = btn.dataset.description;
         document.getElementById('edit-access').value = btn.dataset.access;
+        document.getElementById('edit-tags').value = (btn.dataset.tags || '').split(',').filter(Boolean).join(', ');
         document.getElementById('edit-regen-code').checked = false;
         document.getElementById('edit-result').classList.add('hidden');
         document.getElementById('edit-thumb-file').value = '';
@@ -268,6 +286,9 @@
 
         if (!title) { alert('Title cannot be empty.'); return; }
 
+        const tagsStr = document.getElementById('edit-tags').value;
+        const tags = tagsStr.split(',').map(t => t.trim()).filter(Boolean);
+
         const r = await fetch(`/api/publications/${slug}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -275,6 +296,12 @@
         });
 
         if (r.ok) {
+            // Save tags
+            await fetch(`/api/publications/${slug}/tags`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tags }),
+            });
             const thumbFile = document.getElementById('edit-thumb-file').files[0];
             if (thumbFile) {
                 const fd = new FormData();
@@ -306,6 +333,77 @@
         } else {
             showToast('Republish failed', 'error');
         }
+    }
+
+    function openTagEditor(slug, btn) {
+        const container = document.getElementById('tags-' + slug);
+        // Get current tags from badges
+        const currentTags = [...container.querySelectorAll('.badge-primary')]
+            .map(b => b.textContent.trim());
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'input input-xs input-bordered w-full';
+        input.value = currentTags.join(', ');
+        input.placeholder = 'e.g. rust, beginner';
+
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'btn btn-xs btn-success';
+        saveBtn.textContent = 'Save';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn btn-xs btn-ghost';
+        cancelBtn.textContent = 'Cancel';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex items-center gap-1 w-full';
+        wrapper.appendChild(input);
+        wrapper.appendChild(saveBtn);
+        wrapper.appendChild(cancelBtn);
+
+        // Replace container content
+        const original = container.innerHTML;
+        container.innerHTML = '';
+        container.appendChild(wrapper);
+        input.focus();
+
+        const restore = () => { container.innerHTML = original; if (typeof lucide !== 'undefined') lucide.createIcons(); };
+
+        cancelBtn.onclick = restore;
+        input.onkeydown = (e) => {
+            if (e.key === 'Escape') restore();
+            if (e.key === 'Enter') saveBtn.click();
+        };
+
+        saveBtn.onclick = async () => {
+            const tags = input.value.split(',').map(t => t.trim()).filter(Boolean);
+            const r = await fetch(`/api/publications/${slug}/tags`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tags }),
+            });
+            if (r.ok) {
+                const data = await r.json();
+                container.innerHTML = '';
+                (data.tags || []).forEach(tag => {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge badge-primary badge-sm badge-outline';
+                    badge.textContent = tag;
+                    container.appendChild(badge);
+                });
+                const addBtn = document.createElement('button');
+                addBtn.className = 'badge badge-ghost badge-sm cursor-pointer gap-0.5 opacity-60 hover:opacity-100';
+                addBtn.title = 'Edit tags';
+                addBtn.innerHTML = '<i data-lucide="tag" class="w-3 h-3"></i>';
+                addBtn.onclick = () => openTagEditor(slug, addBtn);
+                container.appendChild(addBtn);
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                if (typeof showToast === 'function') showToast('Tags saved', 'success');
+            } else {
+                if (typeof showToast === 'function') showToast('Failed to save tags', 'error');
+                restore();
+            }
+        };
     }
 
     async function deletePub(slug) {

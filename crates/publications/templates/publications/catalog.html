@@ -13,14 +13,24 @@
     <h1 class="text-3xl font-bold mb-2 text-center">Catalog</h1>
     <p class="text-center text-base-content/60 mb-8">Browse published content</p>
 
-    <!-- Filter tabs -->
-    <div class="flex justify-center gap-2 mb-8 flex-wrap" id="filter-tabs">
-        <button class="btn btn-sm btn-primary" data-filter="all" onclick="filterPubs('all', this)">All</button>
-        <button class="btn btn-sm btn-ghost" data-filter="app" onclick="filterPubs('app', this)">Apps</button>
-        <button class="btn btn-sm btn-ghost" data-filter="course" onclick="filterPubs('course', this)">Courses</button>
-        <button class="btn btn-sm btn-ghost" data-filter="presentation" onclick="filterPubs('presentation', this)">Presentations</button>
-        <button class="btn btn-sm btn-ghost" data-filter="collection" onclick="filterPubs('collection', this)">Collections</button>
+    <!-- Filter tabs (type) -->
+    <div class="flex justify-center gap-2 mb-4 flex-wrap" id="filter-tabs">
+        <button class="btn btn-sm btn-primary" data-filter="all" onclick="filterByType('all', this)">All</button>
+        <button class="btn btn-sm btn-ghost" data-filter="app" onclick="filterByType('app', this)">Apps</button>
+        <button class="btn btn-sm btn-ghost" data-filter="course" onclick="filterByType('course', this)">Courses</button>
+        <button class="btn btn-sm btn-ghost" data-filter="presentation" onclick="filterByType('presentation', this)">Presentations</button>
+        <button class="btn btn-sm btn-ghost" data-filter="collection" onclick="filterByType('collection', this)">Collections</button>
     </div>
+
+    <!-- Tag filter chips -->
+    {% if !all_tags.is_empty() %}
+    <div class="flex justify-center gap-1.5 mb-8 flex-wrap" id="tag-chips">
+        {% for tag in &all_tags %}
+        <button class="badge badge-outline badge-sm cursor-pointer hover:badge-primary transition-all"
+                data-tag="{{ tag }}" onclick="toggleTagFilter('{{ tag }}', this)">{{ tag }}</button>
+        {% endfor %}
+    </div>
+    {% endif %}
 
     {% if publications.is_empty() %}
     <div class="text-center py-16">
@@ -30,19 +40,21 @@
     </div>
     {% else %}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" id="pub-grid">
-        {% for pub_item in &publications %}
-        <a href="/pub/{{ pub_item.slug }}" class="card bg-base-100 shadow hover:shadow-lg transition-all overflow-hidden pub-card" data-type="{{ pub_item.pub_type }}">
-            {% if let Some(thumb) = &pub_item.thumbnail_url %}
+        {% for item in &publications %}
+        <a href="/pub/{{ item.pub_item.slug }}" class="card bg-base-100 shadow hover:shadow-lg transition-all overflow-hidden pub-card"
+           data-type="{{ item.pub_item.pub_type }}"
+           data-tags="{{ item.tags.join(",") }}">
+            {% if let Some(thumb) = &item.pub_item.thumbnail_url %}
             <figure class="h-40 bg-base-200">
-                <img src="/pub/{{ pub_item.slug }}/thumbnail" class="w-full h-full object-cover" alt="{{ pub_item.title }}" loading="lazy" />
+                <img src="/pub/{{ item.pub_item.slug }}/thumbnail" class="w-full h-full object-cover" alt="{{ item.pub_item.title }}" loading="lazy" />
             </figure>
             {% else %}
             <figure class="h-40 bg-base-200 flex items-center justify-center">
-                {% if pub_item.pub_type == "app" %}
+                {% if item.pub_item.pub_type == "app" %}
                 <i data-lucide="layout-grid" class="w-12 h-12 text-base-content/20"></i>
-                {% else if pub_item.pub_type == "course" %}
+                {% else if item.pub_item.pub_type == "course" %}
                 <i data-lucide="graduation-cap" class="w-12 h-12 text-base-content/20"></i>
-                {% else if pub_item.pub_type == "presentation" %}
+                {% else if item.pub_item.pub_type == "presentation" %}
                 <i data-lucide="presentation" class="w-12 h-12 text-base-content/20"></i>
                 {% else %}
                 <i data-lucide="folder" class="w-12 h-12 text-base-content/20"></i>
@@ -51,19 +63,26 @@
             {% endif %}
             <div class="card-body p-4">
                 <div class="flex items-center gap-2 mb-1">
-                    <h2 class="card-title text-base flex-1 truncate">{{ pub_item.title }}</h2>
-                    {% if pub_item.pub_type == "app" %}
+                    <h2 class="card-title text-base flex-1 truncate">{{ item.pub_item.title }}</h2>
+                    {% if item.pub_item.pub_type == "app" %}
                     <span class="badge badge-info badge-sm">App</span>
-                    {% else if pub_item.pub_type == "course" %}
+                    {% else if item.pub_item.pub_type == "course" %}
                     <span class="badge badge-success badge-sm">Course</span>
-                    {% else if pub_item.pub_type == "presentation" %}
+                    {% else if item.pub_item.pub_type == "presentation" %}
                     <span class="badge badge-warning badge-sm">Slides</span>
                     {% else %}
                     <span class="badge badge-ghost badge-sm">Collection</span>
                     {% endif %}
                 </div>
-                {% if !pub_item.description.is_empty() %}
-                <p class="text-sm text-base-content/70 line-clamp-2">{{ pub_item.description }}</p>
+                {% if !item.pub_item.description.is_empty() %}
+                <p class="text-sm text-base-content/70 line-clamp-2">{{ item.pub_item.description }}</p>
+                {% endif %}
+                {% if !item.tags.is_empty() %}
+                <div class="flex flex-wrap gap-1 mt-1">
+                    {% for tag in &item.tags %}
+                    <span class="badge badge-primary badge-outline" style="font-size:0.65rem; padding:0 6px; height:16px;">{{ tag }}</span>
+                    {% endfor %}
+                </div>
                 {% endif %}
             </div>
         </a>
@@ -75,14 +94,39 @@
 <script>
 lucide.createIcons();
 
-function filterPubs(type, btn) {
-    // Update active tab
+let activeTypeFilter = 'all';
+let activeTagFilters = new Set();
+
+function filterByType(type, btn) {
+    activeTypeFilter = type;
     document.querySelectorAll('#filter-tabs button').forEach(b => {
         b.className = b === btn ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-ghost';
     });
-    // Filter cards
+    applyFilters();
+}
+
+function toggleTagFilter(tag, btn) {
+    if (activeTagFilters.has(tag)) {
+        activeTagFilters.delete(tag);
+        btn.classList.remove('badge-primary');
+        btn.classList.add('badge-outline');
+    } else {
+        activeTagFilters.add(tag);
+        btn.classList.remove('badge-outline');
+        btn.classList.add('badge-primary');
+    }
+    applyFilters();
+}
+
+function applyFilters() {
     document.querySelectorAll('.pub-card').forEach(card => {
-        card.style.display = (type === 'all' || card.dataset.type === type) ? '' : 'none';
+        const typeMatch = activeTypeFilter === 'all' || card.dataset.type === activeTypeFilter;
+        let tagMatch = true;
+        if (activeTagFilters.size > 0) {
+            const cardTags = (card.dataset.tags || '').split(',').filter(Boolean);
+            tagMatch = [...activeTagFilters].some(t => cardTags.includes(t));
+        }
+        card.style.display = (typeMatch && tagMatch) ? '' : 'none';
     });
 }
 </script>

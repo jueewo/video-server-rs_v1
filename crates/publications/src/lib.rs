@@ -28,6 +28,7 @@ use axum::{
 };
 use common::storage::UserStorageManager;
 use serde::{Deserialize, Serialize};
+use serde_json;
 use sqlx::SqlitePool;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -64,6 +65,8 @@ pub fn publications_routes(state: Arc<PublicationsState>) -> Router {
         .route("/api/publications/{slug}/republish", post(republish_handler))
         .route("/api/publications/{slug}/thumbnail", post(upload_thumbnail_handler))
         .route("/api/publications/{slug}/thumbnail", get(serve_api_thumbnail_handler))
+        .route("/api/publications/{slug}/tags", put(update_tags_handler))
+        .route("/api/publications/tags/search", get(search_tags_handler))
         // Public serving
         .route("/pub/{slug}", get(serve::serve_publication))
         .route("/pub/{slug}/", get(serve::serve_publication))
@@ -640,13 +643,68 @@ async fn upload_thumbnail_handler(
 }
 
 // ============================================================================
+// Tag management
+// ============================================================================
+
+/// PUT /api/publications/{slug}/tags
+/// Body: { "tags": ["rust", "beginner"] }
+async fn update_tags_handler(
+    session: Session,
+    Path(slug): Path<String>,
+    State(state): State<Arc<PublicationsState>>,
+    Json(body): Json<UpdateTagsRequest>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let user_id = require_auth(&session).await?;
+    let pub_record = db::get_by_slug(&state.pool, &slug)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+    if pub_record.user_id != user_id {
+        return Err(StatusCode::FORBIDDEN);
+    }
+    db::set_tags(&state.pool, pub_record.id, &body.tags)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let tags = db::get_tags(&state.pool, pub_record.id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Json(serde_json::json!({ "tags": tags })))
+}
+
+#[derive(Deserialize)]
+struct UpdateTagsRequest {
+    tags: Vec<String>,
+}
+
+/// GET /api/publications/tags/search?q=prefix
+async fn search_tags_handler(
+    session: Session,
+    Query(q): Query<std::collections::HashMap<String, String>>,
+    State(state): State<Arc<PublicationsState>>,
+) -> Result<Json<Vec<String>>, StatusCode> {
+    let user_id = require_auth(&session).await?;
+    let prefix = q.get("q").cloned().unwrap_or_default();
+    let tags = db::search_tags(&state.pool, &user_id, &prefix)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Json(tags))
+}
+
+// ============================================================================
 // Catalog page (public)
 // ============================================================================
+
+/// A publication with its tags loaded (for catalog display).
+struct CatalogItem {
+    pub_item: Publication,
+    tags: Vec<String>,
+}
 
 #[derive(Template)]
 #[template(path = "publications/catalog.html")]
 struct CatalogTemplate {
-    publications: Vec<Publication>,
+    publications: Vec<CatalogItem>,
+    all_tags: Vec<String>,
 }
 
 async fn catalog_handler(
@@ -655,7 +713,21 @@ async fn catalog_handler(
     let pubs = db::list_public(&state.pool)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let tmpl = CatalogTemplate { publications: pubs };
+    let all_tags = db::list_public_tags(&state.pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let ids: Vec<i64> = pubs.iter().map(|p| p.id).collect();
+    let tags_map = db::get_tags_for_ids(&state.pool, &ids)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let publications: Vec<CatalogItem> = pubs
+        .into_iter()
+        .map(|p| {
+            let tags = tags_map.get(&p.id).cloned().unwrap_or_default();
+            CatalogItem { pub_item: p, tags }
+        })
+        .collect();
+    let tmpl = CatalogTemplate { publications, all_tags };
     let html = tmpl.render().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Html(html))
 }
@@ -664,11 +736,12 @@ async fn catalog_handler(
 // My Publications dashboard (auth required)
 // ============================================================================
 
-/// A publication with its bundle relationships resolved.
+/// A publication with its bundle relationships and tags resolved.
 struct PubWithBundles {
     pub_item: Publication,
     children: Vec<db::BundleChild>,
     parents: Vec<(String, String)>,
+    tags: Vec<String>,
 }
 
 #[derive(Template)]
@@ -687,6 +760,12 @@ async fn my_publications_handler(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
+    // Batch-load tags for all publications
+    let ids: Vec<i64> = pubs.iter().map(|p| p.id).collect();
+    let tags_map = db::get_tags_for_ids(&state.pool, &ids)
+        .await
+        .unwrap_or_default();
+
     // Load bundle relationships for each publication
     let mut items = Vec::with_capacity(pubs.len());
     for p in pubs {
@@ -700,7 +779,8 @@ async fn my_publications_handler(
         } else {
             Vec::new()
         };
-        items.push(PubWithBundles { pub_item: p, children, parents });
+        let tags = tags_map.get(&p.id).cloned().unwrap_or_default();
+        items.push(PubWithBundles { pub_item: p, children, parents, tags });
     }
 
     let tmpl = MyPublicationsTemplate {

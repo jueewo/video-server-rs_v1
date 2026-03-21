@@ -393,7 +393,26 @@ struct AppsTemplate {
     authenticated: bool,
     app_title: String,
     app_icon: String,
-    apps: Vec<AppCard>,
+    publications: Vec<PublicationCard>,
+    all_tags: Vec<String>,
+    count_all: usize,
+    count_apps: usize,
+    count_courses: usize,
+    count_presentations: usize,
+    count_collections: usize,
+}
+
+/// Lightweight publication card for the /apps overview.
+#[derive(Clone)]
+struct PublicationCard {
+    slug: String,
+    pub_type: String,
+    title: String,
+    description: String,
+    access: String,
+    thumbnail_url: Option<String>,
+    created_at: String,
+    tags: Vec<String>,
 }
 
 #[allow(dead_code)]
@@ -481,6 +500,11 @@ async fn home_handler(
         .await
         .unwrap_or(0);
 
+    let pub_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM publications")
+        .fetch_one(pool)
+        .await
+        .unwrap_or(0);
+
     let template = HomeTemplate {
         authenticated,
         app_title: state.config.name.clone(),
@@ -488,7 +512,7 @@ async fn home_handler(
         media_count,
         vault_count,
         workspace_count,
-        app_count: state.apps.iter().filter(|a| a.available).count() as i64,
+        app_count: pub_count,
     };
     Ok(Html(template.render().unwrap()))
 }
@@ -505,11 +529,84 @@ async fn apps_handler(
         .flatten()
         .unwrap_or(false);
 
+    let user_id: String = session
+        .get("user_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+
+    let (publications, all_tags) = if authenticated && !user_id.is_empty() {
+        // Load publications with IDs for tag lookup
+        let rows: Vec<(i64, String, String, String, String, String, Option<String>, String)> =
+            sqlx::query_as(
+                "SELECT id, slug, pub_type, title, description, access, thumbnail_url, created_at
+                 FROM publications WHERE user_id = ? ORDER BY created_at DESC",
+            )
+            .bind(&user_id)
+            .fetch_all(&state.pool)
+            .await
+            .unwrap_or_default();
+
+        // Batch-load tags for all publications
+        let ids: Vec<i64> = rows.iter().map(|r| r.0).collect();
+        let tags_map: std::collections::HashMap<i64, Vec<String>> = if !ids.is_empty() {
+            // Build dynamic IN clause
+            let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            let query = format!(
+                "SELECT publication_id, tag FROM publication_tags WHERE publication_id IN ({}) ORDER BY tag",
+                placeholders
+            );
+            let mut q = sqlx::query_as::<_, (i64, String)>(&query);
+            for id in &ids {
+                q = q.bind(id);
+            }
+            let tag_rows: Vec<(i64, String)> = q.fetch_all(&state.pool).await.unwrap_or_default();
+            let mut map: std::collections::HashMap<i64, Vec<String>> = std::collections::HashMap::new();
+            for (pid, tag) in tag_rows {
+                map.entry(pid).or_default().push(tag);
+            }
+            map
+        } else {
+            std::collections::HashMap::new()
+        };
+
+        // Collect all distinct tags (sorted)
+        let mut tag_set: Vec<String> = tags_map.values().flatten().cloned().collect();
+        tag_set.sort();
+        tag_set.dedup();
+
+        let pubs = rows
+            .into_iter()
+            .map(|(id, slug, pub_type, title, description, access, thumbnail_url, created_at)| {
+                let date = created_at.get(..10).unwrap_or(&created_at).to_string();
+                let tags = tags_map.get(&id).cloned().unwrap_or_default();
+                PublicationCard { slug, pub_type, title, description, access, thumbnail_url, created_at: date, tags }
+            })
+            .collect::<Vec<_>>();
+
+        (pubs, tag_set)
+    } else {
+        (Vec::new(), Vec::new())
+    };
+
+    let count_all = publications.len();
+    let count_apps = publications.iter().filter(|p| p.pub_type == "app").count();
+    let count_courses = publications.iter().filter(|p| p.pub_type == "course").count();
+    let count_presentations = publications.iter().filter(|p| p.pub_type == "presentation").count();
+    let count_collections = publications.iter().filter(|p| p.pub_type == "collection").count();
+
     let template = AppsTemplate {
         authenticated,
         app_title: state.config.name.clone(),
         app_icon: state.config.logo.clone(),
-        apps: state.apps.clone(),
+        publications,
+        all_tags,
+        count_all,
+        count_apps,
+        count_courses,
+        count_presentations,
+        count_collections,
     };
     Ok(Html(template.render().unwrap()))
 }

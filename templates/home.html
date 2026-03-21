@@ -24,7 +24,7 @@ endblock %} {% block content %}
                 {{ app_title }}
             </h1>
             <p class="text-white/60 text-lg mb-8 max-w-lg mx-auto">
-                Media vaults · Workspaces · Standalone apps
+                Media vaults · Workspaces · Published apps
             </p>
 
             <!-- Auth badge + actions in hero -->
@@ -175,19 +175,19 @@ endblock %} {% block content %}
                             </div>
                             <div>
                                 <div class="font-bold text-lg text-base-content leading-none">Apps</div>
-                                <div class="text-xs text-base-content/40 mt-0.5 uppercase tracking-widest">Standalone Tools</div>
+                                <div class="text-xs text-base-content/40 mt-0.5 uppercase tracking-widest">Publications</div>
                             </div>
                         </div>
 
                         <p class="text-base-content/60 text-sm mb-6 leading-relaxed">
-                            Standalone applications built on top of vaults and workspaces.
+                            Published apps, courses, and presentations shared with your audience.
                         </p>
 
                         <!-- Stat tiles -->
                         <div class="grid grid-cols-2 gap-3 mb-6">
                             <div class="bg-accent/10 rounded-xl p-3 text-center">
                                 <div class="text-2xl font-black text-accent leading-none">{{ app_count }}</div>
-                                <div class="text-[10px] text-base-content/40 mt-1 uppercase tracking-widest font-medium">Apps</div>
+                                <div class="text-[10px] text-base-content/40 mt-1 uppercase tracking-widest font-medium">Published</div>
                             </div>
                             <div class="bg-base-200 rounded-xl p-3 text-center">
                                 <div class="flex items-center justify-center gap-1.5 mt-2">
@@ -200,9 +200,9 @@ endblock %} {% block content %}
 
                         <!-- Action buttons -->
                         <div class="space-y-2 mt-auto">
-                            <a href="/apps" class="btn btn-accent btn-block btn-sm">Open Apps</a>
-                            <a href="/3d-viewer" class="btn btn-outline btn-accent btn-block btn-sm">3D Viewer</a>
-                            <a href="/course-viewer" class="btn btn-ghost btn-accent btn-block btn-sm text-base-content/50">Courses</a>
+                            <a href="/apps" class="btn btn-accent btn-block btn-sm">My Apps</a>
+                            <a href="/catalog" class="btn btn-outline btn-accent btn-block btn-sm">Public Catalog</a>
+                            <a href="/my-publications" class="btn btn-ghost btn-accent btn-block btn-sm text-base-content/50">Manage</a>
                         </div>
                     </div>
                 </div>

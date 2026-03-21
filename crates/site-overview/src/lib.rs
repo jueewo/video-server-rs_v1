@@ -741,6 +741,7 @@ struct CollectionEntriesTemplate {
 
 #[derive(Template)]
 #[template(path = "site-overview/entry_editor.html")]
+#[allow(dead_code)]
 struct EntryEditorTemplate {
     authenticated: bool,
     workspace_id: String,
@@ -994,7 +995,9 @@ struct VitepressOverviewTemplate {
     last_publish_status: String,
     last_publish_message: String,
     last_preview_url: String,
+    #[allow(dead_code)]
     last_push_time: String,
+    #[allow(dead_code)]
     last_build_time: String,
     // docs/ structure: root-level files and subfolders with their files
     doc_root_files: Vec<String>,

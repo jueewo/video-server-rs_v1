@@ -274,6 +274,7 @@ struct CatalogEntry {
     status: String,
 }
 
+#[allow(dead_code)]
 #[derive(Clone)]
 struct AppCard {
     name: String,

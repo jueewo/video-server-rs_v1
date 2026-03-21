@@ -45,13 +45,6 @@ impl Default for ResolvedBranding {
     }
 }
 
-/// Load optional `branding.yaml` from the workspace root.
-fn load_workspace_branding(workspace_root: &Path) -> Option<structure::CourseBrandingConfig> {
-    let path = workspace_root.join("branding.yaml");
-    let content = std::fs::read_to_string(path).ok()?;
-    serde_yaml::from_str(&content).ok()
-}
-
 /// Load optional `branding.yaml` from any folder on disk.
 fn load_branding_yaml(folder: &Path) -> Option<structure::CourseBrandingConfig> {
     let content = std::fs::read_to_string(folder.join("branding.yaml")).ok()?;
@@ -145,6 +138,7 @@ struct CourseViewerTemplate {
 #[derive(Template)]
 #[template(path = "course/select.html")]
 struct CourseSelectTemplate {
+    #[allow(dead_code)]
     authenticated: bool,
     code: String,
     courses: Vec<CourseOption>,
@@ -177,6 +171,7 @@ struct CourseFolderTemplate {
 #[derive(Template)]
 #[template(path = "course/enter_code.html")]
 struct EnterCodeTemplate {
+    #[allow(dead_code)]
     authenticated: bool,
     branding: ResolvedBranding,
 }
@@ -184,6 +179,7 @@ struct EnterCodeTemplate {
 #[derive(Template)]
 #[template(path = "course/not_found.html")]
 struct CodeNotFoundTemplate {
+    #[allow(dead_code)]
     authenticated: bool,
     code: String,
     branding: ResolvedBranding,
@@ -484,6 +480,7 @@ struct PresentationFolderTemplate {
 #[derive(Template)]
 #[template(path = "presentation/enter_code.html")]
 struct PresentationEnterCodeTemplate {
+    #[allow(dead_code)]
     authenticated: bool,
     branding: ResolvedBranding,
 }
@@ -491,6 +488,7 @@ struct PresentationEnterCodeTemplate {
 #[derive(Template)]
 #[template(path = "presentation/not_found.html")]
 struct PresentationNotFoundTemplate {
+    #[allow(dead_code)]
     authenticated: bool,
     code: String,
     branding: ResolvedBranding,

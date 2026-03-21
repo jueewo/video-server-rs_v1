@@ -55,8 +55,3 @@ tokio-test = "0.4"
 mockito = "1"
 tempfile = "3"
 
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-strip = true

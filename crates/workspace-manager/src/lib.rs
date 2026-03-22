@@ -1267,6 +1267,12 @@ pub async fn folder_agents_handler(
         }
     }
 
+    // Exclude non-agent files (no explicit role, e.g. README.md)
+    let all_agents: Vec<_> = all_agents
+        .into_iter()
+        .filter(|a| a.role != "assistant")
+        .collect();
+
     // Filter: keep agents that are compatible with this folder type.
     // Special case: agent-collection folders show ALL agents (it's the definition folder).
     let compatible: Vec<_> = if folder_type_id.as_deref() == Some("agent-collection") {

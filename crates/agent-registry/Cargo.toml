@@ -1,0 +1,18 @@
+[package]
+name = "agent-registry"
+version = "0.1.0"
+edition = "2021"
+description = "Global agent definitions registry with hierarchy support"
+
+[dependencies]
+agent-collection-processor = { path = "../workspace-processors/agent-collection" }
+agent-tools = { path = "../agent-tools" }
+
+axum          = { workspace = true }
+tokio         = { workspace = true }
+tower-sessions = { workspace = true }
+sqlx          = { workspace = true }
+serde         = { workspace = true }
+serde_json    = { workspace = true }
+askama        = { workspace = true }
+tracing       = { workspace = true }

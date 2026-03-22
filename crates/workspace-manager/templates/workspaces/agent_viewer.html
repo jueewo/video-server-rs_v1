@@ -38,6 +38,9 @@
             <button onclick="revalidate()" class="btn btn-sm btn-outline gap-2" id="validate-btn"><i data-lucide="check-circle" class="w-4 h-4"></i> Validate</button>
             <button onclick="toggleRaw()" class="btn btn-sm btn-outline gap-2"><i data-lucide="code" class="w-4 h-4"></i> Source</button>
             <button onclick="toggleExport()" class="btn btn-sm btn-outline gap-2"><i data-lucide="share-2" class="w-4 h-4"></i> Export</button>
+            {% if agent_active %}
+            <button onclick="publishToRegistry()" class="btn btn-sm btn-outline btn-accent gap-2" id="publish-btn"><i data-lucide="cloud-upload" class="w-4 h-4"></i> Publish</button>
+            {% endif %}
             <a href="{{ back_url }}" class="btn btn-sm btn-ghost gap-2"><i data-lucide="arrow-left" class="w-4 h-4"></i> {{ back_label }}</a>
         </div>
     </div>
@@ -417,6 +420,49 @@ system_prompt: |
         btn.classList.add('loading');
         btn.disabled = true;
         window.location.reload();
+    }
+
+    async function publishToRegistry() {
+        const btn = document.getElementById('publish-btn');
+        btn.classList.add('loading');
+        btn.disabled = true;
+        try {
+            const body = {
+                slug: {{ agent_name|tojson|safe }}.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+                name: {{ agent_name|tojson|safe }},
+                role: {{ agent_role|tojson|safe }},
+                description: {{ agent_description|tojson|safe }},
+                model: {{ agent_model|tojson|safe }},
+                tools: {{ agent_tools|tojson|safe }},
+                temperature: {{ agent_temperature }},
+                folder_types: {{ agent_folder_types|tojson|safe }},
+                autonomy: {{ agent_autonomy|tojson|safe }},
+                max_iterations: {{ agent_max_iterations }},
+                max_tokens: {{ agent_max_tokens }},
+                timeout: {{ agent_timeout }},
+                max_depth: {{ agent_max_depth }},
+                system_prompt: {{ raw_markdown|tojson|safe }},
+                source_workspace_id: {{ workspace_id|tojson|safe }},
+                source_file_path: {{ file_path|tojson|safe }},
+            };
+            const resp = await fetch('/api/agents/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                credentials: 'same-origin',
+            });
+            if (resp.ok) {
+                showToast('Agent published to registry', 'success');
+            } else {
+                const text = await resp.text();
+                showToast('Publish failed: ' + text, 'error');
+            }
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+        } finally {
+            btn.classList.remove('loading');
+            btn.disabled = false;
+        }
     }
 </script>
 {% endblock %}

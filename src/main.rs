@@ -1430,6 +1430,12 @@ async fn main() -> anyhow::Result<()> {
     #[cfg(feature = "apps")]
     let app = app.merge(workspace_app_routes(pool.clone(), storage_dir.clone(), apps_dir.clone(), (*user_storage).clone()));
 
+    // ── Agent Registry (global workforce) ──────────────────────────────────
+    let agent_registry_state = Arc::new(agent_registry::AgentRegistryState {
+        pool: pool.clone(),
+    });
+    let app = app.merge(agent_registry::agent_registry_routes(agent_registry_state));
+
     let app = app
         // Documentation viewer (markdown preview)
         .nest(

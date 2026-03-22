@@ -1,0 +1,807 @@
+{% extends "base-tailwind.html" %}
+{% block title %}My Workforce{% endblock %}
+{% block extra_head %}
+<style>
+    /* Org chart tree lines */
+    .org-tree ul {
+        position: relative;
+        padding-left: 2rem;
+    }
+    .org-tree > ul { padding-left: 0; }
+    .org-tree li {
+        position: relative;
+        list-style: none;
+        padding: 0.25rem 0 0.25rem 1.5rem;
+    }
+    .org-tree > ul > li { padding-left: 0; }
+    .org-tree li::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 0;
+        border-left: 2px solid oklch(var(--bc) / 0.15);
+    }
+    .org-tree > ul > li::before { display: none; }
+    .org-tree li::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 1.5rem;
+        width: 1.25rem;
+        border-bottom: 2px solid oklch(var(--bc) / 0.15);
+    }
+    .org-tree > ul > li::after { display: none; }
+    .org-tree li:last-child::before {
+        height: 1.5rem;
+    }
+
+    /* Autonomy indicator pulse */
+    .autonomy-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+    .autonomy-dot.autonomous { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
+    .autonomy-dot.supervised { background: #f59e0b; }
+    .autonomy-dot.manual     { background: #94a3b8; }
+
+    /* Card hover lift */
+    .agent-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+    .agent-card:hover { transform: translateY(-2px); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-6xl"
+     x-data="agentWorkforce()"
+     x-init="init()">
+
+    <!-- Page Header -->
+    <div class="page-header mb-6">
+        <div>
+            <h1 class="page-header-title flex items-center gap-3">
+                <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl shrink-0"
+                      style="background: linear-gradient(135deg, #6366f1, #a855f7); box-shadow: 0 4px 12px rgba(99,102,241,0.35);">
+                    <i data-lucide="bot" class="w-5 h-5 text-white"></i>
+                </span>
+                <span class="text-gradient">My Workforce</span>
+                {% if agent_count > 0 %}
+                <span class="badge badge-primary badge-sm font-mono">{{ agent_count }}</span>
+                {% endif %}
+            </h1>
+            <p class="page-header-subtitle">Your AI agent team — define, organize, and deploy</p>
+        </div>
+        <div class="page-header-actions">
+            <!-- View toggle -->
+            <div class="join">
+                <button class="join-item btn btn-sm"
+                        :class="view === 'grid' ? 'btn-active' : 'btn-ghost'"
+                        @click="view = 'grid'">
+                    <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                </button>
+                <button class="join-item btn btn-sm"
+                        :class="view === 'chart' ? 'btn-active' : 'btn-ghost'"
+                        @click="view = 'chart'">
+                    <i data-lucide="git-fork" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <button class="btn btn-primary btn-sm gap-1.5" @click="openCreate()">
+                <i data-lucide="plus" class="w-4 h-4"></i> Add Agent
+            </button>
+        </div>
+    </div>
+
+    {% if agent_count == 0 %}
+    <!-- Empty state -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+        <div class="card-body items-center text-center py-16">
+            <div class="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                <i data-lucide="bot" class="w-8 h-8 text-primary"></i>
+            </div>
+            <h2 class="text-lg font-semibold mb-2">No agents yet</h2>
+            <p class="text-base-content/60 mb-6 max-w-md">
+                Build your AI workforce by creating agents or publishing them from workspace agent collections.
+            </p>
+            <div class="flex gap-3">
+                <button class="btn btn-primary gap-2" @click="openCreate()">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Create First Agent
+                </button>
+                <a href="/workspaces" class="btn btn-ghost gap-2">
+                    <i data-lucide="folder-open" class="w-4 h-4"></i> Browse Workspaces
+                </a>
+            </div>
+        </div>
+    </div>
+    {% else %}
+
+    <!-- ======================== TAG FILTER BAR ======================== -->
+    <div x-show="allTags.length > 0" class="flex flex-wrap items-center gap-2 mb-4">
+        <span class="text-xs text-base-content/40">Filter:</span>
+        <button class="badge badge-sm cursor-pointer"
+                :class="filterTag === '' ? 'badge-primary' : 'badge-ghost'"
+                @click="filterTag = ''">All</button>
+        <template x-for="tag in allTags" :key="tag">
+            <button class="badge badge-sm cursor-pointer"
+                    :class="filterTag === tag ? 'badge-primary' : 'badge-outline'"
+                    @click="filterTag = filterTag === tag ? '' : tag"
+                    x-text="tag"></button>
+        </template>
+    </div>
+
+    <!-- ======================== CARD GRID VIEW ======================== -->
+    <div x-show="view === 'grid'" x-cloak>
+        <div class="text-xs text-base-content/40 mb-4" x-text="filteredAgents.length + ' agent' + (filteredAgents.length !== 1 ? 's' : '')"></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            <template x-for="agent in filteredAgents" :key="agent.id">
+                <div class="agent-card card bg-base-100 border border-base-300 shadow-sm hover:shadow-lg cursor-pointer overflow-hidden"
+                     :style="agent.color ? 'border-top: 3px solid ' + agent.color : ''"
+                     @click="openEdit(agent)">
+                    <div class="card-body p-4">
+                        <!-- Header row -->
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <!-- Avatar: uploaded image or auto-generated initials -->
+                                <template x-if="agent.avatar_url">
+                                    <img :src="agent.avatar_url" class="w-8 h-8 rounded-lg object-cover shrink-0" />
+                                </template>
+                                <template x-if="!agent.avatar_url">
+                                    <div class="w-8 h-8 rounded-lg shrink-0 overflow-hidden"
+                                         :style="'background:' + (agent.color || agentColor(agent.name))"
+                                         x-html="silhouetteSvg(8)">
+                                    </div>
+                                </template>
+                                <div class="min-w-0">
+                                    <h3 class="font-semibold text-sm truncate" x-text="agent.name"></h3>
+                                    <span class="badge badge-xs badge-outline font-mono" x-text="agent.role"></span>
+                                </div>
+                            </div>
+                            <span class="autonomy-dot shrink-0 mt-2"
+                                  :class="agent.autonomy"
+                                  :title="agent.autonomy"></span>
+                        </div>
+
+                        <!-- Description -->
+                        <p class="text-xs text-base-content/50 line-clamp-2 mb-3"
+                           x-text="agent.description || 'No description'"></p>
+
+                        <!-- Footer chips -->
+                        <div class="flex flex-wrap gap-1.5 mt-auto">
+                            <span class="badge badge-xs badge-ghost font-mono" x-text="agent.model"></span>
+                            <span class="badge badge-xs gap-1" x-show="agent.tools.length">
+                                <i data-lucide="wrench" class="w-2.5 h-2.5"></i>
+                                <span x-text="agent.tools.length"></span>
+                            </span>
+                            <span class="badge badge-xs badge-info gap-1" x-show="agent.can_spawn_sub_agents">
+                                <i data-lucide="users" class="w-2.5 h-2.5"></i>
+                                <span x-text="'≤' + agent.max_sub_agents"></span>
+                            </span>
+                            <template x-if="getSubordinateCount(agent.id) > 0">
+                                <span class="badge badge-xs badge-secondary gap-1">
+                                    <i data-lucide="arrow-down" class="w-2.5 h-2.5"></i>
+                                    <span x-text="getSubordinateCount(agent.id)"></span>
+                                </span>
+                            </template>
+                        </div>
+
+                        <!-- Tags -->
+                        <div x-show="agent.tags && agent.tags.length > 0" class="flex flex-wrap gap-1 mt-2">
+                            <template x-for="tag in (agent.tags || [])" :key="tag">
+                                <span class="badge badge-xs font-mono opacity-60" x-text="tag"></span>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- ======================== ORG CHART VIEW ======================== -->
+    <div x-show="view === 'chart'" x-cloak class="org-tree">
+        <div class="text-xs text-base-content/40 mb-4">
+            Drag an agent onto another to set it as subordinate. Drop on the gray bar to remove supervisor.
+        </div>
+
+        <!-- Drop zone: remove supervisor (make root) -->
+        <div class="border-2 border-dashed border-base-300 rounded-lg px-4 py-2 mb-4 text-center text-xs text-base-content/40 transition-colors"
+             :class="dragOverRoot ? 'border-warning bg-warning/10 text-warning' : ''"
+             @dragover.prevent="dragOverRoot = true"
+             @dragleave="dragOverRoot = false"
+             @drop.prevent="dragOverRoot = false; dropRemoveSupervisor()">
+            <i data-lucide="arrow-up-from-line" class="w-3.5 h-3.5 inline-block mr-1"></i>
+            Drop here to make root agent (remove supervisor)
+        </div>
+
+        <template x-if="agents.length === 0">
+            <p class="text-base-content/40 text-sm py-8 text-center">No agents yet. Create agents first.</p>
+        </template>
+
+        <!-- Render tree recursively via x-html -->
+        <div x-html="renderTree(filteredTree)" @click="handleTreeClick($event)" @dragstart="handleDragStart($event)" @dragover.prevent="handleDragOver($event)" @dragleave="handleDragLeave($event)" @drop.prevent="handleDrop($event)"></div>
+    </div>
+    {% endif %}
+
+    <!-- ======================== CREATE / EDIT MODAL ======================== -->
+    <div x-show="modal" x-cloak
+         class="fixed inset-0 z-50 overflow-y-auto"
+         @keydown.escape.window="modal = false">
+        <div class="fixed inset-0 bg-black/50" @click="modal = false"></div>
+        <div class="flex min-h-screen items-start justify-center p-4 pt-[10vh]">
+            <div class="relative bg-base-100 rounded-xl shadow-2xl border border-base-300 w-full max-w-2xl"
+                 @click.stop>
+
+                <!-- Modal header -->
+                <div class="flex items-center justify-between px-6 py-4 border-b border-base-300">
+                    <h3 class="text-lg font-semibold flex items-center gap-2">
+                        <i data-lucide="bot" class="w-5 h-5 text-primary"></i>
+                        <span x-text="editing ? 'Edit Agent' : 'Create Agent'"></span>
+                    </h3>
+                    <div class="flex items-center gap-2">
+                        <template x-if="editing">
+                            <button class="btn btn-ghost btn-sm btn-square text-error"
+                                    @click="confirmDelete()">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </template>
+                        <button class="btn btn-ghost btn-sm btn-square" @click="modal = false">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Modal body -->
+                <div class="px-6 py-4 space-y-4 max-h-[65vh] overflow-y-auto">
+                    <!-- Name + Slug -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <label class="form-control">
+                            <div class="label"><span class="label-text font-medium">Name</span></div>
+                            <input type="text" class="input input-bordered input-sm w-full"
+                                   x-model="form.name" @input="if(!editing) form.slug = slugify(form.name)"
+                                   placeholder="Content Writer" />
+                        </label>
+                        <label class="form-control">
+                            <div class="label"><span class="label-text font-medium">Slug</span></div>
+                            <input type="text" class="input input-bordered input-sm w-full font-mono"
+                                   x-model="form.slug" placeholder="content-writer" />
+                        </label>
+                    </div>
+
+                    <!-- Role + Autonomy -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <label class="form-control">
+                            <div class="label"><span class="label-text font-medium">Role</span></div>
+                            <input type="text" class="input input-bordered input-sm w-full"
+                                   x-model="form.role" placeholder="content-writer" />
+                        </label>
+                        <label class="form-control">
+                            <div class="label"><span class="label-text font-medium">Autonomy</span></div>
+                            <select class="select select-bordered select-sm w-full" x-model="form.autonomy">
+                                <option value="supervised">Supervised</option>
+                                <option value="autonomous">Autonomous</option>
+                                <option value="manual">Manual</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <!-- Description -->
+                    <label class="form-control">
+                        <div class="label"><span class="label-text font-medium">Description</span></div>
+                        <input type="text" class="input input-bordered input-sm w-full"
+                               x-model="form.description"
+                               placeholder="Writes and edits content for workspaces" />
+                    </label>
+
+                    <!-- Color + Avatar -->
+                    <div class="flex items-end gap-4">
+                        <div class="form-control">
+                            <div class="label"><span class="label-text font-medium">Color</span></div>
+                            <div class="flex items-center gap-2">
+                                <input type="color" class="w-8 h-8 rounded cursor-pointer border-0 p-0"
+                                       :value="form.color || agentColor(form.name || 'agent')"
+                                       @input="form.color = $event.target.value" />
+                                <button type="button" class="btn btn-ghost btn-xs" @click="form.color = ''" title="Reset to auto">
+                                    <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-control">
+                            <div class="label"><span class="label-text font-medium">Avatar</span></div>
+                            <div class="flex items-center gap-2">
+                                <template x-if="form.avatar_url">
+                                    <img :src="form.avatar_url" class="w-8 h-8 rounded-lg object-cover" />
+                                </template>
+                                <template x-if="!form.avatar_url">
+                                    <div class="w-8 h-8 rounded-lg overflow-hidden"
+                                         :style="'background:' + (form.color || agentColor(form.name || 'agent'))"
+                                         x-html="silhouetteSvg(8)">
+                                    </div>
+                                </template>
+                                <input type="text" class="input input-bordered input-xs w-24 font-mono"
+                                       x-model="form.avatar_url" placeholder="URL" title="Image URL for avatar" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tags -->
+                    <div class="form-control">
+                        <div class="label"><span class="label-text font-medium">Tags</span></div>
+                        <div class="flex flex-wrap items-center gap-1.5 mb-1.5">
+                            <template x-for="tag in form.tags" :key="tag">
+                                <span class="badge badge-sm gap-1">
+                                    <span x-text="tag"></span>
+                                    <button type="button" @click.stop="removeTag(tag)" class="cursor-pointer opacity-60 hover:opacity-100">&times;</button>
+                                </span>
+                            </template>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" class="input input-bordered input-sm flex-1"
+                                   x-model="tagInput"
+                                   @keydown.enter.prevent="addTag()"
+                                   @keydown.comma.prevent="addTag()"
+                                   placeholder="Type a tag and press Enter" />
+                            <button type="button" class="btn btn-ghost btn-sm" @click="addTag()">Add</button>
+                        </div>
+                    </div>
+
+                    <!-- Model + Temperature -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <label class="form-control">
+                            <div class="label"><span class="label-text font-medium">Model</span></div>
+                            <select class="select select-bordered select-sm w-full font-mono"
+                                    x-model="form.model">
+                                <option value="" disabled>Select a model…</option>
+                                <template x-for="m in availableModels" :key="m.model">
+                                    <option :value="m.model" x-text="m.model + ' (' + m.provider + ')'"></option>
+                                </template>
+                            </select>
+                            <div x-show="availableModels.length === 0" class="text-xs text-warning mt-1">
+                                No LLM providers configured. <a href="/settings/llm-providers" class="link link-primary">Add one</a>
+                            </div>
+                        </label>
+                        <label class="form-control">
+                            <div class="label">
+                                <span class="label-text font-medium">Temperature</span>
+                                <span class="label-text-alt font-mono" x-text="form.temperature"></span>
+                            </div>
+                            <input type="range" class="range range-sm range-primary" min="0" max="2" step="0.1"
+                                   x-model.number="form.temperature" />
+                        </label>
+                    </div>
+
+                    <!-- Tools -->
+                    <label class="form-control">
+                        <div class="label"><span class="label-text font-medium">Tools</span></div>
+                        <div class="grid grid-cols-1 gap-y-1">
+                            <template x-for="tool in availableTools" :key="tool.name">
+                                <label class="flex items-center gap-2 cursor-pointer py-1 px-2 rounded hover:bg-base-200">
+                                    <input type="checkbox" class="checkbox checkbox-xs checkbox-primary"
+                                           :value="tool.name"
+                                           :checked="form.tools.includes(tool.name)"
+                                           @change="toggleTool(tool.name)" />
+                                    <span class="text-xs font-mono flex-1" x-text="tool.name"></span>
+                                    <div class="tooltip tooltip-left" :data-tip="tool.description">
+                                        <i data-lucide="info" class="w-3.5 h-3.5 text-base-content/30"></i>
+                                    </div>
+                                </label>
+                            </template>
+                        </div>
+                    </label>
+
+                    <!-- Supervisor + Hierarchy -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <label class="form-control">
+                            <div class="label"><span class="label-text font-medium">Supervisor</span></div>
+                            <select class="select select-bordered select-sm w-full"
+                                    @change="form.supervisor_id = $event.target.value === '' ? null : parseInt($event.target.value)"
+                                    x-html="supervisorOptions()">
+                            </select>
+                        </label>
+                        <div>
+                            <div class="label"><span class="label-text font-medium">Sub-agents</span></div>
+                            <div class="flex items-center gap-3">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" class="toggle toggle-sm toggle-primary"
+                                           x-model="form.can_spawn_sub_agents" />
+                                    <span class="text-xs">Can spawn</span>
+                                </label>
+                                <input type="number" class="input input-bordered input-sm w-20"
+                                       x-model.number="form.max_sub_agents" min="1" max="20"
+                                       x-show="form.can_spawn_sub_agents" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Limits row -->
+                    <div class="grid grid-cols-4 gap-3">
+                        <label class="form-control">
+                            <div class="label"><span class="label-text text-xs">Max Iterations</span></div>
+                            <input type="number" class="input input-bordered input-sm w-full"
+                                   x-model.number="form.max_iterations" min="1" />
+                        </label>
+                        <label class="form-control">
+                            <div class="label"><span class="label-text text-xs">Max Tokens</span></div>
+                            <input type="number" class="input input-bordered input-sm w-full"
+                                   x-model.number="form.max_tokens" min="1" />
+                        </label>
+                        <label class="form-control">
+                            <div class="label"><span class="label-text text-xs">Timeout (s)</span></div>
+                            <input type="number" class="input input-bordered input-sm w-full"
+                                   x-model.number="form.timeout" min="1" max="3600" />
+                        </label>
+                        <label class="form-control">
+                            <div class="label"><span class="label-text text-xs">Max Depth</span></div>
+                            <input type="number" class="input input-bordered input-sm w-full"
+                                   x-model.number="form.max_depth" min="1" max="20" />
+                        </label>
+                    </div>
+
+                    <!-- System Prompt -->
+                    <label class="form-control">
+                        <div class="label"><span class="label-text font-medium">System Prompt</span></div>
+                        <textarea class="textarea textarea-bordered text-sm font-mono leading-relaxed w-full"
+                                  rows="6" x-model="form.system_prompt"
+                                  placeholder="You are a helpful assistant that..."></textarea>
+                    </label>
+                </div>
+
+                <!-- Modal footer -->
+                <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-base-300">
+                    <button class="btn btn-ghost btn-sm" @click="modal = false">Cancel</button>
+                    <button class="btn btn-primary btn-sm gap-1.5" @click="save()" :disabled="saving">
+                        <span x-show="saving" class="loading loading-spinner loading-xs"></span>
+                        <span x-text="editing ? 'Update' : 'Create'"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function agentWorkforce() {
+    return {
+        view: 'grid',
+        agents: [],
+        tree: [],
+        modal: false,
+        editing: false,
+        saving: false,
+        filterTag: '',
+        tagInput: '',
+        dragAgentId: null,
+        dragOverRoot: false,
+        form: {
+            id: null, slug: '', name: '', role: '', description: '',
+            model: '', tools: [], temperature: 1.0,
+            folder_types: [], autonomy: 'supervised', max_iterations: 10,
+            max_tokens: 4096, timeout: 300, max_depth: 3, system_prompt: '',
+            supervisor_id: null, can_spawn_sub_agents: false, max_sub_agents: 3,
+            avatar_url: '', color: '', tags: [],
+        },
+        availableTools: [],
+        availableModels: [],
+
+        init() {
+            this.agents = {{ agents_json|safe }};
+            this.tree = {{ tree_json|safe }};
+            this.availableTools = {{ tools_json|safe }};
+            this.availableModels = {{ models_json|safe }};
+            // Listen for edit-agent events from org chart nodes
+            this.$el.addEventListener('edit-agent', (e) => this.openEdit(e.detail));
+        },
+
+        defaultForm() {
+            return {
+                id: null,
+                slug: '',
+                name: '',
+                role: '',
+                description: '',
+                model: '',
+                tools: [],
+                temperature: 1.0,
+                folder_types: [],
+                autonomy: 'supervised',
+                max_iterations: 10,
+                max_tokens: 4096,
+                timeout: 300,
+                max_depth: 3,
+                system_prompt: '',
+                supervisor_id: null,
+                can_spawn_sub_agents: false,
+                max_sub_agents: 3,
+                avatar_url: '',
+                color: '',
+                tags: [],
+            };
+        },
+
+        openCreate() {
+            this.form = this.defaultForm();
+            this.editing = false;
+            this.modal = true;
+            this.$nextTick(() => lucide.createIcons());
+        },
+
+        openEdit(agent) {
+            this.form = {
+                id: agent.id,
+                slug: agent.slug,
+                name: agent.name,
+                role: agent.role,
+                description: agent.description || '',
+                model: agent.model,
+                tools: [...agent.tools],
+                temperature: agent.temperature,
+                folder_types: [...agent.folder_types],
+                autonomy: agent.autonomy,
+                max_iterations: agent.max_iterations,
+                max_tokens: agent.max_tokens,
+                timeout: agent.timeout,
+                max_depth: agent.max_depth,
+                system_prompt: agent.system_prompt || '',
+                supervisor_id: agent.supervisor_id,
+                can_spawn_sub_agents: agent.can_spawn_sub_agents,
+                max_sub_agents: agent.max_sub_agents,
+                avatar_url: agent.avatar_url || '',
+                color: agent.color || '',
+                tags: [...(agent.tags || [])],
+            };
+            this.tagInput = '';
+            this.editing = true;
+            this.modal = true;
+            this.$nextTick(() => lucide.createIcons());
+        },
+
+        toggleTool(tool) {
+            const idx = this.form.tools.indexOf(tool);
+            if (idx >= 0) this.form.tools.splice(idx, 1);
+            else this.form.tools.push(tool);
+        },
+
+        get allTags() {
+            const tagSet = new Set();
+            this.agents.forEach(a => (a.tags || []).forEach(t => tagSet.add(t)));
+            return [...tagSet].sort();
+        },
+
+        get filteredAgents() {
+            if (!this.filterTag) return this.agents;
+            return this.agents.filter(a => (a.tags || []).includes(this.filterTag));
+        },
+
+        get filteredTree() {
+            if (!this.filterTag) return this.tree;
+            const hasTag = (node) => {
+                if ((node.agent.tags || []).includes(this.filterTag)) return true;
+                return node.children.some(c => hasTag(c));
+            };
+            const prune = (nodes) => {
+                return nodes.filter(n => hasTag(n)).map(n => ({
+                    ...n,
+                    children: prune(n.children),
+                }));
+            };
+            return prune(this.tree);
+        },
+
+        addTag() {
+            const tag = this.tagInput.trim().toLowerCase();
+            if (tag && !this.form.tags.includes(tag)) {
+                this.form.tags.push(tag);
+            }
+            this.tagInput = '';
+        },
+
+        removeTag(tag) {
+            this.form.tags = this.form.tags.filter(t => t !== tag);
+        },
+
+        slugify(text) {
+            return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        },
+
+        silhouetteSvg(size) {
+            const s = size * 4; // viewBox scale
+            return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${s} ${s}" width="${size * 4}" height="${size * 4}">` +
+                `<circle cx="${s/2}" cy="${s*0.36}" r="${s*0.18}" fill="rgba(255,255,255,0.85)"/>` +
+                `<ellipse cx="${s/2}" cy="${s*0.95}" rx="${s*0.32}" ry="${s*0.28}" fill="rgba(255,255,255,0.85)"/>` +
+                `</svg>`;
+        },
+
+        agentColor(name) {
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            const hue = ((hash % 360) + 360) % 360;
+            return this.hslToHex(hue, 55, 45);
+        },
+
+        hslToHex(h, s, l) {
+            s /= 100; l /= 100;
+            const a = s * Math.min(l, 1 - l);
+            const f = n => {
+                const k = (n + h / 30) % 12;
+                const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+                return Math.round(255 * color).toString(16).padStart(2, '0');
+            };
+            return `#${f(0)}${f(8)}${f(4)}`;
+        },
+
+        supervisorOptions() {
+            let html = `<option value="" ${this.form.supervisor_id == null ? 'selected' : ''}>None (root agent)</option>`;
+            for (const a of this.agents) {
+                if (a.id === this.form.id) continue;
+                const sel = this.form.supervisor_id === a.id ? 'selected' : '';
+                html += `<option value="${a.id}" ${sel}>${this.escHtml(a.name)}</option>`;
+            }
+            return html;
+        },
+
+        escHtml(s) {
+            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        },
+
+        getSubordinateCount(agentId) {
+            return this.agents.filter(a => a.supervisor_id === agentId).length;
+        },
+
+        // -- Org chart tree rendering --
+
+        renderTreeNode(node, depth) {
+            const a = node.agent;
+            const color = a.color || this.agentColor(a.name);
+            const childCount = node.children.length;
+            const indent = depth > 0 ? 'ml-6 border-l-2 border-base-300 pl-4' : '';
+            let html = `<div class="${indent} mb-1">`;
+            html += `<div class="org-node inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-base-300 bg-base-100 shadow-sm hover:shadow cursor-grab active:cursor-grabbing mb-1 transition-colors" draggable="true" data-agent-id="${a.id}" data-agent-name="${this.escHtml(a.name)}">`;
+            html += `<div class="w-5 h-5 rounded shrink-0 overflow-hidden" style="background:${color}">${this.silhouetteSvg(5)}</div>`;
+            html += `<span class="font-medium text-sm">${this.escHtml(a.name)}</span>`;
+            html += `<span class="badge badge-xs badge-outline">${this.escHtml(a.role)}</span>`;
+            if (a.model) html += `<span class="text-xs text-base-content/40 font-mono">${this.escHtml(a.model)}</span>`;
+            if (childCount > 0) html += `<span class="badge badge-xs badge-secondary">${childCount} report${childCount !== 1 ? 's' : ''}</span>`;
+            html += `</div>`;
+            for (const child of node.children) {
+                html += this.renderTreeNode(child, depth + 1);
+            }
+            html += `</div>`;
+            return html;
+        },
+
+        renderTree(tree) {
+            if (!tree || tree.length === 0) return '';
+            return tree.map(n => this.renderTreeNode(n, 0)).join('');
+        },
+
+        handleTreeClick(e) {
+            const node = e.target.closest('.org-node');
+            if (!node) return;
+            const id = parseInt(node.dataset.agentId);
+            const agent = this.agents.find(a => a.id === id);
+            if (agent) this.openEdit(agent);
+        },
+
+        handleDragStart(e) {
+            const node = e.target.closest('.org-node');
+            if (!node) return;
+            this.dragAgentId = parseInt(node.dataset.agentId);
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', this.dragAgentId);
+            node.classList.add('opacity-50');
+        },
+
+        handleDragOver(e) {
+            const node = e.target.closest('.org-node');
+            if (!node) return;
+            const targetId = parseInt(node.dataset.agentId);
+            if (targetId !== this.dragAgentId) {
+                node.classList.add('ring-2', 'ring-primary', 'ring-offset-1');
+            }
+        },
+
+        handleDragLeave(e) {
+            const node = e.target.closest('.org-node');
+            if (node) node.classList.remove('ring-2', 'ring-primary', 'ring-offset-1');
+        },
+
+        async handleDrop(e) {
+            // Remove all visual states
+            document.querySelectorAll('.org-node').forEach(el => {
+                el.classList.remove('opacity-50', 'ring-2', 'ring-primary', 'ring-offset-1');
+            });
+            const node = e.target.closest('.org-node');
+            if (!node) return;
+            const targetId = parseInt(node.dataset.agentId);
+            if (targetId === this.dragAgentId || !this.dragAgentId) return;
+            await this.setSupervisor(this.dragAgentId, targetId);
+            this.dragAgentId = null;
+        },
+
+        async dropRemoveSupervisor() {
+            if (!this.dragAgentId) return;
+            document.querySelectorAll('.org-node').forEach(el => el.classList.remove('opacity-50'));
+            await this.setSupervisor(this.dragAgentId, null);
+            this.dragAgentId = null;
+        },
+
+        async setSupervisor(agentId, supervisorId) {
+            try {
+                if (supervisorId) {
+                    const res = await fetch(`/api/agents/${agentId}/supervisor`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ supervisor_id: supervisorId }),
+                    });
+                    const data = await res.json();
+                    if (data.error) { alert(data.error); return; }
+                } else {
+                    await fetch(`/api/agents/${agentId}/supervisor`, { method: 'DELETE' });
+                }
+                // Refresh data
+                const res = await fetch('/api/agents');
+                const data = await res.json();
+                this.agents = data.agents;
+                const treeRes = await fetch('/api/agents/tree');
+                const treeData = await treeRes.json();
+                this.tree = treeData.tree;
+            } catch (err) {
+                console.error('Failed to set supervisor:', err);
+            }
+        },
+
+        async save() {
+            this.saving = true;
+            try {
+                const url = this.editing ? `/api/agents/${this.form.id}` : '/api/agents';
+                const method = this.editing ? 'PUT' : 'POST';
+                const body = { ...this.form };
+                // Convert supervisor_id: "null" string to actual null
+                if (!body.supervisor_id || body.supervisor_id === 'null') body.supervisor_id = null;
+                else body.supervisor_id = parseInt(body.supervisor_id);
+
+                const resp = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                    credentials: 'same-origin',
+                });
+                if (!resp.ok) {
+                    const err = await resp.text();
+                    showToast('Failed: ' + err, 'error');
+                    return;
+                }
+                showToast(this.editing ? 'Agent updated' : 'Agent created', 'success');
+                this.modal = false;
+                // Reload to get fresh data
+                setTimeout(() => location.reload(), 300);
+            } catch (e) {
+                showToast('Error: ' + e.message, 'error');
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        confirmDelete() {
+            if (!this.editing || !this.form.id) return;
+            const id = this.form.id;
+            const name = this.form.name;
+            window.showWithCallback(
+                'Delete Agent',
+                `Permanently delete "${name}"? This cannot be undone.`,
+                async () => {
+                    const resp = await fetch(`/api/agents/${id}`, {
+                        method: 'DELETE',
+                        credentials: 'same-origin',
+                    });
+                    if (resp.ok || resp.status === 204) {
+                        showToast('Agent deleted', 'success');
+                        setTimeout(() => location.reload(), 300);
+                    } else {
+                        showToast('Delete failed', 'error');
+                    }
+                }
+            );
+        },
+    };
+}
+</script>
+{% endblock %}

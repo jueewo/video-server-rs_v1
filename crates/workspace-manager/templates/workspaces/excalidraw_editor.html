@@ -157,10 +157,50 @@ window.addEventListener('resize', fitWrap);
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ content: json }),
             });
-            if (r.ok) showSaveStatus('Saved ✓', true);
-            else showSaveStatus('Save failed (' + r.status + ')', false);
+            if (r.ok) {
+                showSaveStatus('Saved ✓', true);
+                // Generate SVG thumbnail in background (non-blocking)
+                saveSvgThumbnail(elements, appState, files);
+            } else {
+                showSaveStatus('Save failed (' + r.status + ')', false);
+            }
         } catch (e) {
             showSaveStatus('Save failed', false);
+        }
+    }
+
+    async function saveSvgThumbnail(elements, appState, files) {
+        try {
+            const exportToSvg = ExcalidrawLib.exportToSvg || (ExcalidrawLib.default && ExcalidrawLib.default.exportToSvg);
+            if (!exportToSvg) return;
+
+            // Only export if there are visible elements
+            const visible = elements.filter(el => !el.isDeleted);
+            if (visible.length === 0) return;
+
+            const svgEl = await exportToSvg({
+                elements: visible,
+                appState: {
+                    ...appState,
+                    exportWithDarkMode: false,
+                    exportBackground: true,
+                    viewBackgroundColor: appState.viewBackgroundColor || '#ffffff',
+                },
+                files: files || {},
+            });
+
+            const svgString = new XMLSerializer().serializeToString(svgEl);
+
+            // Save as .excalidraw.svg sidecar next to the original file
+            const svgPath = new URLSearchParams(SAVE_URL.split('?')[1]).get('path') + '.svg';
+            const svgUrl = SAVE_URL.split('?')[0] + '?path=' + encodeURIComponent(svgPath);
+            await fetch(svgUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: svgString }),
+            });
+        } catch (e) {
+            console.warn('SVG thumbnail export failed:', e);
         }
     }
 

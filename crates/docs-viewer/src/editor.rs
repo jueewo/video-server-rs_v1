@@ -23,6 +23,9 @@ pub struct EditorTemplate {
     pub path_crumbs: Vec<(String, String)>,
     /// Parent folder of the file being edited, e.g. "session2". Used by Insert panel.
     pub folder_path: String,
+    /// Optional helper HTML shown as a collapsible panel below the toolbar.
+    /// Empty string means no helper is shown.
+    pub helper_html: String,
 }
 
 impl EditorTemplate {
@@ -52,6 +55,7 @@ impl EditorTemplate {
             back_label: "Media".to_string(),
             path_crumbs: vec![],
             folder_path: String::new(),
+            helper_html: String::new(),
         }
     }
 
@@ -81,6 +85,7 @@ impl EditorTemplate {
             back_label: "Media".to_string(),
             path_crumbs: vec![],
             folder_path: String::new(),
+            helper_html: String::new(),
         }
     }
 }

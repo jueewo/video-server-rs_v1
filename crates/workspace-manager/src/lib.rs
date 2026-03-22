@@ -423,6 +423,36 @@ pub struct MarkdownPreviewTemplate {
     pub sibling_docs: Vec<(String, String)>,
 }
 
+#[derive(Template)]
+#[template(path = "workspaces/agent_viewer.html")]
+pub struct AgentViewerTemplate {
+    pub authenticated: bool,
+    pub workspace_id: String,
+    pub workspace_name: String,
+    pub agent_name: String,
+    pub agent_role: String,
+    pub agent_description: String,
+    pub agent_model: String,
+    pub agent_tools: Vec<String>,
+    pub agent_temperature: f32,
+    pub agent_folder_types: Vec<String>,
+    pub agent_autonomy: String,
+    pub agent_max_iterations: u32,
+    pub agent_max_tokens: u32,
+    pub agent_timeout: u32,
+    pub agent_max_depth: u32,
+    pub agent_format: String,
+    pub agent_active: bool,
+    pub agent_validation_errors: Vec<agent_collection_processor::ValidationError>,
+    pub system_prompt_html: String,
+    pub file_path: String,
+    pub raw_markdown: String,
+    pub edit_url: String,
+    pub back_url: String,
+    pub back_label: String,
+    pub sibling_agents: Vec<(String, String)>,
+}
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -566,6 +596,87 @@ fn monaco_language(ext: &str) -> &'static str {
         "xml" => "xml",
         _ => "plaintext",
     }
+}
+
+/// Generate HTML for the agent format reference helper, matched to the file extension.
+fn agent_format_helper_html(ext: &str) -> String {
+    let (title, example) = match ext {
+        "md" => ("Markdown agent format", r#"---
+role: content-writer
+description: Creates and edits structured content
+model: claude-sonnet-4.5
+tools:
+  - workspace_read_file
+  - workspace_write_file
+  - workspace_list_files
+  - workspace_search
+  - folder_structure
+  - workspace_context
+temperature: 0.7
+folder_types:
+  - static-site
+  - course
+autonomy: supervised        # autonomous | supervised | manual
+max_iterations: 10
+max_tokens: 4096
+timeout: 300                # seconds (1-3600)
+max_depth: 3                # delegation depth (1-20)
+---
+
+Your system prompt goes here as markdown.
+Describe the agent's behavior, personality, and rules."#),
+        "toml" => ("TOML agent format", r#"role = "content-writer"
+description = "Creates and edits structured content"
+model = "claude-sonnet-4.5"
+tools = [
+  "workspace_read_file",
+  "workspace_write_file",
+  "workspace_list_files",
+  "workspace_search",
+  "folder_structure",
+  "workspace_context",
+]
+temperature = 0.7
+folder_types = ["static-site", "course"]
+autonomy = "supervised"     # autonomous | supervised | manual
+max_iterations = 10
+max_tokens = 4096
+timeout = 300               # seconds (1-3600)
+max_depth = 3               # delegation depth (1-20)
+system_prompt = """
+Your system prompt goes here.
+Describe the agent's behavior, personality, and rules.
+""""#),
+        _ => ("YAML agent format", r#"role: content-writer
+description: Creates and edits structured content
+model: claude-sonnet-4.5
+tools:
+  - workspace_read_file
+  - workspace_write_file
+  - workspace_list_files
+  - workspace_search
+  - folder_structure
+  - workspace_context
+temperature: 0.7
+folder_types:
+  - static-site
+  - course
+autonomy: supervised        # autonomous | supervised | manual
+max_iterations: 10
+max_tokens: 4096
+timeout: 300                # seconds (1-3600)
+max_depth: 3                # delegation depth (1-20)
+system_prompt: |
+  Your system prompt goes here.
+  Describe the agent's behavior, personality, and rules."#),
+    };
+
+    format!(
+        r#"<div class="flex items-center justify-between px-4 py-2 border-b border-base-300 bg-base-200">
+    <span class="text-xs font-semibold uppercase tracking-wide text-base-content">{title}</span>
+</div>
+<pre class="text-xs p-4 overflow-x-auto leading-relaxed m-0 bg-base-100 text-base-content"><code>{example}</code></pre>"#
+    )
 }
 
 /// Build the browse URL for the parent directory of a workspace-relative file path.
@@ -2407,6 +2518,27 @@ async fn file_browser_handler(
         }
     }
 
+    // Annotate agent files with validation badges in agent-collection folders.
+    // Only badge files that look like agent definitions (have an explicit role set).
+    if current_type_id.as_deref() == Some("agent-collection") {
+        for file in &mut dir_listing.files {
+            let ext = file.name.rsplit('.').next().unwrap_or("");
+            if matches!(ext, "md" | "yaml" | "yml" | "toml") {
+                let file_abs = workspace_root.join(file.path.trim_start_matches('/'));
+                if let Ok(agent) = agent_collection_processor::load_agent(&file_abs) {
+                    // Skip files without an explicit role — they're not agent definitions
+                    if agent.role != "assistant" {
+                        if agent.active {
+                            file.badge = Some(("valid".to_string(), "badge-success".to_string()));
+                        } else {
+                            file.badge = Some(("invalid".to_string(), "badge-error".to_string()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // Build breadcrumbs
     let mut breadcrumbs: Vec<(String, String)> = vec![(
         workspace_name.clone(),
@@ -2516,6 +2648,20 @@ pub async fn edit_text_file_page(
         .and_then(|p| p.to_str())
         .unwrap_or("")
         .to_string();
+
+    // Show format reference helper when editing agent files
+    let folder_name = template.folder_path.trim_start_matches('/');
+    let is_agent_folder = if !folder_name.is_empty() {
+        workspace_config::WorkspaceConfig::load(&workspace_root)
+            .ok()
+            .and_then(|cfg| cfg.folders.get(folder_name).map(|f| f.folder_type.as_str() == "agent-collection"))
+            .unwrap_or(false)
+    } else {
+        false
+    };
+    if is_agent_folder && matches!(ext.as_str(), "md" | "yaml" | "yml" | "toml") {
+        template.helper_html = agent_format_helper_html(&ext);
+    }
 
     let html = template
         .render()
@@ -2678,60 +2824,186 @@ pub async fn open_file_page(
                 .and_then(|p| p.to_str())
                 .unwrap_or("")
                 .to_string();
-            let render_input = if ext == "mdx" {
-                docs_viewer::markdown::preprocess_mdx(&raw_markdown)
+
+            // Check if this file is inside an agent-collection folder
+            let is_agent_file = {
+                let folder_name = file_dir.trim_start_matches('/');
+                if !folder_name.is_empty() {
+                    workspace_config::WorkspaceConfig::load(&workspace_root)
+                        .ok()
+                        .and_then(|cfg| cfg.folders.get(folder_name).map(|f| f.folder_type.as_str() == "agent-collection"))
+                        .unwrap_or(false)
+                } else {
+                    false
+                }
+            };
+
+            // Only use agent viewer if the file has an explicit role (not a plain README etc.)
+            let agent_def = if is_agent_file && ext != "mdx" {
+                agent_collection_processor::load_agent(
+                    &workspace_root.join(file_path.trim_start_matches('/'))
+                ).ok().filter(|a| a.role != "assistant")
             } else {
-                raw_markdown.clone()
+                None
             };
-            let rendered_html = state.markdown_renderer.render_workspace(&render_input, &workspace_id, &file_dir);
-            let edit_url = format!(
-                "/workspaces/{}/edit-text?file={}",
-                workspace_id, encoded_path
-            );
-            // Collect sibling .md/.mdx files from the same directory
-            let sibling_docs = {
-                let dir = workspace_root.join(file_dir.trim_start_matches('/'));
-                let current_name = std::path::Path::new(&file_path)
-                    .file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
-                let mut siblings: Vec<(String, String)> = std::fs::read_dir(&dir)
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|e| e.ok())
-                    .filter(|e| e.path().is_file())
-                    .filter_map(|e| {
-                        let name = e.file_name().to_string_lossy().to_string();
-                        if (name.ends_with(".md") || name.ends_with(".mdx")) && name != current_name {
-                            let rel = if file_dir.is_empty() {
-                                name.clone()
+
+            if let Some(_) = &agent_def {
+
+                let edit_url = format!(
+                    "/workspaces/{}/edit-text?file={}",
+                    workspace_id, encoded_path
+                );
+
+                let (agent_name, agent_role, agent_description, agent_model, agent_tools, agent_temperature, agent_folder_types, agent_autonomy, agent_max_iterations, agent_max_tokens, agent_timeout, agent_max_depth, agent_format, agent_active, agent_validation_errors, system_prompt) = match &agent_def {
+                    Some(a) => (
+                        a.name.clone(), a.role.clone(), a.description.clone(), a.model.clone(),
+                        a.tools.clone(), a.temperature, a.folder_types.clone(), a.autonomy.clone(),
+                        a.max_iterations, a.max_tokens, a.timeout, a.max_depth,
+                        a.format.clone(), a.active, a.validation_errors.clone(), a.system_prompt.clone(),
+                    ),
+                    None => (
+                        file_name.trim_end_matches(".md").trim_end_matches(".yaml").trim_end_matches(".yml").trim_end_matches(".toml").to_string(),
+                        "unknown".to_string(), String::new(), "unknown".to_string(),
+                        vec![], 1.0, vec![], "supervised".to_string(), 10, 4096, 300, 3,
+                        ext.clone(), false,
+                        vec![agent_collection_processor::ValidationError {
+                            field: "file".to_string(),
+                            message: "Failed to parse agent definition".to_string(),
+                        }],
+                        raw_markdown.clone(),
+                    ),
+                };
+
+                let system_prompt_html = state.markdown_renderer.render_workspace(&system_prompt, &workspace_id, &file_dir);
+
+                // Collect sibling agent files (.md and .yaml/.yml)
+                let sibling_agents = {
+                    let dir = workspace_root.join(file_dir.trim_start_matches('/'));
+                    let current_name = std::path::Path::new(&file_path)
+                        .file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+                    let mut siblings: Vec<(String, String)> = std::fs::read_dir(&dir)
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|e| e.ok())
+                        .filter(|e| e.path().is_file())
+                        .filter_map(|e| {
+                            let name = e.file_name().to_string_lossy().to_string();
+                            let is_agent_ext = name.ends_with(".md") || name.ends_with(".yaml") || name.ends_with(".yml") || name.ends_with(".toml");
+                            if is_agent_ext && name != current_name {
+                                // Only include files that are actual agent definitions
+                                if let Ok(a) = agent_collection_processor::load_agent(&e.path()) {
+                                    if a.role == "assistant" { return None; }
+                                } else {
+                                    return None;
+                                }
+                                let rel = if file_dir.is_empty() {
+                                    name.clone()
+                                } else {
+                                    format!("{}/{}", file_dir.trim_start_matches('/'), name)
+                                };
+                                let display = name
+                                    .trim_end_matches(".md")
+                                    .trim_end_matches(".yaml")
+                                    .trim_end_matches(".yml")
+                                    .trim_end_matches(".toml")
+                                    .to_string();
+                                Some((display, rel))
                             } else {
-                                format!("{}/{}", file_dir.trim_start_matches('/'), name)
-                            };
-                            let display = name.trim_end_matches(".mdx").trim_end_matches(".md").to_string();
-                            Some((display, rel))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                siblings.sort_by(|a, b| a.0.cmp(&b.0));
-                siblings
-            };
-            let template = MarkdownPreviewTemplate {
-                authenticated: true,
-                workspace_id: workspace_id.clone(),
-                workspace_name: workspace_name.clone(),
-                title: file_name.clone(),
-                content: rendered_html,
-                file_path: file_path.clone(),
-                raw_markdown,
-                edit_url,
-                back_url: back_url.clone(),
-                back_label: workspace_name.clone(),
-                sibling_docs,
-            };
-            template
-                .render()
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+                                None
+                            }
+                        })
+                        .collect();
+                    siblings.sort_by(|a, b| a.0.cmp(&b.0));
+                    siblings
+                };
+
+                let template = AgentViewerTemplate {
+                    authenticated: true,
+                    workspace_id: workspace_id.clone(),
+                    workspace_name: workspace_name.clone(),
+                    agent_name,
+                    agent_role,
+                    agent_description,
+                    agent_model,
+                    agent_tools,
+                    agent_temperature,
+                    agent_folder_types,
+                    agent_autonomy,
+                    agent_max_iterations,
+                    agent_max_tokens,
+                    agent_timeout,
+                    agent_max_depth,
+                    agent_format,
+                    agent_active,
+                    agent_validation_errors,
+                    system_prompt_html,
+                    file_path: file_path.clone(),
+                    raw_markdown,
+                    edit_url,
+                    back_url: back_url.clone(),
+                    back_label: workspace_name.clone(),
+                    sibling_agents,
+                };
+                template
+                    .render()
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+            } else {
+                // Standard markdown preview
+                let render_input = if ext == "mdx" {
+                    docs_viewer::markdown::preprocess_mdx(&raw_markdown)
+                } else {
+                    raw_markdown.clone()
+                };
+                let rendered_html = state.markdown_renderer.render_workspace(&render_input, &workspace_id, &file_dir);
+                let edit_url = format!(
+                    "/workspaces/{}/edit-text?file={}",
+                    workspace_id, encoded_path
+                );
+                // Collect sibling .md/.mdx files from the same directory
+                let sibling_docs = {
+                    let dir = workspace_root.join(file_dir.trim_start_matches('/'));
+                    let current_name = std::path::Path::new(&file_path)
+                        .file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+                    let mut siblings: Vec<(String, String)> = std::fs::read_dir(&dir)
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|e| e.ok())
+                        .filter(|e| e.path().is_file())
+                        .filter_map(|e| {
+                            let name = e.file_name().to_string_lossy().to_string();
+                            if (name.ends_with(".md") || name.ends_with(".mdx")) && name != current_name {
+                                let rel = if file_dir.is_empty() {
+                                    name.clone()
+                                } else {
+                                    format!("{}/{}", file_dir.trim_start_matches('/'), name)
+                                };
+                                let display = name.clone();
+                                Some((display, rel))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    siblings.sort_by(|a, b| a.0.cmp(&b.0));
+                    siblings
+                };
+                let template = MarkdownPreviewTemplate {
+                    authenticated: true,
+                    workspace_id: workspace_id.clone(),
+                    workspace_name: workspace_name.clone(),
+                    title: file_name.clone(),
+                    content: rendered_html,
+                    file_path: file_path.clone(),
+                    raw_markdown,
+                    edit_url,
+                    back_url: back_url.clone(),
+                    back_label: workspace_name.clone(),
+                    sibling_docs,
+                };
+                template
+                    .render()
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+            }
         }
         "png" | "jpg" | "jpeg" | "gif" | "webp" | "avif" | "svg" | "ico" | "bmp" | "tiff"
         | "tif" => {
@@ -2762,6 +3034,105 @@ pub async fn open_file_page(
             template
                 .render()
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        }
+        "yaml" | "yml" | "toml" if {
+            // Check if this YAML/TOML file is inside an agent-collection folder
+            let folder_name = std::path::Path::new(&file_path)
+                .parent()
+                .and_then(|p| p.to_str())
+                .unwrap_or("")
+                .trim_start_matches('/');
+            !folder_name.is_empty()
+                && workspace_config::WorkspaceConfig::load(&workspace_root)
+                    .ok()
+                    .and_then(|cfg| cfg.folders.get(folder_name).map(|f| f.folder_type.as_str() == "agent-collection"))
+                    .unwrap_or(false)
+        } => {
+            // Agent definition in YAML/TOML → render with agent viewer
+            let raw_content = file_editor::read_file(&workspace_root, &file_path)
+                .map_err(|_| StatusCode::NOT_FOUND)?;
+            let file_dir = std::path::Path::new(&file_path)
+                .parent()
+                .and_then(|p| p.to_str())
+                .unwrap_or("")
+                .to_string();
+
+            let agent_def = agent_collection_processor::load_agent(
+                &workspace_root.join(file_path.trim_start_matches('/'))
+            ).ok();
+
+            let edit_url = format!(
+                "/workspaces/{}/edit-text?file={}",
+                workspace_id, encoded_path
+            );
+
+            let (agent_name, agent_role, agent_description, agent_model, agent_tools, agent_temperature, agent_folder_types, agent_autonomy, agent_max_iterations, agent_max_tokens, agent_timeout, agent_max_depth, agent_format, agent_active, agent_validation_errors, system_prompt) = match &agent_def {
+                Some(a) => (
+                    a.name.clone(), a.role.clone(), a.description.clone(), a.model.clone(),
+                    a.tools.clone(), a.temperature, a.folder_types.clone(), a.autonomy.clone(),
+                    a.max_iterations, a.max_tokens, a.timeout, a.max_depth,
+                    a.format.clone(), a.active, a.validation_errors.clone(), a.system_prompt.clone(),
+                ),
+                None => (
+                    file_name.trim_end_matches(".yaml").trim_end_matches(".yml").trim_end_matches(".toml").to_string(),
+                    "unknown".to_string(), String::new(), "unknown".to_string(),
+                    vec![], 1.0, vec![], "supervised".to_string(), 10, 4096, 300, 3,
+                    ext.clone(), false,
+                    vec![agent_collection_processor::ValidationError {
+                        field: "file".to_string(),
+                        message: "Failed to parse agent definition".to_string(),
+                    }],
+                    raw_content.clone(),
+                ),
+            };
+
+            let system_prompt_html = state.markdown_renderer.render_workspace(&system_prompt, &workspace_id, &file_dir);
+
+            let sibling_agents = {
+                let dir = workspace_root.join(file_dir.trim_start_matches('/'));
+                let current_name = std::path::Path::new(&file_path)
+                    .file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+                let mut siblings: Vec<(String, String)> = std::fs::read_dir(&dir)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|e| e.ok())
+                    .filter(|e| e.path().is_file())
+                    .filter_map(|e| {
+                        let name = e.file_name().to_string_lossy().to_string();
+                        let is_agent_ext = name.ends_with(".md") || name.ends_with(".yaml") || name.ends_with(".yml") || name.ends_with(".toml");
+                        if is_agent_ext && name != current_name {
+                            // Only include files that are actual agent definitions
+                            if let Ok(a) = agent_collection_processor::load_agent(&e.path()) {
+                                if a.role == "assistant" { return None; }
+                            } else {
+                                return None;
+                            }
+                            let rel = if file_dir.is_empty() { name.clone() } else { format!("{}/{}", file_dir.trim_start_matches('/'), name) };
+                            let display = name.trim_end_matches(".md").trim_end_matches(".yaml").trim_end_matches(".yml").trim_end_matches(".toml").to_string();
+                            Some((display, rel))
+                        } else { None }
+                    })
+                    .collect();
+                siblings.sort_by(|a, b| a.0.cmp(&b.0));
+                siblings
+            };
+
+            let template = AgentViewerTemplate {
+                authenticated: true,
+                workspace_id: workspace_id.clone(),
+                workspace_name: workspace_name.clone(),
+                agent_name, agent_role, agent_description, agent_model, agent_tools, agent_temperature,
+                agent_folder_types, agent_autonomy, agent_max_iterations, agent_max_tokens,
+                agent_timeout, agent_max_depth,
+                agent_format, agent_active, agent_validation_errors, system_prompt_html,
+                file_path: file_path.clone(),
+                raw_markdown: raw_content,
+                edit_url,
+                back_url: back_url.clone(),
+                back_label: workspace_name.clone(),
+                sibling_agents,
+            };
+            template.render().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         }
         _ => {
             // Text-based files → Monaco editor

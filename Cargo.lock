@@ -116,6 +116,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "tempfile",
+ "toml",
  "tracing",
 ]
 

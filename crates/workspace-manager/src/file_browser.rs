@@ -13,6 +13,9 @@ pub struct FileEntry {
     pub modified: String,
     pub is_editable: bool,
     pub is_viewable: bool, // images (png, jpg, svg, gif, webp, …)
+    /// Optional status badge for the file listing, e.g. ("invalid", "badge-error").
+    /// Folder-type processors can set this to surface file-level status.
+    pub badge: Option<(String, String)>,
 }
 
 #[derive(Clone, Debug)]
@@ -166,6 +169,7 @@ pub fn list_dir(workspace_root: &Path, subpath: &str) -> Result<DirListing> {
                 modified,
                 is_editable,
                 is_viewable,
+                badge: None,
             });
         }
     }
@@ -249,6 +253,7 @@ pub fn search_files(workspace_root: &Path, query: &str, limit: usize) -> Vec<Fil
                     modified,
                     is_editable,
                     is_viewable,
+                    badge: None,
                 },
             ))
         })
@@ -316,6 +321,7 @@ pub fn recent_files(workspace_root: &Path, limit: usize) -> Vec<FileEntry> {
                     modified: format_modified(modified_secs),
                     is_editable,
                     is_viewable,
+                    badge: None,
                 },
             ))
         })

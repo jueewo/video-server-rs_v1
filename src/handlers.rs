@@ -23,7 +23,6 @@ use crate::config::{AppConfig, DeploymentConfig};
 #[allow(dead_code)]
 pub struct AppState {
     pub pool: sqlx::SqlitePool,
-    #[cfg(feature = "media")]
     pub video_state: Arc<video_manager::VideoManagerState>,
     pub auth_state: Arc<AuthState>,
     pub access_state: Arc<access_codes::AccessCodeState>,

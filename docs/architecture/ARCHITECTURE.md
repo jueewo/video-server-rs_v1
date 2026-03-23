@@ -47,20 +47,11 @@
 
 ---
 
-## Feature Flags
+## Build
 
-```
-default = ["full"]
-
-full    = ["media", "course", "bpmn", "apps"]
-media   = [video-manager, media-manager, media-viewer]
-course  = [course]
-bpmn    = [bpmn-viewer]
-apps    = [workspace-apps]  →  publications, js-tool-viewer, gallery3d
-```
+All crates are always compiled — no feature flags. Just:
 
 ```bash
-cargo build                                          # everything (default)
-cargo build --no-default-features --features media   # media pipeline only
-cargo build --features "media,course"                # media + courses
+cargo build            # dev
+cargo build --release  # production
 ```

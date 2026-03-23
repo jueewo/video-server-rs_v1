@@ -31,7 +31,6 @@ use access_codes::{access_code_public_routes, access_code_routes, AccessCodeStat
 use access_control::AccessControlService;
 use api_keys::{middleware::api_key_or_session_auth, routes::api_key_routes};
 use common::request_id::request_id_middleware;
-#[cfg(feature = "apps")]
 use workspace_apps::workspace_app_routes;
 use workspace_renderers;
 use docs_viewer::{docs_routes, markdown::MarkdownRenderer, DocsState};
@@ -43,17 +42,13 @@ use vault_manager::{vault_routes, VaultManagerState};
 use workspace_manager::{workspace_routes, WorkspaceManagerState};
 use federation::{federation_consumer_routes, federation_server_routes, FederationState};
 
-#[cfg(feature = "media")]
 use media_manager::{
     folder_access_routes, media_routes, media_serving_routes, media_upload_routes,
     MediaManagerState,
 };
-#[cfg(feature = "media")]
 use video_manager::{rtmp_publish_token, video_routes, VideoManagerState};
-#[cfg(feature = "media")]
 use media_viewer::{gallery_routes, MediaViewerState};
 
-#[cfg(feature = "course")]
 use course::{course_routes, presentation_routes, CourseState};
 
 use crate::catalog::load_apps_catalog;
@@ -170,8 +165,7 @@ async fn main() -> anyhow::Result<()> {
     println!("\u{1f510} Access Control Service initialized with audit logging enabled");
 
     // Initialize module states
-    #[cfg(feature = "media")]
-    let video_state = Arc::new(VideoManagerState::new(
+        let video_state = Arc::new(VideoManagerState::new(
         pool.clone(),
         database.clone(),
         database.clone(),
@@ -179,8 +173,6 @@ async fn main() -> anyhow::Result<()> {
         http_client,
         access_control.clone(),
     ));
-    #[cfg(not(feature = "media"))]
-    drop(http_client);
 
     let user_storage = Arc::new(common::storage::UserStorageManager::new(
         storage_dir.clone(),
@@ -230,8 +222,7 @@ async fn main() -> anyhow::Result<()> {
     let git_state = GitProviderState::new(database.clone());
     println!("\u{1f500} Git Provider service initialized");
 
-    #[cfg(feature = "media")]
-    let media_manager_state = Arc::new(MediaManagerState::with_video_processing(
+        let media_manager_state = Arc::new(MediaManagerState::with_video_processing(
         database.clone(),
         database.clone(),
         storage_dir.to_str().unwrap_or("storage").to_string(),
@@ -241,8 +232,7 @@ async fn main() -> anyhow::Result<()> {
         video_state.metrics_store.clone(),
         video_state.audit_logger.clone(),
     ));
-    #[cfg(feature = "media")]
-    println!("\u{1f4c1} Unified Media Manager initialized (images with original + WebP support, HLS video transcoding)");
+        println!("\u{1f4c1} Unified Media Manager initialized (images with original + WebP support, HLS video transcoding)");
 
     let docs_root = std::env::var("DOCS_ROOT")
         .map(std::path::PathBuf::from)
@@ -253,24 +243,19 @@ async fn main() -> anyhow::Result<()> {
     });
     println!("\u{1f4da} Docs Viewer initialized (root: {})", docs_root.display());
 
-    #[cfg(feature = "course")]
-    let course_state = Arc::new(CourseState {
+        let course_state = Arc::new(CourseState {
         workspace_repo: database.clone(),
         storage: (*user_storage).clone(),
     });
-    #[cfg(feature = "course")]
-    println!("\u{1f393} Course initialized");
+        println!("\u{1f393} Course initialized");
 
-    #[cfg(feature = "media")]
-    let mv_state = Arc::new(MediaViewerState {
+        let mv_state = Arc::new(MediaViewerState {
         media_repo: database.clone(),
         storage: (*user_storage).clone(),
     });
-    #[cfg(feature = "media")]
-    println!("\u{1f5bc}\u{fe0f}  Media Viewer (gallery) initialized");
+        println!("\u{1f5bc}\u{fe0f}  Media Viewer (gallery) initialized");
 
-    #[cfg(feature = "apps")]
-    println!("\u{1f9f0} JS Tool Viewer + App Publisher + 3D Gallery initialized");
+        println!("\u{1f9f0} JS Tool Viewer + App Publisher + 3D Gallery initialized");
 
     // Load branding and deployment configuration
     let app_config = AppConfig::load();
@@ -295,8 +280,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app_state = Arc::new(AppState {
         pool: pool.clone(),
-        #[cfg(feature = "media")]
-        video_state: video_state.clone(),
+                video_state: video_state.clone(),
         auth_state: auth_state.clone(),
         access_state: access_state.clone(),
         access_control: access_control.clone(),
@@ -384,8 +368,7 @@ async fn main() -> anyhow::Result<()> {
         ));
 
     // ── Media feature ────────────────────────────────────────────
-    #[cfg(feature = "media")]
-    let app = app
+        let app = app
         .merge(folder_access_routes().with_state((*media_manager_state).clone()))
         .merge(media_routes().with_state((*media_manager_state).clone()))
         .merge({
@@ -437,14 +420,11 @@ async fn main() -> anyhow::Result<()> {
         );
 
     // ── Course feature ───────────────────────────────────────────
-    #[cfg(feature = "course")]
-    let app = app.merge(course_routes(course_state.clone()));
-    #[cfg(feature = "course")]
-    let app = app.merge(presentation_routes(course_state));
+        let app = app.merge(course_routes(course_state.clone()));
+        let app = app.merge(presentation_routes(course_state));
 
     // ── Apps feature ─────────────────────────────────────────────
-    #[cfg(feature = "apps")]
-    let app = app.merge(workspace_app_routes(pool.clone(), database.clone(), database.clone(), storage_dir.clone(), apps_dir.clone(), (*user_storage).clone()));
+        let app = app.merge(workspace_app_routes(pool.clone(), database.clone(), database.clone(), storage_dir.clone(), apps_dir.clone(), (*user_storage).clone()));
 
     // ── Agent Registry (global workforce) ────────────────────────
     let agent_registry_state = Arc::new(agent_registry::AgentRegistryState {
@@ -638,8 +618,7 @@ async fn main() -> anyhow::Result<()> {
     println!("   \u{2705} gallery3d        (3D virtual gallery with Babylon.js)");
     println!("\n\u{1f4ca} SERVER: http://{}", addr);
 
-    #[cfg(feature = "media")]
-    if !production {
+        if !production {
         let token = rtmp_publish_token();
         println!("\n\u{1f4e1} MediaMTX: rtmp://localhost:1935/live?token={}", token);
     }

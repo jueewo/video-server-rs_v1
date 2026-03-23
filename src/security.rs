@@ -15,21 +15,18 @@ pub fn validate_production_config(oidc_config: &OidcConfig) {
     let mut errors: Vec<String> = Vec::new();
 
     // ── RTMP Publish Token ──────────────────────────────────────────
-    #[cfg(feature = "media")]
-    {
-        let rtmp_token = video_manager::rtmp_publish_token();
-        if rtmp_token == "supersecret123" || rtmp_token.is_empty() {
-            errors.push(
-                "RTMP_PUBLISH_TOKEN is missing or still the insecure default 'supersecret123'. \
-                 Set a strong, unique token in your environment."
-                    .to_string(),
-            );
-        } else if rtmp_token.len() < 16 {
-            errors.push(format!(
-                "RTMP_PUBLISH_TOKEN is too short ({} chars). Use at least 16 characters.",
-                rtmp_token.len()
-            ));
-        }
+    let rtmp_token = video_manager::rtmp_publish_token();
+    if rtmp_token == "supersecret123" || rtmp_token.is_empty() {
+        errors.push(
+            "RTMP_PUBLISH_TOKEN is missing or still the insecure default 'supersecret123'. \
+             Set a strong, unique token in your environment."
+                .to_string(),
+        );
+    } else if rtmp_token.len() < 16 {
+        errors.push(format!(
+            "RTMP_PUBLISH_TOKEN is too short ({} chars). Use at least 16 characters.",
+            rtmp_token.len()
+        ));
     }
 
     // ── OIDC Secrets ────────────────────────────────────────────────

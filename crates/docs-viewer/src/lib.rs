@@ -14,7 +14,14 @@ pub struct DocFile {
     pub path: String,
     pub relative_path: String,
     pub is_dir: bool,
+    /// File type hint: "md", "pdf", "mermaid", "pptx", "txt", "dir", etc.
+    pub file_type: String,
 }
+
+/// Supported document extensions (beyond .md)
+pub const SUPPORTED_EXTENSIONS: &[&str] = &[
+    "md", "txt", "pdf", "mmd", "mermaid", "pptx", "docx", "json", "yaml", "yml", "toml", "csv", "xml",
+];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DocTree {

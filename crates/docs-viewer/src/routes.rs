@@ -175,11 +175,52 @@ async fn view_doc(
         return Err(StatusCode::NOT_FOUND);
     }
 
-    let markdown = tokio::fs::read_to_string(&full_path)
+    let ext = full_path.extension().and_then(|s| s.to_str()).unwrap_or("");
+
+    // Binary files: serve directly for download/inline viewing
+    match ext {
+        "pdf" => {
+            let bytes = tokio::fs::read(&full_path)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            return Ok((
+                [(axum::http::header::CONTENT_TYPE, "application/pdf")],
+                bytes,
+            ).into_response());
+        }
+        "pptx" => {
+            let bytes = tokio::fs::read(&full_path)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let fname = full_path.file_name().and_then(|s| s.to_str()).unwrap_or("document.pptx");
+            return Ok((
+                [
+                    (axum::http::header::CONTENT_TYPE, "application/vnd.openxmlformats-officedocument.presentationml.presentation".to_string()),
+                    (axum::http::header::CONTENT_DISPOSITION, format!("attachment; filename=\"{}\"", fname)),
+                ],
+                bytes,
+            ).into_response());
+        }
+        "docx" => {
+            let bytes = tokio::fs::read(&full_path)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let fname = full_path.file_name().and_then(|s| s.to_str()).unwrap_or("document.docx");
+            return Ok((
+                [
+                    (axum::http::header::CONTENT_TYPE, "application/vnd.openxmlformats-officedocument.wordprocessingml.document".to_string()),
+                    (axum::http::header::CONTENT_DISPOSITION, format!("attachment; filename=\"{}\"", fname)),
+                ],
+                bytes,
+            ).into_response());
+        }
+        _ => {}
+    }
+
+    // Text-based files
+    let content_str = tokio::fs::read_to_string(&full_path)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let html_content = state.renderer.render(&markdown);
 
     let title = file_path
         .file_stem()
@@ -187,13 +228,48 @@ async fn view_doc(
         .unwrap_or("Document")
         .to_string();
 
+    let (html_content, raw_markdown) = match ext {
+        "md" => {
+            let rendered = state.renderer.render(&content_str);
+            (rendered, content_str)
+        }
+        "mmd" | "mermaid" => {
+            // Wrap in mermaid div for client-side rendering
+            let rendered = format!(
+                "<div class=\"mermaid\">{}</div>\
+                 <details class=\"mt-4\"><summary class=\"cursor-pointer text-sm text-base-content/50\">Source</summary>\
+                 <pre class=\"mt-2\"><code>{}</code></pre></details>",
+                content_str.replace('<', "&lt;").replace('>', "&gt;"),
+                content_str.replace('<', "&lt;").replace('>', "&gt;"),
+            );
+            (rendered, content_str)
+        }
+        _ => {
+            // Plain text / code: show in a code block
+            let lang = match ext {
+                "json" => "json",
+                "yaml" | "yml" => "yaml",
+                "toml" => "toml",
+                "xml" => "xml",
+                "csv" => "csv",
+                _ => "",
+            };
+            let rendered = format!(
+                "<pre><code class=\"language-{}\">{}</code></pre>",
+                lang,
+                content_str.replace('<', "&lt;").replace('>', "&gt;"),
+            );
+            (rendered, content_str)
+        }
+    };
+
     let template = DocsViewTemplate {
         authenticated,
         user_id,
         title,
         content: html_content,
         file_path: query.file,
-        raw_markdown: markdown,
+        raw_markdown,
     };
 
     Ok(Html(template.render().unwrap()).into_response())
@@ -323,18 +399,26 @@ fn list_dir_children(dir: &Path, docs_root: &Path) -> Result<Vec<DocFile>, Statu
         }
 
         let is_dir = path.is_dir();
-        let is_md = path.extension().and_then(|s| s.to_str()) == Some("md");
+        let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
+        let is_supported = crate::SUPPORTED_EXTENSIONS.contains(&ext);
 
-        if is_dir || is_md {
+        if is_dir || is_supported {
             let relative = path
                 .strip_prefix(docs_root)
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+            let file_type = if is_dir {
+                "dir".to_string()
+            } else {
+                ext.to_string()
+            };
 
             files.push(DocFile {
                 name,
                 path: path.display().to_string(),
                 relative_path: relative.display().to_string(),
                 is_dir,
+                file_type,
             });
         }
     }

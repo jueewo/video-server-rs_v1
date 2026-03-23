@@ -18,11 +18,11 @@ use axum::{
     http::{Request, StatusCode},
 };
 use http_body_util::BodyExt;
-use media_manager::{media_routes, MediaManagerState};
+use media_manager::{media_routes, media_upload_routes, MediaManagerState};
 use sqlx::SqlitePool;
 use std::sync::Arc;
 use tower::ServiceExt; // for `oneshot`
-use tower_sessions::{MemoryStore, SessionManagerLayer};
+use tower_sessions::{MemoryStore, Session, SessionManagerLayer};
 
 // ── Test helpers ─────────────────────────────────────────────────────────────
 
@@ -39,6 +39,7 @@ async fn test_pool() -> SqlitePool {
             id                INTEGER PRIMARY KEY AUTOINCREMENT,
             slug              TEXT    NOT NULL UNIQUE,
             media_type        TEXT    NOT NULL,
+            video_type        TEXT,
             title             TEXT    NOT NULL,
             description       TEXT,
             filename          TEXT    NOT NULL DEFAULT '',
@@ -151,7 +152,58 @@ async fn json_body(body: Body) -> serde_json::Value {
 fn test_router(state: MediaManagerState) -> axum::Router {
     let session_store = MemoryStore::default();
     let session_layer = SessionManagerLayer::new(session_store);
-    media_routes().with_state(state).layer(session_layer)
+    media_routes()
+        .merge(media_upload_routes())
+        .with_state(state)
+        .layer(session_layer)
+}
+
+/// Build a router with a pre-authenticated session.
+/// Returns (router, cookie_header) — pass the cookie in requests to be authenticated.
+async fn test_router_authenticated(state: MediaManagerState) -> (axum::Router, String) {
+    use axum::routing::get as axum_get;
+
+    let session_store = MemoryStore::default();
+    let session_layer = SessionManagerLayer::new(session_store);
+
+    // Tiny helper route that sets session values and returns 200
+    async fn setup_session(session: Session) -> StatusCode {
+        session.insert("authenticated", true).await.unwrap();
+        session.insert("user_id", "test-user").await.unwrap();
+        session.insert("tenant_id", "platform").await.unwrap();
+        StatusCode::OK
+    }
+
+    let app = media_routes()
+        .merge(media_upload_routes())
+        .with_state(state)
+        .route("/__test_login", axum_get(setup_session))
+        .layer(session_layer);
+
+    // Hit the setup route to create an authenticated session
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/__test_login")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    // Extract the session cookie
+    let cookie = response
+        .headers()
+        .get("set-cookie")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+
+    // Extract just the cookie key=value part (before any ;)
+    let cookie_val = cookie.split(';').next().unwrap_or("").to_string();
+
+    (app, cookie_val)
 }
 
 // ── Tests: JSON list API ──────────────────────────────────────────────────────
@@ -160,12 +212,13 @@ fn test_router(state: MediaManagerState) -> axum::Router {
 async fn list_media_json_returns_200() {
     let pool = test_pool().await;
     insert_media(&pool, "pub-item", "user-1", 1).await;
-    let app = test_router(make_state(pool));
+    let (app, cookie) = test_router_authenticated(make_state(pool)).await;
 
     let response = app
         .oneshot(
             Request::builder()
                 .uri("/api/media")
+                .header("cookie", &cookie)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -178,12 +231,13 @@ async fn list_media_json_returns_200() {
 #[tokio::test]
 async fn list_media_json_empty_db() {
     let pool = test_pool().await;
-    let app = test_router(make_state(pool));
+    let (app, cookie) = test_router_authenticated(make_state(pool)).await;
 
     let response = app
         .oneshot(
             Request::builder()
                 .uri("/api/media")
+                .header("cookie", &cookie)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -338,13 +392,14 @@ async fn request_id_is_echoed_in_response() {
     use common::request_id::request_id_middleware;
 
     let pool = test_pool().await;
-    let app = test_router(make_state(pool))
-        .layer(axum::middleware::from_fn(request_id_middleware));
+    let (app, cookie) = test_router_authenticated(make_state(pool)).await;
+    let app = app.layer(axum::middleware::from_fn(request_id_middleware));
 
     let response = app
         .oneshot(
             Request::builder()
                 .uri("/api/media")
+                .header("cookie", &cookie)
                 .header("x-request-id", "test-id-abc123")
                 .body(Body::empty())
                 .unwrap(),
@@ -365,13 +420,14 @@ async fn request_id_is_generated_when_absent() {
     use common::request_id::request_id_middleware;
 
     let pool = test_pool().await;
-    let app = test_router(make_state(pool))
-        .layer(axum::middleware::from_fn(request_id_middleware));
+    let (app, cookie) = test_router_authenticated(make_state(pool)).await;
+    let app = app.layer(axum::middleware::from_fn(request_id_middleware));
 
     let response = app
         .oneshot(
             Request::builder()
                 .uri("/api/media")
+                .header("cookie", &cookie)
                 .body(Body::empty())
                 .unwrap(),
         )

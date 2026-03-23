@@ -509,8 +509,10 @@ async fn sync_peer_api(
 
     match peer {
         Ok(Some(peer)) => {
-            // Update status to syncing
-            let _ = sqlx::query("UPDATE federation_peers SET status = 'syncing' WHERE id = ?1")
+            // Manual sync: reset backoff so it runs immediately, set status to syncing
+            let _ = sqlx::query(
+                "UPDATE federation_peers SET status = 'syncing', next_retry_at = NULL WHERE id = ?1"
+            )
                 .bind(peer_id)
                 .execute(&state.pool)
                 .await;
@@ -520,7 +522,10 @@ async fn sync_peer_api(
                     Json(serde_json::json!({ "synced": count })).into_response()
                 }
                 Err(e) => {
-                    let _ = sqlx::query("UPDATE federation_peers SET status = 'error' WHERE id = ?1")
+                    let _ = sqlx::query(
+                        "UPDATE federation_peers SET status = 'error', \
+                         consecutive_failures = consecutive_failures + 1 WHERE id = ?1"
+                    )
                         .bind(peer_id)
                         .execute(&state.pool)
                         .await;

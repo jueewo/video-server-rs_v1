@@ -87,9 +87,10 @@ pub async fn sync_peer_catalog(
         page += 1;
     }
 
-    // Update peer status
+    // Update peer status and reset failure tracking
     sqlx::query(
-        "UPDATE federation_peers SET last_synced_at = datetime('now'), status = 'online', item_count = ?1 WHERE id = ?2"
+        "UPDATE federation_peers SET last_synced_at = datetime('now'), status = 'online', item_count = ?1, \
+         consecutive_failures = 0, next_retry_at = NULL WHERE id = ?2"
     )
     .bind(total_synced)
     .bind(peer.id)

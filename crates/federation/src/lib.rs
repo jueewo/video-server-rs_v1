@@ -45,17 +45,56 @@ pub fn spawn_sync_task(
             .await
             .unwrap_or_default();
 
+            let now: String = sqlx::query_scalar("SELECT datetime('now')")
+                .fetch_one(&pool)
+                .await
+                .unwrap_or_default();
+
             for peer in &peers {
+                // Skip peers in backoff — next_retry_at is in the future
+                if let Some(ref retry_at) = peer.next_retry_at {
+                    if retry_at.as_str() > now.as_str() {
+                        tracing::debug!(
+                            "Federation: skipping '{}' (backoff until {})",
+                            peer.display_name, retry_at
+                        );
+                        continue;
+                    }
+                }
+
                 match cache::sync_peer_catalog(&pool, peer, &storage_dir, max_items_per_peer).await {
                     Ok(count) => {
                         tracing::info!("Federation: synced {} items from '{}'", count, peer.display_name);
+                        // Reset failure counter on success
+                        let _ = sqlx::query(
+                            "UPDATE federation_peers SET consecutive_failures = 0, next_retry_at = NULL WHERE id = ?1"
+                        )
+                        .bind(peer.id)
+                        .execute(&pool)
+                        .await;
                     }
                     Err(e) => {
-                        tracing::warn!("Federation: failed to sync '{}': {}", peer.display_name, e);
-                        let _ = sqlx::query("UPDATE federation_peers SET status = 'error' WHERE id = ?1")
-                            .bind(peer.id)
-                            .execute(&pool)
-                            .await;
+                        let failures = peer.consecutive_failures + 1;
+                        // Exponential backoff: 1, 2, 4, 8, 16, 32 intervals (capped)
+                        let backoff_multiplier = (1i64 << failures.min(5)) as i64;
+                        let backoff_minutes = backoff_multiplier * interval_minutes as i64;
+
+                        tracing::warn!(
+                            "Federation: failed to sync '{}' ({} consecutive failures, next retry in {} min): {}",
+                            peer.display_name, failures, backoff_minutes, e
+                        );
+
+                        let _ = sqlx::query(
+                            "UPDATE federation_peers SET \
+                             status = 'error', \
+                             consecutive_failures = ?1, \
+                             next_retry_at = datetime('now', '+' || ?2 || ' minutes') \
+                             WHERE id = ?3"
+                        )
+                        .bind(failures)
+                        .bind(backoff_minutes)
+                        .execute(&pool)
+                        .await;
                     }
                 }
             }

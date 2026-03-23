@@ -13,6 +13,8 @@ pub struct FederationPeer {
     pub status: String, // online, offline, syncing, error
     pub item_count: i32,
     pub created_at: String,
+    pub consecutive_failures: i32,
+    pub next_retry_at: Option<String>,
 }
 
 /// Subset for creation

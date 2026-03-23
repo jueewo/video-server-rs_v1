@@ -1,0 +1,55 @@
+---
+title: "Workspace → Folder Type → Application"
+---
+graph LR
+    subgraph USER["User creates a workspace"]
+        W["📦 Workspace<br/><small>Project, client, or department</small>"]
+    end
+
+    W --> F1["📁 training-videos"]
+    W --> F2["📁 processes"]
+    W --> F3["📁 project-website"]
+    W --> F4["📁 media-assets"]
+    W --> F5["📁 documentation"]
+    W --> F6["📁 data-platform"]
+
+    F1 -->|"type: media-server"| A1["🎬 Media Gallery<br/><small>HLS streaming, WebP,<br/>thumbnails, search</small>"]
+    F2 -->|"type: bpmn-simulator"| A2["⚙️ Process Modeler<br/><small>BPMN editor,<br/>simulation, export</small>"]
+    F3 -->|"type: yhm-site-data"| A3["🌐 Website Builder<br/><small>Structured data,<br/>Astro generation</small>"]
+    F4 -->|"type: media-server"| A4["🖼️ Asset Library<br/><small>Bulk upload, groups,<br/>access codes</small>"]
+    F5 -->|"type: documentation"| A5["📄 Doc Viewer<br/><small>Markdown, PDF,<br/>Mermaid, PPTX</small>"]
+    F6 -->|"type: js-tool"| A6["📊 Custom App<br/><small>Vue3 / Preact<br/>data platform</small>"]
+
+    subgraph AGENTS["Compatible AI Agents appear"]
+        AG1["✍️ content-writer"]
+        AG2["📋 course-planner"]
+        AG3["🔍 seo-optimizer"]
+        AG4["📐 process-analyst"]
+    end
+
+    A1 -.-> AG1
+    A3 -.-> AG1
+    A3 -.-> AG3
+    A2 -.-> AG4
+
+    subgraph SHARE["Sharing"]
+        S1["🔗 Access Code<br/><small>No account needed</small>"]
+        S2["👥 Group<br/><small>RBAC permissions</small>"]
+        S3["🌍 Public<br/><small>Open access</small>"]
+    end
+
+    A1 --> S1
+    A1 --> S2
+    A1 --> S3
+
+    classDef workspace fill:#667eea,stroke:#333,color:#fff
+    classDef folder fill:#e8e8e8,stroke:#666,color:#333
+    classDef app fill:#4ecdc4,stroke:#333,color:#fff
+    classDef agent fill:#f6d365,stroke:#333,color:#000
+    classDef share fill:#43e97b,stroke:#333,color:#000
+
+    class W workspace
+    class F1,F2,F3,F4,F5,F6 folder
+    class A1,A2,A3,A4,A5,A6 app
+    class AG1,AG2,AG3,AG4 agent
+    class S1,S2,S3 share

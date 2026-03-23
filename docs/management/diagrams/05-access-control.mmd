@@ -1,0 +1,54 @@
+---
+title: "Access Control — Four-Layer Authorization"
+---
+flowchart TD
+    REQ["🌐 Incoming Request<br/><small>User or anonymous visitor</small>"]
+
+    REQ --> AUTH{"Authenticated?"}
+    AUTH -->|"Session / API Key"| OWNER
+    AUTH -->|"No session"| PUBLIC
+
+    PUBLIC{"Public resource?"}
+    PUBLIC -->|"Yes"| ALLOW_PUB["✅ Allow<br/><small>Public access</small>"]
+    PUBLIC -->|"No"| CODE
+
+    CODE{"Valid access code?"}
+    CODE -->|"Yes + not expired"| ALLOW_CODE["✅ Allow<br/><small>Code-scoped access<br/>No account needed</small>"]
+    CODE -->|"No / expired"| DENY["🚫 403 Forbidden"]
+
+    OWNER{"Owner of resource?"}
+    OWNER -->|"Yes"| ALLOW_OWNER["✅ Allow<br/><small>Full control</small>"]
+    OWNER -->|"No"| GROUP
+
+    GROUP{"Group member?"}
+    GROUP -->|"Yes"| PERM
+    GROUP -->|"No"| CODE
+
+    PERM{"Permission level?"}
+    PERM -->|"Admin"| ALLOW_ADMIN["✅ Allow<br/><small>Full control</small>"]
+    PERM -->|"Editor"| ALLOW_EDIT["✅ Allow<br/><small>Read + Write + Delete</small>"]
+    PERM -->|"Contributor"| ALLOW_CONTRIB["✅ Allow<br/><small>Read + Write</small>"]
+    PERM -->|"Viewer"| ALLOW_VIEW["✅ Allow<br/><small>Read only</small>"]
+
+    subgraph AUDIT["Audit Log"]
+        LOG["Every decision logged<br/><small>User, IP, resource,<br/>action, timestamp</small>"]
+    end
+
+    ALLOW_PUB -.-> LOG
+    ALLOW_CODE -.-> LOG
+    ALLOW_OWNER -.-> LOG
+    ALLOW_ADMIN -.-> LOG
+    ALLOW_EDIT -.-> LOG
+    ALLOW_CONTRIB -.-> LOG
+    ALLOW_VIEW -.-> LOG
+    DENY -.-> LOG
+
+    classDef allow fill:#43e97b,stroke:#333,color:#000
+    classDef deny fill:#ff6b6b,stroke:#333,color:#fff
+    classDef decision fill:#f6d365,stroke:#333,color:#000
+    classDef audit fill:#e8e8e8,stroke:#666,color:#333
+
+    class ALLOW_PUB,ALLOW_CODE,ALLOW_OWNER,ALLOW_ADMIN,ALLOW_EDIT,ALLOW_CONTRIB,ALLOW_VIEW allow
+    class DENY deny
+    class AUTH,PUBLIC,CODE,OWNER,GROUP,PERM decision
+    class LOG audit

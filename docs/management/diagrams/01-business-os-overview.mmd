@@ -1,0 +1,118 @@
+---
+title: "AppKask — Business Operating System"
+---
+graph TB
+    subgraph CLIENTS["Clients"]
+        direction LR
+        BR["🌐 Browser<br/><small>SSR + Alpine.js + DaisyUI</small>"]
+        WS["⚡ WebSocket<br/><small>Real-time progress</small>"]
+        DAV["📁 WebDAV<br/><small>Finder / Explorer</small>"]
+        MCP["🤖 MCP<br/><small>Claude Desktop</small>"]
+        CLI["⌨️ CLI<br/><small>media-cli / site-cli</small>"]
+    end
+
+    subgraph OS["The Business OS"]
+        direction TB
+
+        subgraph AUTH["Identity & Access"]
+            UA["user-auth<br/><small>OIDC / Casdoor</small>"]
+            AK["api-keys"]
+            AG["access-groups<br/><small>RBAC</small>"]
+            AC["access-codes<br/><small>No-account sharing</small>"]
+            ACL["access-control<br/><small>Unified ACL</small>"]
+        end
+
+        subgraph WORKSPACE["Workspace System"]
+            WC["workspace-core"]
+            WM["workspace-manager<br/><small>Folders → Apps</small>"]
+            WR["workspace-renderers<br/><small>Inline views</small>"]
+            WA["workspace-apps<br/><small>App lifecycle</small>"]
+        end
+
+        subgraph AGENTS["AI Workforce"]
+            AR["agent-registry<br/><small>Hierarchy & roles</small>"]
+            AT["agent-tools<br/><small>Workspace tools</small>"]
+            ACP["agent-collection<br/><small>File-based definitions</small>"]
+            LLM["llm-provider<br/><small>BYOK: Anthropic, OpenAI, Ollama</small>"]
+        end
+
+        subgraph MEDIA["Media Pipeline"]
+            MM["media-manager<br/><small>Upload, search, CRUD</small>"]
+            VM["video-manager<br/><small>HLS transcoding</small>"]
+            MC["media-core<br/><small>Type detection, EXIF</small>"]
+            VLT["vault-manager<br/><small>Storage isolation</small>"]
+        end
+
+        subgraph APPS["Built-in Applications"]
+            CS["course<br/><small>Training + Reveal.js</small>"]
+            BPMN["bpmn-simulator<br/><small>Process modeling</small>"]
+            SITE["site-generator<br/><small>Astro websites</small>"]
+            DOC["docs-viewer<br/><small>MD, PDF, Mermaid</small>"]
+            G3D["3d-gallery<br/><small>WebGL spaces</small>"]
+            JST["js-tool-viewer<br/><small>Custom apps</small>"]
+        end
+
+        subgraph PUBLISH["Publishing & Federation"]
+            PUB["publications<br/><small>Apps, courses, sites</small>"]
+            FED["federation<br/><small>Multi-server sync</small>"]
+            GIT["git-provider<br/><small>Forgejo, GitHub</small>"]
+            SP["site-publisher"]
+        end
+
+        subgraph INFRA["Foundation"]
+            COM["common<br/><small>Shared types, storage</small>"]
+            RL["rate-limiter<br/><small>3-tier throttling</small>"]
+        end
+    end
+
+    subgraph PERSIST["Persistence"]
+        DB[("SQLite<br/><small>media.db</small>")]
+        FS[("Filesystem<br/><small>Vaults, workspaces,<br/>apps, thumbnails</small>")]
+    end
+
+    subgraph EXT["External Services"]
+        FF["FFmpeg / ffprobe"]
+        GS["Ghostscript"]
+        OIDC["OIDC Provider"]
+        OTEL["OpenTelemetry"]
+    end
+
+    CLIENTS --> AUTH
+    AUTH --> WORKSPACE
+    AUTH --> MEDIA
+    AUTH --> AGENTS
+    WORKSPACE --> APPS
+    WORKSPACE --> MEDIA
+    AGENTS --> WORKSPACE
+    AGENTS --> LLM
+    MEDIA --> PERSIST
+    WORKSPACE --> PERSIST
+    PUBLISH --> PERSIST
+    PUBLISH --> GIT
+    FED -.->|"catalog sync"| FED
+    VM --> FF
+    MM --> GS
+    UA --> OIDC
+    COM --> OTEL
+
+    classDef clientNode fill:#4facfe,stroke:#333,color:#fff
+    classDef authNode fill:#a18cd1,stroke:#333,color:#fff
+    classDef wsNode fill:#667eea,stroke:#333,color:#fff
+    classDef agentNode fill:#f6d365,stroke:#333,color:#000
+    classDef mediaNode fill:#f093fb,stroke:#333,color:#fff
+    classDef appNode fill:#4ecdc4,stroke:#333,color:#fff
+    classDef pubNode fill:#43e97b,stroke:#333,color:#000
+    classDef infraNode fill:#556270,stroke:#333,color:#fff
+    classDef persistNode fill:#ff6b6b,stroke:#333,color:#fff
+    classDef extNode fill:#ddd,stroke:#999,color:#333
+
+    class BR,WS,DAV,MCP,CLI clientNode
+    class UA,AK,AG,AC,ACL authNode
+    class WC,WM,WR,WA wsNode
+    class AR,AT,ACP,LLM agentNode
+    class MM,VM,MC,VLT mediaNode
+    class CS,BPMN,SITE,DOC,G3D,JST appNode
+    class PUB,FED,GIT,SP pubNode
+    class COM,RL infraNode
+    class DB,FS persistNode
+    class FF,GS,OIDC,OTEL extNode

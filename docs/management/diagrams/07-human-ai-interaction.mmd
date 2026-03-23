@@ -1,0 +1,70 @@
+---
+title: "Human & AI — How They Work Together"
+---
+graph TB
+    subgraph HUMAN["👤 Human"]
+        direction TB
+        H1["Creates workspaces & folders"]
+        H2["Assigns folder types"]
+        H3["Uploads media & documents"]
+        H4["Defines agents in registry"]
+        H5["Reviews & approves agent output"]
+        H6["Shares via access codes"]
+        H7["Publishes apps & sites"]
+    end
+
+    subgraph PLATFORM["AppKask Platform"]
+        direction TB
+
+        subgraph PROCESS["Automated Processing"]
+            P1["🎬 Video → HLS transcoding"]
+            P2["🖼️ Image → WebP conversion"]
+            P3["📄 PDF → Thumbnail generation"]
+            P4["🌐 Site data → Astro build"]
+        end
+
+        subgraph AGENTWORK["Agent Execution"]
+            A1["✍️ Draft site pages"]
+            A2["📋 Structure training programs"]
+            A3["🔍 Audit SEO"]
+            A4["📐 Analyze processes"]
+            A5["📝 Generate documentation"]
+            A6["🌍 Translate content"]
+        end
+    end
+
+    subgraph AI["🤖 AI Agents"]
+        direction TB
+        AI1["Read workspace files"]
+        AI2["Understand folder structure"]
+        AI3["Create & edit content"]
+        AI4["Search across workspace"]
+    end
+
+    subgraph AUDIENCE["👥 Audience"]
+        direction TB
+        AU1["Access via code — no account"]
+        AU2["Watch adaptive video"]
+        AU3["Browse media library"]
+        AU4["Take training courses"]
+        AU5["Explore process models"]
+        AU6["Visit published website"]
+    end
+
+    H1 & H2 & H3 --> PROCESS
+    H4 --> AGENTWORK
+    H5 -.->|"supervised mode"| AGENTWORK
+    AI1 & AI2 & AI3 & AI4 --> AGENTWORK
+    PROCESS --> AUDIENCE
+    AGENTWORK --> PROCESS
+    H6 & H7 --> AUDIENCE
+
+    classDef human fill:#667eea,stroke:#333,color:#fff
+    classDef ai fill:#f6d365,stroke:#333,color:#000
+    classDef platform fill:#4ecdc4,stroke:#333,color:#fff
+    classDef audience fill:#43e97b,stroke:#333,color:#000
+
+    class H1,H2,H3,H4,H5,H6,H7 human
+    class AI1,AI2,AI3,AI4 ai
+    class P1,P2,P3,P4,A1,A2,A3,A4,A5,A6 platform
+    class AU1,AU2,AU3,AU4,AU5,AU6 audience

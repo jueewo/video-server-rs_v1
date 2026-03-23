@@ -22,7 +22,8 @@ docs/
 
 | I want to… | Go to |
 |---|---|
-| Understand what this platform is and where it's going | `decisions/STRATEGY.md` |
+| Understand the vision — business OS for knowledge work | `decisions/VISION.md` |
+| See the product strategy and positioning | `decisions/STRATEGY.md` |
 | See the implementation roadmap | `decisions/ROADMAP.md` |
 | Understand the workspace/folder/app mental model | `decisions/MENTAL_MODEL.md` |
 | Self-host the platform | `operations/STANDALONE_CONFIG.md` |

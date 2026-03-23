@@ -1,0 +1,70 @@
+---
+title: "AI Workforce — Agent Registry & Execution"
+---
+graph TB
+    subgraph REGISTRY["Agent Registry (Global Workforce)"]
+        direction TB
+        SUP["🧑‍💼 Supervisor Agent<br/><small>Orchestrator role</small>"]
+        SUP --> CW["✍️ Content Writer<br/><small>autonomy: supervised<br/>model: claude-sonnet<br/>tools: read, write, search</small>"]
+        SUP --> SEO["🔍 SEO Optimizer<br/><small>autonomy: autonomous<br/>model: claude-haiku<br/>tools: read, search</small>"]
+        SUP --> CP["📋 Course Planner<br/><small>autonomy: supervised<br/>model: claude-sonnet<br/>tools: read, write, list</small>"]
+        SUP --> PA["📐 Process Analyst<br/><small>autonomy: manual<br/>model: gpt-4o<br/>tools: read, search</small>"]
+    end
+
+    subgraph MATCHING["Folder-Type Matching"]
+        direction LR
+        FT1["static-site<br/><small>needs: content-writer,<br/>seo-optimizer</small>"]
+        FT2["course<br/><small>needs: content-writer,<br/>course-planner</small>"]
+        FT3["bpmn-simulator<br/><small>needs: process-analyst</small>"]
+    end
+
+    CW -.->|"compatible"| FT1
+    SEO -.->|"compatible"| FT1
+    CW -.->|"compatible"| FT2
+    CP -.->|"compatible"| FT2
+    PA -.->|"compatible"| FT3
+
+    subgraph EXECUTION["Agent Execution"]
+        direction TB
+        CTX["📋 Context Assembly<br/><small>Folder type + ai-instructions.md<br/>+ key files + structure</small>"]
+        CTX --> TOOLS
+        subgraph TOOLS["Secure Workspace Tools"]
+            T1["workspace_read_file"]
+            T2["workspace_write_file"]
+            T3["workspace_list_files"]
+            T4["workspace_search"]
+            T5["folder_structure"]
+            T6["workspace_context"]
+        end
+        TOOLS --> VAL["🔒 Path Validation<br/><small>Scoped to workspace root</small>"]
+    end
+
+    subgraph PROVIDERS["LLM Providers (BYOK)"]
+        direction LR
+        P1["Anthropic<br/><small>Claude</small>"]
+        P2["OpenAI<br/><small>GPT-4</small>"]
+        P3["Ollama<br/><small>Local models</small>"]
+        P4["Custom<br/><small>Any OpenAI-compatible</small>"]
+    end
+
+    REGISTRY --> CTX
+    EXECUTION --> PROVIDERS
+
+    subgraph AUTONOMY["Autonomy Levels"]
+        direction LR
+        AU["🟢 Autonomous<br/><small>Execute immediately</small>"]
+        SV["🟡 Supervised<br/><small>Approve before writes</small>"]
+        MN["⚪ Manual<br/><small>Suggestions only</small>"]
+    end
+
+    classDef registry fill:#f6d365,stroke:#333,color:#000
+    classDef folder fill:#667eea,stroke:#333,color:#fff
+    classDef exec fill:#4ecdc4,stroke:#333,color:#fff
+    classDef provider fill:#a18cd1,stroke:#333,color:#fff
+    classDef autonomy fill:#e8e8e8,stroke:#666,color:#333
+
+    class SUP,CW,SEO,CP,PA registry
+    class FT1,FT2,FT3 folder
+    class CTX,T1,T2,T3,T4,T5,T6,VAL exec
+    class P1,P2,P3,P4 provider
+    class AU,SV,MN autonomy

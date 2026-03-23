@@ -4,25 +4,25 @@
 
 ## Tagline
 
-> **"Run your business from one place. On your own server."**
+> **"Run your business from one place. On your own server. Human & AI, working together."**
 
 ---
 
 ## What This Platform Is
 
-The operating system for a small business.
+An operating system for knowledge work.
 
 The workspace is the company. Folders are departments or projects.
-Apps are the tools those departments use. Everything in one place,
-on infrastructure you own, with no data leaving your control.
+Folder types are applications. Agents are workforce members.
+Everything in one place, on infrastructure you own, with humans and
+AI working together through the same interface.
 
-You are not competing with any single tool. You are competing with
-the combination of all of them:
+This is not competing with any single tool. It's a different category:
+a self-hosted business OS where media, documents, training, processes,
+websites, and AI agents are first-class primitives — not separate
+subscriptions.
 
-> **Notion + Vimeo + Miro + Teachable + Frame.vr + S3 + Webflow**
-
-No SMB should pay for and manage all of those separately.
-No SMB should trust all of them with their business data.
+See `VISION.md` for the full operating-system metaphor and use cases.
 
 ---
 
@@ -32,16 +32,18 @@ No SMB should trust all of them with their business data.
 |---|---|
 | Workspaces | Company / client / project |
 | File storage | Documents, financials, contracts |
+| AI Agent Registry | Workforce of AI agents with roles, hierarchy, and supervision |
+| Media pipeline | Video transcoding, image processing, document rendering |
+| Documentation | Markdown, PDF, Mermaid, PPTX viewer |
 | BPMN | Process transparency → simulation → automation |
-| Media pipeline | Marketing, social, product videos |
-| 3D virtual space | Client delivery, immersive training (self-hosted Frame.vr) |
 | Course viewer | Customer training, consulting delivery |
-| Static site hosting | Manage multiple websites per client/brand (Astro, etc.) |
+| 3D virtual space | Client delivery, immersive training |
+| Static site hosting | Multi-language websites from structured data (Astro) |
 | WebDAV | Mount like a network drive, work normally |
 | Access codes | Share with clients — no accounts needed |
+| Federation | Multi-server catalog sharing and sync |
 | MCP / AI | AI assistant over your own business data |
-| Federation | Connect multiple instances — browse and share media catalogs across servers |
-| Casdoor auth | SSO, MFA, and built-in licensing/payment for hosted instances |
+| Casdoor auth | SSO, MFA, multi-tenant identity |
 
 ---
 
@@ -163,24 +165,27 @@ See `DELIVERY_TIERS.md` for the full design and implementation detail.
 
 ## How to Communicate It
 
-**For SMB owners:**
-> "Run your business from one place. On your own server."
+**For business owners:**
+> "Run your business from one place. On your own server. Human & AI, working together."
 
 **For consultants:**
 > "Deliver your work product — data platforms, training, process models —
-> in a complete environment your clients own."
+> as a platform your clients own."
 
 **For regulated industries:**
-> "A content and process platform where your data never leaves your server."
+> "A business operating system where your data and your AI processing
+> never leave your server."
 
 **For developers:**
-> "A self-hosted Rust platform with WebDAV, API, and MCP access built in.
-> Bring your own apps."
+> "A self-hosted Rust OS with 34+ crates, WebDAV, API, MCP, and an
+> extensible agent system. Bring your own apps and models."
 
-### The Demo Moment
-> Create a folder → assign it a type → an app opens it.
+### The Demo Moments
+1. Create a folder → assign it a type → an app opens it.
+2. Open the workforce → agents understand your folder → content appears.
+3. Share with an access code → no accounts, no friction.
 
-That's the thing nobody else does. Show that first.
+These three moments show what no other platform does.
 
 ---
 

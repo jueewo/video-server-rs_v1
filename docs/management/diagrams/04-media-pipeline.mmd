@@ -1,0 +1,58 @@
+---
+title: "Media Pipeline — Upload to Delivery"
+---
+sequenceDiagram
+    participant U as User / Agent
+    participant MM as media-manager
+    participant DB as SQLite
+    participant FS as Vault Storage
+    participant VM as video-manager
+    participant WS as WebSocket
+    participant A as Audience
+
+    Note over U,A: Upload & Processing
+
+    U->>MM: POST /api/media/upload<br/>(file + metadata)
+    MM->>MC: Detect media type
+    MC-->>MM: image / video / document
+    MM->>DB: INSERT media_items (status: processing)
+    MM->>FS: Write to vault/{vault_id}/media/{type}/
+    MM-->>U: 202 Accepted + slug
+
+    alt Video (MP4)
+        U->>WS: Connect /api/media/{slug}/progress/ws
+        MM->>VM: Spawn transcoding task
+        loop 8-stage pipeline
+            VM->>VM: Validate → Metadata → Transcode
+            VM->>WS: Progress update (25-85%)
+            VM->>VM: Thumbnail → Poster → DB → Cleanup
+        end
+        VM->>FS: Write HLS segments + master playlist
+        VM->>DB: UPDATE status = active, video_type = hls
+        VM->>WS: 100% complete
+    else Image
+        MM->>MM: Convert to WebP (cwebp)
+        MM->>MM: Generate thumbnail
+        MM->>FS: Write {slug}.webp + {slug}_thumb.webp
+        MM->>DB: UPDATE status = active
+    else Document (PDF)
+        MM->>MM: Generate thumbnail (Ghostscript)
+        MM->>FS: Write {slug}_thumb.webp
+        MM->>DB: UPDATE status = active
+    end
+
+    Note over U,A: Delivery
+
+    A->>MM: GET /media/{slug}/image.webp
+    MM->>FS: Serve from vault
+    MM-->>A: WebP image
+
+    A->>MM: GET /hls/{slug}/index.m3u8
+    MM->>FS: Serve HLS playlist
+    MM-->>A: Adaptive streaming
+
+    A->>MM: GET /media/{slug}/thumbnail
+    MM->>FS: Serve thumbnail
+    MM-->>A: Thumbnail WebP
+
+    participant MC as media-core

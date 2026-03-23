@@ -1,0 +1,75 @@
+---
+title: "Federation & Delivery Tiers"
+---
+graph TB
+    subgraph TIER1["Tier 1 — Your Platform"]
+        direction TB
+        T1["🏢 Multi-tenant platform<br/><small>Platform branding<br/>All features enabled</small>"]
+        T1W1["Workspace: Client A"]
+        T1W2["Workspace: Client B"]
+        T1W3["Workspace: Internal"]
+        T1 --> T1W1
+        T1 --> T1W2
+        T1 --> T1W3
+    end
+
+    subgraph TIER2["Tier 2 — Hosted B2B"]
+        direction TB
+        T2["🏬 Per-tenant branding<br/><small>Client's logo + colors<br/>Tenant-scoped data</small>"]
+        T2W1["Partner workspace"]
+        T2W2["Partner workspace"]
+        T2 --> T2W1
+        T2 --> T2W2
+    end
+
+    subgraph TIER3["Tier 3 — Standalone"]
+        direction TB
+        T3["🖥️ Customer's server<br/><small>Single tenant<br/>White-label binary<br/>Licensed features</small>"]
+        T3W1["Their workspaces"]
+        T3 --> T3W1
+    end
+
+    subgraph FED["Federation Network"]
+        direction LR
+        F1["Server A<br/><small>HQ</small>"]
+        F2["Server B<br/><small>Branch office</small>"]
+        F3["Server C<br/><small>Partner</small>"]
+        F1 <-->|"catalog sync<br/><small>API key auth</small>"| F2
+        F1 <-->|"catalog sync"| F3
+        F2 <-->|"catalog sync"| F3
+    end
+
+    subgraph SAME["Same Codebase"]
+        RUST["🦀 Single Rust binary<br/><small>config.yaml controls<br/>deployment_mode + features</small>"]
+    end
+
+    SAME --> TIER1
+    SAME --> TIER2
+    SAME --> TIER3
+    TIER1 -.-> FED
+    TIER3 -.-> FED
+
+    subgraph SYNC["Federation Capabilities"]
+        direction LR
+        S1["📚 Browse remote catalogs"]
+        S2["🔄 Background sync"]
+        S3["🖼️ Proxy & cache media"]
+        S4["🔑 API key authentication"]
+    end
+
+    FED --> SYNC
+
+    classDef tier1 fill:#667eea,stroke:#333,color:#fff
+    classDef tier2 fill:#4facfe,stroke:#333,color:#fff
+    classDef tier3 fill:#4ecdc4,stroke:#333,color:#fff
+    classDef fed fill:#43e97b,stroke:#333,color:#000
+    classDef rust fill:#f6d365,stroke:#333,color:#000
+    classDef ws fill:#e8e8e8,stroke:#666,color:#333
+
+    class T1 tier1
+    class T2 tier2
+    class T3 tier3
+    class F1,F2,F3 fed
+    class RUST rust
+    class T1W1,T1W2,T1W3,T2W1,T2W2,T3W1 ws
+    class S1,S2,S3,S4 ws

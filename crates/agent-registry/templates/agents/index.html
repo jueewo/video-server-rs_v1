@@ -133,12 +133,12 @@
             <template x-for="agent in filteredAgents" :key="agent.id">
                 <div class="agent-card card bg-base-100 border border-base-300 shadow-sm hover:shadow-lg cursor-pointer overflow-hidden"
                      :style="agent.color ? 'border-top: 3px solid ' + agent.color : ''"
-                     @click="openEdit(agent)">
+                     @click="window.location.href = '/agents/' + agent.id">
                     <div class="card-body p-4">
                         <!-- Header row -->
                         <div class="flex items-start justify-between gap-2 mb-2">
                             <div class="flex items-center gap-2 min-w-0">
-                                <!-- Avatar: uploaded image or auto-generated initials -->
+                                <!-- Avatar: uploaded image or auto-generated silhouette -->
                                 <template x-if="agent.avatar_url">
                                     <img :src="agent.avatar_url" class="w-8 h-8 rounded-lg object-cover shrink-0" />
                                 </template>
@@ -153,9 +153,20 @@
                                     <span class="badge badge-xs badge-outline font-mono" x-text="agent.role"></span>
                                 </div>
                             </div>
-                            <span class="autonomy-dot shrink-0 mt-2"
-                                  :class="agent.autonomy"
-                                  :title="agent.autonomy"></span>
+                            <div class="flex items-center gap-1 shrink-0">
+                                <span class="autonomy-dot mt-0.5"
+                                      :class="agent.autonomy"
+                                      :title="agent.autonomy"></span>
+                                <!-- ... menu -->
+                                <div class="dropdown dropdown-end" @click.stop>
+                                    <label tabindex="0" class="btn btn-ghost btn-xs btn-square">
+                                        <i data-lucide="more-vertical" class="w-3.5 h-3.5"></i>
+                                    </label>
+                                    <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-200 rounded-box shadow-lg z-10 w-40 p-1">
+                                        <li><a @click.prevent="openEdit(agent)" class="gap-2"><i data-lucide="settings" class="w-3.5 h-3.5"></i> Settings</a></li>
+                                    </ul>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Description -->
@@ -687,8 +698,7 @@ function agentWorkforce() {
             const node = e.target.closest('.org-node');
             if (!node) return;
             const id = parseInt(node.dataset.agentId);
-            const agent = this.agents.find(a => a.id === id);
-            if (agent) this.openEdit(agent);
+            window.location.href = '/agents/' + id;
         },
 
         handleDragStart(e) {

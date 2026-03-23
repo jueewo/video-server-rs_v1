@@ -55,8 +55,9 @@ pub struct AgentRegistryState {
 
 pub fn agent_registry_routes(state: Arc<AgentRegistryState>) -> Router {
     Router::new()
-        // Page
+        // Pages
         .route("/agents", get(agents_page_handler))
+        .route("/agents/{id}", get(agent_detail_page_handler))
         // CRUD API
         .route("/api/agents", get(list_agents_handler).post(create_agent_handler))
         .route(
@@ -123,6 +124,14 @@ struct AgentsPageTemplate {
     agent_count: usize,
 }
 
+#[derive(Template)]
+#[template(path = "agents/detail.html")]
+struct AgentDetailTemplate {
+    authenticated: bool,
+    agent_name: String,
+    agent_json: String,
+}
+
 // ============================================================================
 // Page handler
 // ============================================================================
@@ -170,6 +179,41 @@ async fn agents_page_handler(
         tools_json,
         models_json,
         agent_count,
+    };
+
+    Html(template.render().map_err(|e| {
+        tracing::error!("Template render error: {e}");
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    })?)
+    .into_ok()
+}
+
+async fn agent_detail_page_handler(
+    session: Session,
+    State(state): State<Arc<AgentRegistryState>>,
+    Path(id): Path<i64>,
+) -> Result<Html<String>, Response> {
+    let user_id = require_auth(&session).await.map_err(|s| s.into_response())?;
+
+    let agent = db::get_agent(&state.pool, id)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to get agent: {e}");
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        })?
+        .ok_or_else(|| StatusCode::NOT_FOUND.into_response())?;
+
+    if agent.user_id != user_id {
+        return Err(StatusCode::FORBIDDEN.into_response());
+    }
+
+    let agent_name = agent.name.clone();
+    let agent_json = serde_json::to_string(&agent).unwrap_or_else(|_| "{}".into());
+
+    let template = AgentDetailTemplate {
+        authenticated: true,
+        agent_name,
+        agent_json,
     };
 
     Html(template.render().map_err(|e| {

@@ -1,0 +1,304 @@
+{% extends "base-tailwind.html" %}
+{% block title %}{{ agent_name }} — Agent{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-6xl" x-data="agentDetail()" x-init="init()">
+
+    <!-- Breadcrumb -->
+    <div class="text-sm breadcrumbs mb-6">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/agents">Agents</a></li>
+            <li>{{ agent_name }}</li>
+        </ul>
+    </div>
+
+    <!-- Agent Header -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm mb-6 overflow-hidden"
+         :style="agent.color ? 'border-top: 4px solid ' + agent.color : ''">
+        <div class="card-body">
+            <div class="flex flex-col md:flex-row gap-6">
+                <!-- Avatar -->
+                <div class="shrink-0">
+                    <template x-if="agent.avatar_url">
+                        <img :src="agent.avatar_url" class="w-24 h-24 rounded-2xl object-cover shadow-md" />
+                    </template>
+                    <template x-if="!agent.avatar_url">
+                        <div class="w-24 h-24 rounded-2xl overflow-hidden shadow-md"
+                             :style="'background:' + (agent.color || agentColor(agent.name))"
+                             x-html="silhouetteSvg(24)">
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Info -->
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <h1 class="text-2xl font-bold" x-text="agent.name"></h1>
+                            <div class="flex flex-wrap items-center gap-2 mt-1">
+                                <span class="badge badge-outline font-mono" x-text="agent.role"></span>
+                                <span class="badge badge-sm" :class="agent.autonomy === 'autonomous' ? 'badge-success' : agent.autonomy === 'supervised' ? 'badge-warning' : 'badge-ghost'" x-text="agent.autonomy"></span>
+                                <span class="badge badge-sm badge-ghost font-mono" x-text="agent.model"></span>
+                            </div>
+                        </div>
+                        <a href="/agents" class="btn btn-ghost btn-sm gap-1">
+                            <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
+                        </a>
+                    </div>
+                    <p class="text-sm text-base-content/60 mt-3" x-text="agent.description || 'No description'"></p>
+
+                    <!-- Tags -->
+                    <div x-show="agent.tags && agent.tags.length > 0" class="flex flex-wrap gap-1.5 mt-3">
+                        <template x-for="tag in (agent.tags || [])" :key="tag">
+                            <span class="badge badge-sm badge-outline" x-text="tag"></span>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mockup Banner -->
+    <div class="alert alert-info mb-6 text-sm">
+        <i data-lucide="info" class="w-4 h-4 shrink-0"></i>
+        <span><strong>Mockup</strong> — The data below is simulated. Execution history, stats, and actions will be populated once the agent execution system is implemented.</span>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="stat bg-base-100 border border-base-300 rounded-xl p-4">
+            <div class="stat-title text-xs">Total Runs</div>
+            <div class="stat-value text-2xl" x-text="mock.totalRuns"></div>
+            <div class="stat-desc text-xs text-success">+12% vs last week</div>
+        </div>
+        <div class="stat bg-base-100 border border-base-300 rounded-xl p-4">
+            <div class="stat-title text-xs">Success Rate</div>
+            <div class="stat-value text-2xl" x-text="mock.successRate + '%'"></div>
+            <div class="stat-desc text-xs">Last 30 days</div>
+        </div>
+        <div class="stat bg-base-100 border border-base-300 rounded-xl p-4">
+            <div class="stat-title text-xs">Avg Duration</div>
+            <div class="stat-value text-2xl" x-text="mock.avgDuration"></div>
+            <div class="stat-desc text-xs">per execution</div>
+        </div>
+        <div class="stat bg-base-100 border border-base-300 rounded-xl p-4">
+            <div class="stat-title text-xs">Tokens Used</div>
+            <div class="stat-value text-2xl" x-text="mock.tokensUsed"></div>
+            <div class="stat-desc text-xs">This month</div>
+        </div>
+    </div>
+
+    <!-- Two-column layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Left: Execution History -->
+        <div class="lg:col-span-2 space-y-6">
+
+            <!-- Recent Executions -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body">
+                    <h2 class="card-title text-base mb-3">
+                        <i data-lucide="history" class="w-4 h-4"></i> Recent Executions
+                    </h2>
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Task</th>
+                                    <th>Duration</th>
+                                    <th>Tokens</th>
+                                    <th>When</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="run in mock.recentRuns" :key="run.id">
+                                    <tr class="hover">
+                                        <td>
+                                            <span class="badge badge-xs"
+                                                  :class="run.status === 'success' ? 'badge-success' : run.status === 'error' ? 'badge-error' : 'badge-warning'"
+                                                  x-text="run.status"></span>
+                                        </td>
+                                        <td class="max-w-xs truncate" x-text="run.task"></td>
+                                        <td class="font-mono text-xs" x-text="run.duration"></td>
+                                        <td class="font-mono text-xs" x-text="run.tokens.toLocaleString()"></td>
+                                        <td class="text-xs text-base-content/50" x-text="run.when"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Chart (mockup) -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body">
+                    <h2 class="card-title text-base mb-3">
+                        <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Activity (Last 14 Days)
+                    </h2>
+                    <div class="flex items-end gap-1 h-32">
+                        <template x-for="(val, i) in mock.activityChart" :key="i">
+                            <div class="flex-1 rounded-t transition-all"
+                                 :style="'height:' + (val / Math.max(...mock.activityChart) * 100) + '%; background:' + (agent.color || agentColor(agent.name))"
+                                 :title="val + ' runs'">
+                            </div>
+                        </template>
+                    </div>
+                    <div class="flex justify-between text-[10px] text-base-content/30 mt-1">
+                        <span>14d ago</span>
+                        <span>Today</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Config & Actions -->
+        <div class="space-y-6">
+
+            <!-- Configuration -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body">
+                    <h2 class="card-title text-base mb-3">
+                        <i data-lucide="sliders-horizontal" class="w-4 h-4"></i> Configuration
+                    </h2>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-base-content/50">Temperature</span>
+                            <span class="font-mono" x-text="agent.temperature"></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-base-content/50">Max Tokens</span>
+                            <span class="font-mono" x-text="agent.max_tokens?.toLocaleString()"></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-base-content/50">Max Iterations</span>
+                            <span class="font-mono" x-text="agent.max_iterations"></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-base-content/50">Timeout</span>
+                            <span class="font-mono" x-text="agent.timeout + 's'"></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-base-content/50">Max Depth</span>
+                            <span class="font-mono" x-text="agent.max_depth"></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-base-content/50">Sub-agents</span>
+                            <span class="font-mono" x-text="agent.can_spawn_sub_agents ? '≤' + agent.max_sub_agents : 'No'"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tools -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body">
+                    <h2 class="card-title text-base mb-3">
+                        <i data-lucide="wrench" class="w-4 h-4"></i> Tools
+                        <span class="badge badge-sm" x-text="(agent.tools || []).length"></span>
+                    </h2>
+                    <div x-show="!agent.tools || agent.tools.length === 0" class="text-sm text-base-content/40">No tools assigned</div>
+                    <div class="flex flex-wrap gap-1.5">
+                        <template x-for="tool in (agent.tools || [])" :key="tool">
+                            <span class="badge badge-sm badge-outline font-mono" x-text="tool"></span>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions (mockup) -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body">
+                    <h2 class="card-title text-base mb-3">
+                        <i data-lucide="zap" class="w-4 h-4"></i> Actions
+                    </h2>
+                    <div class="space-y-2">
+                        <button class="btn btn-sm btn-block btn-outline gap-2" disabled>
+                            <i data-lucide="play" class="w-3.5 h-3.5"></i> Run Agent
+                        </button>
+                        <button class="btn btn-sm btn-block btn-outline gap-2" disabled>
+                            <i data-lucide="test-tube" class="w-3.5 h-3.5"></i> Test with Prompt
+                        </button>
+                        <button class="btn btn-sm btn-block btn-outline gap-2" disabled>
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i> Duplicate Agent
+                        </button>
+                        <button class="btn btn-sm btn-block btn-outline gap-2" disabled>
+                            <i data-lucide="download" class="w-3.5 h-3.5"></i> Export Definition
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Prompt Preview -->
+            <div class="card bg-base-100 border border-base-300 shadow-sm" x-show="agent.system_prompt">
+                <div class="card-body">
+                    <h2 class="card-title text-base mb-3">
+                        <i data-lucide="scroll-text" class="w-4 h-4"></i> System Prompt
+                    </h2>
+                    <pre class="text-xs bg-base-200 rounded-lg p-3 max-h-48 overflow-y-auto whitespace-pre-wrap" x-text="agent.system_prompt"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function agentDetail() {
+    return {
+        agent: {},
+        mock: {
+            totalRuns: 147,
+            successRate: 94.2,
+            avgDuration: '12.4s',
+            tokensUsed: '284K',
+            activityChart: [3, 7, 5, 12, 8, 15, 9, 6, 11, 14, 7, 10, 13, 8],
+            recentRuns: [
+                { id: 1, status: 'success', task: 'Generate quarterly report summary', duration: '8.2s', tokens: 3420, when: '2 hours ago' },
+                { id: 2, status: 'success', task: 'Review and edit blog post draft', duration: '14.7s', tokens: 5180, when: '5 hours ago' },
+                { id: 3, status: 'error', task: 'Analyze dataset and produce chart', duration: '45.1s', tokens: 12400, when: 'Yesterday' },
+                { id: 4, status: 'success', task: 'Translate documentation to German', duration: '22.3s', tokens: 8900, when: 'Yesterday' },
+                { id: 5, status: 'success', task: 'Summarize meeting transcript', duration: '6.1s', tokens: 2100, when: '2 days ago' },
+                { id: 6, status: 'warning', task: 'Generate social media content batch', duration: '31.0s', tokens: 9800, when: '2 days ago' },
+                { id: 7, status: 'success', task: 'Code review pull request #142', duration: '18.5s', tokens: 6200, when: '3 days ago' },
+                { id: 8, status: 'success', task: 'Extract key insights from PDF report', duration: '11.9s', tokens: 4500, when: '3 days ago' },
+            ],
+        },
+
+        init() {
+            this.agent = {{ agent_json|safe }};
+            this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+        },
+
+        agentColor(name) {
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            const hue = ((hash % 360) + 360) % 360;
+            return this.hslToHex(hue, 55, 45);
+        },
+
+        hslToHex(h, s, l) {
+            s /= 100; l /= 100;
+            const a = s * Math.min(l, 1 - l);
+            const f = n => {
+                const k = (n + h / 30) % 12;
+                const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+                return Math.round(255 * color).toString(16).padStart(2, '0');
+            };
+            return `#${f(0)}${f(8)}${f(4)}`;
+        },
+
+        silhouetteSvg(size) {
+            const s = size * 4;
+            return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${s} ${s}" width="${size * 4}" height="${size * 4}">` +
+                `<circle cx="${s/2}" cy="${s*0.36}" r="${s*0.18}" fill="rgba(255,255,255,0.85)"/>` +
+                `<ellipse cx="${s/2}" cy="${s*0.95}" rx="${s*0.32}" ry="${s*0.28}" fill="rgba(255,255,255,0.85)"/>` +
+                `</svg>`;
+        },
+    };
+}
+</script>
+{% endblock %}

@@ -14,7 +14,10 @@ deployment_mode: hosted
 
 # Federation — pull-based multi-server content sharing.
 # Each server has a unique server_id (auto-generated UUID on first run if omitted).
+# Set federation_enabled to true and configure server_url to activate.
+# Peers are managed at runtime via /federation UI or POST /api/v1/federation/peers.
+# See docs/features/FEDERATION.md for full setup guide.
 # server_id: "auto"
 # server_url: "https://your-server.example.com"
-# federation_enabled: false
-# federation_sync_interval_minutes: 15
+federation_enabled: false
+federation_sync_interval_minutes: 15

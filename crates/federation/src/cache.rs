@@ -8,11 +8,13 @@ use tracing::{info, warn};
 use crate::client::FederationClient;
 use crate::models::{CatalogItem, FederationPeer};
 
-/// Sync a single peer's catalog into our local cache
+/// Sync a single peer's catalog into our local cache.
+/// `max_items` caps how many items to cache (0 = unlimited).
 pub async fn sync_peer_catalog(
     pool: &SqlitePool,
     peer: &FederationPeer,
     storage_dir: &str,
+    max_items: i32,
 ) -> Result<i32> {
     let client = FederationClient::new(&peer.server_url, &peer.api_key);
 
@@ -67,6 +69,16 @@ pub async fn sync_peer_catalog(
             }
 
             total_synced += 1;
+
+            // Enforce max items cap
+            if max_items > 0 && total_synced >= max_items {
+                info!("Reached max_items_per_peer limit ({}), stopping sync", max_items);
+                break;
+            }
+        }
+
+        if max_items > 0 && total_synced >= max_items {
+            break;
         }
 
         if (page * page_size) as i64 >= catalog.total {

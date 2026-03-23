@@ -82,6 +82,9 @@ pub struct DeploymentConfig {
     /// How often to pull catalogs from peers (minutes).
     #[serde(default = "default_sync_interval")]
     pub federation_sync_interval_minutes: u64,
+    /// Maximum number of items to cache per peer (0 = unlimited).
+    #[serde(default)]
+    pub federation_max_items_per_peer: i32,
 }
 
 #[derive(serde::Deserialize, Clone, PartialEq, Debug)]
@@ -109,6 +112,7 @@ impl Default for DeploymentConfig {
             server_url: None,
             federation_enabled: false,
             federation_sync_interval_minutes: 15,
+            federation_max_items_per_peer: 0,
         }
     }
 }
@@ -1251,6 +1255,7 @@ async fn main() -> anyhow::Result<()> {
     let fed_enabled = deployment_config.federation_enabled;
     let fed_sync_interval = deployment_config.federation_sync_interval_minutes;
     let fed_server_name = app_config.name.clone();
+    let fed_max_items = deployment_config.federation_max_items_per_peer;
 
     let app_state = Arc::new(AppState {
         pool: pool.clone(),
@@ -1473,6 +1478,7 @@ async fn main() -> anyhow::Result<()> {
         server_id: fed_server_id.clone(),
         server_name: fed_server_name,
         federation_enabled: fed_enabled,
+        max_items_per_peer: fed_max_items,
     });
     // Server-side routes (serve our catalog to peers) — authenticated via API key
     let app = app.merge(
@@ -1498,6 +1504,7 @@ async fn main() -> anyhow::Result<()> {
             pool.clone(),
             storage_dir.to_string_lossy().to_string(),
             fed_sync_interval,
+            fed_max_items,
         );
     }
 

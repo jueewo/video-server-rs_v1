@@ -21,3 +21,4 @@ deployment_mode: hosted
 # server_url: "https://your-server.example.com"
 federation_enabled: false
 federation_sync_interval_minutes: 15
+# federation_max_items_per_peer: 0  # 0 = unlimited

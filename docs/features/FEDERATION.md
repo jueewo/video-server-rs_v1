@@ -69,13 +69,26 @@ federation_enabled: true
 
 # Catalog pull interval (minutes)
 federation_sync_interval_minutes: 15
+
+# Max items to cache per peer (0 = unlimited)
+federation_max_items_per_peer: 0
 ```
+
+---
+
+## Security
+
+- **Origin-side API** requires an API key with `federation:read` scope. Keys without this scope are rejected with 403.
+- **Admin API** (add/remove/sync peers, list peers, clear cache) requires the caller to be the platform admin (`PLATFORM_ADMIN_ID` env var). Non-admins receive 403.
+- **URL validation** — peer URLs are validated on add; malformed URLs are rejected.
+- **Cache limits** — `federation_max_items_per_peer` caps how many items are cached per peer to prevent storage exhaustion (0 = unlimited).
+- **All routes** (both server-side and consumer-side) require authentication via API key or session.
 
 ---
 
 ## Server-to-Server API (Origin Side)
 
-Authenticated via API key (`Authorization: Bearer <key>`).
+Authenticated via API key with `federation:read` scope (`Authorization: Bearer <key>`).
 
 | Route | Method | Purpose |
 |---|---|---|

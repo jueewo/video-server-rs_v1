@@ -17,3 +17,4 @@ askama = { workspace = true }
 common = { path = "../common" }
 api-keys = { path = "../api-keys" }
 uuid = { version = "1", features = ["v4"] }
+url = "2"

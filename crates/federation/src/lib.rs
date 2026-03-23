@@ -15,6 +15,8 @@ pub struct FederationState {
     pub server_id: String,
     pub server_name: String,
     pub federation_enabled: bool,
+    /// Maximum number of items to cache per peer (0 = unlimited)
+    pub max_items_per_peer: i32,
 }
 
 pub use routes::{federation_consumer_routes, federation_server_routes};
@@ -25,6 +27,7 @@ pub fn spawn_sync_task(
     pool: SqlitePool,
     storage_dir: String,
     interval_minutes: u64,
+    max_items_per_peer: i32,
 ) {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(interval_minutes * 60));
@@ -43,7 +46,7 @@ pub fn spawn_sync_task(
             .unwrap_or_default();
 
             for peer in &peers {
-                match cache::sync_peer_catalog(&pool, peer, &storage_dir).await {
+                match cache::sync_peer_catalog(&pool, peer, &storage_dir, max_items_per_peer).await {
                     Ok(count) => {
                         tracing::info!("Federation: synced {} items from '{}'", count, peer.display_name);
                     }

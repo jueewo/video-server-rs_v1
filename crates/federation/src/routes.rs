@@ -1,12 +1,13 @@
 //! Federation routes — both server-side (serve catalog) and consumer-side (browse remote)
 
+use api_keys::middleware::{require_scope, AuthenticatedUser};
 use askama::Template;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{Html, IntoResponse},
     routing::{delete, get, post},
-    Json, Router,
+    Extension, Json, Router,
 };
 use serde::Deserialize;
 use sqlx::SqlitePool;
@@ -19,6 +20,26 @@ use crate::cache::{
 use crate::client::FederationClient;
 use crate::models::{CreatePeerRequest, FederationPeer, RemoteMediaItem};
 use crate::FederationState;
+
+/// Check if the current user is a platform admin.
+/// Returns Err(FORBIDDEN) if not.
+fn require_admin(user: &AuthenticatedUser) -> Result<(), StatusCode> {
+    let admin_id = std::env::var("PLATFORM_ADMIN_ID").unwrap_or_default();
+    if admin_id.is_empty() || user.user_id != admin_id {
+        warn!(
+            event = "federation_admin_denied",
+            user_id = %user.user_id,
+            "Non-admin attempted federation admin action"
+        );
+        return Err(StatusCode::FORBIDDEN);
+    }
+    Ok(())
+}
+
+/// Check that the API key has federation:read scope (for origin-side endpoints).
+pub(crate) fn require_federation_scope(user: &AuthenticatedUser) -> Result<(), StatusCode> {
+    require_scope(user, "federation:read")
+}
 
 // ── Templates ──────────────────────────────────────────────
 
@@ -373,7 +394,13 @@ fn rewrite_hls_playlist(playlist: &str, server_id: &str, slug: &str) -> String {
 
 // ── Admin API handlers ─────────────────────────────────────
 
-async fn list_peers_api(State(state): State<Arc<FederationState>>) -> impl IntoResponse {
+async fn list_peers_api(
+    Extension(user): Extension<AuthenticatedUser>,
+    State(state): State<Arc<FederationState>>,
+) -> impl IntoResponse {
+    if let Err(e) = require_admin(&user) {
+        return e.into_response();
+    }
     let peers = sqlx::query_as::<_, FederationPeer>(
         "SELECT * FROM federation_peers ORDER BY display_name"
     )
@@ -381,13 +408,26 @@ async fn list_peers_api(State(state): State<Arc<FederationState>>) -> impl IntoR
     .await
     .unwrap_or_default();
 
-    Json(peers)
+    Json(peers).into_response()
 }
 
 async fn add_peer_api(
+    Extension(user): Extension<AuthenticatedUser>,
     State(state): State<Arc<FederationState>>,
     Json(req): Json<CreatePeerRequest>,
 ) -> impl IntoResponse {
+    if let Err(e) = require_admin(&user) {
+        return e.into_response();
+    }
+
+    // Validate URL format
+    if let Err(e) = url::Url::parse(&req.server_url) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": format!("Invalid server URL: {}", e) })),
+        ).into_response();
+    }
+
     // Try to fetch the manifest to get the server_id
     let client = FederationClient::new(&req.server_url, &req.api_key);
     let server_id = match client.fetch_manifest().await {
@@ -424,9 +464,13 @@ async fn add_peer_api(
 }
 
 async fn remove_peer_api(
+    Extension(user): Extension<AuthenticatedUser>,
     State(state): State<Arc<FederationState>>,
     Path(peer_id): Path<i32>,
 ) -> impl IntoResponse {
+    if let Err(e) = require_admin(&user) {
+        return e.into_response();
+    }
     // Get the peer to find its server_id for cache cleanup
     let peer = sqlx::query_as::<_, FederationPeer>(
         "SELECT * FROM federation_peers WHERE id = ?1"
@@ -449,9 +493,13 @@ async fn remove_peer_api(
 }
 
 async fn sync_peer_api(
+    Extension(user): Extension<AuthenticatedUser>,
     State(state): State<Arc<FederationState>>,
     Path(peer_id): Path<i32>,
 ) -> impl IntoResponse {
+    if let Err(e) = require_admin(&user) {
+        return e.into_response();
+    }
     let peer = sqlx::query_as::<_, FederationPeer>(
         "SELECT * FROM federation_peers WHERE id = ?1"
     )
@@ -467,7 +515,7 @@ async fn sync_peer_api(
                 .execute(&state.pool)
                 .await;
 
-            match sync_peer_catalog(&state.pool, &peer, &state.storage_dir).await {
+            match sync_peer_catalog(&state.pool, &peer, &state.storage_dir, state.max_items_per_peer).await {
                 Ok(count) => {
                     Json(serde_json::json!({ "synced": count })).into_response()
                 }
@@ -485,9 +533,13 @@ async fn sync_peer_api(
 }
 
 async fn clear_cache_api(
+    Extension(user): Extension<AuthenticatedUser>,
     State(state): State<Arc<FederationState>>,
     Path(peer_id): Path<i32>,
 ) -> impl IntoResponse {
+    if let Err(e) = require_admin(&user) {
+        return e.into_response();
+    }
     let peer = sqlx::query_as::<_, FederationPeer>(
         "SELECT * FROM federation_peers WHERE id = ?1"
     )

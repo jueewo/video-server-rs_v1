@@ -1,22 +1,28 @@
 //! Server-side federation endpoints — serve our catalog to peers
 
+use api_keys::middleware::AuthenticatedUser;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
-    response::IntoResponse,
-    Json,
+    response::{IntoResponse, Response},
+    Extension, Json,
 };
 use serde::Deserialize;
 use std::sync::Arc;
 use tracing::warn;
 
 use crate::models::{CatalogItem, CatalogResponse, ServerManifest};
+use crate::routes::require_federation_scope;
 use crate::FederationState;
 
 /// GET /api/v1/federation/manifest
 pub async fn serve_manifest(
+    Extension(user): Extension<AuthenticatedUser>,
     State(state): State<Arc<FederationState>>,
-) -> impl IntoResponse {
+) -> Response {
+    if let Err(status) = require_federation_scope(&user) {
+        return (status, "Forbidden").into_response();
+    }
     let count: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM media_items WHERE is_public = 1 AND status = 'active'"
     )
@@ -30,7 +36,7 @@ pub async fn serve_manifest(
         version: env!("CARGO_PKG_VERSION").to_string(),
         catalog_count: count,
         federation_api_version: "1".to_string(),
-    })
+    }).into_response()
 }
 
 #[derive(Deserialize)]
@@ -41,9 +47,13 @@ pub struct CatalogQuery {
 
 /// GET /api/v1/federation/catalog
 pub async fn serve_catalog(
+    Extension(user): Extension<AuthenticatedUser>,
     State(state): State<Arc<FederationState>>,
     Query(params): Query<CatalogQuery>,
-) -> impl IntoResponse {
+) -> Response {
+    if let Err(status) = require_federation_scope(&user) {
+        return (status, "Forbidden").into_response();
+    }
     let page = params.page.unwrap_or(1).max(1);
     let page_size = params.page_size.unwrap_or(50).clamp(1, 200);
     let offset = (page - 1) * page_size;
@@ -76,14 +86,18 @@ pub async fn serve_catalog(
         total,
         page,
         page_size,
-    })
+    }).into_response()
 }
 
 /// GET /api/v1/federation/media/{slug}
 pub async fn serve_media_metadata(
+    Extension(user): Extension<AuthenticatedUser>,
     State(state): State<Arc<FederationState>>,
     Path(slug): Path<String>,
-) -> impl IntoResponse {
+) -> Response {
+    if let Err(status) = require_federation_scope(&user) {
+        return (status, "Forbidden").into_response();
+    }
     let item = sqlx::query_as::<_, (String, String, String, Option<String>, Option<String>, Option<String>, Option<i64>, String, Option<String>)>(
         "SELECT slug, media_type, title, description, filename, mime_type, file_size, created_at, updated_at \
          FROM media_items WHERE slug = ?1 AND is_public = 1 AND status = 'active'"
@@ -107,9 +121,13 @@ pub async fn serve_media_metadata(
 /// GET /api/v1/federation/media/{slug}/thumbnail
 /// Serves the thumbnail binary for a public media item
 pub async fn serve_media_thumbnail(
+    Extension(user): Extension<AuthenticatedUser>,
     State(state): State<Arc<FederationState>>,
     Path(slug): Path<String>,
-) -> impl IntoResponse {
+) -> Response {
+    if let Err(status) = require_federation_scope(&user) {
+        return (status, "Forbidden").into_response();
+    }
     // Verify the item is public
     let item = sqlx::query_as::<_, (String, Option<String>)>(
         "SELECT media_type, vault_id FROM media_items WHERE slug = ?1 AND is_public = 1 AND status = 'active'"
@@ -181,9 +199,13 @@ pub async fn serve_media_thumbnail(
 /// GET /api/v1/federation/media/{slug}/content
 /// Serves the full media binary for a public item
 pub async fn serve_media_content(
+    Extension(user): Extension<AuthenticatedUser>,
     State(state): State<Arc<FederationState>>,
     Path(slug): Path<String>,
-) -> impl IntoResponse {
+) -> Response {
+    if let Err(status) = require_federation_scope(&user) {
+        return (status, "Forbidden").into_response();
+    }
     let item = sqlx::query_as::<_, (String, String, Option<String>)>(
         "SELECT media_type, filename, vault_id FROM media_items WHERE slug = ?1 AND is_public = 1 AND status = 'active'"
     )

@@ -1,4 +1,6 @@
 use std::net::SocketAddr;
+use std::sync::Arc;
+use db_sqlite::SqliteDatabase;
 use sqlx::sqlite::SqlitePoolOptions;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use webdav::WebdavState;
@@ -32,7 +34,8 @@ async fn main() {
         .await
         .expect("Failed to connect to database");
 
-    let state = WebdavState::new(pool, storage_dir);
+    let sqlite_db = SqliteDatabase::new(pool.clone());
+    let state = WebdavState::new(pool, Arc::new(sqlite_db), storage_dir);
 
     let app = webdav::webdav_routes(state);
 

@@ -77,8 +77,8 @@ pub fn load_bpmn(file_path: &Path) -> Result<BpmnDiagram> {
 /// Execute a BPMN process with test data
 pub fn simulate_process(
     diagram: &BpmnDiagram,
-    config: &BpmnSimulatorConfig,
-    test_data: HashMap<String, serde_json::Value>,
+    _config: &BpmnSimulatorConfig,
+    _test_data: HashMap<String, serde_json::Value>,
 ) -> Result<ExecutionTrace> {
     tracing::info!("Simulating BPMN process: {}", diagram.process_id);
 

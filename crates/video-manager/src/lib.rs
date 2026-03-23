@@ -1234,47 +1234,6 @@ pub async fn register_video_handler(
 // Video Edit Page Handler
 // -------------------------------
 
-fn video_detail_from_row(row: &sqlx::sqlite::SqliteRow) -> VideoDetail {
-    let group_id: Option<i32> = row.try_get("group_id").ok();
-    VideoDetail {
-        id: row.try_get("id").unwrap_or(0),
-        slug: row.try_get("slug").unwrap_or_default(),
-        title: row.try_get("title").unwrap_or_default(),
-        description: row.try_get("description").ok(),
-        short_description: row.try_get("short_description").ok(),
-        is_public: row.try_get::<i32, _>("is_public").unwrap_or(0) == 1,
-        user_id: row.try_get("user_id").ok(),
-        group_id,
-        group_id_str: group_id.map(|id| id.to_string()).unwrap_or_default(),
-        duration: row.try_get("duration").ok(),
-        file_size: row.try_get("file_size").ok(),
-        resolution: row.try_get("resolution").ok(),
-        width: row.try_get("width").ok(),
-        height: row.try_get("height").ok(),
-        fps: row.try_get("fps").ok(),
-        codec: row.try_get("codec").ok(),
-        thumbnail_url: row.try_get("thumbnail_url").ok(),
-        poster_url: row.try_get("poster_url").ok(),
-        category: row.try_get("category").ok(),
-        language: row.try_get("language").ok(),
-        status: row
-            .try_get("status")
-            .unwrap_or_else(|_| "active".to_string()),
-        featured: row.try_get::<i32, _>("featured").unwrap_or(0) == 1,
-        allow_comments: row.try_get::<i32, _>("allow_comments").unwrap_or(1) == 1,
-        allow_download: row.try_get::<i32, _>("allow_download").unwrap_or(0) == 1,
-        mature_content: row.try_get::<i32, _>("mature_content").unwrap_or(0) == 1,
-        view_count: row.try_get("view_count").unwrap_or(0),
-        like_count: row.try_get("like_count").unwrap_or(0),
-        download_count: row.try_get("download_count").unwrap_or(0),
-        share_count: row.try_get("share_count").unwrap_or(0),
-        upload_date: row.try_get("upload_date").unwrap_or_default(),
-        seo_title: row.try_get("seo_title").ok(),
-        seo_description: row.try_get("seo_description").ok(),
-        seo_keywords: row.try_get("seo_keywords").ok(),
-    }
-}
-
 fn video_detail_from_media_item(row: &db::media::MediaItemRow) -> VideoDetail {
     VideoDetail {
         id: row.id as i64,

@@ -8,6 +8,7 @@ use axum::{
     extract::DefaultBodyLimit,
 };
 use bytes::Bytes;
+use db::api_keys::ApiKeyRepository;
 use http_body_util::BodyExt;
 use std::{path::PathBuf, sync::Arc};
 use tracing::warn;
@@ -23,12 +24,13 @@ const ALLOW_METHODS: &str =
 #[derive(Clone)]
 pub struct WebdavState {
     pub pool: sqlx::SqlitePool,
+    pub api_key_repo: Arc<dyn ApiKeyRepository>,
     pub storage_dir: String,
 }
 
 impl WebdavState {
-    pub fn new(pool: sqlx::SqlitePool, storage_dir: String) -> Self {
-        Self { pool, storage_dir }
+    pub fn new(pool: sqlx::SqlitePool, api_key_repo: Arc<dyn ApiKeyRepository>, storage_dir: String) -> Self {
+        Self { pool, api_key_repo, storage_dir }
     }
 
     pub fn workspace_root(&self, workspace_id: &str) -> PathBuf {
@@ -158,7 +160,7 @@ async fn verify_workspace_access(
     identifier: &str,
     headers: &HeaderMap,
 ) -> Result<(String, String), StatusCode> {
-    let user_id = auth::verify_basic_auth(&state.pool, headers).await?;
+    let user_id = auth::verify_basic_auth(&*state.api_key_repo, headers).await?;
 
     // 1. Try exact workspace_id match
     let row: Option<(String,)> = sqlx::query_as(

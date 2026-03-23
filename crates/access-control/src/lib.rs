@@ -34,10 +34,7 @@
 //! use access_control::{AccessControlService, AccessContext, Permission};
 //! use common::ResourceType;
 //!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! // Create service from trait objects
-//! // let service = AccessControlService::new(ac_repo, audit_repo);
-//!
+//! # async fn example(service: &AccessControlService) -> Result<(), Box<dyn std::error::Error>> {
 //! // Build context
 //! let context = AccessContext {
 //!     user_id: Some("user123".to_string()),
@@ -87,6 +84,7 @@ pub mod service;
 // Re-export main types
 pub use audit::{AuditLogEntry, AuditLogger};
 pub use error::AccessError;
+pub use layers::{AccessKeyLayer, GroupLayer, OwnerLayer, PublicLayer};
 pub use models::{AccessContext, AccessDecision, AccessKeyData, AccessLayer};
 pub use permissions::Permission;
 pub use repository::AccessRepository;

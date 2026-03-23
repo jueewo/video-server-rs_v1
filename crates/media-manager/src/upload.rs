@@ -5,7 +5,7 @@ use axum::{
     http::StatusCode,
     response::Json,
 };
-use common::models::{MediaItemCreateDTO, MediaType};
+use common::models::MediaType;
 use db::media::{MediaInsert, MediaRepository};
 use serde_json::Value;
 use std::sync::Arc;

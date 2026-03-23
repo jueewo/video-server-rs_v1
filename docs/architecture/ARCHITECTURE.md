@@ -32,7 +32,7 @@
 | **CSS / UI** | Tailwind CSS v4 · DaisyUI · responsive grid |
 | **3D rendering** | Babylon.js · Three.js |
 | **SPA support** | Vue 3 · Preact (pre-built, served via js-tool-viewer) |
-| **Database** | SQLite via sqlx (no PostgreSQL) |
+| **Database** | SQLite via sqlx · trait-based repository pattern (`db` / `db-sqlite` crates) |
 | **Sessions** | tower-sessions 0.14 + sqlx store |
 | **Auth** | OIDC via openidconnect crate · Casdoor IdP |
 | **Rate limiting** | tower_governor 0.8 / governor 0.10 |
@@ -41,8 +41,9 @@
 | **Documents** | Ghostscript (PDF thumbnails) · pulldown-cmark (Markdown) |
 | **Observability** | OpenTelemetry SDK 0.31 · OTLP/gRPC · SigNoz |
 | **Federation** | Pull-based catalog sync between instances (`federation` crate) |
-| **AI integration** | MCP server (media-mcp) for Claude Desktop |
-| **Build** | Cargo workspace (23+ crates) · feature flags |
+| **AI integration** | MCP server (media-mcp) for Claude Desktop · Agent registry |
+| **Build** | Cargo workspace (41 crates) · feature flags |
+| **CI** | GitHub Actions (build, test, clippy) — manual trigger for now |
 
 ---
 

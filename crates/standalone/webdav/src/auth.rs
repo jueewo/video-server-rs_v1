@@ -1,6 +1,6 @@
 use base64::Engine;
+use db::api_keys::ApiKeyRepository;
 use http::HeaderMap;
-use sqlx::SqlitePool;
 use tracing::warn;
 
 pub struct AuthConfig {
@@ -16,7 +16,7 @@ impl Default for AuthConfig {
 }
 
 pub async fn verify_basic_auth(
-    pool: &SqlitePool,
+    repo: &dyn ApiKeyRepository,
     headers: &HeaderMap,
 ) -> Result<String, http::StatusCode> {
     let auth_header = headers
@@ -36,7 +36,7 @@ pub async fn verify_basic_auth(
         .split_once(':')
         .ok_or(http::StatusCode::UNAUTHORIZED)?;
 
-    match api_keys::db::validate_api_key(pool, password).await {
+    match api_keys::db::validate_api_key(repo, password).await {
         Ok(Some(key)) => Ok(key.user_id),
         Ok(None) => {
             warn!("WebDAV auth failed: invalid or expired API key");

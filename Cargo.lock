@@ -6444,6 +6444,8 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "bytes",
+ "db",
+ "db-sqlite",
  "futures-util",
  "http 1.4.0",
  "http-body-util",

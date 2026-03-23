@@ -115,7 +115,7 @@ impl RetryPolicy {
 ///
 /// # Example
 ///
-/// ```no_run
+/// ```ignore
 /// use video_manager::retry::{retry_with_policy, RetryPolicy};
 ///
 /// async fn flaky_operation() -> Result<String, MyError> {

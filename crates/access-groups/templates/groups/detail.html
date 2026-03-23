@@ -59,10 +59,16 @@
                     <span class="badge badge-lg">{{ resources.len() }}</span>
                 </h2>
                 {% if can_write %}
-                <button onclick="openAddMediaDialog()" class="btn btn-primary btn-sm gap-2">
-                    <i data-lucide="plus" class="w-4 h-4"></i>
-                    Add Media
-                </button>
+                <div class="flex gap-2">
+                    <button onclick="BulkUpload.open({ groupId: {{ group.id }}, onDone: function() { location.reload(); } })" class="btn btn-ghost btn-sm gap-2">
+                        <i data-lucide="upload" class="w-4 h-4"></i>
+                        Upload Files
+                    </button>
+                    <button onclick="openAddMediaDialog()" class="btn btn-primary btn-sm gap-2">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        Add Media
+                    </button>
+                </div>
                 {% endif %}
             </div>
 
@@ -387,5 +393,6 @@ async function removeFromGroup(slug) {
 }
 </script>
 {% include "components/media-picker-dialog.html" %}
+<script src="/static/js/bulk-upload.js"></script>
 {% endif %}
 {% endblock %}

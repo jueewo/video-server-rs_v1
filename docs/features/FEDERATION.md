@@ -304,3 +304,4 @@ Upload media on Server B, create an API key, then add Server B as a peer on Serv
 - **No service discovery** — manual peer config only
 - **No write-back** — federated content is read-only on the consumer
 - **No workspace federation** — media only
+- **No per-tenant scoping** — federation operates at the server level. In multi-tenant hosted deployments (Tier 1/2), all tenants share the same peer list and federated catalog. Per-tenant federation requires `tenant_id` on `media_items` first (tracked separately)

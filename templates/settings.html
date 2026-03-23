@@ -13,11 +13,11 @@
                 </span>
                 <span class="text-gradient">Settings</span>
             </h1>
-            <p class="page-header-subtitle">Manage workspaces, media, apps, and account settings</p>
+            <p class="page-header-subtitle">Manage your platform — workspaces, media, agents, apps, and more</p>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
         <!-- Workspaces -->
         <div class="card bg-base-100 border border-base-300 shadow-sm">
@@ -95,7 +95,7 @@
                             <i data-lucide="users" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
                             <div>
                                 <div class="text-sm font-medium">Groups</div>
-                                <div class="text-xs text-base-content/50">Manage access groups for media</div>
+                                <div class="text-xs text-base-content/50">Organize media into access groups</div>
                             </div>
                         </a>
                     </li>
@@ -112,7 +112,40 @@
             </div>
         </div>
 
-        <!-- Apps / Publications -->
+        <!-- Agents -->
+        <div class="card bg-base-100 border border-base-300 shadow-sm">
+            <div class="card-body p-5">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
+                          style="background: linear-gradient(135deg, #f6d365, #fda085); box-shadow: 0 3px 8px rgba(253,160,133,0.3);">
+                        <i data-lucide="bot" class="w-4 h-4 text-white"></i>
+                    </span>
+                    <h2 class="font-semibold text-base">Agents</h2>
+                </div>
+                <ul class="space-y-1">
+                    <li>
+                        <a href="/agents" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="users" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">My Workforce</div>
+                                <div class="text-xs text-base-content/50">Agent registry, hierarchy, and org chart</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/settings/llm-providers" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="brain" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">AI Providers</div>
+                                <div class="text-xs text-base-content/50">LLM providers and model configuration</div>
+                            </div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Apps & Publications -->
         <div class="card bg-base-100 border border-base-300 shadow-sm">
             <div class="card-body p-5">
                 <div class="flex items-center gap-3 mb-4">
@@ -120,7 +153,7 @@
                           style="background: linear-gradient(135deg, #4facfe, #00f2fe); box-shadow: 0 3px 8px rgba(79,172,254,0.3);">
                         <i data-lucide="rocket" class="w-4 h-4 text-white"></i>
                     </span>
-                    <h2 class="font-semibold text-base">Apps</h2>
+                    <h2 class="font-semibold text-base">Apps & Publishing</h2>
                 </div>
                 <ul class="space-y-1">
                     <li>
@@ -163,7 +196,40 @@
             </div>
         </div>
 
-        <!-- Account -->
+        <!-- Documentation & Federation -->
+        <div class="card bg-base-100 border border-base-300 shadow-sm">
+            <div class="card-body p-5">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
+                          style="background: linear-gradient(135deg, #43e97b, #38f9d7); box-shadow: 0 3px 8px rgba(67,233,123,0.3);">
+                        <i data-lucide="book-open" class="w-4 h-4 text-white"></i>
+                    </span>
+                    <h2 class="font-semibold text-base">Docs & Federation</h2>
+                </div>
+                <ul class="space-y-1">
+                    <li>
+                        <a href="/docs" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="file-text" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">Documentation</div>
+                                <div class="text-xs text-base-content/50">Markdown, PDF, and diagram viewer</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/federation" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
+                            <i data-lucide="network" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
+                            <div>
+                                <div class="text-sm font-medium">Federation</div>
+                                <div class="text-xs text-base-content/50">Multi-server catalog sharing and sync</div>
+                            </div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Account & Admin -->
         <div class="card bg-base-100 border border-base-300 shadow-sm">
             <div class="card-body p-5">
                 <div class="flex items-center gap-3 mb-4">
@@ -189,15 +255,6 @@
                             <div>
                                 <div class="text-sm font-medium">API Keys</div>
                                 <div class="text-xs text-base-content/50">Keys for scripts and automation</div>
-                            </div>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="/settings/llm-providers" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors group">
-                            <i data-lucide="brain" class="w-4 h-4 text-base-content/40 group-hover:text-primary shrink-0"></i>
-                            <div>
-                                <div class="text-sm font-medium">AI Providers</div>
-                                <div class="text-xs text-base-content/50">LLM providers for AI-assisted editing</div>
                             </div>
                         </a>
                     </li>

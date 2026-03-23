@@ -294,6 +294,7 @@ pub trait WorkspaceRepository: Send + Sync {
         file_size: i64,
         user_id: &str,
         vault_id: &str,
+        tenant_id: &str,
     ) -> Result<(), DbError>;
 
     /// Check if a vault belongs to a user. Returns Some(vault_id) if found.

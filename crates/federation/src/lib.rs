@@ -20,6 +20,8 @@ pub struct FederationState {
     pub federation_enabled: bool,
     /// Maximum number of items to cache per peer (0 = unlimited)
     pub max_items_per_peer: i32,
+    /// Tenant scope for this server's federation operations
+    pub tenant_id: String,
 }
 
 pub use routes::{federation_consumer_routes, federation_server_routes};
@@ -31,6 +33,7 @@ pub fn spawn_sync_task(
     storage_dir: String,
     interval_minutes: u64,
     max_items_per_peer: i32,
+    tenant_id: String,
 ) {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(interval_minutes * 60));
@@ -41,7 +44,7 @@ pub fn spawn_sync_task(
             interval.tick().await;
             tracing::info!("Federation: starting periodic catalog sync");
 
-            let peers = repo.list_active_peers().await.unwrap_or_default();
+            let peers = repo.list_active_peers(&tenant_id).await.unwrap_or_default();
 
             let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
@@ -57,7 +60,7 @@ pub fn spawn_sync_task(
                     }
                 }
 
-                match cache::sync_peer_catalog(repo.as_ref(), peer, &storage_dir, max_items_per_peer).await {
+                match cache::sync_peer_catalog(repo.as_ref(), peer, &storage_dir, max_items_per_peer, &tenant_id).await {
                     Ok(count) => {
                         tracing::info!("Federation: synced {} items from '{}'", count, peer.display_name);
                         // Reset failure counter on success

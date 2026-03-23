@@ -1264,6 +1264,7 @@ async fn main() -> anyhow::Result<()> {
     let fed_sync_interval = deployment_config.federation_sync_interval_minutes;
     let fed_server_name = app_config.name.clone();
     let fed_max_items = deployment_config.federation_max_items_per_peer;
+    let fed_tenant_id = deployment_config.tenant_id.clone();
 
     let app_state = Arc::new(AppState {
         pool: pool.clone(),
@@ -1495,6 +1496,7 @@ async fn main() -> anyhow::Result<()> {
         server_name: fed_server_name,
         federation_enabled: fed_enabled,
         max_items_per_peer: fed_max_items,
+        tenant_id: fed_tenant_id.clone(),
     });
     // Server-side routes (serve our catalog to peers) — authenticated via API key
     let app = app.merge(
@@ -1521,6 +1523,7 @@ async fn main() -> anyhow::Result<()> {
             storage_dir.to_string_lossy().to_string(),
             fed_sync_interval,
             fed_max_items,
+            fed_tenant_id,
         );
     }
 

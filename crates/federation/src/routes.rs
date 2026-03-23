@@ -105,7 +105,7 @@ pub fn federation_consumer_routes() -> Router<Arc<FederationState>> {
 // ── HTML page handlers ─────────────────────────────────────
 
 async fn peers_page(State(state): State<Arc<FederationState>>) -> impl IntoResponse {
-    let peers = state.repo.list_peers().await.unwrap_or_default();
+    let peers = state.repo.list_peers(&state.tenant_id).await.unwrap_or_default();
 
     let template = PeersTemplate {
         authenticated: true,
@@ -353,7 +353,7 @@ async fn list_peers_api(
     if let Err(e) = require_admin(&user) {
         return e.into_response();
     }
-    let peers = state.repo.list_peers().await.unwrap_or_default();
+    let peers = state.repo.list_peers(&state.tenant_id).await.unwrap_or_default();
 
     Json(peers).into_response()
 }
@@ -387,7 +387,7 @@ async fn add_peer_api(
         }
     };
 
-    match state.repo.insert_peer(&server_id, &req.server_url, &req.display_name, &req.api_key).await {
+    match state.repo.insert_peer(&server_id, &req.server_url, &req.display_name, &req.api_key, &state.tenant_id).await {
         Ok(_) => {
             info!("Added federation peer: {} ({})", req.display_name, server_id);
             (StatusCode::CREATED, Json(serde_json::json!({ "server_id": server_id }))).into_response()
@@ -432,7 +432,7 @@ async fn sync_peer_api(
             // Manual sync: reset backoff so it runs immediately, set status to syncing
             let _ = state.repo.set_peer_status(peer_id, "syncing").await;
 
-            match sync_peer_catalog(state.repo.as_ref(), &peer, &state.storage_dir, state.max_items_per_peer).await {
+            match sync_peer_catalog(state.repo.as_ref(), &peer, &state.storage_dir, state.max_items_per_peer, &state.tenant_id).await {
                 Ok(count) => {
                     Json(serde_json::json!({ "synced": count })).into_response()
                 }

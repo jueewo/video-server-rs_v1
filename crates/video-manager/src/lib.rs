@@ -346,8 +346,15 @@ pub async fn videos_list_handler(
         None
     };
 
+    let tenant_id: String = session
+        .get("tenant_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "platform".to_string());
+
     // Get videos based on authentication and ownership
-    let videos = get_videos(state.repo.as_ref(), user_id)
+    let videos = get_videos(state.repo.as_ref(), user_id, &tenant_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -783,11 +790,17 @@ pub async fn list_videos_api_handler(
     }
 
     let uid = user_id.unwrap();
+    let tenant_id: String = session
+        .get("tenant_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "platform".to_string());
 
     // Fetch user's videos with tags via repository
     let videos = state
         .repo
-        .list_user_videos_api(&uid)
+        .list_user_videos_api(&uid, &tenant_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -819,9 +832,10 @@ pub async fn list_videos_api_handler(
 pub async fn get_videos(
     repo: &dyn MediaRepository,
     user_id: Option<String>,
+    tenant_id: &str,
 ) -> Result<Vec<(String, String, i32)>, db::DbError> {
     let rows = repo
-        .list_videos_for_page(user_id.as_deref())
+        .list_videos_for_page(user_id.as_deref(), tenant_id)
         .await?;
     Ok(rows
         .into_iter()
@@ -1043,9 +1057,15 @@ pub async fn available_folders_handler(
     }
 
     // Get slugs already registered in DB
+    let tenant_id: String = session
+        .get("tenant_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "platform".to_string());
     let registered = state
         .repo
-        .get_all_video_slugs()
+        .get_all_video_slugs(&tenant_id)
         .await
         .unwrap_or_default();
     let registered_slugs: Vec<&str> = registered.iter().map(|s| s.as_str()).collect();

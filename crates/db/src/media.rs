@@ -66,6 +66,7 @@ pub struct MediaInsert {
     pub allow_download: i32,
     pub allow_comments: i32,
     pub mature_content: i32,
+    pub tenant_id: String,
 }
 
 // ── Filter / search types ───────────────────────────────────────────
@@ -81,6 +82,7 @@ pub struct MediaSearchFilter {
     pub group_id: Option<String>,
     pub sort_by: String,
     pub sort_order: String,
+    pub tenant_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -533,16 +535,17 @@ pub trait MediaRepository: Send + Sync {
     async fn get_video_for_hls(&self, slug: &str) -> Result<Option<VideoHlsInfo>, DbError>;
 
     /// List user's videos with tags (for API).
-    async fn list_user_videos_api(&self, user_id: &str) -> Result<Vec<VideoApiRow>, DbError>;
+    async fn list_user_videos_api(&self, user_id: &str, tenant_id: &str) -> Result<Vec<VideoApiRow>, DbError>;
 
     /// List videos for the video page (authenticated or public).
     async fn list_videos_for_page(
         &self,
         user_id: Option<&str>,
+        tenant_id: &str,
     ) -> Result<Vec<VideoPageRow>, DbError>;
 
     /// Get all video slugs (for discovery).
-    async fn get_all_video_slugs(&self) -> Result<Vec<String>, DbError>;
+    async fn get_all_video_slugs(&self, tenant_id: &str) -> Result<Vec<String>, DbError>;
 
     /// Get video info for deletion.
     async fn get_video_for_deletion(
@@ -618,11 +621,12 @@ pub trait MediaRepository: Send + Sync {
     async fn list_group_media(&self, group_id: i32) -> Result<Vec<GroupMediaRow>, DbError>;
 
     /// Count public active media items.
-    async fn count_public_active(&self) -> Result<i64, DbError>;
+    async fn count_public_active(&self, tenant_id: &str) -> Result<i64, DbError>;
 
     /// List public active media with pagination (for federation catalog).
     async fn list_public_catalog(
         &self,
+        tenant_id: &str,
         limit: i64,
         offset: i64,
     ) -> Result<Vec<PublicCatalogRow>, DbError>;

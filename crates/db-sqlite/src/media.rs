@@ -155,6 +155,11 @@ fn build_filter_clause(
 ) -> String {
     let mut query = String::from(base);
 
+    if let Some(tenant_id) = &filter.tenant_id {
+        query.push_str(" AND tenant_id = ?");
+        bindings.push(tenant_id.clone());
+    }
+
     if let Some(media_type) = &filter.media_type {
         query.push_str(" AND media_type = ?");
         bindings.push(media_type.clone());
@@ -310,8 +315,8 @@ impl MediaRepository for SqliteDatabase {
             r#"INSERT INTO media_items
             (slug, media_type, video_type, title, description, filename, original_filename,
              mime_type, file_size, is_public, user_id, group_id, vault_id, status, featured,
-             category, thumbnail_url, allow_download, allow_comments, mature_content)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+             category, thumbnail_url, allow_download, allow_comments, mature_content, tenant_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
         )
         .bind(&item.slug)
         .bind(&item.media_type)
@@ -333,6 +338,7 @@ impl MediaRepository for SqliteDatabase {
         .bind(item.allow_download)
         .bind(item.allow_comments)
         .bind(item.mature_content)
+        .bind(&item.tenant_id)
         .execute(self.pool())
         .await
         .map_err(map_err)?;
@@ -1095,7 +1101,7 @@ impl MediaRepository for SqliteDatabase {
         }))
     }
 
-    async fn list_user_videos_api(&self, user_id: &str) -> Result<Vec<VideoApiRow>, DbError> {
+    async fn list_user_videos_api(&self, user_id: &str, tenant_id: &str) -> Result<Vec<VideoApiRow>, DbError> {
         let rows = sqlx::query(
             r#"SELECT
                 v.id,
@@ -1108,11 +1114,12 @@ impl MediaRepository for SqliteDatabase {
                 GROUP_CONCAT(mt.tag) as tags
              FROM media_items v
              LEFT JOIN media_tags mt ON v.id = mt.media_id
-             WHERE v.media_type = 'video' AND v.user_id = ?
+             WHERE v.media_type = 'video' AND v.user_id = ? AND v.tenant_id = ?
              GROUP BY v.id
              ORDER BY v.created_at DESC"#,
         )
         .bind(user_id)
+        .bind(tenant_id)
         .fetch_all(self.pool())
         .await
         .map_err(map_err)?;
@@ -1136,21 +1143,24 @@ impl MediaRepository for SqliteDatabase {
     async fn list_videos_for_page(
         &self,
         user_id: Option<&str>,
+        tenant_id: &str,
     ) -> Result<Vec<VideoPageRow>, DbError> {
         let rows: Vec<(String, String, i32)> = if let Some(uid) = user_id {
             sqlx::query_as(
                 "SELECT slug, title, is_public FROM media_items \
-                 WHERE media_type = 'video' AND (is_public = 1 OR user_id = ?) \
+                 WHERE media_type = 'video' AND tenant_id = ? AND (is_public = 1 OR user_id = ?) \
                  ORDER BY is_public DESC, title",
             )
+            .bind(tenant_id)
             .bind(uid)
             .fetch_all(self.pool())
             .await
         } else {
             sqlx::query_as(
                 "SELECT slug, title, is_public FROM media_items \
-                 WHERE media_type = 'video' AND is_public = 1 ORDER BY title",
+                 WHERE media_type = 'video' AND tenant_id = ? AND is_public = 1 ORDER BY title",
             )
+            .bind(tenant_id)
             .fetch_all(self.pool())
             .await
         }
@@ -1166,10 +1176,11 @@ impl MediaRepository for SqliteDatabase {
             .collect())
     }
 
-    async fn get_all_video_slugs(&self) -> Result<Vec<String>, DbError> {
+    async fn get_all_video_slugs(&self, tenant_id: &str) -> Result<Vec<String>, DbError> {
         let rows: Vec<(String,)> = sqlx::query_as(
-            "SELECT slug FROM media_items WHERE media_type = 'video'",
+            "SELECT slug FROM media_items WHERE media_type = 'video' AND tenant_id = ?",
         )
+        .bind(tenant_id)
         .fetch_all(self.pool())
         .await
         .map_err(map_err)?;
@@ -1381,10 +1392,11 @@ impl MediaRepository for SqliteDatabase {
             .collect())
     }
 
-    async fn count_public_active(&self) -> Result<i64, DbError> {
+    async fn count_public_active(&self, tenant_id: &str) -> Result<i64, DbError> {
         let count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM media_items WHERE is_public = 1 AND status = 'active'",
+            "SELECT COUNT(*) FROM media_items WHERE is_public = 1 AND status = 'active' AND tenant_id = ?",
         )
+        .bind(tenant_id)
         .fetch_one(self.pool())
         .await
         .map_err(map_err)?;
@@ -1393,6 +1405,7 @@ impl MediaRepository for SqliteDatabase {
 
     async fn list_public_catalog(
         &self,
+        tenant_id: &str,
         limit: i64,
         offset: i64,
     ) -> Result<Vec<db::media::PublicCatalogRow>, DbError> {
@@ -1400,9 +1413,10 @@ impl MediaRepository for SqliteDatabase {
             sqlx::query_as(
                 "SELECT slug, media_type, title, description, filename, mime_type, file_size, \
                  created_at, updated_at \
-                 FROM media_items WHERE is_public = 1 AND status = 'active' \
+                 FROM media_items WHERE is_public = 1 AND status = 'active' AND tenant_id = ? \
                  ORDER BY created_at DESC LIMIT ? OFFSET ?",
             )
+            .bind(tenant_id)
             .bind(limit)
             .bind(offset)
             .fetch_all(self.pool())

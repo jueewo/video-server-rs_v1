@@ -77,6 +77,13 @@ pub async fn upload_media(
         }
     };
 
+    let tenant_id: String = session
+        .get("tenant_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "platform".to_string());
+
     // Parse multipart form data
     let mut media_type: Option<String> = None;
     let mut slug: Option<String> = None;
@@ -419,6 +426,7 @@ pub async fn upload_media(
                 file_data,
                 original_filename,
                 keep_original_bool,
+                tenant_id,
             )
             .await
         }
@@ -440,6 +448,7 @@ pub async fn upload_media(
                     vault_id,
                     file_data,
                     original_filename,
+                    tenant_id,
                 )
                 .await;
             }
@@ -458,6 +467,7 @@ pub async fn upload_media(
                 tags,
                 file_data,
                 original_filename,
+                tenant_id,
             )
             .await
         }
@@ -475,6 +485,7 @@ pub async fn upload_media(
                 tags,
                 file_data,
                 original_filename,
+                tenant_id,
             )
             .await
         }
@@ -496,6 +507,7 @@ async fn process_image_upload(
     file_data: Vec<u8>,
     original_filename: String,
     keep_original: bool, // Whether to keep the original file alongside WebP
+    tenant_id: String,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     // Determine MIME type
     let mime_type = mime_guess::from_path(&original_filename)
@@ -677,6 +689,7 @@ async fn process_image_upload(
         allow_download: 1,
         allow_comments: 1,
         mature_content: 0,
+        tenant_id: tenant_id.clone(),
     };
 
     let media_id = state.repo.insert_media_item(&insert).await.map_err(|e| {
@@ -721,6 +734,7 @@ async fn process_video_upload(
     tags: Option<Vec<String>>,
     file_data: Vec<u8>,
     original_filename: String,
+    tenant_id: String,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     use std::path::Path;
 
@@ -844,6 +858,7 @@ async fn process_video_upload(
         allow_download: 1,
         allow_comments: 1,
         mature_content: 0,
+        tenant_id: tenant_id.clone(),
     };
 
     let media_id = state.repo.insert_media_item(&insert).await.map_err(|e| {
@@ -891,6 +906,7 @@ async fn process_video_hls_upload(
     vault_id: String,
     file_data: Vec<u8>,
     original_filename: String,
+    tenant_id: String,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     info!(
         "Processing HLS video upload: slug={}, title={}, file={}, size={} bytes",
@@ -952,6 +968,7 @@ async fn process_video_hls_upload(
         allow_download: 1,
         allow_comments: 1,
         mature_content: 0,
+        tenant_id: tenant_id.clone(),
     };
 
     let media_id = state.repo.insert_media_item(&insert).await.map_err(|e| {
@@ -1249,6 +1266,7 @@ async fn process_document_upload(
     tags: Option<Vec<String>>,
     file_data: Vec<u8>,
     original_filename: String,
+    tenant_id: String,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     use std::path::Path;
 
@@ -1361,6 +1379,7 @@ async fn process_document_upload(
         allow_download: 1,
         allow_comments: 1,
         mature_content: 0,
+        tenant_id: tenant_id.clone(),
     };
 
     let media_id = state.repo.insert_media_item(&insert).await.map_err(|e| {

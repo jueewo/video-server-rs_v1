@@ -21,6 +21,7 @@ struct FederationPeerRow {
     created_at: String,
     consecutive_failures: i32,
     next_retry_at: Option<String>,
+    tenant_id: String,
 }
 
 impl From<FederationPeerRow> for FederationPeer {
@@ -37,6 +38,7 @@ impl From<FederationPeerRow> for FederationPeer {
             created_at: r.created_at,
             consecutive_failures: r.consecutive_failures,
             next_retry_at: r.next_retry_at,
+            tenant_id: r.tenant_id,
         }
     }
 }
@@ -80,18 +82,20 @@ impl From<RemoteMediaItemRow> for RemoteMediaItem {
 impl FederationRepository for SqliteDatabase {
     // ── Peers ───────────────────────────────────────────────────────
 
-    async fn list_peers(&self) -> Result<Vec<FederationPeer>, DbError> {
+    async fn list_peers(&self, tenant_id: &str) -> Result<Vec<FederationPeer>, DbError> {
         let rows: Vec<FederationPeerRow> =
-            sqlx::query_as("SELECT * FROM federation_peers ORDER BY display_name")
+            sqlx::query_as("SELECT * FROM federation_peers WHERE tenant_id = ? ORDER BY display_name")
+                .bind(tenant_id)
                 .fetch_all(self.pool())
                 .await
                 .map_err(map_err)?;
         Ok(rows.into_iter().map(Into::into).collect())
     }
 
-    async fn list_active_peers(&self) -> Result<Vec<FederationPeer>, DbError> {
+    async fn list_active_peers(&self, tenant_id: &str) -> Result<Vec<FederationPeer>, DbError> {
         let rows: Vec<FederationPeerRow> =
-            sqlx::query_as("SELECT * FROM federation_peers WHERE status != 'disabled'")
+            sqlx::query_as("SELECT * FROM federation_peers WHERE tenant_id = ? AND status != 'disabled'")
+                .bind(tenant_id)
                 .fetch_all(self.pool())
                 .await
                 .map_err(map_err)?;
@@ -127,16 +131,18 @@ impl FederationRepository for SqliteDatabase {
         server_url: &str,
         display_name: &str,
         api_key: &str,
+        tenant_id: &str,
     ) -> Result<(), DbError> {
         sqlx::query(
             "INSERT INTO federation_peers \
-             (server_id, server_url, display_name, api_key, status, item_count, created_at) \
-             VALUES (?, ?, ?, ?, 'online', 0, datetime('now'))",
+             (server_id, server_url, display_name, api_key, status, item_count, created_at, tenant_id) \
+             VALUES (?, ?, ?, ?, 'online', 0, datetime('now'), ?)",
         )
         .bind(server_id)
         .bind(server_url)
         .bind(display_name)
         .bind(api_key)
+        .bind(tenant_id)
         .execute(self.pool())
         .await
         .map_err(map_err)?;
@@ -248,8 +254,8 @@ impl FederationRepository for SqliteDatabase {
     ) -> Result<(), DbError> {
         sqlx::query(
             "INSERT INTO remote_media_cache \
-             (origin_server, remote_slug, media_type, title, description, filename, mime_type, file_size, cached_at) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now')) \
+             (origin_server, remote_slug, media_type, title, description, filename, mime_type, file_size, cached_at, tenant_id) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?) \
              ON CONFLICT(origin_server, remote_slug) DO UPDATE SET \
              title = excluded.title, description = excluded.description, \
              filename = excluded.filename, mime_type = excluded.mime_type, \
@@ -263,6 +269,7 @@ impl FederationRepository for SqliteDatabase {
         .bind(req.filename)
         .bind(req.mime_type)
         .bind(req.file_size)
+        .bind(req.tenant_id)
         .execute(self.pool())
         .await
         .map_err(map_err)?;

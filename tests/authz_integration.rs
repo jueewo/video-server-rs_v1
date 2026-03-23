@@ -69,7 +69,8 @@ async fn test_pool() -> SqlitePool {
             seo_keywords      TEXT,
             created_at        TEXT    NOT NULL DEFAULT (datetime('now')),
             updated_at        TEXT    NOT NULL DEFAULT (datetime('now')),
-            published_at      TEXT
+            published_at      TEXT,
+            tenant_id         TEXT    NOT NULL DEFAULT 'platform'
         );
         CREATE TABLE IF NOT EXISTS media_tags (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,

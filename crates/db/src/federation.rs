@@ -17,6 +17,7 @@ pub struct FederationPeer {
     pub created_at: String,
     pub consecutive_failures: i32,
     pub next_retry_at: Option<String>,
+    pub tenant_id: String,
 }
 
 /// Cached metadata from a remote peer.
@@ -47,6 +48,7 @@ pub struct UpsertRemoteItemRequest<'a> {
     pub filename: Option<&'a str>,
     pub mime_type: Option<&'a str>,
     pub file_size: Option<i64>,
+    pub tenant_id: &'a str,
 }
 
 #[async_trait::async_trait]
@@ -54,10 +56,10 @@ pub trait FederationRepository: Send + Sync {
     // ── Peers ───────────────────────────────────────────────────────
 
     /// List all peers ordered by display_name.
-    async fn list_peers(&self) -> Result<Vec<FederationPeer>, DbError>;
+    async fn list_peers(&self, tenant_id: &str) -> Result<Vec<FederationPeer>, DbError>;
 
     /// List all non-disabled peers (for sync).
-    async fn list_active_peers(&self) -> Result<Vec<FederationPeer>, DbError>;
+    async fn list_active_peers(&self, tenant_id: &str) -> Result<Vec<FederationPeer>, DbError>;
 
     /// Get a peer by its database ID.
     async fn get_peer_by_id(&self, id: i32) -> Result<Option<FederationPeer>, DbError>;
@@ -72,6 +74,7 @@ pub trait FederationRepository: Send + Sync {
         server_url: &str,
         display_name: &str,
         api_key: &str,
+        tenant_id: &str,
     ) -> Result<(), DbError>;
 
     /// Delete a peer by ID.

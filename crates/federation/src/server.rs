@@ -23,7 +23,7 @@ pub async fn serve_manifest(
     if let Err(status) = require_federation_scope(&user) {
         return (status, "Forbidden").into_response();
     }
-    let count = state.media_repo.count_public_active().await.unwrap_or(0);
+    let count = state.media_repo.count_public_active(&state.tenant_id).await.unwrap_or(0);
 
     Json(ServerManifest {
         server_id: state.server_id.clone(),
@@ -53,10 +53,10 @@ pub async fn serve_catalog(
     let page_size = params.page_size.unwrap_or(50).clamp(1, 200);
     let offset = (page - 1) * page_size;
 
-    let total = state.media_repo.count_public_active().await.unwrap_or(0);
+    let total = state.media_repo.count_public_active("platform").await.unwrap_or(0);
 
     let items: Vec<CatalogItem> = state.media_repo
-        .list_public_catalog(page_size as i64, offset as i64)
+        .list_public_catalog("platform", page_size as i64, offset as i64)
         .await
         .unwrap_or_default()
         .into_iter()

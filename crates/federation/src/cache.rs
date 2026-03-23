@@ -15,6 +15,7 @@ pub async fn sync_peer_catalog(
     peer: &FederationPeer,
     storage_dir: &str,
     max_items: i32,
+    tenant_id: &str,
 ) -> Result<i32> {
     let client = FederationClient::new(&peer.server_url, &peer.api_key);
 
@@ -41,7 +42,7 @@ pub async fn sync_peer_catalog(
         }
 
         for item in &catalog.items {
-            upsert_remote_item(repo, &peer.server_id, item).await?;
+            upsert_remote_item(repo, &peer.server_id, item, tenant_id).await?;
 
             // Download thumbnail
             let thumb_dir = federation_cache_thumbnail_dir(storage_dir, &peer.server_id);
@@ -87,6 +88,7 @@ async fn upsert_remote_item(
     repo: &dyn FederationRepository,
     origin_server: &str,
     item: &CatalogItem,
+    tenant_id: &str,
 ) -> Result<()> {
     repo.upsert_remote_item(&UpsertRemoteItemRequest {
         origin_server,
@@ -97,6 +99,7 @@ async fn upsert_remote_item(
         filename: item.filename.as_deref(),
         mime_type: item.mime_type.as_deref(),
         file_size: item.file_size,
+        tenant_id,
     }).await?;
 
     Ok(())

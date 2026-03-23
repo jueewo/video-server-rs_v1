@@ -221,9 +221,16 @@ pub(crate) async fn publish_to_vault(
     })?;
 
     // Insert media_items record
+    let tenant_id: String = session
+        .get("tenant_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "platform".to_string());
+
     state.repo.insert_published_media(
         &slug, media_type_str, &title, &stored_filename,
-        &original_filename, &mime_type, file_size, &user_id, &request.vault_id,
+        &original_filename, &mime_type, file_size, &user_id, &request.vault_id, &tenant_id,
     )
     .await
     .map_err(|e| {
@@ -412,10 +419,17 @@ pub(crate) async fn publish_course(
 
     let file_size = manifest_json.len() as i64;
 
+    let tenant_id: String = session
+        .get("tenant_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "platform".to_string());
+
     // Insert media_items record with media_type='course'
     state.repo.insert_published_media(
         &slug, "course", request.title.trim(), &stored_filename,
-        "course-manifest.json", "application/json", file_size, &user_id, &request.vault_id,
+        "course-manifest.json", "application/json", file_size, &user_id, &request.vault_id, &tenant_id,
     )
     .await
     .map_err(|e| {

@@ -413,6 +413,9 @@ pub struct MediaFilterOptions {
 
     /// Items per page
     pub page_size: i32,
+
+    /// Tenant scope
+    pub tenant_id: Option<String>,
 }
 
 /// Paginated list of unified media items

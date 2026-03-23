@@ -143,6 +143,7 @@ fn to_search_filter(opts: &MediaFilterOptions) -> MediaSearchFilter {
         } else {
             opts.sort_order.clone()
         },
+        tenant_id: opts.tenant_id.clone(),
     }
 }
 
@@ -216,6 +217,7 @@ mod tests {
             sort_order: "asc".to_string(),
             page: 2,
             page_size: 10,
+            tenant_id: Some("platform".to_string()),
         };
         let filter = to_search_filter(&opts);
         assert_eq!(filter.search, Some("test".to_string()));

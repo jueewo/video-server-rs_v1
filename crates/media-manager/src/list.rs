@@ -142,6 +142,13 @@ pub async fn list_media_html(
         None
     };
 
+    let tenant_id: String = session
+        .get("tenant_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "platform".to_string());
+
     let search_service = MediaSearchService::new(state.repo.clone());
 
     // Normalize empty strings from form submissions to None
@@ -164,6 +171,7 @@ pub async fn list_media_html(
         sort_order: query.sort_order.clone(),
         page: query.page,
         page_size: query.page_size,
+        tenant_id: Some(tenant_id),
     };
 
     match search_service.search(filter).await {
@@ -322,6 +330,13 @@ pub async fn list_media_json(
             .into_response();
     }
 
+    let tenant_id: String = session
+        .get("tenant_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "platform".to_string());
+
     let search_service = MediaSearchService::new(state.repo.clone());
 
     // Don't filter by user_id to show all media (including legacy uploads with user_id=NULL)
@@ -344,6 +359,7 @@ pub async fn list_media_json(
         sort_order: query.sort_order,
         page: query.page,
         page_size: query.page_size,
+        tenant_id: Some(tenant_id),
     };
 
     match search_service.search(filter).await {

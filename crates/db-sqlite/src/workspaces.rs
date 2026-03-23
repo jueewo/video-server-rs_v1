@@ -858,12 +858,13 @@ impl WorkspaceRepository for SqliteDatabase {
         file_size: i64,
         user_id: &str,
         vault_id: &str,
+        tenant_id: &str,
     ) -> Result<(), DbError> {
         sqlx::query(
             "INSERT INTO media_items \
              (slug, media_type, title, filename, original_filename, mime_type, file_size, \
-              is_public, user_id, vault_id, status, allow_download, allow_comments, mature_content) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 'active', 1, 1, 0)",
+              is_public, user_id, vault_id, status, allow_download, allow_comments, mature_content, tenant_id) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 'active', 1, 1, 0, ?)",
         )
         .bind(slug)
         .bind(media_type)
@@ -874,6 +875,7 @@ impl WorkspaceRepository for SqliteDatabase {
         .bind(file_size)
         .bind(user_id)
         .bind(vault_id)
+        .bind(tenant_id)
         .execute(self.pool())
         .await
         .map_err(map_err)?;

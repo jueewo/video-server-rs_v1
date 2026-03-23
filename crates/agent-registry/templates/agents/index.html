@@ -313,8 +313,12 @@
                                          x-html="silhouetteSvg(8)">
                                     </div>
                                 </template>
-                                <input type="text" class="input input-bordered input-xs w-24 font-mono"
-                                       x-model="form.avatar_url" placeholder="URL" title="Image URL for avatar" />
+                                <button type="button" class="btn btn-ghost btn-xs gap-1" @click="pickAvatar()">
+                                    <i data-lucide="image" class="w-3 h-3"></i> Browse
+                                </button>
+                                <button type="button" class="btn btn-ghost btn-xs" x-show="form.avatar_url" @click="form.avatar_url = ''" title="Remove avatar">
+                                    <i data-lucide="x" class="w-3 h-3"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -457,6 +461,7 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<script src="/static/js/media-picker.js"></script>
 <script>
 function agentWorkforce() {
     return {
@@ -595,6 +600,12 @@ function agentWorkforce() {
 
         removeTag(tag) {
             this.form.tags = this.form.tags.filter(t => t !== tag);
+        },
+
+        pickAvatar() {
+            MediaPicker.open((url) => {
+                this.form.avatar_url = url;
+            }, 'image');
         },
 
         slugify(text) {

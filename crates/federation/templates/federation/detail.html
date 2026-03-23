@@ -1,0 +1,91 @@
+{% extends "base-tailwind.html" %}
+
+{% block title %}{{ item.title }} - {{ peer.display_name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+    <!-- Breadcrumb -->
+    <div class="text-sm breadcrumbs mb-4">
+        <ul>
+            <li><a href="/federation">Federation</a></li>
+            <li><a href="/federation/{{ peer.server_id }}">{{ peer.display_name }}</a></li>
+            <li>{{ item.title }}</li>
+        </ul>
+    </div>
+
+    <!-- Origin badge -->
+    <div class="alert py-2 mb-6">
+        <i data-lucide="globe" class="w-4 h-4"></i>
+        <span class="text-sm">From: <strong>{{ peer.display_name }}</strong> (federated, read-only)</span>
+    </div>
+
+    <!-- Content display -->
+    <div class="card bg-base-200 shadow-lg mb-6">
+        <div class="card-body p-0">
+            {% if item.media_type == "image" %}
+            <figure class="bg-base-300">
+                <img src="/federation/{{ peer.server_id }}/media/{{ item.remote_slug }}/image.webp"
+                     alt="{{ item.title }}"
+                     class="max-h-[70vh] mx-auto object-contain">
+            </figure>
+            {% elif item.media_type == "video" %}
+            <div class="bg-black aspect-video">
+                <video controls class="w-full h-full"
+                       poster="/federation/{{ peer.server_id }}/media/{{ item.remote_slug }}/thumbnail">
+                    <source src="/federation/{{ peer.server_id }}/media/{{ item.remote_slug }}/video.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+            {% elif item.media_type == "document" %}
+            <div class="p-8 text-center">
+                <i data-lucide="file-text" class="w-16 h-16 mx-auto text-base-content/30 mb-4"></i>
+                <p class="text-base-content/60">Document preview not available for federated content.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Metadata -->
+    <div class="card bg-base-200 shadow">
+        <div class="card-body">
+            <h1 class="text-2xl font-bold">{{ item.title }}</h1>
+
+            {% if let Some(desc) = item.description %}
+            <p class="text-base-content/70 mt-2">{{ desc }}</p>
+            {% endif %}
+
+            <div class="divider my-2"></div>
+
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                    <span class="text-base-content/50">Type</span>
+                    <p class="font-medium capitalize">{{ item.media_type }}</p>
+                </div>
+                {% if let Some(mime) = item.mime_type %}
+                <div>
+                    <span class="text-base-content/50">MIME Type</span>
+                    <p class="font-medium">{{ mime }}</p>
+                </div>
+                {% endif %}
+                {% if let Some(size) = item.file_size %}
+                <div>
+                    <span class="text-base-content/50">File Size</span>
+                    <p class="font-medium">{{ size }} bytes</p>
+                </div>
+                {% endif %}
+                <div>
+                    <span class="text-base-content/50">Cached At</span>
+                    <p class="font-medium">{{ item.cached_at }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back button -->
+    <div class="mt-6">
+        <a href="/federation/{{ peer.server_id }}" class="btn btn-ghost gap-2">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to catalog
+        </a>
+    </div>
+</div>
+{% endblock %}

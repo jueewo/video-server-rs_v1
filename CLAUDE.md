@@ -88,6 +88,9 @@ Cargo workspace with 23+ crates organized in `crates/`:
 - `access-groups` - User groups and permissions
 - `api-keys` - API key management
 
+**Federation:**
+- `federation` - Pull-based multi-server catalog sharing, proxy, caching
+
 **Utilities:**
 - `vault-manager` - Storage vault management
 - `rate-limiter` - tower_governor integration
@@ -276,6 +279,9 @@ OTLP_ENDPOINT=http://localhost:4317
 
 # Production mode
 RUN_MODE=production  # Enforces security checks
+
+# Federation (in config.yaml, not env vars)
+# server_id, server_url, federation_enabled, federation_sync_interval_minutes
 ```
 
 ## Known Issues & Gotchas

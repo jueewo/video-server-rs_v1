@@ -17,6 +17,7 @@
 | [architecture-media-flow.mmd](architecture-media-flow.mmd) | Video upload → HLS transcoding → WebSocket progress → serving |
 | [architecture-access-control.mmd](architecture-access-control.mmd) | 4-layer ACL decision flow |
 | [architecture-delivery-tiers.mmd](architecture-delivery-tiers.mmd) | Hosted / B2B / Standalone deployment modes |
+| [architecture-federation.mmd](architecture-federation.mmd) | Pull-based federation flow between servers |
 
 ---
 
@@ -39,6 +40,7 @@
 | **Images** | image crate (WebP conversion) · cwebp |
 | **Documents** | Ghostscript (PDF thumbnails) · pulldown-cmark (Markdown) |
 | **Observability** | OpenTelemetry SDK 0.31 · OTLP/gRPC · SigNoz |
+| **Federation** | Pull-based catalog sync between instances (`federation` crate) |
 | **AI integration** | MCP server (media-mcp) for Claude Desktop |
 | **Build** | Cargo workspace (23+ crates) · feature flags |
 

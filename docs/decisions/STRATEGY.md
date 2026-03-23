@@ -40,6 +40,7 @@ No SMB should trust all of them with their business data.
 | WebDAV | Mount like a network drive, work normally |
 | Access codes | Share with clients — no accounts needed |
 | MCP / AI | AI assistant over your own business data |
+| Federation | Connect multiple instances — browse and share media catalogs across servers |
 | Casdoor auth | SSO, MFA, and built-in licensing/payment for hosted instances |
 
 ---

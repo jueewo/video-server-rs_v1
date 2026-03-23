@@ -61,6 +61,10 @@ flowchart TB
             PCP["course-processor"]
         end
 
+        subgraph FED["Federation"]
+            FEDC["federation<br/>pull-based catalog sync<br/>proxy · cache · peer management"]
+        end
+
         subgraph APPS["Standalone Apps / Modules"]
             G3D["gallery3d<br/>3D virtual gallery<br/>Babylon.js · Three.js"]
             JST["js-tool-viewer<br/>HTML/JS · Vue3 · Preact SPA<br/>owner preview at /js-apps/"]
@@ -127,6 +131,11 @@ flowchart TB
     WA --> JST
     WA --> APB
     WM --> PROC
+
+    %% Federation
+    FEDC <-->|"HTTP API /api/v1/federation/"| FEDC
+    COMMON --> FEDC
+    AK -.->|middleware| FEDC
 
     %% Persistence
     SERVER <-->|sqlx| DB

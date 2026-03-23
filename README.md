@@ -30,6 +30,7 @@ AppKask packages your entire consulting delivery into one self-hosted platform. 
 | **Custom Tools** | Deploy your Vue3/Preact data platforms as workspace folders |
 | **Live Streaming** | RTMP ingest via MediaMTX, HLS output, WebRTC for low latency |
 | **Access Control** | Four layers: public, access codes, groups (RBAC), ownership. Full audit trail |
+| **Federation** | Connect multiple instances. Pull-based catalog sync, transparent content proxy, local caching |
 | **WebDAV** | Clients drag-drop files from Finder or Explorer |
 
 ---
@@ -92,6 +93,7 @@ appkask
 | **Auth** | `user-auth` (OIDC/Casdoor), `access-codes`, `access-groups`, `api-keys` |
 | **Workspace** | `workspace-manager`, `vault-manager`, `site-generator`, `site-publisher` |
 | **Apps** | `3d-gallery`, `course-viewer`, `media-mcp`, `media-cli` |
+| **Federation** | `federation` (pull-based multi-server catalog sharing) |
 | **Infra** | `rate-limiter`, `live-streaming` |
 
 ---

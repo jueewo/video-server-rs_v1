@@ -46,6 +46,10 @@ tenant_name: "Acme Corp"
 | `deployment_mode` | `standalone` / `hosted` | `standalone` = single-tenant lock |
 | `tenant_id` | Any slug (no spaces) | Used internally; not shown to users |
 | `tenant_name` | Display string | Shown in admin areas |
+| `server_id` | UUID string | Auto-generated if omitted; identifies this server for federation |
+| `server_url` | URL | Public URL; required only when federation is enabled |
+| `federation_enabled` | `true` / `false` | Enable pull-based multi-server catalog sharing |
+| `federation_sync_interval_minutes` | Integer | How often to pull peer catalogs (default: 15) |
 
 ### `branding.yaml` — Visual identity
 

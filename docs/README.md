@@ -31,6 +31,7 @@ docs/
 | Understand the publications system | `features/PUBLICATIONS.md` |
 | Understand access codes and sharing | `features/ACCESS_CODES.md` |
 | Add a new folder-type app (dual-use crate) | `features/DUAL_USE_PATTERN.md` |
+| Connect servers via federation | `features/FEDERATION.md` |
 | Work with the markdown editor sidebar | `features/workspace-editors.md` |
 
 ---
@@ -87,6 +88,7 @@ Per-feature reference docs — how each feature works, its API, and data model.
 | `site-editor.md` | Site editor component reference |
 | `site-cli.md` | Site CLI tool |
 | `DUAL_USE_PATTERN.md` | Pattern for embedded + standalone mode in one crate |
+| `FEDERATION.md` | Multi-server federation: pull-based catalog sharing, proxy, caching |
 
 ---
 

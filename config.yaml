@@ -11,3 +11,10 @@ deployment_mode: hosted
 # Ignored in hosted mode (tenants are resolved from the database).
 # tenant_id: "acme"
 # tenant_name: "Acme Corp"
+
+# Federation — pull-based multi-server content sharing.
+# Each server has a unique server_id (auto-generated UUID on first run if omitted).
+# server_id: "auto"
+# server_url: "https://your-server.example.com"
+# federation_enabled: false
+# federation_sync_interval_minutes: 15

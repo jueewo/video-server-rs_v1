@@ -1,0 +1,44 @@
+sequenceDiagram
+    participant Admin as Admin User
+    participant A as Server A (Consumer)
+    participant B as Server B (Origin)
+
+    Note over Admin,B: Setup Phase
+
+    Admin->>A: POST /api/v1/federation/peers<br/>{server_url, api_key}
+    A->>B: GET /api/v1/federation/manifest
+    B-->>A: {server_id, server_name, catalog_count}
+    A-->>Admin: Peer added (server_id)
+
+    Note over A,B: Catalog Sync (periodic or manual)
+
+    A->>B: GET /api/v1/federation/catalog?page=1
+    B-->>A: {items: [...], total, page}
+    loop For each item
+        A->>A: Upsert remote_media_cache
+        A->>B: GET /api/v1/federation/media/{slug}/thumbnail
+        B-->>A: thumbnail binary (WebP)
+        A->>A: Cache to storage/federation_cache/{server_id}/thumbnails/
+    end
+    A->>A: Update peer status = online, last_synced_at
+
+    Note over Admin,B: User Browsing (on Server A)
+
+    participant User as End User
+
+    User->>A: GET /federation/{server_id}
+    A->>A: Query remote_media_cache
+    A-->>User: Catalog page (cached thumbnails)
+
+    User->>A: GET /federation/{server_id}/media/{slug}
+    A-->>User: Detail page
+
+    User->>A: GET /federation/{server_id}/media/{slug}/image.webp
+    alt Content cached locally
+        A-->>User: Serve from federation_cache
+    else Not cached
+        A->>B: GET /api/v1/federation/media/{slug}/content
+        B-->>A: Media binary
+        A->>A: Cache locally
+        A-->>User: Proxied content
+    end

@@ -40,6 +40,10 @@ flowchart LR
         media-cli
     end
 
+    subgraph FED["Federation"]
+        federation
+    end
+
     subgraph PROC["Processors"]
         static-site
         bpmn-simulator
@@ -87,6 +91,10 @@ flowchart LR
     workspace-apps --> gallery3d
     workspace-apps --> js-tool-viewer
     workspace-apps --> app-publisher
+
+    %% Federation
+    common --> federation
+    api-keys --> federation
 
     %% Standalone singletons
     media-mcp --> common

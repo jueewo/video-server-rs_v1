@@ -127,6 +127,9 @@ video-server-rs_v1/
 - **[docs/docs_user/GROUP_OWNERSHIP_EXPLAINED.md](docs/docs_user/GROUP_OWNERSHIP_EXPLAINED.md)** - Teams
 - **[docs/docs_user/ACCESS_CODE_DECISION_GUIDE.md](docs/docs_user/ACCESS_CODE_DECISION_GUIDE.md)** - Sharing
 
+### Federation
+- **[docs/features/FEDERATION.md](docs/features/FEDERATION.md)** - Multi-server federation: setup, API, caching, UI
+
 ### API & Integration
 - **[docs/docs_user/API_TESTING_GUIDE.md](docs/docs_user/API_TESTING_GUIDE.md)** - REST API
 - **[docs/docs_dev/](docs/docs_dev/)** - Technical integration

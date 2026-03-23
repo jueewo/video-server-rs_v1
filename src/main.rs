@@ -70,6 +70,18 @@ pub struct DeploymentConfig {
     pub tenant_id: String,
     #[serde(default)]
     pub tenant_name: Option<String>,
+    /// Unique server identity for federation. Auto-generated UUID if not set.
+    #[serde(default = "generate_server_id")]
+    pub server_id: String,
+    /// Public URL of this server (required for federation).
+    #[serde(default)]
+    pub server_url: Option<String>,
+    /// Enable federation features (pull-based catalog sharing).
+    #[serde(default)]
+    pub federation_enabled: bool,
+    /// How often to pull catalogs from peers (minutes).
+    #[serde(default = "default_sync_interval")]
+    pub federation_sync_interval_minutes: u64,
 }
 
 #[derive(serde::Deserialize, Clone, PartialEq, Debug)]
@@ -84,6 +96,8 @@ impl Default for DeploymentMode {
 }
 
 fn default_tenant_id() -> String { "platform".to_string() }
+fn generate_server_id() -> String { uuid::Uuid::new_v4().to_string() }
+fn default_sync_interval() -> u64 { 15 }
 
 impl Default for DeploymentConfig {
     fn default() -> Self {
@@ -91,6 +105,10 @@ impl Default for DeploymentConfig {
             deployment_mode: DeploymentMode::Hosted,
             tenant_id: "platform".to_string(),
             tenant_name: None,
+            server_id: generate_server_id(),
+            server_url: None,
+            federation_enabled: false,
+            federation_sync_interval_minutes: 15,
         }
     }
 }
@@ -145,6 +163,7 @@ use rate_limiter::RateLimitConfig;
 use user_auth::{auth_routes, AuthState, OidcConfig};
 use vault_manager::{vault_routes, VaultManagerState};
 use workspace_manager::{workspace_routes, WorkspaceManagerState};
+use federation::{federation_consumer_routes, federation_server_routes, FederationState};
 
 #[cfg(feature = "media")]
 use media_manager::{
@@ -1219,9 +1238,19 @@ async fn main() -> anyhow::Result<()> {
     let deployment_config = DeploymentConfig::load();
     println!("📋 Branding: {}", app_config.name);
     println!("🚦 Deployment mode: {:?}", deployment_config.deployment_mode);
+    println!("🆔 Server ID: {}", deployment_config.server_id);
     if deployment_config.is_standalone() {
         println!("   - Tenant: {} ({})", deployment_config.tenant_name.as_deref().unwrap_or("—"), deployment_config.tenant_id);
     }
+    if deployment_config.federation_enabled {
+        println!("🌐 Federation: ENABLED (sync every {} min)", deployment_config.federation_sync_interval_minutes);
+    }
+
+    // Capture federation config before deployment_config is moved into AppState
+    let fed_server_id = deployment_config.server_id.clone();
+    let fed_enabled = deployment_config.federation_enabled;
+    let fed_sync_interval = deployment_config.federation_sync_interval_minutes;
+    let fed_server_name = app_config.name.clone();
 
     let app_state = Arc::new(AppState {
         pool: pool.clone(),
@@ -1435,6 +1464,42 @@ async fn main() -> anyhow::Result<()> {
         pool: pool.clone(),
     });
     let app = app.merge(agent_registry::agent_registry_routes(agent_registry_state));
+
+    // ── Federation (multi-server catalog sharing) ────────────────────────
+    let federation_state = Arc::new(FederationState {
+        pool: pool.clone(),
+        storage: (*user_storage).clone(),
+        storage_dir: storage_dir.to_string_lossy().to_string(),
+        server_id: fed_server_id.clone(),
+        server_name: fed_server_name,
+        federation_enabled: fed_enabled,
+    });
+    // Server-side routes (serve our catalog to peers) — authenticated via API key
+    let app = app.merge(
+        federation_server_routes()
+            .with_state(federation_state.clone())
+            .route_layer(axum::middleware::from_fn_with_state(
+                Arc::new(pool.clone()),
+                api_key_or_session_auth,
+            ))
+    );
+    // Consumer-side routes (browse remote catalogs, admin) — authenticated
+    let app = app.merge(
+        federation_consumer_routes()
+            .with_state(federation_state.clone())
+            .route_layer(axum::middleware::from_fn_with_state(
+                Arc::new(pool.clone()),
+                api_key_or_session_auth,
+            ))
+    );
+    // Background sync task
+    if fed_enabled {
+        federation::spawn_sync_task(
+            pool.clone(),
+            storage_dir.to_string_lossy().to_string(),
+            fed_sync_interval,
+        );
+    }
 
     let app = app
         // Documentation viewer (markdown preview)

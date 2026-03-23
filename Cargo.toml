@@ -37,6 +37,7 @@ members = [
     "crates/git-provider",
     "crates/agent-tools",
     "crates/agent-registry",
+    "crates/federation",
 ]
 resolver = "2"
 
@@ -89,6 +90,7 @@ git-provider = { path = "crates/git-provider" }
 course = { path = "crates/course", optional = true }
 media-viewer = { path = "crates/media-viewer", optional = true }
 agent-registry = { path = "crates/agent-registry" }
+federation = { path = "crates/federation" }
 
 # Web framework
 axum = { version = "0.8", features = ["multipart", "ws"] }
@@ -123,6 +125,7 @@ opentelemetry-appender-tracing = "0.31"
 time = "0.3"
 reqwest = { version = "0.12.28", features = ["json"] }
 dotenvy = "0.15"
+uuid = { version = "1", features = ["v4"] }
 
 # Templates
 askama = "0.13"
@@ -168,6 +171,7 @@ dotenvy = "0.15"
 askama = "0.13"
 urlencoding = "2.1"
 rand = "0.8"
+uuid = { version = "1", features = ["v4"] }
 
 # Image processing
 image = { version = "0.24", features = ["webp"] }

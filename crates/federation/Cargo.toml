@@ -1,0 +1,19 @@
+[package]
+name = "federation"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = { workspace = true }
+tokio = { workspace = true }
+sqlx = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+reqwest = { workspace = true }
+askama = { workspace = true }
+common = { path = "../common" }
+api-keys = { path = "../api-keys" }
+uuid = { version = "1", features = ["v4"] }

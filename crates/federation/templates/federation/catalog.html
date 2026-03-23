@@ -1,0 +1,100 @@
+{% extends "base-tailwind.html" %}
+
+{% block title %}{{ peer.display_name }} - Federation{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-6xl">
+    <!-- Header with breadcrumb -->
+    <div class="mb-6">
+        <div class="text-sm breadcrumbs mb-2">
+            <ul>
+                <li><a href="/federation">Federation</a></li>
+                <li>{{ peer.display_name }}</li>
+            </ul>
+        </div>
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold flex items-center gap-3">
+                    <i data-lucide="server" class="w-6 h-6"></i>
+                    {{ peer.display_name }}
+                </h1>
+                <p class="text-sm text-base-content/60 mt-1">{{ peer.server_url }} &middot; {{ total }} items</p>
+            </div>
+            <a href="/federation" class="btn btn-ghost btn-sm gap-1">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
+            </a>
+        </div>
+    </div>
+
+    <!-- Origin badge -->
+    <div class="alert alert-info mb-6 py-2">
+        <i data-lucide="globe" class="w-4 h-4"></i>
+        <span class="text-sm">Browsing federated content from <strong>{{ peer.display_name }}</strong>. Content is proxied through this server.</span>
+    </div>
+
+    <!-- Type filter -->
+    <div class="flex gap-2 mb-6">
+        <a href="/federation/{{ peer.server_id }}" class="btn btn-sm {% if filter_type.is_empty() %}btn-primary{% else %}btn-ghost{% endif %}">All</a>
+        <a href="/federation/{{ peer.server_id }}?media_type=image" class="btn btn-sm {% if filter_type == "image" %}btn-primary{% else %}btn-ghost{% endif %}">
+            <i data-lucide="image" class="w-3.5 h-3.5"></i> Images
+        </a>
+        <a href="/federation/{{ peer.server_id }}?media_type=video" class="btn btn-sm {% if filter_type == "video" %}btn-primary{% else %}btn-ghost{% endif %}">
+            <i data-lucide="film" class="w-3.5 h-3.5"></i> Videos
+        </a>
+        <a href="/federation/{{ peer.server_id }}?media_type=document" class="btn btn-sm {% if filter_type == "document" %}btn-primary{% else %}btn-ghost{% endif %}">
+            <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Documents
+        </a>
+    </div>
+
+    {% if items.is_empty() %}
+    <div class="card bg-base-200 p-12 text-center">
+        <i data-lucide="inbox" class="w-16 h-16 mx-auto text-base-content/30 mb-4"></i>
+        <h2 class="text-xl font-semibold mb-2">No items found</h2>
+        <p class="text-base-content/60">This peer has no public media items{% if !filter_type.is_empty() %} of this type{% endif %}.</p>
+    </div>
+    {% else %}
+    <!-- Media grid -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        {% for item in items %}
+        <a href="/federation/{{ peer.server_id }}/media/{{ item.remote_slug }}" class="card bg-base-200 shadow hover:shadow-md transition-shadow group">
+            <figure class="aspect-square bg-base-300 overflow-hidden">
+                {% if item.thumbnail_cached == 1 %}
+                <img src="/federation/{{ peer.server_id }}/media/{{ item.remote_slug }}/thumbnail"
+                     alt="{{ item.title }}"
+                     class="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                     loading="lazy">
+                {% else %}
+                <div class="w-full h-full flex items-center justify-center text-base-content/30">
+                    {% if item.media_type == "image" %}
+                    <i data-lucide="image" class="w-12 h-12"></i>
+                    {% elif item.media_type == "video" %}
+                    <i data-lucide="film" class="w-12 h-12"></i>
+                    {% else %}
+                    <i data-lucide="file-text" class="w-12 h-12"></i>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </figure>
+            <div class="p-2">
+                <h3 class="text-sm font-medium truncate">{{ item.title }}</h3>
+                <span class="badge badge-xs badge-ghost mt-1">{{ item.media_type }}</span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if total > page_size as i64 %}
+    <div class="flex justify-center mt-8 gap-2">
+        {% if page > 1 %}
+        <a href="/federation/{{ peer.server_id }}?page={{ page - 1 }}{% if !filter_type.is_empty() %}&media_type={{ filter_type }}{% endif %}" class="btn btn-sm">Previous</a>
+        {% endif %}
+        <span class="btn btn-sm btn-disabled">Page {{ page }}</span>
+        {% if (page * page_size) < total as i32 %}
+        <a href="/federation/{{ peer.server_id }}?page={{ page + 1 }}{% if !filter_type.is_empty() %}&media_type={{ filter_type }}{% endif %}" class="btn btn-sm">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

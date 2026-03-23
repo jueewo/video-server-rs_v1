@@ -27,14 +27,14 @@ use axum::{
     Json, Router,
 };
 use common::storage::UserStorageManager;
+use ::db::publications::{
+    CreatePublication, Publication, PublicationRepository, UpdatePublicationRequest,
+};
 use serde::{Deserialize, Serialize};
 use serde_json;
-use sqlx::SqlitePool;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tower_sessions::Session;
-
-pub use db::Publication;
 
 // ============================================================================
 // State
@@ -42,7 +42,8 @@ pub use db::Publication;
 
 #[derive(Clone)]
 pub struct PublicationsState {
-    pub pool: SqlitePool,
+    pub repo: Arc<dyn PublicationRepository>,
+    pub workspace_repo: Arc<dyn ::db::workspaces::WorkspaceRepository>,
     /// Base storage directory (for reading workspace source folders).
     pub storage_base: PathBuf,
     /// Root directory for published app snapshots (default: `./storage-apps`).
@@ -147,7 +148,7 @@ struct CreateResponse {
     url: String,
     access_code: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    bundles: Vec<db::BundleChild>,
+    bundles: Vec<::db::publications::BundleChild>,
 }
 
 async fn create_handler(
@@ -164,12 +165,9 @@ async fn create_handler(
 
     // Verify workspace ownership if workspace-based
     if let Some(ref ws_id) = req.workspace_id {
-        let owner: Option<String> =
-            sqlx::query_scalar("SELECT user_id FROM workspaces WHERE workspace_id = ?")
-                .bind(ws_id)
-                .fetch_optional(&state.pool)
-                .await
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let owner = state.workspace_repo.get_workspace_owner(ws_id)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         match owner {
             Some(id) if id == user_id => {}
             Some(_) => return Err(StatusCode::FORBIDDEN),
@@ -182,7 +180,7 @@ async fn create_handler(
         Some(ref s) if !s.is_empty() => slug::slugify(s),
         _ => slug::slugify(&req.title),
     };
-    let final_slug = slug::ensure_unique_slug(&state.pool, &base_slug)
+    let final_slug = slug::ensure_unique_slug(state.repo.as_ref(), &base_slug)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -239,36 +237,26 @@ async fn create_handler(
     // For course/presentation type, create workspace_access_code if needed
     if matches!(req.pub_type.as_str(), "course" | "presentation") {
         if let (Some(ref ws_id), Some(ref fp)) = (&req.workspace_id, &req.folder_path) {
-            // Always create a workspace access code (needed for file serving)
             let code_value = access_code.clone().unwrap_or_else(generate_access_code);
+            let grant = ::db::workspaces::FolderGrant {
+                workspace_id: ws_id.clone(),
+                folder_path: fp.clone(),
+                vault_id: None,
+                group_id: None,
+            };
 
-            // Insert workspace_access_code
-            let wac_id: i64 = sqlx::query_scalar(
-                "INSERT INTO workspace_access_codes (code, created_by, description, is_active)
-                 VALUES (?, ?, ?, 1)
-                 RETURNING id",
+            state.workspace_repo.create_workspace_access_code(
+                &code_value,
+                &user_id,
+                Some(&format!("pub:{}", final_slug)),
+                None,
+                &[grant],
             )
-            .bind(&code_value)
-            .bind(&user_id)
-            .bind(format!("pub:{}", final_slug))
-            .fetch_one(&state.pool)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to create workspace access code: {}", e);
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
-
-            // Insert folder grant
-            sqlx::query(
-                "INSERT INTO workspace_access_code_folders (workspace_access_code_id, workspace_id, folder_path)
-                 VALUES (?, ?, ?)",
-            )
-            .bind(wac_id)
-            .bind(ws_id)
-            .bind(fp)
-            .execute(&state.pool)
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         }
     }
 
@@ -278,7 +266,7 @@ async fn create_handler(
     let scan_fp = req.folder_path.clone();
 
     // Insert publication record
-    let create_pub = db::CreatePublication {
+    let create_pub = CreatePublication {
         slug: final_slug.clone(),
         user_id: user_id.clone(),
         pub_type: req.pub_type,
@@ -293,7 +281,7 @@ async fn create_handler(
         thumbnail_url,
     };
 
-    let pub_id = db::insert_publication(&state.pool, &create_pub)
+    let pub_id = state.repo.insert(&create_pub)
         .await
         .map_err(|e| {
             tracing::error!("Failed to insert publication: {}", e);
@@ -308,14 +296,14 @@ async fn create_handler(
             if folder_abs.exists() {
                 let embedded_slugs = helpers::scan_course_for_embeds(&folder_abs);
                 for child_slug in &embedded_slugs {
-                    if let Ok(Some(child)) = db::get_by_slug(&state.pool, child_slug).await {
+                    if let Ok(Some(child)) = state.repo.get_by_slug(child_slug).await {
                         if child.user_id == user_id {
-                            let _ = db::insert_bundle(&state.pool, pub_id, child.id).await;
+                            let _ = state.repo.insert_bundle(pub_id, child.id).await;
                             tracing::info!("Bundled {} → {}", final_slug, child_slug);
                         }
                     }
                 }
-                bundles = db::get_children(&state.pool, pub_id)
+                bundles = state.repo.get_children(pub_id)
                     .await
                     .unwrap_or_default();
             }
@@ -341,7 +329,7 @@ async fn list_handler(
     State(state): State<Arc<PublicationsState>>,
 ) -> Result<Json<Vec<Publication>>, StatusCode> {
     let user_id = require_auth(&session).await?;
-    let pubs = db::list_by_user(&state.pool, &user_id)
+    let pubs = state.repo.list_by_user(&user_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Json(pubs))
@@ -363,7 +351,7 @@ async fn find_handler(
     State(state): State<Arc<PublicationsState>>,
 ) -> Result<Json<Publication>, StatusCode> {
     let user_id = require_auth(&session).await?;
-    let pub_record = db::find_by_source(&state.pool, &user_id, &q.workspace_id, &q.folder_path)
+    let pub_record = state.repo.find_by_source(&user_id, &q.workspace_id, &q.folder_path)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     match pub_record {
@@ -397,7 +385,7 @@ async fn update_handler(
     let user_id = require_auth(&session).await?;
 
     // Verify ownership
-    let pub_record = db::get_by_slug(&state.pool, &slug)
+    let pub_record = state.repo.get_by_slug(&slug)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::NOT_FOUND)?;
@@ -412,14 +400,15 @@ async fn update_handler(
         None
     };
 
-    db::update_publication(
-        &state.pool,
+    state.repo.update(
         &slug,
-        req.title.as_deref(),
-        req.description.as_deref(),
-        req.access.as_deref(),
-        new_code.as_deref(),
-        req.regenerate_code,
+        &UpdatePublicationRequest {
+            title: req.title.as_deref(),
+            description: req.description.as_deref(),
+            access: req.access.as_deref(),
+            access_code: new_code.as_deref(),
+            regenerate_code: req.regenerate_code,
+        },
     )
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -438,7 +427,7 @@ async fn delete_handler(
 ) -> Result<StatusCode, StatusCode> {
     let user_id = require_auth(&session).await?;
 
-    let pub_record = db::get_by_slug(&state.pool, &slug)
+    let pub_record = state.repo.get_by_slug(&slug)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::NOT_FOUND)?;
@@ -458,7 +447,7 @@ async fn delete_handler(
         }
     }
 
-    db::delete_publication(&state.pool, &slug)
+    state.repo.delete(&slug)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -476,7 +465,7 @@ async fn republish_handler(
 ) -> Result<Json<CreateResponse>, StatusCode> {
     let user_id = require_auth(&session).await?;
 
-    let pub_record = db::get_by_slug(&state.pool, &slug)
+    let pub_record = state.repo.get_by_slug(&slug)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::NOT_FOUND)?;
@@ -534,23 +523,23 @@ async fn republish_handler(
         .unwrap_or(None);
 
         if let Some(ref url) = thumbnail_url {
-            let _ = db::update_thumbnail(&state.pool, &slug, url).await;
+            let _ = state.repo.update_thumbnail(&slug, url).await;
         }
     }
 
     // Rescan bundles for courses
     let mut bundles = Vec::new();
     if pub_record.pub_type == "course" {
-        let _ = db::delete_bundles_for_parent(&state.pool, pub_record.id).await;
+        let _ = state.repo.delete_bundles_for_parent(pub_record.id).await;
         let embedded_slugs = helpers::scan_course_for_embeds(&src);
         for child_slug in &embedded_slugs {
-            if let Ok(Some(child)) = db::get_by_slug(&state.pool, child_slug).await {
+            if let Ok(Some(child)) = state.repo.get_by_slug(child_slug).await {
                 if child.user_id == user_id {
-                    let _ = db::insert_bundle(&state.pool, pub_record.id, child.id).await;
+                    let _ = state.repo.insert_bundle(pub_record.id, child.id).await;
                 }
             }
         }
-        bundles = db::get_children(&state.pool, pub_record.id)
+        bundles = state.repo.get_children(pub_record.id)
             .await
             .unwrap_or_default();
     }
@@ -589,7 +578,7 @@ async fn upload_thumbnail_handler(
         Err(e) => return e.into_response(),
     };
 
-    let pub_record = match db::get_by_slug(&state.pool, &slug).await {
+    let pub_record = match state.repo.get_by_slug(&slug).await {
         Ok(Some(p)) => p,
         Ok(None) => return StatusCode::NOT_FOUND.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
@@ -635,7 +624,7 @@ async fn upload_thumbnail_handler(
     }
 
     let thumbnail_url = format!("/pub/{}/thumbnail", slug);
-    let _ = db::update_thumbnail(&state.pool, &slug, &thumbnail_url).await;
+    let _ = state.repo.update_thumbnail(&slug, &thumbnail_url).await;
 
     #[derive(Serialize)]
     struct ThumbnailResponse { thumbnail_url: String }
@@ -655,17 +644,17 @@ async fn update_tags_handler(
     Json(body): Json<UpdateTagsRequest>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user_id = require_auth(&session).await?;
-    let pub_record = db::get_by_slug(&state.pool, &slug)
+    let pub_record = state.repo.get_by_slug(&slug)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::NOT_FOUND)?;
     if pub_record.user_id != user_id {
         return Err(StatusCode::FORBIDDEN);
     }
-    db::set_tags(&state.pool, pub_record.id, &body.tags)
+    state.repo.set_tags(pub_record.id, &body.tags)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let tags = db::get_tags(&state.pool, pub_record.id)
+    let tags = state.repo.get_tags(pub_record.id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Json(serde_json::json!({ "tags": tags })))
@@ -684,7 +673,7 @@ async fn search_tags_handler(
 ) -> Result<Json<Vec<String>>, StatusCode> {
     let user_id = require_auth(&session).await?;
     let prefix = q.get("q").cloned().unwrap_or_default();
-    let tags = db::search_tags(&state.pool, &user_id, &prefix)
+    let tags = state.repo.search_tags(&user_id, &prefix)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Json(tags))
@@ -710,14 +699,14 @@ struct CatalogTemplate {
 async fn catalog_handler(
     State(state): State<Arc<PublicationsState>>,
 ) -> Result<Html<String>, StatusCode> {
-    let pubs = db::list_public(&state.pool)
+    let pubs = state.repo.list_public()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let all_tags = db::list_public_tags(&state.pool)
+    let all_tags = state.repo.list_public_tags()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let ids: Vec<i64> = pubs.iter().map(|p| p.id).collect();
-    let tags_map = db::get_tags_for_ids(&state.pool, &ids)
+    let tags_map = state.repo.get_tags_for_ids(&ids)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let publications: Vec<CatalogItem> = pubs
@@ -739,7 +728,7 @@ async fn catalog_handler(
 /// A publication with its bundle relationships and tags resolved.
 struct PubWithBundles {
     pub_item: Publication,
-    children: Vec<db::BundleChild>,
+    children: Vec<::db::publications::BundleChild>,
     parents: Vec<(String, String)>,
     tags: Vec<String>,
 }
@@ -757,13 +746,13 @@ async fn my_publications_handler(
     State(state): State<Arc<PublicationsState>>,
 ) -> Result<Html<String>, StatusCode> {
     let user_id = require_auth(&session).await?;
-    let pubs = db::list_by_user(&state.pool, &user_id)
+    let pubs = state.repo.list_by_user(&user_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Batch-load tags for all publications
     let ids: Vec<i64> = pubs.iter().map(|p| p.id).collect();
-    let tags_map = db::get_tags_for_ids(&state.pool, &ids)
+    let tags_map = state.repo.get_tags_for_ids(&ids)
         .await
         .unwrap_or_default();
 
@@ -771,12 +760,12 @@ async fn my_publications_handler(
     let mut items = Vec::with_capacity(pubs.len());
     for p in pubs {
         let children = if p.pub_type == "course" {
-            db::get_children(&state.pool, p.id).await.unwrap_or_default()
+            state.repo.get_children(p.id).await.unwrap_or_default()
         } else {
             Vec::new()
         };
         let parents = if p.access == "bundled" {
-            db::get_parents(&state.pool, p.id).await.unwrap_or_default()
+            state.repo.get_parents(p.id).await.unwrap_or_default()
         } else {
             Vec::new()
         };

@@ -7,6 +7,7 @@ use axum::{
     http::{header, StatusCode},
     response::Response,
 };
+use db::error::DbError;
 use serde::Deserialize;
 use tokio::fs::File;
 use tokio_util::io::ReaderStream;
@@ -18,6 +19,12 @@ use crate::routes::MediaManagerState;
 #[derive(Debug, Deserialize)]
 pub struct AccessQuery {
     pub code: Option<String>,
+}
+
+/// Map DbError to an HTTP StatusCode
+fn db_err(e: DbError) -> StatusCode {
+    error!("Database error: {}", e);
+    StatusCode::INTERNAL_SERVER_ERROR
 }
 
 /// Serve WebP explicitly
@@ -60,29 +67,21 @@ async fn serve_image_variant(
     };
 
     // Lookup image in database
-    let media: Option<(i32, String, Option<String>, Option<String>, i32, String)> = sqlx::query_as(
-        "SELECT id, filename, user_id, vault_id, is_public, mime_type FROM media_items WHERE slug = ? AND media_type = 'image'",
-    )
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|e| {
-        error!("Database error: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    let (media_id, filename, owner_user_id, vault_id, is_public, _mime_type) =
-        media.ok_or(StatusCode::NOT_FOUND)?;
+    let info = state
+        .repo
+        .get_image_for_serving(&slug)
+        .await
+        .map_err(db_err)?
+        .ok_or(StatusCode::NOT_FOUND)?;
 
     // All media should have vault_id now
-    let vault_id = vault_id.ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+    let vault_id = info.vault_id.ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Check access control
-    if is_public == 0 {
+    if info.is_public == 0 {
         // Private image - check ownership or access code
         let has_access = if let Some(ref uid) = user_id {
-            // Check if user owns the image
-            owner_user_id.as_ref() == Some(uid)
+            info.user_id.as_ref() == Some(uid)
         } else {
             false
         };
@@ -96,7 +95,7 @@ async fn serve_image_variant(
                     .check_access(
                         access_control::AccessContext::new(
                             access_control::ResourceType::Image,
-                            media_id,
+                            info.id,
                         )
                         .with_key(code.clone()),
                         access_control::Permission::Read,
@@ -105,19 +104,21 @@ async fn serve_image_variant(
                     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
                 if !item_decision.granted {
-                    let folder_ok =
-                        crate::folder_access::folder_code_grants_access(
-                            &state.pool, &code, &vault_id,
-                        )
+                    let folder_ok = state
+                        .repo
+                        .legacy_code_grants_vault_access(&code, &vault_id)
                         .await
-                        || crate::folder_access::workspace_code_grants_vault_access(
-                            &state.pool, &code, &vault_id,
-                        )
-                        .await
-                        || crate::folder_access::workspace_folder_code_grants_vault_via_owner(
-                            &state.pool, &code, &vault_id,
-                        )
-                        .await;
+                        .unwrap_or(false)
+                        || state
+                            .repo
+                            .workspace_code_grants_vault_access(&code, &vault_id)
+                            .await
+                            .unwrap_or(false)
+                        || state
+                            .repo
+                            .workspace_folder_code_grants_vault_via_owner(&code, &vault_id)
+                            .await
+                            .unwrap_or(false);
                     if !folder_ok {
                         return Err(StatusCode::FORBIDDEN);
                     }
@@ -146,12 +147,12 @@ async fn serve_image_variant(
                 let original_path = state.user_storage.find_media_file(
                     &vault_id,
                     common::storage::MediaType::Image,
-                    &filename,
+                    &info.filename,
                 );
 
                 match original_path {
                     Some(path) => {
-                        let mime = mime_guess::from_path(&filename)
+                        let mime = mime_guess::from_path(&info.filename)
                             .first_or_octet_stream()
                             .to_string();
                         (path, mime)
@@ -169,10 +170,7 @@ async fn serve_image_variant(
     }
 
     // Increment view count
-    let _ = sqlx::query("UPDATE media_items SET view_count = view_count + 1 WHERE id = ?")
-        .bind(media_id)
-        .execute(&state.pool)
-        .await;
+    let _ = state.repo.increment_view_count(info.id).await;
 
     // Open and stream file
     let file = File::open(&file_path).await.map_err(|e| {
@@ -230,31 +228,24 @@ pub async fn serve_thumbnail(
         None
     };
 
-    let media: Option<(i32, Option<String>, Option<String>, i32, String, String)> = sqlx::query_as(
-        "SELECT id, user_id, vault_id, is_public, media_type, COALESCE(filename, '') FROM media_items WHERE slug = ?",
-    )
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|e| {
-        error!("Database error: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+    let info = state
+        .repo
+        .get_thumbnail_for_serving(&slug)
+        .await
+        .map_err(db_err)?
+        .ok_or(StatusCode::NOT_FOUND)?;
 
-    let (media_id, owner_user_id, vault_id, is_public, media_type_str, filename) =
-        media.ok_or(StatusCode::NOT_FOUND)?;
+    let vault_id = info.vault_id.ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let vault_id = vault_id.ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    if is_public == 0 {
+    if info.is_public == 0 {
         let has_access = user_id
             .as_ref()
-            .map(|uid| owner_user_id.as_ref() == Some(uid))
+            .map(|uid| info.user_id.as_ref() == Some(uid))
             .unwrap_or(false);
 
         if !has_access {
             if let Some(code) = query.code {
-                let resource_type = match media_type_str.as_str() {
+                let resource_type = match info.media_type.as_str() {
                     "video" => access_control::ResourceType::Video,
                     "image" => access_control::ResourceType::Image,
                     _ => access_control::ResourceType::File,
@@ -262,26 +253,28 @@ pub async fn serve_thumbnail(
                 let decision = state
                     .access_control
                     .check_access(
-                        access_control::AccessContext::new(resource_type, media_id)
+                        access_control::AccessContext::new(resource_type, info.id)
                             .with_key(code.clone()),
                         access_control::Permission::Read,
                     )
                     .await
                     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
                 if !decision.granted {
-                    let folder_ok =
-                        crate::folder_access::folder_code_grants_access(
-                            &state.pool, &code, &vault_id,
-                        )
+                    let folder_ok = state
+                        .repo
+                        .legacy_code_grants_vault_access(&code, &vault_id)
                         .await
-                        || crate::folder_access::workspace_code_grants_vault_access(
-                            &state.pool, &code, &vault_id,
-                        )
-                        .await
-                        || crate::folder_access::workspace_folder_code_grants_vault_via_owner(
-                            &state.pool, &code, &vault_id,
-                        )
-                        .await;
+                        .unwrap_or(false)
+                        || state
+                            .repo
+                            .workspace_code_grants_vault_access(&code, &vault_id)
+                            .await
+                            .unwrap_or(false)
+                        || state
+                            .repo
+                            .workspace_folder_code_grants_vault_via_owner(&code, &vault_id)
+                            .await
+                            .unwrap_or(false);
                     if !folder_ok {
                         return Err(StatusCode::FORBIDDEN);
                     }
@@ -292,7 +285,7 @@ pub async fn serve_thumbnail(
         }
     }
 
-    let media_type_enum = match media_type_str.as_str() {
+    let media_type_enum = match info.media_type.as_str() {
         "video" => common::storage::MediaType::Video,
         "image" => common::storage::MediaType::Image,
         _ => common::storage::MediaType::Document,
@@ -305,7 +298,7 @@ pub async fn serve_thumbnail(
     // Resolve file path and content type
     let (file_path, content_type) = if let Some(p) = thumb_path {
         (p, "image/webp".to_string())
-    } else if media_type_str == "image" {
+    } else if info.media_type == "image" {
         // Try {slug}.webp (regular images converted to WebP on upload)
         let webp_path = state
             .user_storage
@@ -316,10 +309,10 @@ pub async fn serve_thumbnail(
             // Fall back to original file (e.g. SVG stored as {filename})
             let orig_path = state
                 .user_storage
-                .find_media_file(&vault_id, common::storage::MediaType::Image, &filename);
+                .find_media_file(&vault_id, common::storage::MediaType::Image, &info.filename);
             match orig_path {
                 Some(p) => {
-                    let mime = mime_guess::from_path(&filename)
+                    let mime = mime_guess::from_path(&info.filename)
                         .first_or_octet_stream()
                         .to_string();
                     (p, mime)
@@ -369,31 +362,24 @@ pub async fn serve_video_mp4(
     debug!("Serving MP4 video: slug={}", slug);
 
     // Look up the video in media_items
-    let row: Option<(i32, Option<String>, Option<String>, Option<String>, i32)> = sqlx::query_as(
-        "SELECT id, user_id, vault_id, video_type, is_public FROM media_items WHERE slug = ? AND media_type = 'video'"
-    )
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|e| {
-        error!("Database error: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    let (media_id, owner_user_id, vault_id, video_type, is_public) =
-        row.unwrap_or((0, None, None, None, 0));
+    let info = state
+        .repo
+        .get_video_for_serving(&slug)
+        .await
+        .map_err(db_err)?
+        .ok_or(StatusCode::NOT_FOUND)?;
 
     // Check if it's an MP4 video
-    if video_type.as_deref() != Some("mp4") {
-        debug!("Video is not MP4 type, slug={}, type={:?}", slug, video_type);
+    if info.video_type.as_deref() != Some("mp4") {
+        debug!("Video is not MP4 type, slug={}, type={:?}", slug, info.video_type);
         return Err(StatusCode::NOT_FOUND);
     }
 
     // All media should have vault_id now
-    let vault_id = vault_id.ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+    let vault_id = info.vault_id.ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Access control (same pattern as image/thumbnail handlers)
-    if is_public == 0 {
+    if info.is_public == 0 {
         let authenticated: bool = session
             .get("authenticated")
             .await
@@ -408,7 +394,7 @@ pub async fn serve_video_mp4(
 
         let has_access = user_id
             .as_ref()
-            .map(|uid| owner_user_id.as_ref() == Some(uid))
+            .map(|uid| info.user_id.as_ref() == Some(uid))
             .unwrap_or(false);
 
         if !has_access {
@@ -418,7 +404,7 @@ pub async fn serve_video_mp4(
                     .check_access(
                         access_control::AccessContext::new(
                             access_control::ResourceType::Video,
-                            media_id,
+                            info.id,
                         )
                         .with_key(code.clone()),
                         access_control::Permission::Read,
@@ -427,19 +413,21 @@ pub async fn serve_video_mp4(
                     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
                 if !item_decision.granted {
-                    let folder_ok =
-                        crate::folder_access::folder_code_grants_access(
-                            &state.pool, &code, &vault_id,
-                        )
+                    let folder_ok = state
+                        .repo
+                        .legacy_code_grants_vault_access(&code, &vault_id)
                         .await
-                        || crate::folder_access::workspace_code_grants_vault_access(
-                            &state.pool, &code, &vault_id,
-                        )
-                        .await
-                        || crate::folder_access::workspace_folder_code_grants_vault_via_owner(
-                            &state.pool, &code, &vault_id,
-                        )
-                        .await;
+                        .unwrap_or(false)
+                        || state
+                            .repo
+                            .workspace_code_grants_vault_access(&code, &vault_id)
+                            .await
+                            .unwrap_or(false)
+                        || state
+                            .repo
+                            .workspace_folder_code_grants_vault_via_owner(&code, &vault_id)
+                            .await
+                            .unwrap_or(false);
                     if !folder_ok {
                         return Err(StatusCode::FORBIDDEN);
                     }

@@ -34,4 +34,4 @@ async-trait = { workspace = true }
 urlencoding = "2.1"
 
 # Database
-sqlx = { workspace = true }
+db = { path = "../db" }

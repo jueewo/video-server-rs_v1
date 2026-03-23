@@ -1,21 +1,7 @@
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 
-/// A configured remote server (peer)
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct FederationPeer {
-    pub id: i32,
-    pub server_id: String,
-    pub server_url: String,
-    pub display_name: String,
-    pub api_key: String,
-    pub last_synced_at: Option<String>,
-    pub status: String, // online, offline, syncing, error
-    pub item_count: i32,
-    pub created_at: String,
-    pub consecutive_failures: i32,
-    pub next_retry_at: Option<String>,
-}
+// Re-export domain types from the db crate
+pub use db::federation::{FederationPeer, RemoteMediaItem, UpsertRemoteItemRequest};
 
 /// Subset for creation
 #[derive(Debug, Deserialize)]
@@ -23,23 +9,6 @@ pub struct CreatePeerRequest {
     pub server_url: String,
     pub display_name: String,
     pub api_key: String,
-}
-
-/// Cached metadata from a remote peer
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct RemoteMediaItem {
-    pub id: i32,
-    pub origin_server: String,
-    pub remote_slug: String,
-    pub media_type: String,
-    pub title: String,
-    pub description: Option<String>,
-    pub filename: Option<String>,
-    pub mime_type: Option<String>,
-    pub file_size: Option<i64>,
-    pub thumbnail_cached: i32, // 0 or 1
-    pub cached_at: String,
-    pub updated_at: Option<String>,
 }
 
 /// Server manifest — returned by origin to identify itself

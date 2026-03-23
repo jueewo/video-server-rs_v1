@@ -208,6 +208,7 @@ mod tests {
     use super::*;
     use common::ResourceType;
     use sqlx::SqlitePool;
+    use std::sync::Arc;
 
     async fn setup_test_db() -> SqlitePool {
         let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
@@ -265,7 +266,7 @@ mod tests {
     #[tokio::test]
     async fn test_valid_access_key_grants_access() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = AccessKeyLayer::new(&repo);
 
         // Create video
@@ -317,7 +318,7 @@ mod tests {
     #[tokio::test]
     async fn test_expired_key_denied() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = AccessKeyLayer::new(&repo);
 
         sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
@@ -354,7 +355,7 @@ mod tests {
     #[tokio::test]
     async fn test_download_limit_exceeded() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = AccessKeyLayer::new(&repo);
 
         sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
@@ -393,7 +394,7 @@ mod tests {
     #[tokio::test]
     async fn test_group_wide_key() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = AccessKeyLayer::new(&repo);
 
         // Create video in group 5
@@ -436,7 +437,7 @@ mod tests {
     #[tokio::test]
     async fn test_insufficient_key_permission() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = AccessKeyLayer::new(&repo);
 
         sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
@@ -486,7 +487,7 @@ mod tests {
     #[tokio::test]
     async fn test_no_key_provided() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool);
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool)));
         let layer = AccessKeyLayer::new(&repo);
 
         // No access_key in context
@@ -500,7 +501,7 @@ mod tests {
     #[tokio::test]
     async fn test_invalid_key() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool);
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool)));
         let layer = AccessKeyLayer::new(&repo);
 
         let context = AccessContext::new(ResourceType::Video, 1).with_key("nonexistent-key");
@@ -513,7 +514,7 @@ mod tests {
     #[tokio::test]
     async fn test_key_without_resource_permission() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = AccessKeyLayer::new(&repo);
 
         sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
@@ -554,7 +555,7 @@ mod tests {
     #[tokio::test]
     async fn test_is_key_valid_helper() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = AccessKeyLayer::new(&repo);
 
         // Create valid key
@@ -578,7 +579,7 @@ mod tests {
     #[tokio::test]
     async fn test_inactive_key_not_loaded() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = AccessKeyLayer::new(&repo);
 
         // Create inactive key

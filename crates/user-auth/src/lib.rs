@@ -12,6 +12,7 @@ use openidconnect::{
     AuthorizationCode, ClientId, ClientSecret, CsrfToken, IssuerUrl, Nonce, PkceCodeChallenge,
     PkceCodeVerifier, RedirectUrl, Scope, TokenResponse,
 };
+use db::user_auth::{UpsertUserRequest, UserAuthRepository};
 use serde::Deserialize;
 use std::sync::Arc;
 use tower_sessions::Session;
@@ -59,13 +60,13 @@ impl OidcConfig {
 pub struct AuthState {
     pub oidc_client: Option<CoreClient>,
     pub config: OidcConfig,
-    pub pool: sqlx::SqlitePool,
+    pub repo: Arc<dyn UserAuthRepository>,
 }
 
 impl AuthState {
     pub async fn new(
         config: OidcConfig,
-        pool: sqlx::SqlitePool,
+        repo: Arc<dyn UserAuthRepository>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         println!("🔍 Discovering OIDC provider: {}", config.issuer_url);
 
@@ -96,15 +97,15 @@ impl AuthState {
         Ok(Self {
             oidc_client,
             config,
-            pool,
+            repo,
         })
     }
 
-    pub fn new_without_oidc(config: OidcConfig, pool: sqlx::SqlitePool) -> Self {
+    pub fn new_without_oidc(config: OidcConfig, repo: Arc<dyn UserAuthRepository>) -> Self {
         Self {
             oidc_client: None,
             config,
-            pool,
+            repo,
         }
     }
 }
@@ -245,16 +246,14 @@ pub async fn user_profile_handler(
         .unwrap_or_else(|| "platform".to_string());
 
     // Fetch provider and last_login_at from DB
-    let (provider, last_login_at) = sqlx::query_as::<_, (String, Option<String>)>(
-        "SELECT provider, last_login_at FROM users WHERE id = ? LIMIT 1",
-    )
-    .bind(&user_id)
-    .fetch_optional(&state.pool)
-    .await
-    .ok()
-    .flatten()
-    .map(|(p, l)| (p, l))
-    .unwrap_or_else(|| ("oidc".to_string(), None));
+    let (provider, last_login_at) = state
+        .repo
+        .get_user_login_info(&user_id)
+        .await
+        .ok()
+        .flatten()
+        .map(|info| (info.provider, info.last_login_at))
+        .unwrap_or_else(|| ("oidc".to_string(), None));
 
     let last_login_at = last_login_at.unwrap_or_else(|| "—".to_string());
 
@@ -534,23 +533,16 @@ pub async fn oidc_callback_handler(
         .and_then(|p| p.get(None))
         .map(|p| p.to_string());
 
-    let upsert_result = sqlx::query(
-        r#"
-        INSERT INTO users (id, email, name, avatar_url, provider, last_login_at)
-        VALUES (?, ?, ?, ?, 'oidc', CURRENT_TIMESTAMP)
-        ON CONFLICT(id) DO UPDATE SET
-            email = excluded.email,
-            name = excluded.name,
-            avatar_url = excluded.avatar_url,
-            last_login_at = CURRENT_TIMESTAMP
-        "#,
-    )
-    .bind(&user_id)
-    .bind(&email)
-    .bind(&name)
-    .bind(&avatar_url)
-    .execute(&state.pool)
-    .await;
+    let upsert_result = state
+        .repo
+        .upsert_user(&UpsertUserRequest {
+            id: &user_id,
+            email: &email,
+            name: &name,
+            avatar_url: avatar_url.as_deref(),
+            provider: "oidc",
+        })
+        .await;
 
     if let Err(e) = upsert_result {
         error!(
@@ -569,24 +561,10 @@ pub async fn oidc_callback_handler(
     }
 
     // Check for tenant invitation on first login (email-based, consumed on use)
-    if let Ok(Some(invited_tenant)) =
-        sqlx::query_scalar::<_, String>(
-            "SELECT tenant_id FROM tenant_invitations WHERE email = ? LIMIT 1",
-        )
-        .bind(&email)
-        .fetch_optional(&state.pool)
-        .await
-    {
+    if let Ok(Some(invited_tenant)) = state.repo.get_tenant_invitation_by_email(&email).await {
         // Assign user to the invited tenant and consume the invitation
-        let _ = sqlx::query("UPDATE users SET tenant_id = ? WHERE id = ?")
-            .bind(&invited_tenant)
-            .bind(&user_id)
-            .execute(&state.pool)
-            .await;
-        let _ = sqlx::query("DELETE FROM tenant_invitations WHERE email = ?")
-            .bind(&email)
-            .execute(&state.pool)
-            .await;
+        let _ = state.repo.set_user_tenant(&user_id, &invited_tenant).await;
+        let _ = state.repo.delete_tenant_invitation(&email).await;
         info!(
             event = "invitation_accepted",
             user_id = %user_id,
@@ -596,22 +574,20 @@ pub async fn oidc_callback_handler(
     }
 
     // Resolve tenant_id for this user (set by admin on user row; defaults to 'platform')
-    let tenant_id: String = sqlx::query_scalar("SELECT tenant_id FROM users WHERE id = ?")
-        .bind(&user_id)
-        .fetch_optional(&state.pool)
+    let tenant_id: String = state
+        .repo
+        .get_user_tenant_id(&user_id)
         .await
-        .unwrap_or_default()
+        .unwrap_or(None)
         .unwrap_or_else(|| "platform".to_string());
 
     // Resolve tenant branding (brand_name override; empty = use platform config.name)
     let brand_name: String = {
-        let branding_json: Option<String> =
-            sqlx::query_scalar("SELECT branding FROM tenants WHERE id = ?")
-                .bind(&tenant_id)
-                .fetch_optional(&state.pool)
-                .await
-                .unwrap_or_default()
-                .flatten();
+        let branding_json: Option<String> = state
+            .repo
+            .get_tenant_branding_json(&tenant_id)
+            .await
+            .unwrap_or(None);
 
         branding_json
             .and_then(|j| serde_json::from_str::<serde_json::Value>(&j).ok())
@@ -736,19 +712,16 @@ pub async fn emergency_login_auth_handler(
         let emergency_name = format!("Emergency: {}", form.username);
 
         // Create or update emergency user in database
-        let upsert_result = sqlx::query(
-            r#"
-            INSERT INTO users (id, email, name, avatar_url, provider, last_login_at)
-            VALUES (?, ?, ?, NULL, 'emergency', CURRENT_TIMESTAMP)
-            ON CONFLICT(id) DO UPDATE SET
-                last_login_at = CURRENT_TIMESTAMP
-            "#,
-        )
-        .bind(&emergency_user_id)
-        .bind(&emergency_email)
-        .bind(&emergency_name)
-        .execute(&state.pool)
-        .await;
+        let upsert_result = state
+            .repo
+            .upsert_user(&UpsertUserRequest {
+                id: &emergency_user_id,
+                email: &emergency_email,
+                name: &emergency_name,
+                avatar_url: None,
+                provider: "emergency",
+            })
+            .await;
 
         if let Err(e) = upsert_result {
             error!(
@@ -760,23 +733,20 @@ pub async fn emergency_login_auth_handler(
         }
 
         // Resolve tenant_id for emergency user
-        let tenant_id: String =
-            sqlx::query_scalar("SELECT tenant_id FROM users WHERE id = ?")
-                .bind(&emergency_user_id)
-                .fetch_optional(&state.pool)
-                .await
-                .unwrap_or_default()
-                .unwrap_or_else(|| "platform".to_string());
+        let tenant_id: String = state
+            .repo
+            .get_user_tenant_id(&emergency_user_id)
+            .await
+            .unwrap_or(None)
+            .unwrap_or_else(|| "platform".to_string());
 
         // Resolve tenant branding
         let brand_name: String = {
-            let branding_json: Option<String> =
-                sqlx::query_scalar("SELECT branding FROM tenants WHERE id = ?")
-                    .bind(&tenant_id)
-                    .fetch_optional(&state.pool)
-                    .await
-                    .unwrap_or_default()
-                    .flatten();
+            let branding_json: Option<String> = state
+                .repo
+                .get_tenant_branding_json(&tenant_id)
+                .await
+                .unwrap_or(None);
 
             branding_json
                 .and_then(|j| serde_json::from_str::<serde_json::Value>(&j).ok())

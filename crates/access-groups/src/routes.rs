@@ -4,7 +4,7 @@ use axum::{
     routing::{delete, get, post, put},
     Router,
 };
-use sqlx::SqlitePool;
+use std::sync::Arc;
 
 use crate::handlers::{
     accept_invitation_handler, add_member_handler, assign_media_to_group_handler,
@@ -18,9 +18,10 @@ use crate::pages::{
     accept_invitation_page_handler, create_group_page_handler, group_detail_page_handler,
     group_settings_page_handler, groups_list_page_handler,
 };
+use crate::AccessGroupState;
 
 /// Create the access groups router with all endpoints
-pub fn create_routes(pool: SqlitePool) -> Router {
+pub fn create_routes(state: Arc<AccessGroupState>) -> Router {
     Router::new()
         // Group Pages (HTML)
         .route("/groups", get(groups_list_page_handler))
@@ -79,11 +80,11 @@ pub fn create_routes(pool: SqlitePool) -> Router {
             "/groups/{slug}/check-access",
             post(check_resource_access_handler),
         )
-        .with_state(pool)
+        .with_state(state)
 }
 
 /// API-only routes (returns JSON)
-pub fn create_api_routes(pool: SqlitePool) -> Router {
+pub fn create_api_routes(state: Arc<AccessGroupState>) -> Router {
     Router::new()
         .route("/api/groups", get(list_groups_handler))
         .route("/api/groups/{slug}", get(get_group_handler))
@@ -96,13 +97,11 @@ pub fn create_api_routes(pool: SqlitePool) -> Router {
             "/api/groups/{slug}/check-access",
             post(check_resource_access_handler),
         )
-        .with_state(pool)
+        .with_state(state)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_routes_creation() {
         // Create a mock pool for testing

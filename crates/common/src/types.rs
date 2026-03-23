@@ -130,28 +130,3 @@ pub struct ResourceMetadata {
     pub resource_type: ResourceType,
 }
 
-// SQLx implementations for GroupRole
-impl sqlx::Type<sqlx::Sqlite> for GroupRole {
-    fn type_info() -> sqlx::sqlite::SqliteTypeInfo {
-        <String as sqlx::Type<sqlx::Sqlite>>::type_info()
-    }
-}
-
-impl<'r> sqlx::Decode<'r, sqlx::Sqlite> for GroupRole {
-    fn decode(value: sqlx::sqlite::SqliteValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
-        let s = <&str as sqlx::Decode<sqlx::Sqlite>>::decode(value)?;
-        s.parse().map_err(|e: String| e.into())
-    }
-}
-
-impl<'q> sqlx::Encode<'q, sqlx::Sqlite> for GroupRole {
-    fn encode_by_ref(
-        &self,
-        args: &mut Vec<sqlx::sqlite::SqliteArgumentValue<'q>>,
-    ) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Send + Sync>> {
-        args.push(sqlx::sqlite::SqliteArgumentValue::Text(
-            std::borrow::Cow::Owned(self.to_string()),
-        ));
-        Ok(sqlx::encode::IsNull::No)
-    }
-}

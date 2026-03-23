@@ -128,11 +128,13 @@ async fn insert_media(
 /// Build a minimal `MediaManagerState` — no real storage dir needed for JSON API tests.
 fn make_state(pool: SqlitePool) -> MediaManagerState {
     use common::storage::UserStorageManager;
+    let database = Arc::new(db_sqlite::SqliteDatabase::new(pool.clone()));
     MediaManagerState::new(
-        pool.clone(),
+        database.clone(),
+        database.clone(),
         "/tmp/test-storage".to_string(),
         UserStorageManager::new(std::path::PathBuf::from("/tmp/test-storage")),
-        Arc::new(access_control::AccessControlService::with_audit_enabled(pool, false)),
+        Arc::new(access_control::AccessControlService::with_audit_enabled(database.clone(), database.clone(), false)),
     )
 }
 

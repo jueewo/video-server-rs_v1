@@ -215,17 +215,11 @@ impl From<common::Error> for AccessError {
     }
 }
 
-// Conversion from sqlx::Error
-impl From<sqlx::Error> for AccessError {
-    fn from(err: sqlx::Error) -> Self {
-        match err {
-            sqlx::Error::RowNotFound => AccessError::NotFound {
-                resource_type: "Resource".to_string(),
-                resource_id: 0,
-            },
-            _ => AccessError::Database {
-                message: err.to_string(),
-            },
+// Conversion from db::DbError
+impl From<db::DbError> for AccessError {
+    fn from(err: db::DbError) -> Self {
+        AccessError::Database {
+            message: err.to_string(),
         }
     }
 }

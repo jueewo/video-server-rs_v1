@@ -4,20 +4,21 @@
 //! and documents simultaneously and returns unified results.
 
 use crate::models::{MediaFilterOptions, MediaListResponse, MediaTypeCounts, UnifiedMediaItem};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use common::models::media_item::MediaItem;
-use sqlx::SqlitePool;
+use db::media::{MediaItemRow, MediaRepository, MediaSearchFilter};
+use std::sync::Arc;
 use tracing::{debug, info};
 
 /// Unified media search service
 pub struct MediaSearchService {
-    pool: SqlitePool,
+    repo: Arc<dyn MediaRepository>,
 }
 
 impl MediaSearchService {
     /// Create a new MediaSearchService
-    pub fn new(pool: SqlitePool) -> Self {
-        Self { pool }
+    pub fn new(repo: Arc<dyn MediaRepository>) -> Self {
+        Self { repo }
     }
 
     /// Search across all media types
@@ -30,14 +31,16 @@ impl MediaSearchService {
             options.search, options.media_type, options.page, options.page_size
         );
 
+        let filter = to_search_filter(&options);
+
         // Get counts for each media type
-        let counts = self.get_media_counts(&options).await?;
+        let counts = self.get_media_counts(&filter).await?;
 
         // Collect items from media_items table (unified query)
-        let items = self.search_media_items(&options).await?;
-        let mut all_items: Vec<UnifiedMediaItem> = items
+        let rows = self.repo.search_media(&filter).await.map_err(anyhow::Error::msg)?;
+        let mut all_items: Vec<UnifiedMediaItem> = rows
             .into_iter()
-            .map(UnifiedMediaItem::from)
+            .map(|row| UnifiedMediaItem::from(media_item_from_row(row)))
             .collect();
 
         // Sort results (already sorted by database, but keep for flexibility)
@@ -73,10 +76,10 @@ impl MediaSearchService {
     }
 
     /// Get counts for each media type
-    async fn get_media_counts(&self, options: &MediaFilterOptions) -> Result<MediaTypeCounts> {
-        let video_count = self.count_media_by_type(options, "video").await?;
-        let image_count = self.count_media_by_type(options, "image").await?;
-        let document_count = self.count_media_by_type(options, "document").await?;
+    async fn get_media_counts(&self, filter: &MediaSearchFilter) -> Result<MediaTypeCounts> {
+        let video_count = self.repo.count_media_by_type("video", filter).await.map_err(anyhow::Error::msg)?;
+        let image_count = self.repo.count_media_by_type("image", filter).await.map_err(anyhow::Error::msg)?;
+        let document_count = self.repo.count_media_by_type("document", filter).await.map_err(anyhow::Error::msg)?;
 
         Ok(MediaTypeCounts {
             videos: video_count,
@@ -84,141 +87,6 @@ impl MediaSearchService {
             documents: document_count,
             total: video_count + image_count + document_count,
         })
-    }
-
-    /// Search media items (unified query)
-    async fn search_media_items(&self, options: &MediaFilterOptions) -> Result<Vec<MediaItem>> {
-        let mut query = String::from("SELECT * FROM media_items WHERE 1=1");
-        let mut bindings: Vec<String> = Vec::new();
-
-        // Media type filter
-        if let Some(media_type) = &options.media_type {
-            query.push_str(" AND media_type = ?");
-            bindings.push(media_type.clone());
-        }
-
-        // Search filter — title, description, category, and tags
-        if let Some(search) = &options.search {
-            query.push_str(
-                " AND (title LIKE ? OR description LIKE ? OR category LIKE ?\
-                 OR id IN (SELECT media_id FROM media_tags WHERE tag LIKE ?))",
-            );
-            let pattern = format!("%{}%", search);
-            bindings.push(pattern.clone());
-            bindings.push(pattern.clone());
-            bindings.push(pattern.clone());
-            bindings.push(pattern);
-        }
-
-        // Visibility filter
-        if let Some(is_public) = options.is_public {
-            query.push_str(" AND is_public = ?");
-            bindings.push((if is_public { 1 } else { 0 }).to_string());
-        }
-
-        // User filter
-        if let Some(user_id) = &options.user_id {
-            query.push_str(" AND user_id = ?");
-            bindings.push(user_id.clone());
-        }
-
-        // Vault filter
-        if let Some(vault_id) = &options.vault_id {
-            query.push_str(" AND vault_id = ?");
-            bindings.push(vault_id.clone());
-        }
-
-        // Tag filter (exact match)
-        if let Some(tag) = &options.tag {
-            query.push_str(" AND id IN (SELECT media_id FROM media_tags WHERE tag = ?)");
-            bindings.push(tag.clone());
-        }
-
-        // Group filter
-        if let Some(group_id) = &options.group_id {
-            query.push_str(" AND group_id = ?");
-            bindings.push(group_id.clone());
-        }
-
-        // Add ordering
-        let sort_field = if options.sort_by.is_empty() {
-            "created_at"
-        } else {
-            &options.sort_by
-        };
-        let sort_order = if options.sort_order.is_empty() {
-            "desc"
-        } else {
-            &options.sort_order
-        };
-        query.push_str(&format!(" ORDER BY {} {}", sort_field, sort_order));
-
-        let mut sqlx_query = sqlx::query_as::<_, MediaItem>(&query);
-        for binding in bindings {
-            sqlx_query = sqlx_query.bind(binding);
-        }
-
-        let items = sqlx_query
-            .fetch_all(&self.pool)
-            .await
-            .context("Failed to fetch media items")?;
-
-        Ok(items)
-    }
-
-    /// Count media by type
-    async fn count_media_by_type(&self, options: &MediaFilterOptions, media_type: &str) -> Result<i64> {
-        let mut query = String::from("SELECT COUNT(*) FROM media_items WHERE media_type = ?");
-        let mut bindings: Vec<String> = vec![media_type.to_string()];
-
-        if let Some(search) = &options.search {
-            query.push_str(
-                " AND (title LIKE ? OR description LIKE ? OR category LIKE ?\
-                 OR id IN (SELECT media_id FROM media_tags WHERE tag LIKE ?))",
-            );
-            let pattern = format!("%{}%", search);
-            bindings.push(pattern.clone());
-            bindings.push(pattern.clone());
-            bindings.push(pattern.clone());
-            bindings.push(pattern);
-        }
-
-        if let Some(is_public) = options.is_public {
-            query.push_str(" AND is_public = ?");
-            bindings.push((if is_public { 1 } else { 0 }).to_string());
-        }
-
-        if let Some(user_id) = &options.user_id {
-            query.push_str(" AND user_id = ?");
-            bindings.push(user_id.clone());
-        }
-
-        if let Some(vault_id) = &options.vault_id {
-            query.push_str(" AND vault_id = ?");
-            bindings.push(vault_id.clone());
-        }
-
-        if let Some(tag) = &options.tag {
-            query.push_str(" AND id IN (SELECT media_id FROM media_tags WHERE tag = ?)");
-            bindings.push(tag.clone());
-        }
-
-        if let Some(group_id) = &options.group_id {
-            query.push_str(" AND group_id = ?");
-            bindings.push(group_id.clone());
-        }
-
-        let mut sqlx_query = sqlx::query_scalar::<_, i64>(&query);
-        for binding in bindings {
-            sqlx_query = sqlx_query.bind(binding);
-        }
-
-        let count = sqlx_query
-            .fetch_one(&self.pool)
-            .await
-            .context("Failed to count media items")?;
-
-        Ok(count)
     }
 
     /// Sort unified media items
@@ -255,6 +123,66 @@ impl MediaSearchService {
     }
 }
 
+/// Convert `MediaFilterOptions` (crate-local) to `MediaSearchFilter` (db crate).
+fn to_search_filter(opts: &MediaFilterOptions) -> MediaSearchFilter {
+    MediaSearchFilter {
+        search: opts.search.clone(),
+        media_type: opts.media_type.clone(),
+        is_public: opts.is_public,
+        user_id: opts.user_id.clone(),
+        vault_id: opts.vault_id.clone(),
+        tag: opts.tag.clone(),
+        group_id: opts.group_id.clone(),
+        sort_by: if opts.sort_by.is_empty() {
+            "created_at".to_string()
+        } else {
+            opts.sort_by.clone()
+        },
+        sort_order: if opts.sort_order.is_empty() {
+            "desc".to_string()
+        } else {
+            opts.sort_order.clone()
+        },
+    }
+}
+
+/// Convert a `MediaItemRow` (db crate) to a `MediaItem` (common crate).
+/// The `video_type` field from the row is intentionally dropped as `MediaItem` does not have it.
+pub(crate) fn media_item_from_row(row: MediaItemRow) -> MediaItem {
+    MediaItem {
+        id: row.id,
+        slug: row.slug,
+        media_type: row.media_type,
+        title: row.title,
+        description: row.description,
+        filename: row.filename,
+        original_filename: row.original_filename,
+        mime_type: row.mime_type,
+        file_size: row.file_size,
+        is_public: row.is_public,
+        user_id: row.user_id,
+        group_id: row.group_id,
+        vault_id: row.vault_id,
+        status: row.status,
+        featured: row.featured,
+        category: row.category,
+        thumbnail_url: row.thumbnail_url,
+        view_count: row.view_count,
+        download_count: row.download_count,
+        like_count: row.like_count,
+        share_count: row.share_count,
+        allow_download: row.allow_download,
+        allow_comments: row.allow_comments,
+        mature_content: row.mature_content,
+        seo_title: row.seo_title,
+        seo_description: row.seo_description,
+        seo_keywords: row.seo_keywords,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        published_at: row.published_at,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -264,5 +192,36 @@ mod tests {
         let filter = MediaFilterOptions::default();
         assert_eq!(filter.sort_by, "");
         assert_eq!(filter.sort_order, "");
+    }
+
+    #[test]
+    fn test_to_search_filter_defaults() {
+        let opts = MediaFilterOptions::default();
+        let filter = to_search_filter(&opts);
+        assert_eq!(filter.sort_by, "created_at");
+        assert_eq!(filter.sort_order, "desc");
+    }
+
+    #[test]
+    fn test_to_search_filter_preserves_values() {
+        let opts = MediaFilterOptions {
+            search: Some("test".to_string()),
+            media_type: Some("video".to_string()),
+            is_public: Some(true),
+            user_id: Some("user1".to_string()),
+            vault_id: Some("vault1".to_string()),
+            tag: Some("rust".to_string()),
+            group_id: Some("5".to_string()),
+            sort_by: "title".to_string(),
+            sort_order: "asc".to_string(),
+            page: 2,
+            page_size: 10,
+        };
+        let filter = to_search_filter(&opts);
+        assert_eq!(filter.search, Some("test".to_string()));
+        assert_eq!(filter.media_type, Some("video".to_string()));
+        assert_eq!(filter.is_public, Some(true));
+        assert_eq!(filter.sort_by, "title");
+        assert_eq!(filter.sort_order, "asc");
     }
 }

@@ -1,173 +1,96 @@
-use crate::{crypto, CreateGitProviderRequest, GitProvider, UpdateGitProviderRequest};
-use anyhow::{anyhow, Result};
-use sqlx::SqlitePool;
+use crate::{crypto, CreateGitProviderInput, GitProvider, UpdateGitProviderInput};
+use anyhow::Result;
+use db::git_providers::GitProviderRepository;
 use tracing::info;
 
 pub async fn create_provider(
-    pool: &SqlitePool,
+    repo: &dyn GitProviderRepository,
     user_id: &str,
-    request: CreateGitProviderRequest,
+    request: CreateGitProviderInput,
 ) -> Result<GitProvider> {
     let encrypted_token = crypto::encrypt_token(&request.token)?;
     let token_prefix = crypto::extract_token_prefix(&request.token);
 
-    if request.is_default {
-        sqlx::query("UPDATE user_git_providers SET is_default = 0 WHERE user_id = ?")
-            .bind(user_id)
-            .execute(pool)
-            .await?;
-    }
+    let db_request = db::git_providers::CreateGitProviderRequest {
+        name: request.name.clone(),
+        provider_type: request.provider_type.clone(),
+        base_url: request.base_url.clone(),
+        token_encrypted: encrypted_token,
+        token_prefix,
+        is_default: request.is_default,
+    };
 
-    let result = sqlx::query(
-        r#"
-        INSERT INTO user_git_providers (
-            user_id, name, provider_type, base_url,
-            token_encrypted, token_prefix, is_default
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        "#,
-    )
-    .bind(user_id)
-    .bind(&request.name)
-    .bind(&request.provider_type)
-    .bind(&request.base_url)
-    .bind(&encrypted_token)
-    .bind(&token_prefix)
-    .bind(request.is_default)
-    .execute(pool)
-    .await?;
-
-    let id = result.last_insert_rowid() as i32;
+    let provider = repo.create_provider(user_id, &db_request).await?;
 
     info!(
         event = "git_provider_created",
         user_id = %user_id,
-        provider_id = id,
+        provider_id = provider.id,
         name = %request.name,
         provider_type = %request.provider_type,
         "Git provider created"
     );
 
-    get_provider_by_id(pool, id, user_id)
-        .await?
-        .ok_or_else(|| anyhow!("Failed to retrieve created provider"))
+    Ok(provider)
 }
 
 pub async fn get_provider_by_id(
-    pool: &SqlitePool,
+    repo: &dyn GitProviderRepository,
     id: i32,
     user_id: &str,
 ) -> Result<Option<GitProvider>> {
-    let provider = sqlx::query_as::<_, GitProvider>(
-        "SELECT * FROM user_git_providers WHERE id = ? AND user_id = ?",
-    )
-    .bind(id)
-    .bind(user_id)
-    .fetch_optional(pool)
-    .await?;
-
-    Ok(provider)
+    Ok(repo.get_provider_by_id(id, user_id).await?)
 }
 
 pub async fn get_provider_by_name(
-    pool: &SqlitePool,
+    repo: &dyn GitProviderRepository,
     user_id: &str,
     name: &str,
 ) -> Result<Option<GitProvider>> {
-    let provider = sqlx::query_as::<_, GitProvider>(
-        "SELECT * FROM user_git_providers WHERE user_id = ? AND name = ?",
-    )
-    .bind(user_id)
-    .bind(name)
-    .fetch_optional(pool)
-    .await?;
-
-    Ok(provider)
+    Ok(repo.get_provider_by_name(user_id, name).await?)
 }
 
 pub async fn get_default_provider(
-    pool: &SqlitePool,
+    repo: &dyn GitProviderRepository,
     user_id: &str,
 ) -> Result<Option<GitProvider>> {
-    let provider = sqlx::query_as::<_, GitProvider>(
-        "SELECT * FROM user_git_providers WHERE user_id = ? AND is_default = 1",
-    )
-    .bind(user_id)
-    .fetch_optional(pool)
-    .await?;
-
-    Ok(provider)
+    Ok(repo.get_default_provider(user_id).await?)
 }
 
-pub async fn list_providers(pool: &SqlitePool, user_id: &str) -> Result<Vec<GitProvider>> {
-    let providers = sqlx::query_as::<_, GitProvider>(
-        "SELECT * FROM user_git_providers WHERE user_id = ? ORDER BY is_default DESC, name ASC",
-    )
-    .bind(user_id)
-    .fetch_all(pool)
-    .await?;
-
-    Ok(providers)
+pub async fn list_providers(
+    repo: &dyn GitProviderRepository,
+    user_id: &str,
+) -> Result<Vec<GitProvider>> {
+    Ok(repo.list_providers(user_id).await?)
 }
 
 pub async fn update_provider(
-    pool: &SqlitePool,
+    repo: &dyn GitProviderRepository,
     id: i32,
     user_id: &str,
-    request: UpdateGitProviderRequest,
+    request: UpdateGitProviderInput,
 ) -> Result<bool> {
-    let has_new_token = request.token.as_ref().map_or(false, |t| !t.is_empty());
+    let (new_token_encrypted, new_token_prefix) =
+        if let Some(ref token) = request.token.as_ref().filter(|t| !t.is_empty()) {
+            let encrypted = crypto::encrypt_token(token)?;
+            let prefix = crypto::extract_token_prefix(token);
+            (Some(encrypted), Some(prefix))
+        } else {
+            (None, None)
+        };
 
-    if request.is_default {
-        sqlx::query("UPDATE user_git_providers SET is_default = 0 WHERE user_id = ?")
-            .bind(user_id)
-            .execute(pool)
-            .await?;
-    }
-
-    let result = if has_new_token {
-        let token = request.token.as_ref().unwrap();
-        let encrypted = crypto::encrypt_token(token)?;
-        let prefix = crypto::extract_token_prefix(token);
-
-        sqlx::query(
-            r#"
-            UPDATE user_git_providers
-            SET name = ?, provider_type = ?, base_url = ?, token_encrypted = ?,
-                token_prefix = ?, is_default = ?, updated_at = datetime('now')
-            WHERE id = ? AND user_id = ?
-            "#,
-        )
-        .bind(&request.name)
-        .bind(&request.provider_type)
-        .bind(&request.base_url)
-        .bind(&encrypted)
-        .bind(&prefix)
-        .bind(request.is_default)
-        .bind(id)
-        .bind(user_id)
-        .execute(pool)
-        .await?
-    } else {
-        sqlx::query(
-            r#"
-            UPDATE user_git_providers
-            SET name = ?, provider_type = ?, base_url = ?, is_default = ?,
-                updated_at = datetime('now')
-            WHERE id = ? AND user_id = ?
-            "#,
-        )
-        .bind(&request.name)
-        .bind(&request.provider_type)
-        .bind(&request.base_url)
-        .bind(request.is_default)
-        .bind(id)
-        .bind(user_id)
-        .execute(pool)
-        .await?
+    let db_request = db::git_providers::UpdateGitProviderRequest {
+        name: request.name.clone(),
+        provider_type: request.provider_type.clone(),
+        base_url: request.base_url.clone(),
+        is_default: request.is_default,
+        new_token_encrypted,
+        new_token_prefix,
     };
 
-    if result.rows_affected() > 0 {
+    let updated = repo.update_provider(id, user_id, &db_request).await?;
+
+    if updated {
         info!(
             event = "git_provider_updated",
             user_id = %user_id,
@@ -175,59 +98,47 @@ pub async fn update_provider(
             name = %request.name,
             "Git provider updated"
         );
-        Ok(true)
-    } else {
-        Ok(false)
     }
+
+    Ok(updated)
 }
 
-pub async fn delete_provider(pool: &SqlitePool, id: i32, user_id: &str) -> Result<bool> {
-    let result = sqlx::query(
-        "DELETE FROM user_git_providers WHERE id = ? AND user_id = ?",
-    )
-    .bind(id)
-    .bind(user_id)
-    .execute(pool)
-    .await?;
+pub async fn delete_provider(
+    repo: &dyn GitProviderRepository,
+    id: i32,
+    user_id: &str,
+) -> Result<bool> {
+    let deleted = repo.delete_provider(id, user_id).await?;
 
-    if result.rows_affected() > 0 {
+    if deleted {
         info!(
             event = "git_provider_deleted",
             user_id = %user_id,
             provider_id = id,
             "Git provider deleted"
         );
-        Ok(true)
-    } else {
-        Ok(false)
     }
+
+    Ok(deleted)
 }
 
-pub async fn set_default_provider(pool: &SqlitePool, id: i32, user_id: &str) -> Result<bool> {
-    sqlx::query("UPDATE user_git_providers SET is_default = 0 WHERE user_id = ?")
-        .bind(user_id)
-        .execute(pool)
-        .await?;
+pub async fn set_default_provider(
+    repo: &dyn GitProviderRepository,
+    id: i32,
+    user_id: &str,
+) -> Result<bool> {
+    let updated = repo.set_default_provider(id, user_id).await?;
 
-    let result = sqlx::query(
-        "UPDATE user_git_providers SET is_default = 1 WHERE id = ? AND user_id = ?",
-    )
-    .bind(id)
-    .bind(user_id)
-    .execute(pool)
-    .await?;
-
-    if result.rows_affected() > 0 {
+    if updated {
         info!(
             event = "git_provider_set_default",
             user_id = %user_id,
             provider_id = id,
             "Git provider set as default"
         );
-        Ok(true)
-    } else {
-        Ok(false)
     }
+
+    Ok(updated)
 }
 
 pub fn decrypt_provider_token(provider: &GitProvider) -> Result<String> {

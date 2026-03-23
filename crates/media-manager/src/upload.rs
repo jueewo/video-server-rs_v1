@@ -6,7 +6,9 @@ use axum::{
     response::Json,
 };
 use common::models::{MediaItemCreateDTO, MediaType};
+use db::media::{MediaInsert, MediaRepository};
 use serde_json::Value;
+use std::sync::Arc;
 use tower_sessions::Session;
 use tracing::{error, info, warn};
 use std::path::PathBuf;
@@ -328,7 +330,7 @@ pub async fn upload_media(
         vid
     } else {
         common::services::vault_service::get_or_create_default_vault(
-            &state.pool,
+            state.vault_repo.as_ref(),
             &state.user_storage,
             &user_id,
         )
@@ -351,17 +353,13 @@ pub async fn upload_media(
         let base_slug = media_core::metadata::generate_slug(&title);
 
         // Check if base slug exists globally
-        let existing: Option<(i32,)> = sqlx::query_as("SELECT id FROM media_items WHERE slug = ?")
-            .bind(&base_slug)
-            .fetch_optional(&state.pool)
-            .await
-            .map_err(|e| {
-                error!("Database error checking slug: {}", e);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({"error": "Database error"})),
-                )
-            })?;
+        let existing = state.repo.slug_exists(&base_slug).await.map_err(|e| {
+            error!("Database error checking slug: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "Database error"})),
+            )
+        })?;
 
         if existing.is_some() {
             // Find next available suffix (_2, _3, etc.) globally
@@ -369,18 +367,13 @@ pub async fn upload_media(
             let mut unique_slug = format!("{}_{}", base_slug, counter);
 
             loop {
-                let exists: Option<(i32,)> =
-                    sqlx::query_as("SELECT id FROM media_items WHERE slug = ?")
-                        .bind(&unique_slug)
-                        .fetch_optional(&state.pool)
-                        .await
-                        .map_err(|e| {
-                            error!("Database error checking slug: {}", e);
-                            (
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                                Json(serde_json::json!({"error": "Database error"})),
-                            )
-                        })?;
+                let exists = state.repo.slug_exists(&unique_slug).await.map_err(|e| {
+                    error!("Database error checking slug: {}", e);
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({"error": "Database error"})),
+                    )
+                })?;
 
                 if exists.is_none() {
                     break;
@@ -433,7 +426,7 @@ pub async fn upload_media(
             // Check if HLS transcoding was requested
             let transcode = transcode_for_streaming.unwrap_or(0);
             if transcode == 1 {
-                info!("🎬 HLS transcoding requested for video upload");
+                info!("HLS transcoding requested for video upload");
 
                 // Delegate to video-manager HLS processing pipeline
                 return process_video_hls_upload(
@@ -662,48 +655,42 @@ async fn process_image_upload(
         Some(format!("/media/{}/image.webp", slug))
     };
 
-    // Insert into database
-    let result = sqlx::query(
-        r#"INSERT INTO media_items
-        (slug, media_type, title, description, filename, original_filename, mime_type, file_size,
-         is_public, user_id, group_id, vault_id, category, thumbnail_url, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
-    )
-    .bind(&slug)
-    .bind("image")
-    .bind(&title)
-    .bind(&description)
-    .bind(&final_filename)
-    .bind(&original_filename)
-    .bind(&mime_type)
-    .bind(file_size)
-    .bind(is_public)
-    .bind(&user_id)
-    .bind(group_id)
-    .bind(&vault_id)
-    .bind(&category)
-    .bind(thumbnail_url)
-    .bind("active")
-    .execute(&state.pool)
-    .await
-    .map_err(|e| {
+    // Insert into database via repository
+    let insert = MediaInsert {
+        slug: slug.clone(),
+        media_type: "image".to_string(),
+        video_type: None,
+        title: title.clone(),
+        description: description.clone(),
+        filename: final_filename,
+        original_filename: Some(original_filename),
+        mime_type,
+        file_size,
+        is_public,
+        user_id: Some(user_id.clone()),
+        group_id,
+        vault_id: Some(vault_id),
+        status: "active".to_string(),
+        featured: 0,
+        category,
+        thumbnail_url,
+        allow_download: 1,
+        allow_comments: 1,
+        mature_content: 0,
+    };
+
+    let media_id = state.repo.insert_media_item(&insert).await.map_err(|e| {
         error!("Database error: {}", e);
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({"error": "Failed to save media metadata"})),
         )
-    })?;
-
-    let media_id = result.last_insert_rowid() as i32;
+    })? as i32;
 
     // Add tags if provided
     if let Some(tag_list) = tags {
         for tag in tag_list {
-            let _ = sqlx::query("INSERT INTO media_tags (media_id, tag) VALUES (?, ?)")
-                .bind(media_id)
-                .bind(&tag)
-                .execute(&state.pool)
-                .await;
+            let _ = state.repo.insert_media_tag(media_id, &tag).await;
         }
     }
 
@@ -738,7 +725,7 @@ async fn process_video_upload(
     use std::path::Path;
 
     info!(
-        "🎬 Processing video upload: slug={}, title={}, file={}, size={} bytes, vault={}",
+        "Processing video upload: slug={}, title={}, file={}, size={} bytes, vault={}",
         slug,
         title,
         original_filename,
@@ -821,7 +808,7 @@ async fn process_video_upload(
         })?;
 
     info!(
-        "🎬 Saved video file for user {} vault {}: {}",
+        "Saved video file for user {} vault {}: {}",
         user_id, vault_id, filename
     );
 
@@ -835,54 +822,47 @@ async fn process_video_upload(
     .await
     .ok();
 
-    // Insert into database with video_type = 'mp4'
-    let result = sqlx::query(
-        r#"INSERT INTO media_items
-        (slug, media_type, title, description, filename, original_filename, mime_type, file_size,
-         is_public, user_id, group_id, vault_id, category, status, video_type, thumbnail_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
-    )
-    .bind(&slug)
-    .bind("video")
-    .bind(&title)
-    .bind(&description)
-    .bind("video.mp4")
-    .bind(&original_filename)
-    .bind(&mime_type)
-    .bind(file_size)
-    .bind(is_public)
-    .bind(&user_id)
-    .bind(group_id)
-    .bind(&vault_id)
-    .bind(&category)
-    .bind("active")
-    .bind("mp4") // Set video_type to 'mp4' for direct playback
-    .bind(&thumbnail_url)
-    .execute(&state.pool)
-    .await
-    .map_err(|e| {
+    // Insert into database via repository
+    let insert = MediaInsert {
+        slug: slug.clone(),
+        media_type: "video".to_string(),
+        video_type: Some("mp4".to_string()),
+        title: title.clone(),
+        description: description.clone(),
+        filename: "video.mp4".to_string(),
+        original_filename: Some(original_filename),
+        mime_type: mime_type.to_string(),
+        file_size,
+        is_public,
+        user_id: Some(user_id.clone()),
+        group_id,
+        vault_id: Some(vault_id),
+        status: "active".to_string(),
+        featured: 0,
+        category,
+        thumbnail_url: thumbnail_url.clone(),
+        allow_download: 1,
+        allow_comments: 1,
+        mature_content: 0,
+    };
+
+    let media_id = state.repo.insert_media_item(&insert).await.map_err(|e| {
         error!("Database error: {}", e);
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({"error": "Failed to save video metadata"})),
         )
-    })?;
-
-    let media_id = result.last_insert_rowid() as i32;
+    })? as i32;
 
     // Add tags if provided
     if let Some(tag_list) = tags {
         for tag in tag_list {
-            let _ = sqlx::query("INSERT INTO media_tags (media_id, tag) VALUES (?, ?)")
-                .bind(media_id)
-                .bind(&tag)
-                .execute(&state.pool)
-                .await;
+            let _ = state.repo.insert_media_tag(media_id, &tag).await;
         }
     }
 
     info!(
-        "✅ Video uploaded successfully as MP4: {} (ID: {})",
+        "Video uploaded successfully as MP4: {} (ID: {})",
         slug, media_id
     );
 
@@ -913,7 +893,7 @@ async fn process_video_hls_upload(
     original_filename: String,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     info!(
-        "🎬 Processing HLS video upload: slug={}, title={}, file={}, size={} bytes",
+        "Processing HLS video upload: slug={}, title={}, file={}, size={} bytes",
         slug,
         title,
         original_filename,
@@ -951,29 +931,30 @@ async fn process_video_hls_upload(
     info!("Saved source video to: {:?}", source_video_path);
 
     // Insert initial media_items record with status='processing'
-    let insert_result = sqlx::query(
-        r#"INSERT INTO media_items
-        (slug, media_type, title, description, filename, original_filename, mime_type, file_size,
-         is_public, user_id, group_id, vault_id, status, video_type)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
-    )
-    .bind(&slug)
-    .bind("video")
-    .bind(&title)
-    .bind(&description)
-    .bind(&original_filename)
-    .bind(&original_filename)
-    .bind("video/mp4")
-    .bind(file_size)
-    .bind(is_public)
-    .bind(&user_id)
-    .bind(group_id)
-    .bind(&vault_id)
-    .bind("processing")
-    .bind("hls")
-    .execute(&state.pool)
-    .await
-    .map_err(|e| {
+    let insert = MediaInsert {
+        slug: slug.clone(),
+        media_type: "video".to_string(),
+        video_type: Some("hls".to_string()),
+        title: title.clone(),
+        description: description.clone(),
+        filename: original_filename.clone(),
+        original_filename: Some(original_filename.clone()),
+        mime_type: "video/mp4".to_string(),
+        file_size,
+        is_public,
+        user_id: Some(user_id.clone()),
+        group_id,
+        vault_id: Some(vault_id.clone()),
+        status: "processing".to_string(),
+        featured: 0,
+        category: None,
+        thumbnail_url: None,
+        allow_download: 1,
+        allow_comments: 1,
+        mature_content: 0,
+    };
+
+    let media_id = state.repo.insert_media_item(&insert).await.map_err(|e| {
         error!("Failed to create media_items record: {}", e);
         (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -981,14 +962,12 @@ async fn process_video_hls_upload(
         )
     })?;
 
-    let media_id = insert_result.last_insert_rowid();
-
     // Start progress tracking
     state.hls_progress.start(&slug);
     state.hls_progress.update(&slug, "Uploading".to_string(), 10);
 
     // Clone data for background task
-    let pool = state.pool.clone();
+    let repo = state.repo.clone();
     let video_dir_clone = video_dir.clone();
     let slug_clone = slug.clone();
     let source_path_clone = source_video_path.clone();
@@ -1012,7 +991,7 @@ async fn process_video_hls_upload(
         // Run FFmpeg to create HLS playlist
         match transcode_to_hls(&source_path_clone, &video_dir_clone).await {
             Ok(_) => {
-                info!("✅ HLS transcoding complete for: {}", slug_clone);
+                info!("HLS transcoding complete for: {}", slug_clone);
 
                 // Stage 4: Generate thumbnail (85%)
                 progress_tracker.update(&slug_clone, "Generating thumbnail".to_string(), 85);
@@ -1027,19 +1006,15 @@ async fn process_video_hls_upload(
                 };
 
                 // Update media_items to mark as complete
-                let update_result = sqlx::query(
-                    r#"UPDATE media_items
-                       SET status = 'active', thumbnail_url = ?
-                       WHERE slug = ? AND media_type = 'video'"#,
-                )
-                .bind(&thumbnail_url)
-                .bind(&slug_clone)
-                .execute(&pool)
-                .await;
+                let update_result = repo.update_media_status_active(
+                    &slug_clone,
+                    "video",
+                    thumbnail_url.as_deref(),
+                ).await;
 
                 match update_result {
                     Ok(_) => {
-                        info!("✅ Video {} marked as active", slug_clone);
+                        info!("Video {} marked as active", slug_clone);
                         // Mark progress as complete (100%)
                         progress_tracker.complete(&slug_clone);
                     }
@@ -1050,25 +1025,18 @@ async fn process_video_hls_upload(
                 }
             }
             Err(e) => {
-                error!("❌ HLS transcoding failed for {}: {}", slug_clone, e);
+                error!("HLS transcoding failed for {}: {}", slug_clone, e);
 
                 // Mark progress as failed
                 progress_tracker.fail(&slug_clone, e.clone());
 
                 // Update media_items to mark as error
-                let _ = sqlx::query(
-                    r#"UPDATE media_items
-                       SET status = 'error'
-                       WHERE slug = ? AND media_type = 'video'"#,
-                )
-                .bind(&slug_clone)
-                .execute(&pool)
-                .await;
+                let _ = repo.update_media_status_error(&slug_clone, "video").await;
             }
         }
     });
 
-    info!("✅ Video upload accepted for HLS processing: {}", slug);
+    info!("Video upload accepted for HLS processing: {}", slug);
 
     // Return 202 ACCEPTED with job tracking info
     Ok(Json(serde_json::json!({
@@ -1126,7 +1094,7 @@ async fn transcode_to_hls(
     .await
     .map_err(|e| format!("HLS transcoding failed: {}", e))?;
 
-    info!("✅ HLS transcoding successful: {} quality levels created: {:?}", qualities.len(), qualities);
+    info!("HLS transcoding successful: {} quality levels created: {:?}", qualities.len(), qualities);
     Ok(())
 }
 
@@ -1178,7 +1146,7 @@ async fn generate_hls_thumbnail(
                 let _ = tokio::fs::write(&final_thumb_path, &webp_data).await;
                 let _ = tokio::fs::remove_file(&temp_thumbnail_path).await;
 
-                info!("✅ HLS thumbnail saved to centralized location: {:?}", final_thumb_path);
+                info!("HLS thumbnail saved to centralized location: {:?}", final_thumb_path);
                 return Ok(format!("/media/{}/thumbnail", slug));
             }
         }
@@ -1285,7 +1253,7 @@ async fn process_document_upload(
     use std::path::Path;
 
     info!(
-        "📄 Processing document upload: slug={}, title={}, file={}, size={} bytes, vault={}",
+        "Processing document upload: slug={}, title={}, file={}, size={} bytes, vault={}",
         slug,
         title,
         original_filename,
@@ -1367,16 +1335,17 @@ async fn process_document_upload(
         })?;
 
     info!(
-        "📄 Saved document file for user {} vault {}: {}",
+        "Saved document file for user {} vault {}: {}",
         user_id, vault_id, filename
     );
 
-    // Create media item DTO
-    let media_item = MediaItemCreateDTO {
-        slug: Some(slug.clone()),
-        media_type: MediaType::Document,
+    // Insert into database via repository
+    let insert = MediaInsert {
+        slug: slug.clone(),
+        media_type: "document".to_string(),
+        video_type: None,
         title: title.clone(),
-        description,
+        description: description.clone(),
         filename: filename.clone(),
         original_filename: Some(original_filename),
         mime_type: mime_type.to_string(),
@@ -1385,68 +1354,27 @@ async fn process_document_upload(
         user_id: Some(user_id.clone()),
         group_id,
         vault_id: Some(vault_id.clone()),
-        status: Some("active".to_string()),
-        featured: Some(0),
+        status: "active".to_string(),
+        featured: 0,
         category,
         thumbnail_url: None, // No thumbnail for documents
-        allow_download: Some(1),
-        allow_comments: Some(1),
-        mature_content: Some(0),
-        seo_title: None,
-        seo_description: None,
-        seo_keywords: None,
-        tags,
+        allow_download: 1,
+        allow_comments: 1,
+        mature_content: 0,
     };
 
-    // Insert into database
-    let media_type_str = media_item.media_type.to_string();
-    let result = sqlx::query(
-        r#"INSERT INTO media_items (
-            slug, media_type, title, description, filename, original_filename, mime_type, file_size,
-            is_public, user_id, group_id, vault_id, status, featured, category,
-            allow_download, allow_comments, mature_content
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
-    )
-    .bind(&media_item.slug)
-    .bind(&media_type_str)
-    .bind(&media_item.title)
-    .bind(&media_item.description)
-    .bind(&media_item.filename)
-    .bind(&media_item.original_filename)
-    .bind(&media_item.mime_type)
-    .bind(media_item.file_size)
-    .bind(media_item.is_public)
-    .bind(&media_item.user_id)
-    .bind(media_item.group_id)
-    .bind(&media_item.vault_id)
-    .bind(&media_item.status)
-    .bind(media_item.featured)
-    .bind(&media_item.category)
-    .bind(media_item.allow_download)
-    .bind(media_item.allow_comments)
-    .bind(media_item.mature_content)
-    .execute(&state.pool)
-    .await
-    .map_err(|e| {
+    let media_id = state.repo.insert_media_item(&insert).await.map_err(|e| {
         error!("Database error inserting document: {}", e);
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({"error": "Failed to save to database"})),
         )
-    })?;
-
-    let media_id = result.last_insert_rowid() as i32;
+    })? as i32;
 
     // Add tags if provided
-    if let Some(tag_list) = media_item.tags {
+    if let Some(tag_list) = tags {
         for tag in tag_list {
-            let _ = sqlx::query!(
-                "INSERT INTO media_tags (media_id, tag) VALUES (?, ?)",
-                media_id,
-                tag
-            )
-            .execute(&state.pool)
-            .await;
+            let _ = state.repo.insert_media_tag(media_id, &tag).await;
         }
     }
 
@@ -1457,7 +1385,7 @@ async fn process_document_upload(
             slug: slug.clone(),
             vault_id: vault_id.clone(),
             pdf_path: document_path.clone(),
-            pool: state.pool.clone(),
+            repo: state.repo.clone(),
             user_storage: state.user_storage.clone(),
         };
 
@@ -1465,7 +1393,7 @@ async fn process_document_upload(
     }
 
     info!(
-        "✅ Document uploaded successfully: {} (ID: {})",
+        "Document uploaded successfully: {} (ID: {})",
         slug, media_id
     );
 
@@ -1488,14 +1416,8 @@ pub async fn get_upload_progress(
     axum::extract::Path(slug): axum::extract::Path<String>,
     State(state): State<MediaManagerState>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    // Query media_items for current status
-    let row = sqlx::query(
-        "SELECT id, status, media_type, video_type FROM media_items WHERE slug = ?"
-    )
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|e| {
+    // Query media_items for current status via repository
+    let row = state.repo.get_media_status(&slug).await.map_err(|e| {
         error!("Database error: {}", e);
         (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -1505,10 +1427,9 @@ pub async fn get_upload_progress(
 
     match row {
         Some(r) => {
-            use sqlx::Row;
-            let status: String = r.try_get("status").unwrap_or_else(|_| "unknown".to_string());
-            let video_type: Option<String> = r.try_get("video_type").ok();
-            let media_type: String = r.try_get("media_type").unwrap_or_else(|_| "unknown".to_string());
+            let status = r.status;
+            let video_type = r.video_type;
+            let media_type = r.media_type;
 
             // Only track progress for videos
             if media_type != "video" {
@@ -1642,8 +1563,8 @@ async fn handle_progress_socket(
                         break;
                     }
                 } else {
-                    // No progress found - check database status
-                    let status = get_video_status(&state.pool, &slug).await;
+                    // No progress found - check database status via repository
+                    let status = get_video_status_json(&state.repo, &slug).await;
 
                     if let Some(status_msg) = status {
                         let _ = sender.send(Message::Text(status_msg.clone().into())).await;
@@ -1675,26 +1596,15 @@ async fn handle_progress_socket(
     info!("WebSocket connection closed for: {}", slug);
 }
 
-/// Helper to get video status from database
-async fn get_video_status(pool: &sqlx::SqlitePool, slug: &str) -> Option<String> {
-    let row = sqlx::query(
-        "SELECT status, video_type FROM media_items WHERE slug = ? AND media_type = 'video'"
-    )
-    .bind(slug)
-    .fetch_optional(pool)
-    .await
-    .ok()?
-    .map(|r| {
-        use sqlx::Row;
-        let status: String = r.try_get("status").unwrap_or_else(|_| "unknown".to_string());
-        let video_type: Option<String> = r.try_get("video_type").ok();
+/// Helper to get video status from database via repository
+async fn get_video_status_json(repo: &Arc<dyn MediaRepository>, slug: &str) -> Option<String> {
+    let result = repo.get_video_status(slug).await.ok()?;
+    result.map(|(status, video_type)| {
         serde_json::json!({
             "slug": slug,
             "status": status,
             "video_type": video_type,
             "percent": if status == "active" { 100 } else { 0 }
         }).to_string()
-    });
-
-    row
+    })
 }

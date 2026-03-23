@@ -86,6 +86,8 @@ pub struct UploadState {
     pub progress_tracker: ProgressTracker,
     pub metrics_store: crate::metrics::MetricsStore,
     pub audit_logger: crate::metrics::AuditLogger,
+    pub media_repo: Arc<dyn db::media::MediaRepository>,
+    pub vault_repo: Arc<dyn db::vaults::VaultRepository>,
 }
 
 impl UploadState {
@@ -97,6 +99,8 @@ impl UploadState {
         progress_tracker: ProgressTracker,
         metrics_store: crate::metrics::MetricsStore,
         audit_logger: crate::metrics::AuditLogger,
+        media_repo: Arc<dyn db::media::MediaRepository>,
+        vault_repo: Arc<dyn db::vaults::VaultRepository>,
     ) -> Self {
         Self {
             pool,
@@ -106,6 +110,8 @@ impl UploadState {
             progress_tracker,
             metrics_store,
             audit_logger,
+            media_repo,
+            vault_repo,
         }
     }
 }
@@ -228,6 +234,7 @@ pub async fn handle_video_upload_v2(
         &user_id,
         &upload_request,
         &state.storage_config.user_storage,
+        state.vault_repo.as_ref(),
     )
     .await
     {
@@ -267,6 +274,7 @@ pub async fn handle_video_upload_v2(
         metrics_store: state.metrics_store.clone(),
         audit_logger: state.audit_logger.clone(),
         user_id: Some(user_id.clone()),
+        media_repo: state.media_repo.clone(),
     };
 
     // Spawn processing in background
@@ -516,6 +524,7 @@ async fn create_upload_record_v2(
     user_id: &str,
     request: &VideoUploadRequest,
     storage: &common::storage::UserStorageManager,
+    vault_repo: &dyn db::vaults::VaultRepository,
 ) -> Result<String> {
     let is_public = if request.metadata.is_public { 1 } else { 0 };
     let allow_comments = if request.metadata.allow_comments {
@@ -536,7 +545,7 @@ async fn create_upload_record_v2(
 
     // Get or create default vault for user
     let vault_id =
-        common::services::vault_service::get_or_create_default_vault(pool, storage, user_id)
+        common::services::vault_service::get_or_create_default_vault(vault_repo, storage, user_id)
             .await
             .context("Failed to get or create vault")?;
 

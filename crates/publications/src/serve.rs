@@ -10,9 +10,8 @@ use askama::Template;
 use serde::Deserialize;
 use std::sync::Arc;
 
-use sqlx::SqlitePool;
+use db::publications::{Publication, PublicationRepository};
 
-use crate::db::{self, Publication};
 use crate::PublicationsState;
 
 #[derive(Deserialize)]
@@ -28,14 +27,14 @@ pub async fn serve_publication(
     Query(query): Query<PubQuery>,
     State(state): State<Arc<PublicationsState>>,
 ) -> Response {
-    let pub_record = match db::get_by_slug(&state.pool, &slug).await {
+    let pub_record = match state.repo.get_by_slug(&slug).await {
         Ok(Some(p)) => p,
         Ok(None) => return StatusCode::NOT_FOUND.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
 
     // Access gate (async — checks bundle parents for "bundled" publications)
-    if let Err(resp) = check_access(&state.pool, &pub_record, query.code.as_deref(), &slug).await {
+    if let Err(resp) = check_access(state.repo.as_ref(), &pub_record, query.code.as_deref(), &slug).await {
         return resp;
     }
 
@@ -54,13 +53,13 @@ pub async fn serve_publication_file(
     Query(query): Query<PubQuery>,
     State(state): State<Arc<PublicationsState>>,
 ) -> Response {
-    let pub_record = match db::get_by_slug(&state.pool, &slug).await {
+    let pub_record = match state.repo.get_by_slug(&slug).await {
         Ok(Some(p)) => p,
         Ok(None) => return StatusCode::NOT_FOUND.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
 
-    if let Err(resp) = check_access(&state.pool, &pub_record, query.code.as_deref(), &slug).await {
+    if let Err(resp) = check_access(state.repo.as_ref(), &pub_record, query.code.as_deref(), &slug).await {
         return resp;
     }
 
@@ -81,7 +80,7 @@ pub async fn serve_publication_thumbnail(
     Path(slug): Path<String>,
     State(state): State<Arc<PublicationsState>>,
 ) -> Response {
-    let pub_record = match db::get_by_slug(&state.pool, &slug).await {
+    let pub_record = match state.repo.get_by_slug(&slug).await {
         Ok(Some(p)) => p,
         Ok(None) => return StatusCode::NOT_FOUND.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
@@ -119,7 +118,12 @@ pub async fn serve_publication_thumbnail(
 /// - `code`    — requires the publication's own access code
 /// - `bundled` — only accessible via a parent publication's access code
 /// - `private` — owner only (returns 403)
-async fn check_access(pool: &SqlitePool, pub_record: &Publication, code: Option<&str>, slug: &str) -> Result<(), Response> {
+async fn check_access(
+    repo: &dyn PublicationRepository,
+    pub_record: &Publication,
+    code: Option<&str>,
+    slug: &str,
+) -> Result<(), Response> {
     match pub_record.access.as_str() {
         "public" => Ok(()),
         "code" => {
@@ -130,7 +134,7 @@ async fn check_access(pool: &SqlitePool, pub_record: &Publication, code: Option<
             } else {
                 // Also check if a parent bundle's code was provided
                 if !provided.is_empty() {
-                    if let Ok(true) = db::check_parent_code(pool, pub_record.id, provided).await {
+                    if let Ok(true) = repo.check_parent_code(pub_record.id, provided).await {
                         return Ok(());
                     }
                 }
@@ -143,7 +147,7 @@ async fn check_access(pool: &SqlitePool, pub_record: &Publication, code: Option<
             // Only accessible via a parent's access code
             if let Some(provided) = code {
                 if !provided.is_empty() {
-                    if let Ok(true) = db::check_parent_code(pool, pub_record.id, provided).await {
+                    if let Ok(true) = repo.check_parent_code(pub_record.id, provided).await {
                         return Ok(());
                     }
                 }
@@ -198,7 +202,6 @@ async fn serve_course(
 
     let base_url = format!("/pub/{}", pub_record.slug);
     match course::render_public_course(
-        &state.pool,
         &state.user_storage,
         workspace_id,
         folder_path,
@@ -227,7 +230,6 @@ async fn serve_presentation(
     let access_code = pub_record.access_code.as_deref().unwrap_or("");
 
     match course::render_public_presentation(
-        &state.pool,
         &state.user_storage,
         workspace_id,
         folder_path,

@@ -182,6 +182,7 @@ mod tests {
     use super::*;
     use common::ResourceType;
     use sqlx::SqlitePool;
+    use std::sync::Arc;
 
     async fn setup_test_db() -> SqlitePool {
         let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
@@ -220,7 +221,7 @@ mod tests {
     #[tokio::test]
     async fn test_group_editor_can_edit() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = GroupLayer::new(&repo);
 
         // Create video in group 5
@@ -259,7 +260,7 @@ mod tests {
     #[tokio::test]
     async fn test_group_viewer_cannot_edit() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = GroupLayer::new(&repo);
 
         sqlx::query(
@@ -300,7 +301,7 @@ mod tests {
     #[tokio::test]
     async fn test_non_member_denied() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = GroupLayer::new(&repo);
 
         sqlx::query(
@@ -325,7 +326,7 @@ mod tests {
     #[tokio::test]
     async fn test_resource_not_in_group() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = GroupLayer::new(&repo);
 
         // Video not in any group
@@ -353,7 +354,7 @@ mod tests {
     #[tokio::test]
     async fn test_group_admin_has_admin_permission() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = GroupLayer::new(&repo);
 
         sqlx::query(

@@ -5,11 +5,14 @@ pub mod routes;
 pub mod server;
 
 use common::storage::UserStorageManager;
-use sqlx::SqlitePool;
+use db::federation::FederationRepository;
+use db::media::MediaRepository;
+use std::sync::Arc;
 
 /// Shared state for federation handlers
 pub struct FederationState {
-    pub pool: SqlitePool,
+    pub repo: Arc<dyn FederationRepository>,
+    pub media_repo: Arc<dyn MediaRepository>,
     pub storage: UserStorageManager,
     pub storage_dir: String,
     pub server_id: String,
@@ -24,7 +27,7 @@ pub use routes::{federation_consumer_routes, federation_server_routes};
 /// Spawn the background sync task that periodically pulls catalogs from all peers.
 /// Runs every `interval_minutes` minutes.
 pub fn spawn_sync_task(
-    pool: SqlitePool,
+    repo: Arc<dyn FederationRepository>,
     storage_dir: String,
     interval_minutes: u64,
     max_items_per_peer: i32,
@@ -38,17 +41,9 @@ pub fn spawn_sync_task(
             interval.tick().await;
             tracing::info!("Federation: starting periodic catalog sync");
 
-            let peers = sqlx::query_as::<_, models::FederationPeer>(
-                "SELECT * FROM federation_peers WHERE status != 'disabled'"
-            )
-            .fetch_all(&pool)
-            .await
-            .unwrap_or_default();
+            let peers = repo.list_active_peers().await.unwrap_or_default();
 
-            let now: String = sqlx::query_scalar("SELECT datetime('now')")
-                .fetch_one(&pool)
-                .await
-                .unwrap_or_default();
+            let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
             for peer in &peers {
                 // Skip peers in backoff — next_retry_at is in the future
@@ -62,16 +57,11 @@ pub fn spawn_sync_task(
                     }
                 }
 
-                match cache::sync_peer_catalog(&pool, peer, &storage_dir, max_items_per_peer).await {
+                match cache::sync_peer_catalog(repo.as_ref(), peer, &storage_dir, max_items_per_peer).await {
                     Ok(count) => {
                         tracing::info!("Federation: synced {} items from '{}'", count, peer.display_name);
                         // Reset failure counter on success
-                        let _ = sqlx::query(
-                            "UPDATE federation_peers SET consecutive_failures = 0, next_retry_at = NULL WHERE id = ?1"
-                        )
-                        .bind(peer.id)
-                        .execute(&pool)
-                        .await;
+                        let _ = repo.reset_peer_backoff(peer.id).await;
                     }
                     Err(e) => {
                         let failures = peer.consecutive_failures + 1;
@@ -84,17 +74,7 @@ pub fn spawn_sync_task(
                             peer.display_name, failures, backoff_minutes, e
                         );
 
-                        let _ = sqlx::query(
-                            "UPDATE federation_peers SET \
-                             status = 'error', \
-                             consecutive_failures = ?1, \
-                             next_retry_at = datetime('now', '+' || ?2 || ' minutes') \
-                             WHERE id = ?3"
-                        )
-                        .bind(failures)
-                        .bind(backoff_minutes)
-                        .execute(&pool)
-                        .await;
+                        let _ = repo.update_peer_sync_failure(peer.id, failures, backoff_minutes as i32).await;
                     }
                 }
             }

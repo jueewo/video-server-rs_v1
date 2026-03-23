@@ -31,8 +31,8 @@ use axum::{
     routing::{get, post, put},
     Json, Router,
 };
+use ::db::agents::AgentRepository;
 use serde::Deserialize;
-use sqlx::SqlitePool;
 use std::sync::Arc;
 use tower_sessions::Session;
 
@@ -46,7 +46,8 @@ use models::{
 
 #[derive(Clone)]
 pub struct AgentRegistryState {
-    pub pool: SqlitePool,
+    pub repo: Arc<dyn AgentRepository>,
+    pub llm_repo: Arc<dyn ::db::llm_providers::LlmProviderRepository>,
 }
 
 // ============================================================================
@@ -142,7 +143,7 @@ async fn agents_page_handler(
 ) -> Result<Html<String>, Response> {
     let user_id = require_auth(&session).await.map_err(|s| s.into_response())?;
 
-    let agents = db::list_user_agents(&state.pool, &user_id)
+    let agents = state.repo.list_user_agents(&user_id)
         .await
         .map_err(|e| {
             tracing::error!("Failed to list agents: {e}");
@@ -156,17 +157,11 @@ async fn agents_page_handler(
         .unwrap_or_else(|_| "[]".into());
 
     // Fetch available models from user's configured LLM providers
-    let model_rows: Vec<(String, String)> = sqlx::query_as(
-        "SELECT name, default_model FROM user_llm_providers WHERE user_id = ? ORDER BY is_default DESC, name"
-    )
-    .bind(&user_id)
-    .fetch_all(&state.pool)
-    .await
-    .unwrap_or_default();
+    let providers = state.llm_repo.list_providers(&user_id).await.unwrap_or_default();
 
-    let models: Vec<serde_json::Value> = model_rows
+    let models: Vec<serde_json::Value> = providers
         .into_iter()
-        .map(|(name, model)| serde_json::json!({ "provider": name, "model": model }))
+        .map(|p| serde_json::json!({ "provider": p.name, "model": p.default_model }))
         .collect();
     let models_json = serde_json::to_string(&models).unwrap_or_else(|_| "[]".into());
 
@@ -195,7 +190,7 @@ async fn agent_detail_page_handler(
 ) -> Result<Html<String>, Response> {
     let user_id = require_auth(&session).await.map_err(|s| s.into_response())?;
 
-    let agent = db::get_agent(&state.pool, id)
+    let agent = state.repo.get_agent(id)
         .await
         .map_err(|e| {
             tracing::error!("Failed to get agent: {e}");
@@ -242,7 +237,7 @@ async fn list_agents_handler(
     State(state): State<Arc<AgentRegistryState>>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let user_id = require_auth(&session).await?;
-    let agents = db::list_user_agents(&state.pool, &user_id)
+    let agents = state.repo.list_user_agents(&user_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -255,14 +250,14 @@ async fn create_agent_handler(
     Json(req): Json<CreateAgentRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let user_id = require_auth(&session).await?;
-    let id = db::insert_agent(&state.pool, &user_id, &req)
+    let id = state.repo.insert_agent(&user_id, &req)
         .await
         .map_err(|e| {
             tracing::error!("Failed to create agent: {e}");
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    let agent = db::get_agent(&state.pool, id)
+    let agent = state.repo.get_agent(id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -276,7 +271,7 @@ async fn get_agent_handler(
     Path(id): Path<i64>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let user_id = require_auth(&session).await?;
-    let agent = db::get_agent(&state.pool, id)
+    let agent = state.repo.get_agent(id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::NOT_FOUND)?;
@@ -295,7 +290,7 @@ async fn update_agent_handler(
     Json(req): Json<UpdateAgentRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let user_id = require_auth(&session).await?;
-    let updated = db::update_agent(&state.pool, id, &user_id, &req)
+    let updated = state.repo.update_agent(id, &user_id, &req)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -303,7 +298,7 @@ async fn update_agent_handler(
         return Err(StatusCode::NOT_FOUND);
     }
 
-    let agent = db::get_agent(&state.pool, id)
+    let agent = state.repo.get_agent(id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -317,7 +312,7 @@ async fn delete_agent_handler(
     Path(id): Path<i64>,
 ) -> Result<StatusCode, StatusCode> {
     let user_id = require_auth(&session).await?;
-    let deleted = db::delete_agent(&state.pool, id, &user_id)
+    let deleted = state.repo.delete_agent(id, &user_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -341,7 +336,7 @@ async fn set_supervisor_handler(
     let user_id = require_auth(&session).await?;
 
     // Verify both agents belong to user
-    let agent = db::get_agent(&state.pool, id)
+    let agent = state.repo.get_agent(id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::NOT_FOUND)?;
@@ -349,7 +344,7 @@ async fn set_supervisor_handler(
         return Err(StatusCode::FORBIDDEN);
     }
 
-    let supervisor = db::get_agent(&state.pool, req.supervisor_id)
+    let supervisor = state.repo.get_agent(req.supervisor_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::NOT_FOUND)?;
@@ -358,7 +353,7 @@ async fn set_supervisor_handler(
     }
 
     // Check for cycles
-    let would_cycle = db::would_create_cycle(&state.pool, id, req.supervisor_id)
+    let would_cycle = state.repo.would_create_cycle(id, req.supervisor_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     if would_cycle {
@@ -367,7 +362,7 @@ async fn set_supervisor_handler(
         })));
     }
 
-    db::set_supervisor(&state.pool, id, Some(req.supervisor_id), &user_id)
+    state.repo.set_supervisor(id, Some(req.supervisor_id), &user_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -381,7 +376,7 @@ async fn remove_supervisor_handler(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let user_id = require_auth(&session).await?;
 
-    db::set_supervisor(&state.pool, id, None, &user_id)
+    state.repo.set_supervisor(id, None, &user_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -395,7 +390,7 @@ async fn list_subordinates_handler(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let _user_id = require_auth(&session).await?;
 
-    let subs = db::get_subordinates(&state.pool, id)
+    let subs = state.repo.get_subordinates(id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -408,7 +403,7 @@ async fn agent_tree_handler(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let user_id = require_auth(&session).await?;
 
-    let agents = db::list_user_agents(&state.pool, &user_id)
+    let agents = state.repo.list_user_agents(&user_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -423,7 +418,6 @@ async fn agent_tree_handler(
 
 #[derive(Deserialize)]
 struct ImportRequest {
-    /// The agent definition fields (from file-based format)
     #[serde(flatten)]
     agent: CreateAgentRequest,
 }
@@ -435,14 +429,14 @@ async fn import_agent_handler(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let user_id = require_auth(&session).await?;
 
-    let id = db::upsert_agent(&state.pool, &user_id, &req.agent)
+    let id = state.repo.upsert_agent(&user_id, &req.agent)
         .await
         .map_err(|e| {
             tracing::error!("Failed to import agent: {e}");
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    let agent = db::get_agent(&state.pool, id)
+    let agent = state.repo.get_agent(id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -461,7 +455,7 @@ async fn list_workspace_agents_handler(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let _user_id = require_auth(&session).await?;
 
-    let items = db::get_workspace_agents(&state.pool, &workspace_id)
+    let items = state.repo.get_workspace_agents(&workspace_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -487,7 +481,7 @@ async fn assign_agent_handler(
     let user_id = require_auth(&session).await?;
 
     // Verify agent belongs to user
-    let agent = db::get_agent(&state.pool, agent_id)
+    let agent = state.repo.get_agent(agent_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::NOT_FOUND)?;
@@ -495,7 +489,7 @@ async fn assign_agent_handler(
         return Err(StatusCode::FORBIDDEN);
     }
 
-    db::assign_to_workspace(&state.pool, &workspace_id, agent_id, &req.overrides)
+    state.repo.assign_to_workspace(&workspace_id, agent_id, &req.overrides)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -509,7 +503,7 @@ async fn unassign_agent_handler(
 ) -> Result<StatusCode, StatusCode> {
     let _user_id = require_auth(&session).await?;
 
-    let removed = db::remove_from_workspace(&state.pool, &workspace_id, agent_id)
+    let removed = state.repo.remove_from_workspace(&workspace_id, agent_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 

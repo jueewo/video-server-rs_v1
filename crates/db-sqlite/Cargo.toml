@@ -1,0 +1,11 @@
+[package]
+name = "db-sqlite"
+version = "0.1.0"
+edition = "2021"
+description = "SQLite implementations of the db domain traits"
+
+[dependencies]
+db          = { path = "../db" }
+async-trait = { workspace = true }
+sqlx        = { workspace = true }
+serde_json  = { workspace = true }

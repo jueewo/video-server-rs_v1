@@ -10,12 +10,13 @@
 //!   - Docker: See Dockerfile for installation
 
 use anyhow::{Context, Result};
-use sqlx::SqlitePool;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::process::Command;
 use tracing::{error, info, warn};
 
 use ::common::storage::UserStorageManager;
+use db::media::MediaRepository;
 
 /// Context for PDF thumbnail generation
 #[derive(Clone)]
@@ -24,7 +25,7 @@ pub struct PdfThumbnailContext {
     pub slug: String,
     pub vault_id: String,
     pub pdf_path: PathBuf,
-    pub pool: SqlitePool,
+    pub repo: Arc<dyn MediaRepository>,
     pub user_storage: UserStorageManager,
 }
 
@@ -157,15 +158,14 @@ pub async fn generate_pdf_thumbnail(context: PdfThumbnailContext) -> Result<()> 
 
     // Update database with thumbnail URL
     let thumbnail_url = format!("/media/{}/thumbnail", context.slug);
-    sqlx::query("UPDATE media_items SET thumbnail_url = ? WHERE id = ?")
-        .bind(&thumbnail_url)
-        .bind(context.media_id)
-        .execute(&context.pool)
+    context
+        .repo
+        .update_media_thumbnail(context.media_id, &thumbnail_url)
         .await
         .context("Failed to update database with thumbnail URL")?;
 
     info!(
-        "✅ PDF thumbnail generated successfully for slug: {}",
+        "PDF thumbnail generated successfully for slug: {}",
         context.slug
     );
 
@@ -180,15 +180,15 @@ pub fn spawn_thumbnail_generation(context: PdfThumbnailContext) {
     let slug = context.slug.clone();
 
     tokio::spawn(async move {
-        info!("🖼️  Starting PDF thumbnail generation for: {}", slug);
+        info!("Starting PDF thumbnail generation for: {}", slug);
 
         match generate_pdf_thumbnail(context).await {
             Ok(_) => {
-                info!("✅ PDF thumbnail generation completed for: {}", slug);
+                info!("PDF thumbnail generation completed for: {}", slug);
             }
             Err(e) => {
                 error!(
-                    "❌ PDF thumbnail generation failed for {} (non-fatal): {:?}",
+                    "PDF thumbnail generation failed for {} (non-fatal): {:?}",
                     slug, e
                 );
             }

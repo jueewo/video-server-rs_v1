@@ -7,8 +7,8 @@ use axum::{
     Router,
 };
 use common::storage::{generate_vault_id, UserStorageManager};
+use db::vaults::{InsertVaultRequest, VaultRepository};
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
 use std::sync::Arc;
 use time::OffsetDateTime;
 use tower_sessions::Session;
@@ -16,16 +16,13 @@ use tracing::{info, warn};
 
 #[derive(Clone)]
 pub struct VaultManagerState {
-    pub pool: SqlitePool,
+    pub repo: Arc<dyn VaultRepository>,
     pub storage: Arc<UserStorageManager>,
 }
 
 impl VaultManagerState {
-    pub fn new(pool: SqlitePool, storage: Arc<UserStorageManager>) -> Self {
-        Self {
-            pool,
-            storage,
-        }
+    pub fn new(repo: Arc<dyn VaultRepository>, storage: Arc<UserStorageManager>) -> Self {
+        Self { repo, storage }
     }
 }
 
@@ -169,42 +166,42 @@ pub async fn create_vault(
     };
 
     // Check if vault_id already exists
-    let existing: Option<i32> = sqlx::query_scalar(
-        "SELECT 1 FROM storage_vaults WHERE vault_id = ?"
-    )
-    .bind(&vault_code)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let exists = state
+        .repo
+        .vault_id_exists(&vault_code)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    if existing.is_some() {
+    if exists {
         warn!("Vault code already exists: {}", vault_code);
         return Err(StatusCode::CONFLICT);
     }
 
     // Check if this is the user's first vault (make it default)
-    let vault_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM storage_vaults WHERE user_id = ?"
-    )
-    .bind(&user_id)
-    .fetch_one(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let vault_count = state
+        .repo
+        .count_user_vaults(&user_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let is_default = vault_count == 0;
 
+    let created_at = OffsetDateTime::now_utc()
+        .format(&time::format_description::well_known::Iso8601::DEFAULT)
+        .unwrap();
+
     // Insert vault into database
-    sqlx::query(
-        "INSERT INTO storage_vaults (vault_id, user_id, vault_name, is_default, created_at) VALUES (?, ?, ?, ?, ?)"
-    )
-    .bind(&vault_code)
-    .bind(&user_id)
-    .bind(&request.name)
-    .bind(if is_default { 1 } else { 0 })
-    .bind(OffsetDateTime::now_utc().format(&time::format_description::well_known::Iso8601::DEFAULT).unwrap())
-    .execute(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    state
+        .repo
+        .insert_vault(&InsertVaultRequest {
+            vault_id: &vault_code,
+            user_id: &user_id,
+            vault_name: &request.name,
+            is_default,
+            created_at: &created_at,
+        })
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Create vault directories on filesystem
     state
@@ -225,7 +222,7 @@ pub async fn create_vault(
         vault_code: Some(vault_code),
         name: request.name,
         is_default,
-        created_at: OffsetDateTime::now_utc().to_string(),
+        created_at,
         media_count: 0,
     }))
 }
@@ -256,42 +253,29 @@ pub async fn list_vaults(
         .flatten()
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // Get vaults with media count
-    let vaults: Vec<(String, String, i32, String)> = sqlx::query_as(
-        r#"
-        SELECT
-            v.vault_id,
-            v.vault_name,
-            v.is_default,
-            v.created_at
-        FROM storage_vaults v
-        WHERE v.user_id = ?
-        ORDER BY v.is_default DESC, v.created_at ASC
-        "#
-    )
-    .bind(&user_id)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    // Get vaults
+    let vaults = state
+        .repo
+        .list_user_vaults(&user_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let mut vault_responses = Vec::new();
 
-    for (vault_id, name, is_default, created_at) in vaults {
+    for vault in vaults {
         // Count media in this vault
-        let media_count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM media_items WHERE vault_id = ?"
-        )
-        .bind(&vault_id)
-        .fetch_one(&state.pool)
-        .await
-        .unwrap_or(0);
+        let media_count = state
+            .repo
+            .count_vault_media(&vault.vault_id)
+            .await
+            .unwrap_or(0);
 
         vault_responses.push(VaultResponse {
-            vault_id: vault_id.clone(),
-            vault_code: Some(vault_id),
-            name,
-            is_default: is_default == 1,
-            created_at,
+            vault_id: vault.vault_id.clone(),
+            vault_code: Some(vault.vault_id),
+            name: vault.vault_name,
+            is_default: vault.is_default,
+            created_at: vault.created_at,
             media_count,
         });
     }
@@ -330,13 +314,11 @@ pub async fn update_vault(
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Verify ownership
-    let owner: Option<String> = sqlx::query_scalar(
-        "SELECT user_id FROM storage_vaults WHERE vault_id = ?"
-    )
-    .bind(&vault_id)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let owner = state
+        .repo
+        .get_vault_owner(&vault_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     if owner.as_ref() != Some(&user_id) {
         return Err(StatusCode::FORBIDDEN);
@@ -348,11 +330,9 @@ pub async fn update_vault(
             return Err(StatusCode::BAD_REQUEST);
         }
 
-        sqlx::query("UPDATE storage_vaults SET vault_name = ?, updated_at = ? WHERE vault_id = ?")
-            .bind(&name)
-            .bind(OffsetDateTime::now_utc().format(&time::format_description::well_known::Iso8601::DEFAULT).unwrap())
-            .bind(&vault_id)
-            .execute(&state.pool)
+        state
+            .repo
+            .update_vault_name(&vault_id, &name)
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -390,37 +370,22 @@ pub async fn set_default_vault(
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Verify ownership
-    let owner: Option<String> = sqlx::query_scalar(
-        "SELECT user_id FROM storage_vaults WHERE vault_id = ?"
-    )
-    .bind(&vault_id)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let owner = state
+        .repo
+        .get_vault_owner(&vault_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     if owner.as_ref() != Some(&user_id) {
         return Err(StatusCode::FORBIDDEN);
     }
 
-    // Start transaction
-    let mut tx = state.pool.begin().await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    // Unset all default vaults for this user
-    sqlx::query("UPDATE storage_vaults SET is_default = 0 WHERE user_id = ?")
-        .bind(&user_id)
-        .execute(&mut *tx)
+    // Set default (handles transaction internally)
+    state
+        .repo
+        .set_default_vault(&user_id, &vault_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    // Set this vault as default
-    sqlx::query("UPDATE storage_vaults SET is_default = 1, updated_at = ? WHERE vault_id = ?")
-        .bind(OffsetDateTime::now_utc().format(&time::format_description::well_known::Iso8601::DEFAULT).unwrap())
-        .bind(&vault_id)
-        .execute(&mut *tx)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    tx.commit().await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     info!("Set vault {} as default for user {}", vault_id, user_id);
 
@@ -455,26 +420,22 @@ pub async fn delete_vault(
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Verify ownership
-    let owner: Option<String> = sqlx::query_scalar(
-        "SELECT user_id FROM storage_vaults WHERE vault_id = ?"
-    )
-    .bind(&vault_id)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let owner = state
+        .repo
+        .get_vault_owner(&vault_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     if owner.as_ref() != Some(&user_id) {
         return Err(StatusCode::FORBIDDEN);
     }
 
     // Check if vault has media
-    let media_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM media_items WHERE vault_id = ?"
-    )
-    .bind(&vault_id)
-    .fetch_one(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let media_count = state
+        .repo
+        .count_vault_media(&vault_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     if media_count > 0 {
         warn!("Cannot delete vault {} - contains {} media items", vault_id, media_count);
@@ -482,15 +443,13 @@ pub async fn delete_vault(
     }
 
     // Delete vault
-    let rows_affected = sqlx::query("DELETE FROM storage_vaults WHERE vault_id = ? AND user_id = ?")
-        .bind(&vault_id)
-        .bind(&user_id)
-        .execute(&state.pool)
+    let deleted = state
+        .repo
+        .delete_vault(&vault_id, &user_id)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .rows_affected();
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    if rows_affected == 0 {
+    if !deleted {
         return Err(StatusCode::NOT_FOUND);
     }
 
@@ -530,33 +489,29 @@ pub async fn list_vaults_page(
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Get vaults
-    let vaults: Vec<(String, String, i32, String)> = sqlx::query_as(
-        "SELECT vault_id, vault_name, is_default, created_at FROM storage_vaults WHERE user_id = ? ORDER BY is_default DESC, created_at ASC"
-    )
-    .bind(&user_id)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let vaults = state
+        .repo
+        .list_user_vaults(&user_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let mut vault_displays = Vec::new();
 
-    for (vault_id, name, is_default, created_at) in vaults {
+    for vault in vaults {
         // Count media in this vault
-        let media_count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM media_items WHERE vault_id = ?"
-        )
-        .bind(&vault_id)
-        .fetch_one(&state.pool)
-        .await
-        .unwrap_or(0);
+        let media_count = state
+            .repo
+            .count_vault_media(&vault.vault_id)
+            .await
+            .unwrap_or(0);
 
         vault_displays.push(VaultDisplay {
-            vault_id: vault_id.clone(),
-            vault_code: vault_id,
-            name,
-            is_default: is_default == 1,
-            created_at: created_at.clone(),
-            created_at_human: format_human_date(&created_at),
+            vault_id: vault.vault_id.clone(),
+            vault_code: vault.vault_id,
+            name: vault.vault_name,
+            is_default: vault.is_default,
+            created_at: vault.created_at.clone(),
+            created_at_human: format_human_date(&vault.created_at),
             media_count,
         });
     }

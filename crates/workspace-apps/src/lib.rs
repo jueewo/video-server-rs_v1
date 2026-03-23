@@ -4,6 +4,8 @@ pub use publications::{publications_routes, PublicationsState};
 
 use axum::Router;
 use common::storage::UserStorageManager;
+use db::publications::PublicationRepository;
+use db::workspaces::WorkspaceRepository;
 use sqlx::SqlitePool;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -11,6 +13,8 @@ use std::sync::Arc;
 /// Mount all workspace apps onto a single router.
 pub fn workspace_app_routes(
     pool: SqlitePool,
+    repo: Arc<dyn PublicationRepository>,
+    workspace_repo: Arc<dyn WorkspaceRepository>,
     storage_base: PathBuf,
     apps_dir: PathBuf,
     user_storage: UserStorageManager,
@@ -20,7 +24,8 @@ pub fn workspace_app_routes(
         storage_base: storage_base.clone(),
     });
     let pub_state = Arc::new(PublicationsState {
-        pool: pool.clone(),
+        repo,
+        workspace_repo,
         storage_base,
         apps_dir,
         user_storage,

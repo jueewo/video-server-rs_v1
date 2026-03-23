@@ -28,7 +28,6 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use sqlx::{Pool, Row, Sqlite};
 use std::{path::PathBuf, sync::Arc};
-use time::OffsetDateTime;
 use tokio_util::io::ReaderStream;
 use tower_sessions::Session;
 use tracing::{self, info};
@@ -36,6 +35,7 @@ use tracing::{self, info};
 // Import access control functionality
 use access_control::{AccessContext, AccessControlService, Permission};
 use common::ResourceType;
+use db::media::MediaRepository;
 
 
 // Import upload module types
@@ -178,6 +178,8 @@ pub const MEDIAMTX_API_URL: &str = "http://localhost:9997"; // MediaMTX API endp
 #[derive(Clone)]
 pub struct VideoManagerState {
     pub pool: Pool<Sqlite>,
+    pub repo: Arc<dyn MediaRepository>,
+    pub vault_repo: Arc<dyn db::vaults::VaultRepository>,
     pub storage_dir: PathBuf,
     pub http_client: Client,
     pub access_control: Arc<AccessControlService>,
@@ -192,8 +194,7 @@ pub struct VideoManagerState {
 }
 
 impl VideoManagerState {
-    pub fn new(pool: Pool<Sqlite>, storage_dir: PathBuf, http_client: Client) -> Self {
-        let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));
+    pub fn new(pool: Pool<Sqlite>, repo: Arc<dyn MediaRepository>, vault_repo: Arc<dyn db::vaults::VaultRepository>, storage_dir: PathBuf, http_client: Client, access_control: Arc<AccessControlService>) -> Self {
         let progress_tracker = ProgressTracker::default();
 
         // Start automatic cleanup task (runs every 5 minutes)
@@ -224,6 +225,8 @@ impl VideoManagerState {
 
         Self {
             pool,
+            repo,
+            vault_repo,
             storage_dir,
             http_client,
             access_control,
@@ -344,7 +347,7 @@ pub async fn videos_list_handler(
     };
 
     // Get videos based on authentication and ownership
-    let videos = get_videos(&state.pool, user_id)
+    let videos = get_videos(state.repo.as_ref(), user_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -422,21 +425,21 @@ pub async fn video_player_handler(
     };
 
     // Lookup video in database - get id, title, and is_public
-    let video: Option<(i32, String, i32)> = sqlx::query_as(
-        "SELECT id, title, is_public FROM media_items WHERE media_type = 'video' AND slug = ?",
-    )
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response())?;
+    let video = state
+        .repo
+        .get_video_for_player(&slug)
+        .await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response())?;
 
-    let (video_id, title, is_public_int) = video.ok_or_else(|| {
+    let video = video.ok_or_else(|| {
         let html = NotFoundTemplate { authenticated }
             .render()
             .unwrap_or_default();
         (StatusCode::NOT_FOUND, Html(html)).into_response()
     })?;
-    let is_public = is_public_int == 1;
+    let video_id = video.id;
+    let title = video.title;
+    let is_public = video.is_public == 1;
 
     // Build access context for modern access control
     let mut context = AccessContext::new(ResourceType::Video, video_id);
@@ -602,15 +605,17 @@ pub async fn hls_proxy_handler(
 
     // Handle VOD - serve from local storage
     // DB lookup for regular videos - get id, user_id, vault_id, and is_public
-    let video: Option<(i32, Option<String>, Option<String>, i32)> =
-        sqlx::query_as("SELECT id, user_id, vault_id, is_public FROM media_items WHERE media_type = 'video' AND slug = ?")
-            .bind(slug)
-            .fetch_optional(&state.pool)
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let video = state
+        .repo
+        .get_video_for_hls(slug)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
 
-    let (video_id, _owner_user_id, vault_id, is_public_int) = video.ok_or(StatusCode::NOT_FOUND)?;
-    let _is_public = is_public_int == 1;
+    let video_id = video.id;
+    let _owner_user_id = video.user_id;
+    let vault_id = video.vault_id;
+    let _is_public = video.is_public == 1;
 
     // Get user_id from session if authenticated
     let authenticated: bool = session
@@ -649,24 +654,11 @@ pub async fn hls_proxy_handler(
     if !decision.granted {
         // Fallback: workspace folder access code whose workspace owner also owns this vault
         let vault_ok = if let (Some(ref code), Some(ref vid)) = (query.code.as_ref(), vault_id.as_ref()) {
-            sqlx::query_scalar::<_, i32>(
-                "SELECT 1
-                 FROM workspace_access_codes wac
-                 JOIN workspace_access_code_folders f ON f.workspace_access_code_id = wac.id
-                 JOIN workspaces w ON w.workspace_id = f.workspace_id
-                 JOIN storage_vaults v ON v.user_id = w.user_id
-                 WHERE wac.code = ? AND v.vault_id = ?
-                   AND f.vault_id IS NULL
-                   AND wac.is_active = 1
-                   AND (wac.expires_at IS NULL OR wac.expires_at > datetime('now'))",
-            )
-            .bind(code)
-            .bind(vid)
-            .fetch_optional(&state.pool)
-            .await
-            .ok()
-            .flatten()
-            .is_some()
+            state
+                .repo
+                .workspace_folder_code_grants_vault_via_owner(code, vid)
+                .await
+                .unwrap_or(false)
         } else {
             false
         };
@@ -762,58 +754,19 @@ pub async fn mediamtx_status(
 // -------------------------------
 
 pub async fn check_access_code(
-    pool: &Pool<Sqlite>,
+    repo: &dyn MediaRepository,
     code: &str,
     media_type: &str,
     media_slug: &str,
 ) -> bool {
-    // Check if access code exists and hasn't expired
-    let access_code: Option<(i32, Option<String>)> =
-        sqlx::query_as("SELECT id, expires_at FROM access_codes WHERE code = ?")
-            .bind(code)
-            .fetch_optional(pool)
-            .await
-            .unwrap_or(None);
-
-    if let Some((code_id, expires_at)) = access_code {
-        // Check expiration
-        if let Some(expiry_str) = &expires_at {
-            match OffsetDateTime::parse(
-                &expiry_str,
-                &time::format_description::well_known::Iso8601::DEFAULT,
-            ) {
-                Ok(expiry) => {
-                    let now = OffsetDateTime::now_utc();
-                    if expiry < now {
-                        return false; // Code has expired
-                    }
-                }
-                Err(_) => {
-                    return false; // Invalid expiry format
-                }
-            }
-        }
-
-        // Check if this code grants access to the specific media item
-        let permission: Option<i32> = sqlx::query_scalar(
-            "SELECT 1 FROM access_code_permissions
-             WHERE access_code_id = ? AND media_type = ? AND media_slug = ?",
-        )
-        .bind(code_id)
-        .bind(media_type)
-        .bind(media_slug)
-        .fetch_optional(pool)
+    let has_access = repo
+        .check_access_code_for_media(code, media_type, media_slug)
         .await
-        .unwrap_or(None);
-
-        let has_access = permission.is_some();
-        if has_access {
-            info!(access_code = %code, media_type = %media_type, media_slug = %media_slug, "Resources access by code");
-        }
-        has_access
-    } else {
-        false
+        .unwrap_or(false);
+    if has_access {
+        info!(access_code = %code, media_type = %media_type, media_slug = %media_slug, "Resources access by code");
     }
+    has_access
 }
 
 /// GET /api/videos - List user's videos for access code selection
@@ -831,52 +784,29 @@ pub async fn list_videos_api_handler(
 
     let uid = user_id.unwrap();
 
-    // Fetch user's videos with tags
-    let videos = sqlx::query(
-        "SELECT
-            v.id,
-            v.slug,
-            v.title,
-            v.description,
-            v.thumbnail_url as poster_url,
-            v.thumbnail_url,
-            v.created_at,
-            GROUP_CONCAT(mt.tag) as tags
-         FROM media_items v
-         LEFT JOIN media_tags mt ON v.id = mt.media_id
-         WHERE v.media_type = 'video' AND v.user_id = ?
-         GROUP BY v.id
-         ORDER BY v.created_at DESC",
-    )
-    .bind(&uid)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    // Fetch user's videos with tags via repository
+    let videos = state
+        .repo
+        .list_user_videos_api(&uid)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let result: Vec<serde_json::Value> = videos
         .into_iter()
         .map(|row| {
-            let id: i64 = row.get("id");
-            let slug: String = row.get("slug");
-            let title: String = row.get("title");
-            let description: Option<String> = row.get("description");
-            let poster_url: Option<String> = row.get("poster_url");
-            let thumbnail_url: Option<String> = row.get("thumbnail_url");
-            let created_at: String = row.get("created_at");
-            let tags_str: Option<String> = row.get("tags");
-
-            let tags: Vec<String> = tags_str
+            let tags: Vec<String> = row
+                .tags
                 .map(|s| s.split(',').map(|t| t.to_string()).collect())
                 .unwrap_or_default();
 
             serde_json::json!({
-                "id": id,
-                "slug": slug,
-                "title": title,
-                "description": description,
-                "poster_url": poster_url,
-                "thumbnail_url": thumbnail_url,
-                "created_at": created_at,
+                "id": row.id,
+                "slug": row.slug,
+                "title": row.title,
+                "description": row.description,
+                "poster_url": row.poster_url,
+                "thumbnail_url": row.thumbnail_url,
+                "created_at": row.created_at,
                 "tags": tags,
                 "type": "video"
             })
@@ -887,32 +817,16 @@ pub async fn list_videos_api_handler(
 }
 
 pub async fn get_videos(
-    pool: &Pool<Sqlite>,
+    repo: &dyn MediaRepository,
     user_id: Option<String>,
-) -> Result<Vec<(String, String, i32)>, sqlx::Error> {
-    match user_id {
-        Some(uid) => {
-            // Show public videos + user's private videos
-            sqlx::query_as(
-                "SELECT slug, title, is_public FROM media_items
-                 WHERE media_type = 'video' AND (is_public = 1 OR user_id = ?)
-                 ORDER BY is_public DESC, title",
-            )
-            .bind(uid)
-            .fetch_all(pool)
-            .await
-        }
-        None => {
-            // Show only public videos for unauthenticated users
-            sqlx::query_as(
-                "SELECT slug, title, is_public FROM media_items
-                 WHERE media_type = 'video' AND is_public = 1
-                 ORDER BY title",
-            )
-            .fetch_all(pool)
-            .await
-        }
-    }
+) -> Result<Vec<(String, String, i32)>, db::DbError> {
+    let rows = repo
+        .list_videos_for_page(user_id.as_deref())
+        .await?;
+    Ok(rows
+        .into_iter()
+        .map(|r| (r.slug, r.title, r.is_public))
+        .collect())
 }
 
 // -------------------------------
@@ -998,6 +912,8 @@ pub async fn video_upload_handler(
         state.progress_tracker.clone(),
         state.metrics_store.clone(),
         state.audit_logger.clone(),
+        state.repo.clone(),
+        state.vault_repo.clone(),
     ));
 
     // Call the upload handler
@@ -1127,12 +1043,12 @@ pub async fn available_folders_handler(
     }
 
     // Get slugs already registered in DB
-    let registered: Vec<(String,)> =
-        sqlx::query_as("SELECT slug FROM media_items WHERE media_type = 'video'")
-            .fetch_all(&state.pool)
-            .await
-            .unwrap_or_default();
-    let registered_slugs: Vec<&str> = registered.iter().map(|(s,)| s.as_str()).collect();
+    let registered = state
+        .repo
+        .get_all_video_slugs()
+        .await
+        .unwrap_or_default();
+    let registered_slugs: Vec<&str> = registered.iter().map(|s| s.as_str()).collect();
 
     // Filter to unregistered folders and gather info
     let mut result = Vec::new();
@@ -1339,6 +1255,44 @@ fn video_detail_from_row(row: &sqlx::sqlite::SqliteRow) -> VideoDetail {
     }
 }
 
+fn video_detail_from_media_item(row: &db::media::MediaItemRow) -> VideoDetail {
+    VideoDetail {
+        id: row.id as i64,
+        slug: row.slug.clone(),
+        title: row.title.clone(),
+        description: row.description.clone(),
+        short_description: None,
+        is_public: row.is_public == 1,
+        user_id: row.user_id.clone(),
+        group_id: row.group_id,
+        group_id_str: row.group_id.map(|id| id.to_string()).unwrap_or_default(),
+        duration: None,
+        file_size: Some(row.file_size),
+        resolution: None,
+        width: None,
+        height: None,
+        fps: None,
+        codec: None,
+        thumbnail_url: row.thumbnail_url.clone(),
+        poster_url: row.thumbnail_url.clone(),
+        category: row.category.clone(),
+        language: None,
+        status: row.status.clone(),
+        featured: row.featured == 1,
+        allow_comments: row.allow_comments == 1,
+        allow_download: row.allow_download == 1,
+        mature_content: row.mature_content == 1,
+        view_count: row.view_count as i64,
+        like_count: row.like_count as i64,
+        download_count: row.download_count as i64,
+        share_count: row.share_count as i64,
+        upload_date: row.created_at.clone(),
+        seo_title: row.seo_title.clone(),
+        seo_description: row.seo_description.clone(),
+        seo_keywords: row.seo_keywords.clone(),
+    }
+}
+
 /// GET /videos/:slug/edit - Serve the video edit page
 #[tracing::instrument(skip(session, state))]
 pub async fn video_edit_page_handler(
@@ -1358,16 +1312,19 @@ pub async fn video_edit_page_handler(
     }
 
     // Fetch video from database
-    let row = sqlx::query("SELECT * FROM media_items WHERE media_type = 'video' AND slug = ?")
-        .bind(&slug)
-        .fetch_one(&state.pool)
+    let media_row = state
+        .repo
+        .get_media_by_slug(&slug)
         .await
         .map_err(|e| {
             tracing::error!("Error fetching video: {}", e);
             (StatusCode::NOT_FOUND, format!("Video not found: {}", e))
+        })?
+        .ok_or_else(|| {
+            (StatusCode::NOT_FOUND, format!("Video not found: {}", slug))
         })?;
 
-    let video = video_detail_from_row(&row);
+    let video = video_detail_from_media_item(&media_row);
 
     let template = VideoEditTemplate {
         authenticated,
@@ -1429,7 +1386,7 @@ pub async fn update_video_handler(
     tracing::info!("Update video handler called for video_id={}", id);
 
     // Get authenticated user
-    let user_sub = get_user_from_session(&session, &state.pool)
+    let user_sub = get_user_from_session(&session, state.repo.as_ref())
         .await
         .ok_or_else(|| {
             (
@@ -1439,7 +1396,7 @@ pub async fn update_video_handler(
         })?;
 
     // Check if user can modify this video
-    let can_modify = can_modify_video(&state.pool, id as i32, &user_sub)
+    let can_modify = can_modify_video(&state.access_control, id as i32, &user_sub)
         .await
         .map_err(|e| {
             (
@@ -1647,14 +1604,12 @@ pub async fn delete_video_handler(
     }
 
     // Get video details before deletion to locate physical files
-    let video_info: Option<(String, Option<String>)> = sqlx::query_as(
-        "SELECT filename, vault_id FROM media_items WHERE media_type = 'video' AND id = ?",
-    )
-    .bind(id)
-    .fetch_optional(&state.pool)
-    .await
-    .ok()
-    .flatten();
+    let video_info = state
+        .repo
+        .get_video_for_deletion(id)
+        .await
+        .ok()
+        .flatten();
 
     info!(
         video_id = id,
@@ -1663,23 +1618,15 @@ pub async fn delete_video_handler(
     );
 
     // Delete associated tags
-    let _ = sqlx::query("DELETE FROM video_tags WHERE video_id = ?")
-        .bind(id)
-        .execute(&state.pool)
-        .await;
+    let _ = state.repo.delete_video_tags(id).await;
 
     // Delete associated access permissions
-    let _ = sqlx::query(
-        "DELETE FROM access_key_permissions WHERE resource_type = 'video' AND resource_id = ?",
-    )
-    .bind(id as i32)
-    .execute(&state.pool)
-    .await;
+    let _ = state.repo.delete_video_permissions(id as i32).await;
 
     // Delete the video record
-    let result = sqlx::query("DELETE FROM media_items WHERE media_type = 'video' AND id = ?")
-        .bind(id)
-        .execute(&state.pool)
+    state
+        .repo
+        .delete_video_by_id(id)
         .await
         .map_err(|e| {
             tracing::error!("Database error deleting video {}: {}", id, e);
@@ -1688,10 +1635,6 @@ pub async fn delete_video_handler(
                 format!("Database error: {}", e),
             )
         })?;
-
-    if result.rows_affected() == 0 {
-        return Err((StatusCode::NOT_FOUND, "Video not found".to_string()));
-    }
 
     // Delete physical files if video info was retrieved
     if let Some((filename, vault_id_opt)) = video_info {
@@ -1762,13 +1705,10 @@ pub async fn delete_video_handler(
 /// Helper function to check if user can modify video
 /// Uses modern AccessControlService with Edit permission
 async fn can_modify_video(
-    pool: &Pool<Sqlite>,
+    access_control: &AccessControlService,
     video_id: i32,
     user_sub: &str,
 ) -> Result<bool, sqlx::Error> {
-    // Use the new access control service
-    let access_control = AccessControlService::new(pool.clone());
-
     let context = AccessContext::new(ResourceType::Video, video_id).with_user(user_sub.to_string());
 
     match access_control.check_access(context, Permission::Edit).await {
@@ -1778,7 +1718,7 @@ async fn can_modify_video(
 }
 
 /// Helper to get user from session
-async fn get_user_from_session(session: &Session, pool: &Pool<Sqlite>) -> Option<String> {
+async fn get_user_from_session(session: &Session, repo: &dyn MediaRepository) -> Option<String> {
     tracing::debug!("get_user_from_session: Attempting to get user_id from session");
     let user_id: Option<String> = session.get("user_id").await.ok().flatten();
     tracing::debug!(
@@ -1792,18 +1732,13 @@ async fn get_user_from_session(session: &Session, pool: &Pool<Sqlite>) -> Option
             id
         );
         // Verify user exists
-        let exists: Option<(String,)> = sqlx::query_as("SELECT id FROM users WHERE id = ?")
-            .bind(&id)
-            .fetch_optional(pool)
-            .await
-            .ok()
-            .flatten();
+        let exists = repo.user_exists(&id).await.unwrap_or(false);
 
         tracing::debug!(
             "get_user_from_session: User verification result = {:?}",
             exists
         );
-        exists.map(|(user_id,)| user_id)
+        if exists { Some(id) } else { None }
     } else {
         tracing::warn!("get_user_from_session: No user_id found in session!");
         None

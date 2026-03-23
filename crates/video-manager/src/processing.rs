@@ -20,8 +20,10 @@ use crate::progress::{ProgressStatus, ProgressTracker};
 use crate::storage::{move_file, StorageConfig};
 use common::storage::MediaType as StorageMediaType;
 use anyhow::{Context, Result};
+use db::media::MediaRepository;
 use sqlx::{Pool, Sqlite};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{debug, error, info, warn};
@@ -115,6 +117,8 @@ pub struct ProcessingContext {
     pub audit_logger: AuditLogger,
     /// User ID (if authenticated)
     pub user_id: Option<String>,
+    /// Media repository for media_items queries
+    pub media_repo: Arc<dyn MediaRepository>,
 }
 
 /// Process an uploaded video file
@@ -979,22 +983,11 @@ async fn update_database_stage(
     .context("Failed to update video record")?;
 
     // Update media_items table (unified table) with thumbnail URL
-    sqlx::query(
-        r#"
-        UPDATE media_items
-        SET
-            thumbnail_url = ?,
-            file_size = ?,
-            status = 'active'
-        WHERE slug = ? AND media_type = 'video'
-        "#,
-    )
-    .bind(&thumbnail_url)
-    .bind(metadata.file_size as i64)
-    .bind(&context.slug)
-    .execute(&context.pool)
-    .await
-    .context("Failed to update media_items record")?;
+    context
+        .media_repo
+        .complete_media_processing(&context.slug, &thumbnail_url, metadata.file_size as i64)
+        .await
+        .context("Failed to update media_items record")?;
 
     Ok(())
 }

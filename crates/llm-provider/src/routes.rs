@@ -146,7 +146,7 @@ async fn list_providers_page(
 ) -> Result<Html<String>, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    let providers = db::list_providers(&state.pool, &user_id)
+    let providers = db::list_providers(state.repo.as_ref(), &user_id)
         .await
         .map_err(|e| {
             error!(error = %e, "Failed to list LLM providers");
@@ -200,7 +200,7 @@ async fn create_provider_form(
         is_default: form.is_default.as_deref() == Some("on"),
     };
 
-    match db::create_provider(&state.pool, &user_id, request).await {
+    match db::create_provider(state.repo.as_ref(), &user_id, request).await {
         Ok(_) => Ok(Redirect::to("/settings/llm-providers").into_response()),
         Err(e) => {
             error!(error = %e, "Failed to create LLM provider");
@@ -221,7 +221,7 @@ async fn edit_provider_page(
 ) -> Result<Html<String>, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    let provider = db::get_provider_by_id(&state.pool, id, &user_id)
+    let provider = db::get_provider_by_id(state.repo.as_ref(), id, &user_id)
         .await
         .map_err(|e| {
             error!(error = %e, "Failed to get provider");
@@ -266,12 +266,12 @@ async fn edit_provider_form(
         is_default: form.is_default.as_deref() == Some("on"),
     };
 
-    match db::update_provider(&state.pool, id, &user_id, request).await {
+    match db::update_provider(state.repo.as_ref(), id, &user_id, request).await {
         Ok(true) => Ok(Redirect::to("/settings/llm-providers").into_response()),
         Ok(false) => Err(StatusCode::NOT_FOUND.into_response()),
         Err(e) => {
             error!(error = %e, "Failed to update LLM provider");
-            let provider = db::get_provider_by_id(&state.pool, id, &user_id)
+            let provider = db::get_provider_by_id(state.repo.as_ref(), id, &user_id)
                 .await
                 .ok()
                 .flatten()
@@ -295,7 +295,7 @@ async fn delete_provider_handler(
 ) -> Result<Response, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    match db::delete_provider(&state.pool, id, &user_id).await {
+    match db::delete_provider(state.repo.as_ref(), id, &user_id).await {
         Ok(true) => Ok(Redirect::to("/settings/llm-providers").into_response()),
         Ok(false) => {
             warn!("LLM provider not found or not owned by user");
@@ -315,7 +315,7 @@ async fn set_default_handler(
 ) -> Result<Response, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    match db::set_default_provider(&state.pool, id, &user_id).await {
+    match db::set_default_provider(state.repo.as_ref(), id, &user_id).await {
         Ok(true) => Ok(Redirect::to("/settings/llm-providers").into_response()),
         Ok(false) => Err(StatusCode::NOT_FOUND.into_response()),
         Err(e) => {
@@ -335,7 +335,7 @@ async fn list_providers_api(
 ) -> Result<Json<Vec<LlmProviderSafe>>, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    let providers = db::list_providers(&state.pool, &user_id)
+    let providers = db::list_providers(state.repo.as_ref(), &user_id)
         .await
         .map_err(|e| {
             error!(error = %e, "Failed to list LLM providers");
@@ -400,7 +400,7 @@ async fn usage_summary_api(
 ) -> Result<Json<Vec<db::UsageSummary>>, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    let usage = db::get_user_usage_summary(&state.pool, &user_id)
+    let usage = db::get_user_usage_summary(state.repo.as_ref(), &user_id)
         .await
         .map_err(|e| {
             error!(error = %e, "Failed to get usage summary");
@@ -442,7 +442,7 @@ async fn chat_sse_handler(
     let client = state.http_client.clone();
 
     // For usage tracking
-    let pool = state.pool.clone();
+    let repo = state.repo.clone();
     let user_id_for_usage = user_id.clone();
     let provider_id = provider.id;
     let provider_name = provider.name.clone();
@@ -490,7 +490,7 @@ async fn chat_sse_handler(
             // If it's a Done event, log usage
             if let providers::SseEvent::Done { ref usage, .. } = event {
                 if let Err(e) = db::log_usage(
-                    &pool,
+                    repo.as_ref(),
                     &user_id_for_usage,
                     provider_id,
                     &provider_name,
@@ -530,7 +530,7 @@ async fn resolve_provider(
         if name == "__inline__" {
             return Err(StatusCode::BAD_REQUEST.into_response());
         }
-        let provider = db::get_provider_by_name(&state.pool, user_id, name)
+        let provider = db::get_provider_by_name(state.repo.as_ref(), user_id, name)
             .await
             .map_err(|e| {
                 error!(error = %e, "Failed to look up provider");
@@ -550,7 +550,7 @@ async fn resolve_provider(
             {
                 if folder_provider != "__inline__" {
                     if let Ok(Some(provider)) =
-                        db::get_provider_by_name(&state.pool, user_id, &folder_provider).await
+                        db::get_provider_by_name(state.repo.as_ref(), user_id, &folder_provider).await
                     {
                         info!(
                             workspace = %ws_id,
@@ -566,7 +566,7 @@ async fn resolve_provider(
     }
 
     // 3. Fall back to default
-    let provider = db::get_default_provider(&state.pool, user_id)
+    let provider = db::get_default_provider(state.repo.as_ref(), user_id)
         .await
         .map_err(|e| {
             error!(error = %e, "Failed to look up default provider");

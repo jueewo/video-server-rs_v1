@@ -10,4 +10,4 @@ course         = { path = "../course" }
 site-overview  = { path = "../site-overview" }
 workspace-manager = { path = "../workspace-manager" }
 common         = { path = "../common" }
-sqlx           = { workspace = true }
+db             = { path = "../db" }

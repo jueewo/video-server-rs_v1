@@ -11,7 +11,7 @@ axum = { workspace = true }
 askama = { workspace = true }
 
 # Database
-sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"] }
+db = { path = "../db" }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }

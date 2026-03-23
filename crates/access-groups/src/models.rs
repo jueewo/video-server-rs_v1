@@ -1,181 +1,46 @@
 //! Database models for access groups
+//!
+//! Core types are re-exported from the `db` crate. Handler-level request/response
+//! types and extension traits live here.
 
-use chrono::{DateTime, Utc};
 use common::types::GroupRole;
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 
-/// Access group model
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct AccessGroup {
-    pub id: i32,
-    pub name: String,
-    pub slug: String,
-    pub description: Option<String>,
-    pub owner_id: String,
-    pub created_at: String,
-    pub updated_at: String,
-    pub is_active: i32,           // SQLite stores BOOLEAN as INTEGER (0 or 1)
-    pub settings: Option<String>, // JSON
+// Re-export domain types from the db crate
+pub use db_traits::access_groups::{
+    AccessGroup, GroupInvitation, GroupMember, GroupWithMetadata, MemberWithUser,
+};
+
+// ── Extension traits for GroupRole parsing ──────────────────────────────────
+
+/// Extension trait to parse the `role` string field as a `GroupRole` enum.
+pub trait RoleExt {
+    fn role_enum(&self) -> Result<GroupRole, String>;
 }
 
-impl AccessGroup {
-    /// Check if group is active (helper method)
-    pub fn is_active(&self) -> bool {
-        self.is_active != 0
-    }
-}
-
-impl AccessGroup {
-    /// Parse created_at as DateTime
-    pub fn created_at_datetime(&self) -> Result<DateTime<Utc>, chrono::ParseError> {
-        DateTime::parse_from_rfc3339(&self.created_at)
-            .map(|dt| dt.with_timezone(&Utc))
-            .or_else(|_| {
-                // Try SQLite format
-                chrono::NaiveDateTime::parse_from_str(&self.created_at, "%Y-%m-%d %H:%M:%S")
-                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))
-            })
-    }
-
-    /// Parse updated_at as DateTime
-    pub fn updated_at_datetime(&self) -> Result<DateTime<Utc>, chrono::ParseError> {
-        DateTime::parse_from_rfc3339(&self.updated_at)
-            .map(|dt| dt.with_timezone(&Utc))
-            .or_else(|_| {
-                // Try SQLite format
-                chrono::NaiveDateTime::parse_from_str(&self.updated_at, "%Y-%m-%d %H:%M:%S")
-                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))
-            })
-    }
-}
-
-/// Group member model
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct GroupMember {
-    pub id: i32,
-    pub group_id: i32,
-    pub user_id: String,
-    pub role: String,
-    pub joined_at: String,
-    pub invited_by: Option<String>,
-}
-
-impl GroupMember {
-    /// Get role as GroupRole enum
-    pub fn role_enum(&self) -> Result<GroupRole, String> {
+impl RoleExt for GroupMember {
+    fn role_enum(&self) -> Result<GroupRole, String> {
         self.role.parse()
     }
-
-    /// Parse joined_at as DateTime
-    pub fn joined_at_datetime(&self) -> Result<DateTime<Utc>, chrono::ParseError> {
-        DateTime::parse_from_rfc3339(&self.joined_at)
-            .map(|dt| dt.with_timezone(&Utc))
-            .or_else(|_| {
-                // Try SQLite format
-                chrono::NaiveDateTime::parse_from_str(&self.joined_at, "%Y-%m-%d %H:%M:%S")
-                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))
-            })
-    }
 }
 
-/// Group invitation model
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct GroupInvitation {
-    pub id: i32,
-    pub group_id: i32,
-    pub email: String,
-    pub token: String,
-    pub role: String,
-    pub invited_by: String,
-    pub created_at: String,
-    pub expires_at: String,
-    pub accepted_at: Option<String>,
-    pub accepted_by: Option<String>,
-}
-
-impl GroupInvitation {
-    /// Get role as GroupRole enum
-    pub fn role_enum(&self) -> Result<GroupRole, String> {
+impl RoleExt for GroupInvitation {
+    fn role_enum(&self) -> Result<GroupRole, String> {
         self.role.parse()
     }
-
-    /// Parse created_at as DateTime
-    pub fn created_at_datetime(&self) -> Result<DateTime<Utc>, chrono::ParseError> {
-        DateTime::parse_from_rfc3339(&self.created_at)
-            .map(|dt| dt.with_timezone(&Utc))
-            .or_else(|_| {
-                chrono::NaiveDateTime::parse_from_str(&self.created_at, "%Y-%m-%d %H:%M:%S")
-                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))
-            })
-    }
-
-    /// Parse expires_at as DateTime
-    pub fn expires_at_datetime(&self) -> Result<DateTime<Utc>, chrono::ParseError> {
-        DateTime::parse_from_rfc3339(&self.expires_at)
-            .map(|dt| dt.with_timezone(&Utc))
-            .or_else(|_| {
-                chrono::NaiveDateTime::parse_from_str(&self.expires_at, "%Y-%m-%d %H:%M:%S")
-                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))
-            })
-    }
-
-    /// Parse accepted_at as DateTime if present
-    pub fn accepted_at_datetime(&self) -> Option<Result<DateTime<Utc>, chrono::ParseError>> {
-        self.accepted_at.as_ref().map(|s| {
-            DateTime::parse_from_rfc3339(s)
-                .map(|dt| dt.with_timezone(&Utc))
-                .or_else(|_| {
-                    chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S")
-                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))
-                })
-        })
-    }
-
-    /// Check if invitation is expired
-    pub fn is_expired(&self) -> bool {
-        match self.expires_at_datetime() {
-            Ok(expires_at) => Utc::now() > expires_at,
-            Err(_) => false,
-        }
-    }
-
-    /// Check if invitation is accepted
-    pub fn is_accepted(&self) -> bool {
-        self.accepted_at.is_some()
-    }
-
-    /// Get invitation status
-    pub fn status(&self) -> InvitationStatus {
-        if self.is_accepted() {
-            InvitationStatus::Accepted
-        } else if self.is_expired() {
-            InvitationStatus::Expired
-        } else {
-            InvitationStatus::Pending
-        }
-    }
 }
 
-/// Group with additional metadata
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GroupWithMetadata {
-    #[serde(flatten)]
-    pub group: AccessGroup,
-    pub member_count: i32,
-    pub media_count: i64,
-    pub user_role: Option<GroupRole>,
-    pub is_owner: bool,
+/// Parse an `Option<String>` role into `Option<GroupRole>`.
+pub fn parse_role(role: Option<&String>) -> Option<GroupRole> {
+    role.and_then(|r| r.parse::<GroupRole>().ok())
 }
 
-/// Member with user information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MemberWithUser {
-    #[serde(flatten)]
-    pub member: GroupMember,
-    pub name: String,
-    pub email: Option<String>,
+/// Parse a `&str` role into `GroupRole`, returning an error string on failure.
+pub fn parse_role_str(role: &str) -> Result<GroupRole, String> {
+    role.parse()
 }
+
+// ── Invitation status ──────────────────────────────────────────────────────
 
 /// Invitation status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -185,6 +50,19 @@ pub enum InvitationStatus {
     Accepted,
     Expired,
 }
+
+/// Extension: derive status from a GroupInvitation
+pub fn invitation_status(inv: &GroupInvitation) -> InvitationStatus {
+    if inv.is_accepted() {
+        InvitationStatus::Accepted
+    } else if inv.is_expired() {
+        InvitationStatus::Expired
+    } else {
+        InvitationStatus::Pending
+    }
+}
+
+// ── Handler-level request/response types ───────────────────────────────────
 
 /// Request to create a new group
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -4,9 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Database
-sqlx = { workspace = true }
-
 # Async
 tokio = { workspace = true }
 async-trait = { workspace = true }
@@ -23,6 +20,9 @@ tracing = { workspace = true }
 
 # Internal dependencies
 common = { path = "../common" }
+db = { path = "../db" }
 
 [dev-dependencies]
+sqlx = { workspace = true }
+db-sqlite = { path = "../db-sqlite" }
 tokio-test = "0.4"

@@ -6,10 +6,10 @@ edition = "2021"
 [dependencies]
 workspace-core = { path = "../workspace-core" }
 common          = { path = "../common" }
+db              = { path = "../db" }
 axum            = { workspace = true }
 serde           = { workspace = true }
 askama          = { workspace = true, features = ["serde_json"] }
-sqlx            = { workspace = true }
 async-trait     = { workspace = true }
 urlencoding     = { workspace = true }
 tracing         = { workspace = true }

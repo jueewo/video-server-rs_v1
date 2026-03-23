@@ -4,11 +4,9 @@
 //! Replaces separate Video, Image, and Document models
 
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 
 /// Media type discriminator
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MediaType {
     Video,
@@ -78,7 +76,7 @@ impl std::str::FromStr for MediaStatus {
 }
 
 /// Unified media item model
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaItem {
     pub id: i32,
     pub slug: String,
@@ -166,7 +164,7 @@ impl MediaItem {
 }
 
 /// Summary version for list views
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaItemSummary {
     pub id: i32,
     pub slug: String,
@@ -280,7 +278,7 @@ fn default_page_size() -> i32 {
 }
 
 /// Media tag
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaTag {
     pub media_id: i32,
     pub tag: String,

@@ -5,7 +5,7 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use sqlx::SqlitePool;
+use ::db::api_keys::ApiKeyRepository;
 use std::sync::Arc;
 use tower_sessions::Session;
 use tracing::{debug, warn};
@@ -34,7 +34,7 @@ pub enum AuthMethod {
 /// 5. If not authenticated but has `code` query parameter, allows through (for access code validation in handler)
 /// 6. If not authenticated, returns 401 Unauthorized
 pub async fn api_key_or_session_auth(
-    State(pool): State<Arc<SqlitePool>>,
+    State(repo): State<Arc<dyn ApiKeyRepository>>,
     session: Session,
     headers: HeaderMap,
     mut request: Request,
@@ -44,7 +44,7 @@ pub async fn api_key_or_session_auth(
     if let Some(api_key_str) = extract_api_key_from_headers(&headers) {
         debug!("API key found in headers, validating...");
 
-        match db::validate_api_key(&pool, &api_key_str).await {
+        match db::validate_api_key(repo.as_ref(), &api_key_str).await {
             Ok(Some(api_key)) => {
                 debug!(
                     event = "auth_success",
@@ -155,7 +155,7 @@ pub async fn api_key_or_session_auth(
 ///
 /// Use this for API-only endpoints that should not accept browser sessions
 pub async fn api_key_only_auth(
-    State(pool): State<Arc<SqlitePool>>,
+    State(repo): State<Arc<dyn ApiKeyRepository>>,
     headers: HeaderMap,
     mut request: Request,
     next: Next,
@@ -163,7 +163,7 @@ pub async fn api_key_only_auth(
     let api_key_str = extract_api_key_from_headers(&headers)
         .ok_or(StatusCode::UNAUTHORIZED)?;
 
-    match db::validate_api_key(&pool, &api_key_str).await {
+    match db::validate_api_key(repo.as_ref(), &api_key_str).await {
         Ok(Some(api_key)) => {
             debug!(
                 event = "auth_success",

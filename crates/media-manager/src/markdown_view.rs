@@ -8,7 +8,6 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::Row;
 use tower_sessions::Session;
 use tracing::{error, info};
 
@@ -77,39 +76,20 @@ pub async fn view_markdown_handler(
     };
 
     // Get media from database
-    let row = match sqlx::query(
-        r#"
-        SELECT
-            id, slug, title, filename, mime_type, user_id, vault_id, created_at, is_public
-        FROM media_items
-        WHERE slug = ? AND media_type = 'document'
-        "#,
-    )
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await
-    {
-        Ok(Some(row)) => row,
-        Ok(None) => {
-            return Err((StatusCode::NOT_FOUND, "Document not found".to_string()));
-        }
-        Err(e) => {
+    let doc = state
+        .repo
+        .get_document_for_viewing(&slug)
+        .await
+        .map_err(|e| {
             error!("Database error fetching document: {}", e);
-            return Err((
+            (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Database error: {}", e),
-            ));
-        }
-    };
+            )
+        })?
+        .ok_or((StatusCode::NOT_FOUND, "Document not found".to_string()))?;
 
-    let media_id: i32 = row.get("id");
-    let title: String = row.get("title");
-    let filename: String = row.get("filename");
-    let mime_type: String = row.get("mime_type");
-    let _is_public: i32 = row.get("is_public");
-    let _owner_id: Option<String> = row.get::<Option<String>, _>("user_id");
-    let vault_id: Option<String> = row.get("vault_id");
-    let created_at: String = row.get("created_at");
+    let mime_type = doc.mime_type.as_deref().unwrap_or("");
 
     // Check if it's actually a markdown file
     if mime_type != "text/markdown" {
@@ -121,7 +101,7 @@ pub async fn view_markdown_handler(
 
     // Check access using AccessControlService (supports ownership, access codes,
     // group membership, and generates audit log entries)
-    let mut context = access_control::AccessContext::new(common::ResourceType::File, media_id);
+    let mut context = access_control::AccessContext::new(common::ResourceType::File, doc.id);
     if let Some(uid) = user_id.clone() {
         context = context.with_user(uid);
     }
@@ -154,7 +134,7 @@ pub async fn view_markdown_handler(
     }
 
     // Read the markdown file
-    let vault_id = vault_id.ok_or((
+    let vault_id = doc.vault_id.ok_or((
         StatusCode::INTERNAL_SERVER_ERROR,
         "No vault_id for document".to_string(),
     ))?;
@@ -163,11 +143,11 @@ pub async fn view_markdown_handler(
     let file_path = state
         .user_storage
         .find_media_file(&vault_id, common::storage::MediaType::Document,
-            &filename,
+            &doc.filename,
         )
         .ok_or_else(|| {
-            error!("Markdown file not found: {} (vault: {})", filename, vault_id);
-            (StatusCode::NOT_FOUND, format!("File not found: {}", filename))
+            error!("Markdown file not found: {} (vault: {})", doc.filename, vault_id);
+            (StatusCode::NOT_FOUND, format!("File not found: {}", doc.filename))
         })?;
 
     let raw_markdown = tokio::fs::read_to_string(&file_path).await.map_err(|e| {
@@ -186,18 +166,18 @@ pub async fn view_markdown_handler(
     let rendered_html = renderer.render(markdown_content);
 
     info!(
-        "📄 Rendered markdown with syntax highlighting for: {}",
+        "Rendered markdown with syntax highlighting for: {}",
         slug
     );
 
     let template = MarkdownViewTemplate {
         authenticated,
-        title,
+        title: doc.title,
         slug,
         content: rendered_html,
         raw_markdown,
-        filename,
-        created_at,
+        filename: doc.filename,
+        created_at: doc.created_at,
     };
 
     template
@@ -234,36 +214,20 @@ pub async fn edit_markdown_handler(
     ))?;
 
     // Get media from database
-    let row = match sqlx::query(
-        r#"
-        SELECT
-            id, slug, title, filename, mime_type, user_id, vault_id, created_at, is_public
-        FROM media_items
-        WHERE slug = ? AND media_type = 'document'
-        "#,
-    )
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await
-    {
-        Ok(Some(row)) => row,
-        Ok(None) => {
-            return Err((StatusCode::NOT_FOUND, "Document not found".to_string()));
-        }
-        Err(e) => {
+    let doc = state
+        .repo
+        .get_document_for_viewing(&slug)
+        .await
+        .map_err(|e| {
             error!("Database error fetching document: {}", e);
-            return Err((
+            (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Database error: {}", e),
-            ));
-        }
-    };
+            )
+        })?
+        .ok_or((StatusCode::NOT_FOUND, "Document not found".to_string()))?;
 
-    let title: String = row.get("title");
-    let filename: String = row.get("filename");
-    let mime_type: String = row.get("mime_type");
-    let owner_id: Option<String> = row.get("user_id");
-    let vault_id: Option<String> = row.get("vault_id");
+    let mime_type = doc.mime_type.as_deref().unwrap_or("");
 
     // Check if it's actually a markdown file
     if mime_type != "text/markdown" {
@@ -274,7 +238,7 @@ pub async fn edit_markdown_handler(
     }
 
     // Check ownership - only owner can edit
-    if owner_id.as_ref() != Some(&user_id) {
+    if doc.user_id.as_ref() != Some(&user_id) {
         return Err((
             StatusCode::FORBIDDEN,
             "Only the owner can edit this document".to_string(),
@@ -282,7 +246,7 @@ pub async fn edit_markdown_handler(
     }
 
     // Read the markdown file
-    let vault_id = vault_id.ok_or((
+    let vault_id = doc.vault_id.ok_or((
         StatusCode::INTERNAL_SERVER_ERROR,
         "No vault_id for document".to_string(),
     ))?;
@@ -291,11 +255,11 @@ pub async fn edit_markdown_handler(
     let file_path = state
         .user_storage
         .find_media_file(&vault_id, common::storage::MediaType::Document,
-            &filename,
+            &doc.filename,
         )
         .ok_or_else(|| {
-            error!("Markdown file not found: {} (vault: {})", filename, vault_id);
-            (StatusCode::NOT_FOUND, format!("File not found: {}", filename))
+            error!("Markdown file not found: {} (vault: {})", doc.filename, vault_id);
+            (StatusCode::NOT_FOUND, format!("File not found: {}", doc.filename))
         })?;
 
     let raw_markdown = tokio::fs::read_to_string(&file_path).await.map_err(|e| {
@@ -306,15 +270,15 @@ pub async fn edit_markdown_handler(
         )
     })?;
 
-    info!("✏️ Opening markdown editor for: {}", slug);
+    info!("Opening markdown editor for: {}", slug);
 
     // Use docs-viewer's EditorTemplate
     let editor = docs_viewer::EditorTemplate::for_markdown(
         authenticated,
         slug,
-        title,
+        doc.title,
         raw_markdown,
-        filename,
+        doc.filename,
     );
 
     editor
@@ -369,44 +333,29 @@ pub async fn save_markdown_handler(
     ))?;
 
     // Get media from database
-    let row = match sqlx::query(
-        r#"
-        SELECT
-            id, slug, title, filename, mime_type, user_id, vault_id
-        FROM media_items
-        WHERE slug = ? AND media_type = 'document'
-        "#,
-    )
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await
-    {
-        Ok(Some(row)) => row,
-        Ok(None) => {
-            return Err((
-                StatusCode::NOT_FOUND,
-                Json(SaveMarkdownResponse {
-                    success: false,
-                    message: "Document not found".to_string(),
-                }),
-            ));
-        }
-        Err(e) => {
+    let doc = state
+        .repo
+        .get_document_for_viewing(&slug)
+        .await
+        .map_err(|e| {
             error!("Database error fetching document: {}", e);
-            return Err((
+            (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(SaveMarkdownResponse {
                     success: false,
                     message: format!("Database error: {}", e),
                 }),
-            ));
-        }
-    };
+            )
+        })?
+        .ok_or((
+            StatusCode::NOT_FOUND,
+            Json(SaveMarkdownResponse {
+                success: false,
+                message: "Document not found".to_string(),
+            }),
+        ))?;
 
-    let filename: String = row.get("filename");
-    let mime_type: String = row.get("mime_type");
-    let owner_id: Option<String> = row.get("user_id");
-    let vault_id: Option<String> = row.get("vault_id");
+    let mime_type = doc.mime_type.as_deref().unwrap_or("");
 
     // Check if it's actually a markdown file
     if mime_type != "text/markdown" {
@@ -420,7 +369,7 @@ pub async fn save_markdown_handler(
     }
 
     // Check ownership - only owner can save
-    if owner_id.as_ref() != Some(&user_id) {
+    if doc.user_id.as_ref() != Some(&user_id) {
         return Err((
             StatusCode::FORBIDDEN,
             Json(SaveMarkdownResponse {
@@ -431,7 +380,7 @@ pub async fn save_markdown_handler(
     }
 
     // Write the markdown file
-    let vault_id = vault_id.ok_or((
+    let vault_id = doc.vault_id.ok_or((
         StatusCode::INTERNAL_SERVER_ERROR,
         Json(SaveMarkdownResponse {
             success: false,
@@ -443,15 +392,15 @@ pub async fn save_markdown_handler(
     let file_path = state
         .user_storage
         .find_media_file(&vault_id, common::storage::MediaType::Document,
-            &filename,
+            &doc.filename,
         )
         .ok_or_else(|| {
-            error!("Markdown file not found: {} (vault: {})", filename, vault_id);
+            error!("Markdown file not found: {} (vault: {})", doc.filename, vault_id);
             (
                 StatusCode::NOT_FOUND,
                 Json(SaveMarkdownResponse {
                     success: false,
-                    message: format!("File not found: {}", filename),
+                    message: format!("File not found: {}", doc.filename),
                 }),
             )
         })?;
@@ -469,7 +418,7 @@ pub async fn save_markdown_handler(
             )
         })?;
 
-    info!("💾 Saved markdown file: {}", slug);
+    info!("Saved markdown file: {}", slug);
 
     Ok(Json(SaveMarkdownResponse {
         success: true,

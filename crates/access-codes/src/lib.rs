@@ -7,7 +7,6 @@ use axum::{
     Router,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::sqlite::SqlitePool;
 use std::sync::Arc;
 use time::OffsetDateTime;
 use tower_sessions::Session;
@@ -16,18 +15,25 @@ use tracing::{self, info, warn};
 // Import access control functionality
 use access_control::{AccessContext, AccessControlService, Permission};
 use common::ResourceType;
+pub use db::access_codes::{AccessCode, AccessCodePermission, AccessCodeRepository};
+use db::media::MediaRepository;
 
 #[derive(Clone)]
 pub struct AccessCodeState {
-    pub pool: SqlitePool,
+    pub repo: Arc<dyn AccessCodeRepository>,
+    pub media_repo: Arc<dyn MediaRepository>,
     pub access_control: Arc<AccessControlService>,
 }
 
 impl AccessCodeState {
-    pub fn new(pool: SqlitePool) -> Self {
-        let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));
+    pub fn new(
+        repo: Arc<dyn AccessCodeRepository>,
+        media_repo: Arc<dyn MediaRepository>,
+        access_control: Arc<AccessControlService>,
+    ) -> Self {
         Self {
-            pool,
+            repo,
+            media_repo,
             access_control,
         }
     }
@@ -225,45 +231,21 @@ pub async fn view_access_code_page(
         .unwrap_or_else(|| "unknown".to_string());
 
     // Get access code details
-    let code_record = sqlx::query_as::<_, (i32, String, Option<String>, Option<String>, String)>(
-        "SELECT id, code, description, expires_at, created_at FROM access_codes WHERE code = ? AND created_by = ?"
-    )
-    .bind(&code)
-    .bind(&user_id)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let ac = state
+        .repo
+        .get_code_by_code_and_user(&code, &user_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
 
-    let (id, code_name, description, expires_at, created_at) =
-        code_record.ok_or(StatusCode::NOT_FOUND)?;
+    let id = ac.id;
+    let code_name = ac.code.clone();
+    let description = ac.description.clone();
+    let expires_at = ac.expires_at.clone();
+    let created_at = ac.created_at.clone();
 
-    // Get permissions for this code with filename, thumbnail and title for display
-    let permissions = sqlx::query_as::<_, (String, String, String, Option<String>, String)>(
-        "SELECT
-            acp.media_type,
-            acp.media_slug,
-            COALESCE(m.filename, acp.media_slug) as filename,
-            m.thumbnail_url,
-            COALESCE(m.title, acp.media_slug) as title
-        FROM access_code_permissions acp
-        LEFT JOIN media_items m ON m.slug = acp.media_slug
-        WHERE acp.access_code_id = ?",
-    )
-    .bind(id)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let media_items: Vec<MediaItem> = permissions
-        .into_iter()
-        .map(|(media_type, media_slug, filename, thumbnail_url, title)| MediaItem {
-            media_type,
-            media_slug,
-            filename: filename.to_lowercase(), // Lowercase for consistent file type detection
-            thumbnail_url,
-            title,
-        })
-        .collect();
+    // Get permissions then enrich with media_items data for display
+    let media_items = enrich_permissions(&state, id).await?;
 
     // Check if expired
     let is_expired = if let Some(ref exp) = expires_at {
@@ -341,16 +323,17 @@ pub async fn preview_access_code_page(
         .to_string();
 
     // Get access code details (no auth required - this is public)
-    let code_record = sqlx::query_as::<_, (i32, String, Option<String>, Option<String>, String)>(
-        "SELECT id, code, description, expires_at, created_at FROM access_codes WHERE code = ? AND is_active = 1"
-    )
-    .bind(&code)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let ac = state
+        .repo
+        .get_active_code(&code)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
 
-    let (id, code_name, description, expires_at, _created_at) =
-        code_record.ok_or(StatusCode::NOT_FOUND)?;
+    let id = ac.id;
+    let code_name = ac.code.clone();
+    let description = ac.description.clone();
+    let expires_at = ac.expires_at.clone();
 
     // Check if expired
     if let Some(ref exp) = expires_at {
@@ -368,29 +351,27 @@ pub async fn preview_access_code_page(
         false
     };
 
-    // Get permissions for this code with full resource details
-    let permissions = sqlx::query_as::<_, (String, String, String)>(
-        "SELECT
-            acp.media_type,
-            acp.media_slug,
-            m.title as media_title
-        FROM access_code_permissions acp
-        LEFT JOIN media_items m ON acp.media_slug = m.slug AND acp.media_type = m.media_type
-        WHERE acp.access_code_id = ?",
-    )
-    .bind(id)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    // Get permissions then enrich with media_items data for display
+    let perms = state
+        .repo
+        .get_permissions(id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let resources: Vec<ResourcePreview> = permissions
-        .into_iter()
-        .map(|(media_type, slug, title)| ResourcePreview {
-            media_type,
-            slug,
-            title,
-        })
-        .collect();
+    let mut resources = Vec::new();
+    for p in perms {
+        let title: Option<String> = state
+            .media_repo
+            .get_media_title(&p.media_slug, &p.media_type)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        resources.push(ResourcePreview {
+            media_type: p.media_type,
+            slug: p.media_slug.clone(),
+            title: title.unwrap_or_else(|| p.media_slug),
+        });
+    }
 
     let template = PreviewTemplate {
         authenticated: false, // Preview page is public
@@ -447,13 +428,13 @@ pub async fn create_access_code(
     }
 
     // Check if code already exists
-    let existing: Option<i32> = sqlx::query_scalar("SELECT id FROM access_codes WHERE code = ?")
-        .bind(&request.code)
-        .fetch_optional(&state.pool)
+    let exists = state
+        .repo
+        .code_exists(&request.code)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    if existing.is_some() {
+    if exists {
         warn!(
             event = "access_code_conflict",
             code = %request.code,
@@ -477,20 +458,21 @@ pub async fn create_access_code(
     };
 
     // Insert access code
-    let code_id: i32 = sqlx::query_scalar(
-        "INSERT INTO access_codes (code, description, expires_at, created_by, vault_id) VALUES (?, ?, ?, ?, ?) RETURNING id",
-    )
-    .bind(&request.code)
-    .bind(&request.description)
-    .bind(expires_at.map(|dt| {
+    let expires_at_str = expires_at.map(|dt| {
         dt.format(&time::format_description::well_known::Iso8601::DEFAULT)
             .unwrap()
-    }))
-    .bind(&user_id)
-    .bind(&request.vault_id)
-    .fetch_one(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    });
+    let code_id = state
+        .repo
+        .create_code(
+            &request.code,
+            request.description.as_deref(),
+            expires_at_str.as_deref(),
+            &user_id,
+            request.vault_id.as_deref(),
+        )
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Folder-scoped code: no per-item permissions needed
     if request.vault_id.is_some() {
@@ -525,16 +507,12 @@ pub async fn create_access_code(
 
         // Validate ownership using AccessControlService
         // First get the resource ID
-        let resource_id: Option<i32> = sqlx::query_scalar(
-            "SELECT id FROM media_items WHERE media_type = ? AND slug = ?",
-        )
-        .bind(&item.media_type)
-        .bind(&item.media_slug)
-        .fetch_optional(&state.pool)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-        let resource_id = resource_id.ok_or(StatusCode::NOT_FOUND)?;
+        let resource_id: i64 = state
+            .media_repo
+            .get_media_id_by_type(&item.media_type, &item.media_slug)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+            .ok_or(StatusCode::NOT_FOUND)?;
 
         // Use AccessControlService to check Admin permission (ownership)
         let resource_type = match item.media_type.as_str() {
@@ -544,7 +522,7 @@ pub async fn create_access_code(
             _ => return Err(StatusCode::BAD_REQUEST),
         };
 
-        let context = AccessContext::new(resource_type, resource_id).with_user(user_id.clone());
+        let context = AccessContext::new(resource_type, resource_id as i32).with_user(user_id.clone());
 
         let decision = state
             .access_control
@@ -574,36 +552,12 @@ pub async fn create_access_code(
             "Ownership validated for access code creation"
         );
 
-        // Look up resource ID from slug
-        let resource_id: Option<i64> =
-            sqlx::query_scalar("SELECT id FROM media_items WHERE media_type = ? AND slug = ?")
-                .bind(&item.media_type)
-                .bind(&item.media_slug)
-                .fetch_optional(&state.pool)
-                .await
-                .ok()
-                .flatten();
-
-        let _resource_id = resource_id.ok_or_else(|| {
-            warn!(
-                event = "resource_not_found",
-                media_type = %item.media_type,
-                media_slug = %item.media_slug,
-                "Resource not found for access code"
-            );
-            StatusCode::NOT_FOUND
-        })?;
-
         // Insert into access_code_permissions (used by access control system)
-        sqlx::query(
-            "INSERT INTO access_code_permissions (access_code_id, media_type, media_slug) VALUES (?, ?, ?)"
-        )
-        .bind(code_id)
-        .bind(&item.media_type)
-        .bind(&item.media_slug)
-        .execute(&state.pool)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        state
+            .repo
+            .add_permission(code_id, &item.media_type, &item.media_slug)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     }
 
     // Return created access code
@@ -658,51 +612,24 @@ pub async fn list_access_codes(
         .unwrap_or_else(|| "unknown".to_string());
 
     // Get access codes created by this user
-    let codes = sqlx::query_as::<_, (i32, String, Option<String>, Option<String>, String)>(
-        "SELECT id, code, description, expires_at, created_at FROM access_codes WHERE created_by = ? ORDER BY created_at DESC"
-    )
-    .bind(&user_id)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let mut access_codes = Vec::new();
-
-    for (id, code, description, expires_at, created_at) in codes {
-        // Get permissions for this code with filename, thumbnail and title for display
-        let permissions = sqlx::query_as::<_, (String, String, String, Option<String>, String)>(
-            "SELECT
-            acp.media_type,
-            acp.media_slug,
-            COALESCE(m.filename, acp.media_slug) as filename,
-            m.thumbnail_url,
-            COALESCE(m.title, acp.media_slug) as title
-        FROM access_code_permissions acp
-        LEFT JOIN media_items m ON m.slug = acp.media_slug
-        WHERE acp.access_code_id = ?",
-        )
-        .bind(id)
-        .fetch_all(&state.pool)
+    let codes = state
+        .repo
+        .list_user_codes(&user_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        let media_items = permissions
-            .into_iter()
-            .map(|(media_type, media_slug, filename, thumbnail_url, title)| MediaItem {
-                media_type,
-                media_slug,
-                filename: filename.to_lowercase(), // Lowercase for consistent file type detection
-                thumbnail_url,
-                title,
-            })
-            .collect();
+    let mut access_codes = Vec::new();
+
+    for ac in codes {
+        // Get permissions then enrich with media_items data for display
+        let media_items = enrich_permissions(&state, ac.id).await?;
 
         access_codes.push(AccessCodeResponse {
-            id,
-            code,
-            description,
-            expires_at,
-            created_at,
+            id: ac.id,
+            code: ac.code,
+            description: ac.description,
+            expires_at: ac.expires_at,
+            created_at: ac.created_at,
             media_items,
         });
     }
@@ -747,15 +674,13 @@ pub async fn delete_access_code(
         .unwrap_or_else(|| "unknown".to_string());
 
     // Delete access code (only if owned by current user)
-    let rows_affected = sqlx::query("DELETE FROM access_codes WHERE code = ? AND created_by = ?")
-        .bind(&code)
-        .bind(&user_id)
-        .execute(&state.pool)
+    let deleted = state
+        .repo
+        .delete_code(&code, &user_id)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .rows_affected();
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    if rows_affected == 0 {
+    if !deleted {
         warn!(
             event = "access_denied",
             resource = "access_codes",
@@ -805,44 +730,22 @@ pub async fn list_access_codes_page(
         .unwrap_or_else(|| "unknown".to_string());
 
     // Get access codes created by this user
-    let codes = sqlx::query_as::<_, (i32, String, Option<String>, Option<String>, String, i64)>(
-        "SELECT id, code, description, expires_at, created_at, current_downloads FROM access_codes WHERE created_by = ? ORDER BY created_at DESC"
-    )
-    .bind(&user_id)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let mut access_codes = Vec::new();
-
-    for (id, code, description, expires_at, created_at, current_downloads) in codes {
-        // Get permissions for this code with filename, thumbnail and title for display
-        let permissions = sqlx::query_as::<_, (String, String, String, Option<String>, String)>(
-            "SELECT
-            acp.media_type,
-            acp.media_slug,
-            COALESCE(m.filename, acp.media_slug) as filename,
-            m.thumbnail_url,
-            COALESCE(m.title, acp.media_slug) as title
-        FROM access_code_permissions acp
-        LEFT JOIN media_items m ON m.slug = acp.media_slug
-        WHERE acp.access_code_id = ?",
-        )
-        .bind(id)
-        .fetch_all(&state.pool)
+    let codes = state
+        .repo
+        .list_user_codes(&user_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        let media_items: Vec<MediaItem> = permissions
-            .into_iter()
-            .map(|(media_type, media_slug, filename, thumbnail_url, title)| MediaItem {
-                media_type,
-                media_slug,
-                filename: filename.to_lowercase(), // Lowercase for consistent file type detection
-                thumbnail_url,
-                title,
-            })
-            .collect();
+    let mut access_codes = Vec::new();
+
+    for ac in codes {
+        // Get permissions then enrich with media_items data for display
+        let media_items = enrich_permissions(&state, ac.id).await?;
+
+        let description = ac.description;
+        let expires_at = ac.expires_at;
+        let created_at = ac.created_at;
+        let current_downloads = ac.current_downloads;
 
         // Check if expired
         let is_expired = if let Some(ref exp) = expires_at {
@@ -865,7 +768,7 @@ pub async fn list_access_codes_page(
         let expires_at_formatted = expires_at.as_ref().map(|exp| format_full_date(exp));
 
         access_codes.push(AccessCodeDisplay {
-            code: code.clone(),
+            code: ac.code.clone(),
             description: description.clone().unwrap_or_default(),
             has_description: description.is_some(),
             created_at: created_at.clone(),
@@ -901,6 +804,42 @@ pub async fn list_access_codes_page(
         .render()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Html(html))
+}
+
+/// Fetch permissions from the repo and enrich each with filename/thumbnail/title
+/// from the media_items table via `MediaRepository`.
+async fn enrich_permissions(
+    state: &AccessCodeState,
+    code_id: i32,
+) -> Result<Vec<MediaItem>, StatusCode> {
+    let perms = state
+        .repo
+        .get_permissions(code_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let mut items = Vec::with_capacity(perms.len());
+    for p in perms {
+        let enrichment = state
+            .media_repo
+            .get_media_enrichment(&p.media_slug)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        let (filename, thumbnail_url, title) = match enrichment {
+            Some(e) => (e.filename, e.thumbnail_url, e.title),
+            None => (p.media_slug.clone(), None, p.media_slug.clone()),
+        };
+
+        items.push(MediaItem {
+            media_type: p.media_type,
+            media_slug: p.media_slug,
+            filename: filename.to_lowercase(),
+            thumbnail_url,
+            title,
+        });
+    }
+    Ok(items)
 }
 
 /// Extract base URL from request headers
@@ -1012,28 +951,20 @@ pub async fn add_media_to_code(
     }
 
     // Get access code id (must belong to user)
-    let code_id: Option<i32> = sqlx::query_scalar(
-        "SELECT id FROM access_codes WHERE code = ? AND created_by = ?",
-    )
-    .bind(&code)
-    .bind(&user_id)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let code_id = code_id.ok_or(StatusCode::NOT_FOUND)?;
+    let code_id = state
+        .repo
+        .get_code_id_for_user(&code, &user_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
 
     // Verify media exists and user owns it
-    let resource_id: Option<i32> = sqlx::query_scalar(
-        "SELECT id FROM media_items WHERE media_type = ? AND slug = ?",
-    )
-    .bind(&item.media_type)
-    .bind(&item.media_slug)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let resource_id = resource_id.ok_or(StatusCode::NOT_FOUND)?;
+    let resource_id: i64 = state
+        .media_repo
+        .get_media_id_by_type(&item.media_type, &item.media_slug)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
 
     let resource_type = match item.media_type.as_str() {
         "video" => ResourceType::Video,
@@ -1042,7 +973,7 @@ pub async fn add_media_to_code(
         _ => return Err(StatusCode::BAD_REQUEST),
     };
 
-    let context = AccessContext::new(resource_type, resource_id).with_user(user_id.clone());
+    let context = AccessContext::new(resource_type, resource_id as i32).with_user(user_id.clone());
 
     let decision = state
         .access_control
@@ -1060,15 +991,11 @@ pub async fn add_media_to_code(
         return Err(StatusCode::FORBIDDEN);
     }
 
-    sqlx::query(
-        "INSERT OR IGNORE INTO access_code_permissions (access_code_id, media_type, media_slug) VALUES (?, ?, ?)",
-    )
-    .bind(code_id)
-    .bind(&item.media_type)
-    .bind(&item.media_slug)
-    .execute(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    state
+        .repo
+        .add_permission(code_id, &item.media_type, &item.media_slug)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     info!(
         event = "media_added_to_code",
@@ -1106,28 +1033,20 @@ pub async fn remove_media_from_code(
         .unwrap_or_else(|| "unknown".to_string());
 
     // Get access code id (must belong to user)
-    let code_id: Option<i32> = sqlx::query_scalar(
-        "SELECT id FROM access_codes WHERE code = ? AND created_by = ?",
-    )
-    .bind(&code)
-    .bind(&user_id)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let code_id = state
+        .repo
+        .get_code_id_for_user(&code, &user_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
 
-    let code_id = code_id.ok_or(StatusCode::NOT_FOUND)?;
+    let removed = state
+        .repo
+        .remove_permission(code_id, &slug)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let rows_affected = sqlx::query(
-        "DELETE FROM access_code_permissions WHERE access_code_id = ? AND media_slug = ?",
-    )
-    .bind(code_id)
-    .bind(&slug)
-    .execute(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-    .rows_affected();
-
-    if rows_affected == 0 {
+    if !removed {
         return Err(StatusCode::NOT_FOUND);
     }
 

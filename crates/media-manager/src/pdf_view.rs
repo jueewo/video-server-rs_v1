@@ -8,7 +8,6 @@ use axum::{
     response::{Html, Response},
 };
 use serde::Deserialize;
-use sqlx::Row;
 use tower_sessions::Session;
 use tracing::{error, info};
 
@@ -39,36 +38,22 @@ pub async fn view_pdf_handler(
         None
     };
 
-    let row = match sqlx::query(
-        r#"
-        SELECT id, slug, title, filename, user_id, vault_id, created_at
-        FROM media_items
-        WHERE slug = ? AND media_type = 'document'
-        "#,
-    )
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await
-    {
-        Ok(Some(row)) => row,
-        Ok(None) => return Err((StatusCode::NOT_FOUND, "Document not found".to_string())),
-        Err(e) => {
+    let doc = state
+        .repo
+        .get_document_for_viewing(&slug)
+        .await
+        .map_err(|e| {
             error!("Database error fetching PDF document: {}", e);
-            return Err((StatusCode::INTERNAL_SERVER_ERROR, format!("Database error: {}", e)));
-        }
-    };
+            (StatusCode::INTERNAL_SERVER_ERROR, format!("Database error: {}", e))
+        })?
+        .ok_or((StatusCode::NOT_FOUND, "Document not found".to_string()))?;
 
-    let media_id: i32 = row.get("id");
-    let title: String = row.get("title");
-    let filename: String = row.get("filename");
-    let created_at: String = row.get("created_at");
-
-    if !filename.ends_with(".pdf") {
+    if !doc.filename.ends_with(".pdf") {
         return Err((StatusCode::BAD_REQUEST, "Not a PDF document".to_string()));
     }
 
     // Access control
-    let mut context = access_control::AccessContext::new(common::ResourceType::File, media_id);
+    let mut context = access_control::AccessContext::new(common::ResourceType::File, doc.id);
     if let Some(uid) = user_id.clone() {
         context = context.with_user(uid);
     }
@@ -90,14 +75,14 @@ pub async fn view_pdf_handler(
         return Err((StatusCode::FORBIDDEN, "You don't have access to this document".to_string()));
     }
 
-    info!("📄 Serving PDF viewer for: {}", slug);
+    info!("Serving PDF viewer for: {}", slug);
 
     let template = pdf_viewer::PdfViewerTemplate::new(
         authenticated,
-        title,
+        doc.title,
         slug,
-        filename,
-        created_at,
+        doc.filename,
+        doc.created_at,
         query.code.as_deref(),
     );
 
@@ -128,35 +113,22 @@ pub async fn serve_pdf_handler(
         None
     };
 
-    let row = match sqlx::query(
-        r#"
-        SELECT id, filename, vault_id
-        FROM media_items
-        WHERE slug = ? AND media_type = 'document'
-        "#,
-    )
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await
-    {
-        Ok(Some(row)) => row,
-        Ok(None) => return Err((StatusCode::NOT_FOUND, "Document not found".to_string())),
-        Err(e) => {
+    let doc = state
+        .repo
+        .get_document_for_serving(&slug)
+        .await
+        .map_err(|e| {
             error!("Database error serving PDF: {}", e);
-            return Err((StatusCode::INTERNAL_SERVER_ERROR, format!("Database error: {}", e)));
-        }
-    };
+            (StatusCode::INTERNAL_SERVER_ERROR, format!("Database error: {}", e))
+        })?
+        .ok_or((StatusCode::NOT_FOUND, "Document not found".to_string()))?;
 
-    let media_id: i32 = row.get("id");
-    let filename: String = row.get("filename");
-    let vault_id: Option<String> = row.get("vault_id");
-
-    if !filename.ends_with(".pdf") {
+    if !doc.filename.ends_with(".pdf") {
         return Err((StatusCode::BAD_REQUEST, "Not a PDF document".to_string()));
     }
 
     // Access control
-    let mut context = access_control::AccessContext::new(common::ResourceType::File, media_id);
+    let mut context = access_control::AccessContext::new(common::ResourceType::File, doc.id);
     if let Some(uid) = user_id {
         context = context.with_user(uid);
     }
@@ -178,7 +150,7 @@ pub async fn serve_pdf_handler(
         return Err((StatusCode::FORBIDDEN, "Access denied".to_string()));
     }
 
-    let vault_id = vault_id.ok_or((
+    let vault_id = doc.vault_id.ok_or((
         StatusCode::INTERNAL_SERVER_ERROR,
         "No vault_id for document".to_string(),
     ))?;
@@ -189,11 +161,11 @@ pub async fn serve_pdf_handler(
         .find_media_file(
             &vault_id,
             common::storage::MediaType::Document,
-            &filename,
+            &doc.filename,
         )
         .ok_or_else(|| {
-            error!("PDF file not found: {} (vault: {})", filename, vault_id);
-            (StatusCode::NOT_FOUND, format!("PDF file not found: {}", filename))
+            error!("PDF file not found: {} (vault: {})", doc.filename, vault_id);
+            (StatusCode::NOT_FOUND, format!("PDF file not found: {}", doc.filename))
         })?;
 
     let bytes = tokio::fs::read(&file_path).await.map_err(|e| {
@@ -201,7 +173,7 @@ pub async fn serve_pdf_handler(
         (StatusCode::INTERNAL_SERVER_ERROR, "Failed to read file".to_string())
     })?;
 
-    info!("📤 Serving PDF bytes for: {}", slug);
+    info!("Serving PDF bytes for: {}", slug);
 
     Ok(Response::builder()
         .status(StatusCode::OK)

@@ -38,6 +38,8 @@ members = [
     "crates/agent-tools",
     "crates/agent-registry",
     "crates/federation",
+    "crates/db",
+    "crates/db-sqlite",
 ]
 resolver = "2"
 
@@ -91,6 +93,8 @@ course = { path = "crates/course", optional = true }
 media-viewer = { path = "crates/media-viewer", optional = true }
 agent-registry = { path = "crates/agent-registry" }
 federation = { path = "crates/federation" }
+db = { path = "crates/db" }
+db-sqlite = { path = "crates/db-sqlite" }
 
 # Web framework
 axum = { version = "0.8", features = ["multipart", "ws"] }

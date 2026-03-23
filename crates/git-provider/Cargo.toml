@@ -25,7 +25,7 @@ anyhow = { workspace = true }
 tracing = { workspace = true }
 
 # Database
-sqlx = { workspace = true }
+db = { path = "../db" }
 
 # HTTP client for Forgejo/Gitea API
 reqwest = { workspace = true, features = ["json"] }

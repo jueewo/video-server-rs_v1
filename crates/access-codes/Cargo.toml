@@ -7,6 +7,7 @@ edition = "2021"
 # Internal crates
 access-control = { path = "../access-control" }
 common = { path = "../common" }
+db = { path = "../db" }
 
 # Workspace dependencies
 axum.workspace = true
@@ -14,7 +15,6 @@ tokio.workspace = true
 tower.workspace = true
 tower-http.workspace = true
 tower-sessions.workspace = true
-sqlx.workspace = true
 serde.workspace = true
 anyhow.workspace = true
 tracing.workspace = true

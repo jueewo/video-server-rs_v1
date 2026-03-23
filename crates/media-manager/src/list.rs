@@ -6,7 +6,7 @@
 
 use crate::models::MediaFilterOptions;
 use crate::routes::MediaManagerState;
-use crate::search::MediaSearchService;
+use crate::search::{media_item_from_row, MediaSearchService};
 use crate::templates::{MediaItemWithMetadata, MediaListTemplate, MediaUploadTemplate};
 use askama::Template;
 use axum::{
@@ -14,6 +14,7 @@ use axum::{
     http::StatusCode,
     response::{Html, IntoResponse, Json, Redirect},
 };
+use db::media::MediaFieldValue;
 use serde::Deserialize;
 use tower_sessions::Session;
 use tracing::{debug, error, info, warn};
@@ -141,7 +142,7 @@ pub async fn list_media_html(
         None
     };
 
-    let search_service = MediaSearchService::new(state.pool.clone());
+    let search_service = MediaSearchService::new(state.repo.clone());
 
     // Normalize empty strings from form submissions to None
     let noe = |s: Option<String>| s.filter(|v| !v.is_empty());
@@ -167,59 +168,33 @@ pub async fn list_media_html(
 
     match search_service.search(filter).await {
         Ok(response) => {
-            // Fetch tags for all media items
+            // Fetch tags for all media items via repo batch method
             let media_ids: Vec<i32> = response.items.iter().map(|item| item.id()).collect();
-            let mut tags_map = std::collections::HashMap::new();
+            let tags_map = if !media_ids.is_empty() {
+                state
+                    .repo
+                    .get_tags_for_media_ids(&media_ids)
+                    .await
+                    .unwrap_or_default()
+            } else {
+                std::collections::HashMap::new()
+            };
 
-            if !media_ids.is_empty() {
-                let placeholders = media_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-                let query_str = format!(
-                    "SELECT media_id, tag FROM media_tags WHERE media_id IN ({})",
-                    placeholders
-                );
-                let mut query = sqlx::query(&query_str);
-                for id in &media_ids {
-                    query = query.bind(id);
-                }
-
-                if let Ok(rows) = query.fetch_all(&state.pool).await {
-                    use sqlx::Row;
-                    for row in rows {
-                        let media_id: i32 = row.try_get("media_id").unwrap_or(0);
-                        let tag: String = row.try_get("tag").unwrap_or_default();
-                        tags_map.entry(media_id).or_insert_with(Vec::new).push(tag);
-                    }
-                }
-            }
-
-            // Fetch group names for all group_ids
+            // Fetch group names for all group_ids via repo batch method
             let group_ids: Vec<i32> = response
                 .items
                 .iter()
                 .filter_map(|item| item.group_id())
                 .collect();
-            let mut groups_map = std::collections::HashMap::new();
-
-            if !group_ids.is_empty() {
-                let placeholders = group_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-                let query_str = format!(
-                    "SELECT id, name FROM access_groups WHERE id IN ({})",
-                    placeholders
-                );
-                let mut query = sqlx::query(&query_str);
-                for id in &group_ids {
-                    query = query.bind(id);
-                }
-
-                if let Ok(rows) = query.fetch_all(&state.pool).await {
-                    use sqlx::Row;
-                    for row in rows {
-                        let group_id: i32 = row.try_get("id").unwrap_or(0);
-                        let name: String = row.try_get("name").unwrap_or_default();
-                        groups_map.insert(group_id, name);
-                    }
-                }
-            }
+            let groups_map = if !group_ids.is_empty() {
+                state
+                    .repo
+                    .get_group_names(&group_ids)
+                    .await
+                    .unwrap_or_default()
+            } else {
+                std::collections::HashMap::new()
+            };
 
             // Combine items with their metadata
             let items_with_metadata: Vec<MediaItemWithMetadata> = response
@@ -241,7 +216,7 @@ pub async fn list_media_html(
             // Fetch selector data for authenticated users
             let all_vaults: Vec<(String, String)> = if authenticated {
                 if let Some(uid) = &user_id {
-                    common::services::vault_service::get_user_vaults(&state.pool, uid)
+                    common::services::vault_service::get_user_vaults(state.vault_repo.as_ref(), uid)
                         .await
                         .unwrap_or_default()
                         .into_iter()
@@ -256,16 +231,7 @@ pub async fn list_media_html(
 
             let all_tags: Vec<String> = if authenticated {
                 if let Some(uid) = &user_id {
-                    sqlx::query_scalar(
-                        "SELECT DISTINCT mt.tag FROM media_tags mt
-                         JOIN media_items mi ON mt.media_id = mi.id
-                         WHERE mi.user_id = ?
-                         ORDER BY mt.tag",
-                    )
-                    .bind(uid)
-                    .fetch_all(&state.pool)
-                    .await
-                    .unwrap_or_default()
+                    state.repo.get_user_tags(uid).await.unwrap_or_default()
                 } else {
                     vec![]
                 }
@@ -274,16 +240,14 @@ pub async fn list_media_html(
             };
 
             let all_groups: Vec<(String, String)> = if let Some(uid) = &user_id {
-                sqlx::query_as::<_, (i32, String)>(
-                    "SELECT id, name FROM access_groups WHERE owner_id = ? AND is_active = 1 ORDER BY name",
-                )
-                .bind(uid)
-                .fetch_all(&state.pool)
-                .await
-                .unwrap_or_default()
-                .into_iter()
-                .map(|(id, name)| (id.to_string(), name))
-                .collect()
+                state
+                    .repo
+                    .get_user_groups(uid)
+                    .await
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|(id, name)| (id.to_string(), name))
+                    .collect()
             } else {
                 vec![]
             };
@@ -358,7 +322,7 @@ pub async fn list_media_json(
             .into_response();
     }
 
-    let search_service = MediaSearchService::new(state.pool.clone());
+    let search_service = MediaSearchService::new(state.repo.clone());
 
     // Don't filter by user_id to show all media (including legacy uploads with user_id=NULL)
     // Authenticated users see all their media + public media from others
@@ -384,30 +348,17 @@ pub async fn list_media_json(
 
     match search_service.search(filter).await {
         Ok(response) => {
-            // Fetch tags for all items in one batch query
+            // Fetch tags for all items in one batch query via repo
             let media_ids: Vec<i32> = response.items.iter().map(|item| item.id()).collect();
-            let mut tags_map: std::collections::HashMap<i32, Vec<String>> =
-                std::collections::HashMap::new();
-
-            if !media_ids.is_empty() {
-                let placeholders = media_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-                let query_str = format!(
-                    "SELECT media_id, tag FROM media_tags WHERE media_id IN ({})",
-                    placeholders
-                );
-                let mut tag_query = sqlx::query(&query_str);
-                for id in &media_ids {
-                    tag_query = tag_query.bind(id);
-                }
-                if let Ok(rows) = tag_query.fetch_all(&state.pool).await {
-                    use sqlx::Row;
-                    for row in rows {
-                        let media_id: i32 = row.try_get("media_id").unwrap_or(0);
-                        let tag: String = row.try_get("tag").unwrap_or_default();
-                        tags_map.entry(media_id).or_insert_with(Vec::new).push(tag);
-                    }
-                }
-            }
+            let tags_map = if !media_ids.is_empty() {
+                state
+                    .repo
+                    .get_tags_for_media_ids(&media_ids)
+                    .await
+                    .unwrap_or_default()
+            } else {
+                std::collections::HashMap::new()
+            };
 
             // Serialize then flatten the serde adjacently-tagged enum wrapper
             // {"type":"MediaItem","data":{...}} → {..., "tags":[...]}
@@ -558,7 +509,7 @@ pub async fn get_user_vaults(
     };
 
     // Get user's vaults from database
-    match common::services::vault_service::get_user_vaults(&state.pool, &user_id).await {
+    match common::services::vault_service::get_user_vaults(state.vault_repo.as_ref(), &user_id).await {
         Ok(vaults) => {
             let vault_list: Vec<serde_json::Value> = vaults
                 .into_iter()
@@ -632,28 +583,44 @@ pub async fn toggle_visibility(
     let is_public = payload["is_public"].as_bool().unwrap_or(false);
     let is_public_int = if is_public { 1 } else { 0 };
 
-    // Update only the row that belongs to this user — prevents horizontal privilege escalation.
-    // Rows with NULL user_id (legacy uploads) are intentionally excluded.
-    let result = sqlx::query("UPDATE media_items SET is_public = ? WHERE slug = ? AND user_id = ?")
-        .bind(is_public_int)
-        .bind(&slug)
-        .bind(&session_user_id)
-        .execute(&state.pool)
-        .await;
-
-    match result {
-        Ok(result) if result.rows_affected() > 0 => {
-            info!("Toggled visibility for {}: {}", slug, is_public);
-            (
-                StatusCode::OK,
-                Json(serde_json::json!({
-                    "success": true,
-                    "is_public": is_public
-                })),
-            )
-                .into_response()
+    // Verify ownership first — the repo method scopes by slug + user_id
+    match state
+        .repo
+        .get_media_id_by_slug_and_user(&slug, &session_user_id)
+        .await
+    {
+        Ok(Some(_)) => {
+            // Ownership confirmed — toggle visibility
+            match state
+                .repo
+                .toggle_visibility(&slug, &session_user_id, is_public_int)
+                .await
+            {
+                Ok(()) => {
+                    info!("Toggled visibility for {}: {}", slug, is_public);
+                    (
+                        StatusCode::OK,
+                        Json(serde_json::json!({
+                            "success": true,
+                            "is_public": is_public
+                        })),
+                    )
+                        .into_response()
+                }
+                Err(e) => {
+                    error!("Failed to update visibility: {}", e);
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({
+                            "success": false,
+                            "error": "Failed to update visibility"
+                        })),
+                    )
+                        .into_response()
+                }
+            }
         }
-        Ok(_) => {
+        Ok(None) => {
             // Either the slug doesn't exist or it belongs to a different user.
             // Return 403 to avoid leaking whether the resource exists.
             (
@@ -666,7 +633,7 @@ pub async fn toggle_visibility(
                 .into_response()
         }
         Err(e) => {
-            error!("Failed to update visibility: {}", e);
+            error!("Failed to check ownership: {}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(serde_json::json!({
@@ -718,15 +685,12 @@ pub async fn get_media_item(
         }
     };
 
-    // Fetch media item from database
-    let media_result: Result<common::models::media_item::MediaItem, sqlx::Error> =
-        sqlx::query_as("SELECT * FROM media_items WHERE slug = ?")
-            .bind(&slug)
-            .fetch_one(&state.pool)
-            .await;
+    // Fetch media item from database via repo
+    match state.repo.get_media_by_slug(&slug).await {
+        Ok(Some(row)) => {
+            // Convert to MediaItem (drops video_type)
+            let media = media_item_from_row(row);
 
-    match media_result {
-        Ok(media) => {
             // Ownership check: only the owner may retrieve private media metadata via this API.
             // Rows with NULL user_id (legacy uploads) are not accessible via ownership check.
             if media.user_id.as_deref() != Some(session_user_id.as_str()) {
@@ -739,13 +703,12 @@ pub async fn get_media_item(
                     .into_response();
             }
 
-            // Fetch tags for this media item
-            let tags: Vec<String> =
-                sqlx::query_scalar("SELECT tag FROM media_tags WHERE media_id = ?")
-                    .bind(media.id)
-                    .fetch_all(&state.pool)
-                    .await
-                    .unwrap_or_default();
+            // Fetch tags for this media item via repo
+            let tags = state
+                .repo
+                .get_tags_for_media(media.id)
+                .await
+                .unwrap_or_default();
 
             // Create response with tags included
             let mut response = serde_json::to_value(&media).unwrap();
@@ -755,7 +718,7 @@ pub async fn get_media_item(
 
             (StatusCode::OK, Json(response)).into_response()
         }
-        Err(sqlx::Error::RowNotFound) => (
+        Ok(None) => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({
                 "error": "Media not found"
@@ -817,18 +780,15 @@ pub async fn update_media_item(
         }
     };
 
-    // Get media_id, verifying ownership in the same query — prevents horizontal privilege
-    // escalation. Rows with NULL user_id (legacy uploads) are intentionally excluded.
-    let media_id_result: Result<i32, sqlx::Error> =
-        sqlx::query_scalar("SELECT id FROM media_items WHERE slug = ? AND user_id = ?")
-            .bind(&slug)
-            .bind(&session_user_id)
-            .fetch_one(&state.pool)
-            .await;
-
-    let media_id = match media_id_result {
-        Ok(id) => id,
-        Err(sqlx::Error::RowNotFound) => {
+    // Get media_id, verifying ownership — prevents horizontal privilege escalation.
+    // Rows with NULL user_id (legacy uploads) are intentionally excluded.
+    let media_id = match state
+        .repo
+        .get_media_id_by_slug_and_user(&slug, &session_user_id)
+        .await
+    {
+        Ok(Some(id)) => id,
+        Ok(None) => {
             // Either the slug doesn't exist or it belongs to a different user.
             // Return 403 to avoid leaking whether the resource exists.
             return (
@@ -853,63 +813,52 @@ pub async fn update_media_item(
         }
     };
 
-    // Build dynamic update query
-    let mut updates = Vec::new();
-    let mut values: Vec<String> = Vec::new();
+    // Build field update list for the repo
+    let mut fields: Vec<(String, MediaFieldValue)> = Vec::new();
 
     if let Some(title) = &payload.title {
-        updates.push("title = ?");
-        values.push(title.clone());
+        fields.push(("title".to_string(), MediaFieldValue::Text(title.clone())));
     }
     if let Some(description) = &payload.description {
-        updates.push("description = ?");
-        values.push(description.clone());
+        fields.push((
+            "description".to_string(),
+            MediaFieldValue::Text(description.clone()),
+        ));
     }
     if let Some(is_public) = payload.is_public {
-        updates.push("is_public = ?");
-        values.push(is_public.to_string());
+        fields.push(("is_public".to_string(), MediaFieldValue::Int(is_public)));
     }
     if let Some(category) = &payload.category {
-        updates.push("category = ?");
-        values.push(category.clone());
+        fields.push((
+            "category".to_string(),
+            MediaFieldValue::Text(category.clone()),
+        ));
     }
     if let Some(featured) = payload.featured {
-        updates.push("featured = ?");
-        values.push(featured.to_string());
+        fields.push(("featured".to_string(), MediaFieldValue::Int(featured)));
     }
 
     // Determine group_id change: None = not in payload, Some(None) = clear, Some(Some(n)) = set
-    let group_id_change: Option<Option<i32>> = match &payload.group_id {
-        None => None,
-        Some(serde_json::Value::Null) => Some(None),
-        Some(serde_json::Value::Number(n)) => Some(Some(n.as_i64().unwrap_or(0) as i32)),
-        _ => None,
-    };
-    if group_id_change.is_some() {
-        updates.push("group_id = ?");
+    match &payload.group_id {
+        None => {} // not in payload, skip
+        Some(serde_json::Value::Null) => {
+            fields.push(("group_id".to_string(), MediaFieldValue::OptionalInt(None)));
+        }
+        Some(serde_json::Value::Number(n)) => {
+            fields.push((
+                "group_id".to_string(),
+                MediaFieldValue::OptionalInt(Some(n.as_i64().unwrap_or(0) as i32)),
+            ));
+        }
+        _ => {} // ignore other JSON types
     }
 
-    // Always update updated_at
-    updates.push("updated_at = datetime('now')");
-
-    if !updates.is_empty() {
-        // Ownership already verified above; scope the UPDATE to slug + user_id for defence-in-depth
-        let query_str = format!(
-            "UPDATE media_items SET {} WHERE slug = ? AND user_id = ?",
-            updates.join(", ")
-        );
-
-        let mut query = sqlx::query(&query_str);
-        for value in &values {
-            query = query.bind(value);
-        }
-        if let Some(gid) = group_id_change {
-            query = query.bind(gid); // None → NULL, Some(n) → integer
-        }
-        query = query.bind(&slug);
-        query = query.bind(&session_user_id);
-
-        if let Err(e) = query.execute(&state.pool).await {
+    if !fields.is_empty() {
+        if let Err(e) = state
+            .repo
+            .update_media_item(&slug, &session_user_id, &fields)
+            .await
+        {
             error!("Failed to update media: {}", e);
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -924,29 +873,9 @@ pub async fn update_media_item(
 
     // Update tags if provided
     if let Some(tags) = &payload.tags {
-        // Delete existing tags
-        if let Err(e) = sqlx::query("DELETE FROM media_tags WHERE media_id = ?")
-            .bind(media_id)
-            .execute(&state.pool)
-            .await
-        {
-            warn!("Failed to delete old tags: {}", e);
-        }
-
-        // Insert new tags
-        for tag in tags {
-            if !tag.is_empty() {
-                if let Err(e) = sqlx::query(
-                    "INSERT INTO media_tags (media_id, tag, created_at) VALUES (?, ?, datetime('now'))",
-                )
-                .bind(media_id)
-                .bind(tag)
-                .execute(&state.pool)
-                .await
-                {
-                    warn!("Failed to insert tag '{}': {}", tag, e);
-                }
-            }
+        let clean_tags: Vec<String> = tags.iter().filter(|t| !t.is_empty()).cloned().collect();
+        if let Err(e) = state.repo.set_media_tags(media_id, &clean_tags).await {
+            warn!("Failed to update tags: {}", e);
         }
     }
 
@@ -992,13 +921,7 @@ pub async fn list_user_groups(
         }
     };
 
-    match sqlx::query_as::<_, (i32, String)>(
-        "SELECT id, name FROM access_groups WHERE owner_id = ? AND is_active = 1 ORDER BY name",
-    )
-    .bind(&user_id)
-    .fetch_all(&state.pool)
-    .await
-    {
+    match state.repo.get_user_groups(&user_id).await {
         Ok(rows) => {
             let groups: Vec<serde_json::Value> = rows
                 .into_iter()
@@ -1060,143 +983,160 @@ pub async fn delete_media(
 
     // Get media info before deleting, scoped to the requesting user — prevents horizontal
     // privilege escalation. Rows with NULL user_id (legacy uploads) are intentionally excluded.
-    let media_info: Option<(String, String, Option<String>)> = sqlx::query_as(
-        "SELECT media_type, filename, vault_id FROM media_items WHERE slug = ? AND user_id = ?",
-    )
-    .bind(&slug)
-    .bind(&session_user_id)
-    .fetch_optional(&state.pool)
-    .await
-    .ok()
-    .flatten();
+    let media_info = match state
+        .repo
+        .get_media_for_deletion(&slug, &session_user_id)
+        .await
+    {
+        Ok(Some(info)) => info,
+        Ok(None) => {
+            // Either the slug doesn't exist or it belongs to a different user.
+            // Return 403 to avoid leaking whether the resource exists.
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": "Not found or access denied"
+                })),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            error!("Database error fetching media for deletion: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": "Failed to delete media"
+                })),
+            )
+                .into_response();
+        }
+    };
 
-    if let Some((media_type, filename, vault_id)) = media_info {
-        // Delete from database (tags will be cleaned up by CASCADE or manually)
-        let _ = sqlx::query(
-            "DELETE FROM media_tags WHERE media_id = (SELECT id FROM media_items WHERE slug = ?)",
-        )
-        .bind(&slug)
-        .execute(&state.pool)
-        .await;
+    let media_type = media_info.media_type;
+    let filename = media_info.filename;
+    let vault_id = media_info.vault_id;
 
-        let db_result = sqlx::query("DELETE FROM media_items WHERE slug = ?")
-            .bind(&slug)
-            .execute(&state.pool)
-            .await;
+    // Delete tags from database
+    if let Err(e) = state.repo.delete_media_tags_by_slug(&slug).await {
+        warn!("Failed to delete tags for {}: {}", slug, e);
+    }
 
-        match db_result {
-            Ok(_) => {
-                // Try to delete physical file/directory if vault_id exists
-                if let Some(vault_id) = vault_id {
-                    let media_type_enum = match media_type.as_str() {
-                        "video" => common::storage::MediaType::Video,
-                        "image" => common::storage::MediaType::Image,
-                        "document" => common::storage::MediaType::Document,
-                        _ => common::storage::MediaType::Document,
-                    };
+    // Delete from database
+    match state.repo.delete_media_by_slug(&slug).await {
+        Ok(()) => {
+            // Try to delete physical file/directory if vault_id exists
+            if let Some(vault_id) = vault_id {
+                let media_type_enum = match media_type.as_str() {
+                    "video" => common::storage::MediaType::Video,
+                    "image" => common::storage::MediaType::Image,
+                    "document" => common::storage::MediaType::Document,
+                    _ => common::storage::MediaType::Document,
+                };
 
-                    // For videos, delete the entire directory (contains HLS files, segments, etc.)
-                    // For images/documents, delete the single file
-                    if media_type == "video" {
-                        // Videos are in subdirectories: {slug}/
-                        let video_path = state.user_storage.find_media_file(&vault_id, media_type_enum,
-                            &slug,
-                        );
+                // For videos, delete the entire directory (contains HLS files, segments, etc.)
+                // For images/documents, delete the single file
+                if media_type == "video" {
+                    // Videos are in subdirectories: {slug}/
+                    let video_path =
+                        state
+                            .user_storage
+                            .find_media_file(&vault_id, media_type_enum, &slug);
 
-                        if let Some(video_dir) = video_path {
-                            if video_dir.is_dir() {
-                                if let Err(e) = tokio::fs::remove_dir_all(&video_dir).await {
-                                    warn!("Failed to delete video directory {:?}: {}", video_dir, e);
-                                } else {
-                                    info!("✅ Deleted video directory: {:?}", video_dir);
-                                }
+                    if let Some(video_dir) = video_path {
+                        if video_dir.is_dir() {
+                            if let Err(e) = tokio::fs::remove_dir_all(&video_dir).await {
+                                warn!(
+                                    "Failed to delete video directory {:?}: {}",
+                                    video_dir, e
+                                );
                             } else {
-                                warn!("Video path exists but is not a directory: {:?}", video_dir);
+                                info!("Deleted video directory: {:?}", video_dir);
                             }
                         } else {
-                            warn!("Video directory not found for slug: {}", slug);
+                            warn!("Video path exists but is not a directory: {:?}", video_dir);
                         }
                     } else {
-                        // Images and documents are flat files
-                        let file_path = state.user_storage.find_media_file(&vault_id, media_type_enum,
-                            &filename,
-                        );
-
-                        if let Some(path) = file_path {
-                            if let Err(e) = tokio::fs::remove_file(&path).await {
-                                warn!("Failed to delete file {:?}: {}", path, e);
-                            } else {
-                                info!("✅ Deleted file: {:?}", path);
-                            }
-                        } else {
-                            warn!("Media file not found: {}", filename);
-                        }
-
-                        // For images, also try to delete original file if it exists
-                        if media_type == "image" {
-                            // Try common original filename patterns
-                            for ext in &["jpg", "jpeg", "png", "webp", "gif", "bmp"] {
-                                let original_filename = format!("{}_original.{}", slug, ext);
-                                if let Some(original_path) = state.user_storage.find_media_file(&vault_id, media_type_enum,
-                                    &original_filename,
-                                ) {
-                                    if let Err(e) = tokio::fs::remove_file(&original_path).await {
-                                        warn!("Failed to delete original file {:?}: {}", original_path, e);
-                                    } else {
-                                        info!("Deleted original image: {:?}", original_path);
-                                    }
-                                    break; // Found and deleted, stop searching
-                                }
-                            }
-                        }
+                        warn!("Video directory not found for slug: {}", slug);
                     }
-
-                    // Delete thumbnail using multi-location fallback
-                    let thumb_path = state.user_storage.find_thumbnail(&vault_id, media_type_enum,
-                        &slug,
+                } else {
+                    // Images and documents are flat files
+                    let file_path = state.user_storage.find_media_file(
+                        &vault_id,
+                        media_type_enum,
+                        &filename,
                     );
 
-                    if let Some(thumb) = thumb_path {
-                        if let Err(e) = tokio::fs::remove_file(&thumb).await {
-                            warn!("Failed to delete thumbnail {:?}: {}", thumb, e);
+                    if let Some(path) = file_path {
+                        if let Err(e) = tokio::fs::remove_file(&path).await {
+                            warn!("Failed to delete file {:?}: {}", path, e);
                         } else {
-                            info!("Deleted thumbnail: {:?}", thumb);
+                            info!("Deleted file: {:?}", path);
+                        }
+                    } else {
+                        warn!("Media file not found: {}", filename);
+                    }
+
+                    // For images, also try to delete original file if it exists
+                    if media_type == "image" {
+                        // Try common original filename patterns
+                        for ext in &["jpg", "jpeg", "png", "webp", "gif", "bmp"] {
+                            let original_filename = format!("{}_original.{}", slug, ext);
+                            if let Some(original_path) = state.user_storage.find_media_file(
+                                &vault_id,
+                                media_type_enum,
+                                &original_filename,
+                            ) {
+                                if let Err(e) = tokio::fs::remove_file(&original_path).await {
+                                    warn!(
+                                        "Failed to delete original file {:?}: {}",
+                                        original_path, e
+                                    );
+                                } else {
+                                    info!("Deleted original image: {:?}", original_path);
+                                }
+                                break; // Found and deleted, stop searching
+                            }
                         }
                     }
                 }
 
-                info!("Deleted media: {}", slug);
-                (
-                    StatusCode::OK,
-                    Json(serde_json::json!({
-                        "success": true
-                    })),
-                )
-                    .into_response()
+                // Delete thumbnail using multi-location fallback
+                let thumb_path =
+                    state
+                        .user_storage
+                        .find_thumbnail(&vault_id, media_type_enum, &slug);
+
+                if let Some(thumb) = thumb_path {
+                    if let Err(e) = tokio::fs::remove_file(&thumb).await {
+                        warn!("Failed to delete thumbnail {:?}: {}", thumb, e);
+                    } else {
+                        info!("Deleted thumbnail: {:?}", thumb);
+                    }
+                }
             }
-            Err(e) => {
-                error!("Failed to delete media from database: {}", e);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({
-                        "success": false,
-                        "error": "Failed to delete media"
-                    })),
-                )
-                    .into_response()
-            }
+
+            info!("Deleted media: {}", slug);
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "success": true
+                })),
+            )
+                .into_response()
         }
-    } else {
-        // Either the slug doesn't exist or it belongs to a different user.
-        // Return 403 to avoid leaking whether the resource exists.
-        (
-            StatusCode::FORBIDDEN,
-            Json(serde_json::json!({
-                "success": false,
-                "error": "Not found or access denied"
-            })),
-        )
-            .into_response()
+        Err(e) => {
+            error!("Failed to delete media from database: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": "Failed to delete media"
+                })),
+            )
+                .into_response()
+        }
     }
 }
 
@@ -1251,19 +1191,11 @@ pub async fn search_user_tags(
     let prefix = query.q.unwrap_or_default();
     let pattern = format!("{}%", prefix);
 
-    let tags: Vec<String> = sqlx::query_scalar(
-        "SELECT DISTINCT mt.tag FROM media_tags mt
-         JOIN media_items mi ON mt.media_id = mi.id
-         WHERE mi.user_id = ?
-           AND mt.tag LIKE ?
-         ORDER BY mt.tag
-         LIMIT 20",
-    )
-    .bind(&user_id)
-    .bind(&pattern)
-    .fetch_all(&state.pool)
-    .await
-    .unwrap_or_default();
+    let tags = state
+        .repo
+        .search_user_tags(&user_id, &pattern)
+        .await
+        .unwrap_or_default();
 
     Json(tags).into_response()
 }

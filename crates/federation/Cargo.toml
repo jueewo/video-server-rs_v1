@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 axum = { workspace = true }
 tokio = { workspace = true }
-sqlx = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
@@ -15,6 +14,7 @@ chrono = { workspace = true }
 reqwest = { workspace = true }
 askama = { workspace = true }
 common = { path = "../common" }
+db = { path = "../db" }
 api-keys = { path = "../api-keys" }
 uuid = { version = "1", features = ["v4"] }
 url = "2"

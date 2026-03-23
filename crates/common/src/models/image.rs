@@ -3,14 +3,13 @@
 // Created: February 2025
 
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 
 // ============================================================================
 // Core Image Model
 // ============================================================================
 
 /// Complete image record with all metadata fields
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Image {
     // Core fields
     pub id: i32,
@@ -102,7 +101,7 @@ pub struct Image {
 // ============================================================================
 
 /// Lightweight image info for gallery views
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImageSummary {
     pub id: i32,
     pub slug: String,
@@ -416,7 +415,7 @@ pub struct ImageAnalytics {
 }
 
 /// Category statistics
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CategoryStats {
     pub category: String,
     pub count: i64,
@@ -424,7 +423,7 @@ pub struct CategoryStats {
 }
 
 /// Collection statistics
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CollectionStats {
     pub collection: String,
     pub count: i64,
@@ -432,7 +431,7 @@ pub struct CollectionStats {
 }
 
 /// Tag statistics for images
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImageTagStats {
     pub tag: String,
     pub count: i64,

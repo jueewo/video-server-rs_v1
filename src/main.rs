@@ -1125,12 +1125,22 @@ async fn main() -> anyhow::Result<()> {
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
 
+    // Shared database (repository) instance for trait-based crates
+    let database = Arc::new(db_sqlite::SqliteDatabase::new(pool.clone()));
+
+    // Initialize Access Control Service with audit logging enabled (needed early by video/media state)
+    let access_control = Arc::new(AccessControlService::with_audit_enabled(database.clone(), database.clone(), true));
+    println!("🔐 Access Control Service initialized with audit logging enabled");
+
     // Initialize module states
     #[cfg(feature = "media")]
     let video_state = Arc::new(VideoManagerState::new(
         pool.clone(),
+        database.clone(),
+        database.clone(),
         storage_dir.clone(),
         http_client,
+        access_control.clone(),
     ));
     #[cfg(not(feature = "media"))]
     drop(http_client);
@@ -1153,7 +1163,7 @@ async fn main() -> anyhow::Result<()> {
         println!("✅ Production configuration validated — all secrets are set");
     }
 
-    let auth_state = match AuthState::new(oidc_config.clone(), pool.clone()).await {
+    let auth_state = match AuthState::new(oidc_config.clone(), database.clone()).await {
         Ok(state) => {
             if state.oidc_client.is_some() {
                 println!("✅ OIDC authentication enabled");
@@ -1165,36 +1175,34 @@ async fn main() -> anyhow::Result<()> {
         Err(e) => {
             println!("⚠️  Failed to initialize OIDC: {}", e);
             println!("   Using emergency login only");
-            Arc::new(AuthState::new_without_oidc(oidc_config, pool.clone()))
+            Arc::new(AuthState::new_without_oidc(oidc_config, database.clone()))
         }
     };
 
-    let access_state = Arc::new(AccessCodeState::new(pool.clone()));
+    let access_state = Arc::new(AccessCodeState::new(database.clone(), database.clone(), access_control.clone()));
 
     // Initialize Vault Manager State
-    let vault_state = Arc::new(VaultManagerState::new(pool.clone(), user_storage.clone()));
+    let vault_state = Arc::new(VaultManagerState::new(database.clone(), user_storage.clone()));
+    let api_key_repo: Arc<dyn db::api_keys::ApiKeyRepository> = database.clone();
 
     // Initialize Workspace Manager State
-    let mut workspace_state = WorkspaceManagerState::new(pool.clone(), user_storage.clone(), sites_dir.clone());
-    workspace_renderers::register_all(&mut workspace_state, pool.clone(), (*user_storage).clone());
+    let mut workspace_state = WorkspaceManagerState::new(database.clone(), database.clone(), user_storage.clone(), sites_dir.clone(), database.clone());
+    workspace_renderers::register_all(&mut workspace_state, database.clone(), database.clone(), (*user_storage).clone());
     let workspace_state = Arc::new(workspace_state);
 
     // Initialize LLM Provider state
-    let llm_state = LlmProviderState::new(pool.clone()).with_storage(storage_dir.clone());
+    let llm_state = LlmProviderState::new(database.clone()).with_storage(storage_dir.clone());
     println!("🤖 LLM Provider service initialized");
 
     // Initialize Git Provider state
-    let git_state = GitProviderState::new(pool.clone());
+    let git_state = GitProviderState::new(database.clone());
     println!("🔀 Git Provider service initialized");
-
-    // Initialize Access Control Service with audit logging enabled
-    let access_control = Arc::new(AccessControlService::with_audit_enabled(pool.clone(), true));
-    println!("🔐 Access Control Service initialized with audit logging enabled");
 
     // Initialize unified media manager with video processing support
     #[cfg(feature = "media")]
     let media_manager_state = Arc::new(MediaManagerState::with_video_processing(
-        pool.clone(),
+        database.clone(),
+        database.clone(),
         storage_dir.to_str().unwrap_or("storage").to_string(),
         (*user_storage).clone(),
         access_control.clone(),
@@ -1219,7 +1227,7 @@ async fn main() -> anyhow::Result<()> {
     // Initialize Course state
     #[cfg(feature = "course")]
     let course_state = Arc::new(CourseState {
-        pool: pool.clone(),
+        workspace_repo: database.clone(),
         storage: (*user_storage).clone(),
     });
     #[cfg(feature = "course")]
@@ -1228,7 +1236,7 @@ async fn main() -> anyhow::Result<()> {
     // Initialize Media Viewer state (standalone gallery)
     #[cfg(feature = "media")]
     let mv_state = Arc::new(MediaViewerState {
-        pool: pool.clone(),
+        media_repo: database.clone(),
         storage: (*user_storage).clone(),
     });
     #[cfg(feature = "media")]
@@ -1353,13 +1361,13 @@ async fn main() -> anyhow::Result<()> {
             }
         })
         // API Keys management — session auth checked in handlers, middleware adds defense-in-depth
-        .merge(api_key_routes(Arc::new(pool.clone())).route_layer(
-            axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
+        .merge(api_key_routes(api_key_repo.clone()).route_layer(
+            axum::middleware::from_fn_with_state(api_key_repo.clone(), api_key_or_session_auth),
         ))
         // LLM Provider management + SSE chat — upload-tier rate limit on chat endpoint
         .merge({
             let r = llm_provider_routes(llm_state).route_layer(
-                axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
+                axum::middleware::from_fn_with_state(api_key_repo.clone(), api_key_or_session_auth),
             );
             if let Some(layer) = rate_limit.upload_layer() {
                 r.layer(layer)
@@ -1369,7 +1377,7 @@ async fn main() -> anyhow::Result<()> {
         })
         // Git Provider management
         .merge(git_provider_routes(git_state).route_layer(
-            axum::middleware::from_fn_with_state(Arc::new(pool.clone()), api_key_or_session_auth),
+            axum::middleware::from_fn_with_state(api_key_repo.clone(), api_key_or_session_auth),
         ));
 
     // ── Media feature ────────────────────────────────────────────
@@ -1385,7 +1393,7 @@ async fn main() -> anyhow::Result<()> {
                 .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // 100MB limit for media uploads
                 .with_state((*media_manager_state).clone())
                 .route_layer(axum::middleware::from_fn_with_state(
-                    Arc::new(pool.clone()),
+                    api_key_repo.clone(),
                     api_key_or_session_auth,
                 ));
             if let Some(layer) = rate_limit.upload_layer() {
@@ -1399,7 +1407,7 @@ async fn main() -> anyhow::Result<()> {
             let r = media_serving_routes()
                 .with_state((*media_manager_state).clone())
                 .route_layer(axum::middleware::from_fn_with_state(
-                    Arc::new(pool.clone()),
+                    api_key_repo.clone(),
                     api_key_or_session_auth,
                 ));
             if let Some(layer) = rate_limit.media_serving_layer() {
@@ -1427,14 +1435,14 @@ async fn main() -> anyhow::Result<()> {
         // Access codes — CRUD routes get auth middleware for defense-in-depth
         .merge(
             access_code_routes(access_state).route_layer(axum::middleware::from_fn_with_state(
-                Arc::new(pool.clone()),
+                api_key_repo.clone(),
                 api_key_or_session_auth,
             )),
         )
         // Vault management — auth middleware for defense-in-depth + API mutate rate limit
         .merge({
             let r = vault_routes(vault_state).route_layer(axum::middleware::from_fn_with_state(
-                Arc::new(pool.clone()),
+                api_key_repo.clone(),
                 api_key_or_session_auth,
             ));
             if let Some(layer) = rate_limit.api_mutate_layer() {
@@ -1446,9 +1454,14 @@ async fn main() -> anyhow::Result<()> {
         // Workspace manager — auth handled in handlers (redirects to login)
         .merge(workspace_routes(workspace_state))
         .merge(
-            access_groups::routes::create_routes(pool.clone()).route_layer(
+            access_groups::routes::create_routes(Arc::new(access_groups::AccessGroupState {
+                repo: database.clone(),
+                access_control: access_control.clone(),
+                media_repo: database.clone(),
+                user_repo: database.clone(),
+            })).route_layer(
                 axum::middleware::from_fn_with_state(
-                    Arc::new(pool.clone()),
+                    api_key_repo.clone(),
                     api_key_or_session_auth,
                 ),
             ),
@@ -1462,17 +1475,20 @@ async fn main() -> anyhow::Result<()> {
 
     // ── Apps feature (js-tool-viewer, app-publisher, 3d-gallery) ─────────────
     #[cfg(feature = "apps")]
-    let app = app.merge(workspace_app_routes(pool.clone(), storage_dir.clone(), apps_dir.clone(), (*user_storage).clone()));
+    let app = app.merge(workspace_app_routes(pool.clone(), database.clone(), database.clone(), storage_dir.clone(), apps_dir.clone(), (*user_storage).clone()));
 
     // ── Agent Registry (global workforce) ──────────────────────────────────
     let agent_registry_state = Arc::new(agent_registry::AgentRegistryState {
-        pool: pool.clone(),
+        repo: database.clone(),
+        llm_repo: database.clone(),
     });
     let app = app.merge(agent_registry::agent_registry_routes(agent_registry_state));
 
     // ── Federation (multi-server catalog sharing) ────────────────────────
+    let federation_repo: Arc<dyn db::federation::FederationRepository> = database.clone();
     let federation_state = Arc::new(FederationState {
-        pool: pool.clone(),
+        repo: federation_repo.clone(),
+        media_repo: database.clone(),
         storage: (*user_storage).clone(),
         storage_dir: storage_dir.to_string_lossy().to_string(),
         server_id: fed_server_id.clone(),
@@ -1485,7 +1501,7 @@ async fn main() -> anyhow::Result<()> {
         federation_server_routes()
             .with_state(federation_state.clone())
             .route_layer(axum::middleware::from_fn_with_state(
-                Arc::new(pool.clone()),
+                api_key_repo.clone(),
                 api_key_or_session_auth,
             ))
     );
@@ -1494,14 +1510,14 @@ async fn main() -> anyhow::Result<()> {
         federation_consumer_routes()
             .with_state(federation_state.clone())
             .route_layer(axum::middleware::from_fn_with_state(
-                Arc::new(pool.clone()),
+                api_key_repo.clone(),
                 api_key_or_session_auth,
             ))
     );
     // Background sync task
     if fed_enabled {
         federation::spawn_sync_task(
-            pool.clone(),
+            federation_repo.clone(),
             storage_dir.to_string_lossy().to_string(),
             fed_sync_interval,
             fed_max_items,
@@ -1515,7 +1531,7 @@ async fn main() -> anyhow::Result<()> {
             docs_routes()
                 .with_state(docs_state)
                 .route_layer(axum::middleware::from_fn_with_state(
-                    Arc::new(pool.clone()),
+                    api_key_repo.clone(),
                     api_key_or_session_auth,
                 )),
         )
@@ -1593,7 +1609,7 @@ async fn main() -> anyhow::Result<()> {
                 }
             })
             .layer(axum::middleware::from_fn_with_state(
-                Arc::new(pool.clone()),
+                api_key_repo.clone(),
                 api_key_or_session_auth,
             )),
         )
@@ -1603,7 +1619,7 @@ async fn main() -> anyhow::Result<()> {
             Router::new()
                 .fallback_service(ServeDir::new(&storage_dir))
                 .layer(axum::middleware::from_fn_with_state(
-                    Arc::new(pool.clone()),
+                    api_key_repo.clone(),
                     api_key_or_session_auth,
                 )),
         )

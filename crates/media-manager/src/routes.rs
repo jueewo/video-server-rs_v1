@@ -14,13 +14,15 @@ use axum::{
     Router,
 };
 use common::storage::UserStorageManager;
-use sqlx::SqlitePool;
+use db::media::MediaRepository;
+use db::vaults::VaultRepository;
 use std::sync::Arc;
 
 /// Media manager state — single shared state for all media operations
 #[derive(Clone)]
 pub struct MediaManagerState {
-    pub pool: SqlitePool,
+    pub repo: Arc<dyn MediaRepository>,
+    pub vault_repo: Arc<dyn VaultRepository>,
     pub storage_dir: String,
     pub user_storage: UserStorageManager,
     pub access_control: Arc<access_control::AccessControlService>,
@@ -34,13 +36,15 @@ pub struct MediaManagerState {
 
 impl MediaManagerState {
     pub fn new(
-        pool: SqlitePool,
+        repo: Arc<dyn MediaRepository>,
+        vault_repo: Arc<dyn VaultRepository>,
         storage_dir: String,
         user_storage: UserStorageManager,
         access_control: Arc<access_control::AccessControlService>,
     ) -> Self {
         Self {
-            pool,
+            repo,
+            vault_repo,
             storage_dir,
             user_storage,
             access_control,
@@ -53,7 +57,8 @@ impl MediaManagerState {
 
     /// Create a new state with video processing support
     pub fn with_video_processing(
-        pool: SqlitePool,
+        repo: Arc<dyn MediaRepository>,
+        vault_repo: Arc<dyn VaultRepository>,
         storage_dir: String,
         user_storage: UserStorageManager,
         access_control: Arc<access_control::AccessControlService>,
@@ -62,7 +67,8 @@ impl MediaManagerState {
         audit_logger: video_manager::metrics::AuditLogger,
     ) -> Self {
         Self {
-            pool,
+            repo,
+            vault_repo,
             storage_dir,
             user_storage,
             access_control,

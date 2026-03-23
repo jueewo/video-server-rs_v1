@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 # Internal crates
 common = { path = "../common" }
+db = { path = "../db" }
 access-control = { path = "../access-control" }
 media-core = { path = "../media-core" }
 

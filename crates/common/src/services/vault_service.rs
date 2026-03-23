@@ -4,7 +4,7 @@
 
 use crate::storage::{generate_vault_id, UserStorageManager};
 use anyhow::{Context, Result};
-use sqlx::SqlitePool;
+use db::vaults::{InsertVaultRequest, VaultRepository};
 use tracing::info;
 
 /// Get or create a default vault for a user
@@ -15,18 +15,16 @@ use tracing::info;
 /// 3. Ensures vault directories exist on filesystem
 /// 4. Returns the vault_id
 pub async fn get_or_create_default_vault(
-    pool: &SqlitePool,
+    repo: &dyn VaultRepository,
     storage: &UserStorageManager,
     user_id: &str,
 ) -> Result<String> {
     // Check if user already has a default vault
-    let existing_vault: Option<String> = sqlx::query_scalar(
-        "SELECT vault_id FROM storage_vaults WHERE user_id = ? AND is_default = 1",
-    )
-    .bind(user_id)
-    .fetch_optional(pool)
-    .await
-    .context("Failed to query existing vault")?;
+    let existing_vault = repo
+        .get_default_vault_id(user_id)
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))
+        .context("Failed to query existing vault")?;
 
     if let Some(vault_id) = existing_vault {
         return Ok(vault_id);
@@ -40,14 +38,16 @@ pub async fn get_or_create_default_vault(
     );
 
     // Insert into database
-    sqlx::query(
-        "INSERT INTO storage_vaults (vault_id, user_id, vault_name, is_default) VALUES (?, ?, ?, 1)",
-    )
-    .bind(&vault_id)
-    .bind(user_id)
-    .bind(format!("{}'s Media Vault", user_id))
-    .execute(pool)
+    let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
+    repo.insert_vault(&InsertVaultRequest {
+        vault_id: &vault_id,
+        user_id,
+        vault_name: &format!("{}'s Media Vault", user_id),
+        is_default: true,
+        created_at: &now,
+    })
     .await
+    .map_err(|e| anyhow::anyhow!("{}", e))
     .context("Failed to create vault in database")?;
 
     // Ensure vault directories exist
@@ -61,19 +61,17 @@ pub async fn get_or_create_default_vault(
 
 /// Get all vaults for a user
 pub async fn get_user_vaults(
-    pool: &SqlitePool,
+    repo: &dyn VaultRepository,
     user_id: &str,
 ) -> Result<Vec<(String, String, bool)>> {
-    let vaults: Vec<(String, String, i32)> = sqlx::query_as(
-        "SELECT vault_id, vault_name, is_default FROM storage_vaults WHERE user_id = ? ORDER BY is_default DESC, created_at ASC",
-    )
-    .bind(user_id)
-    .fetch_all(pool)
-    .await
-    .context("Failed to query user vaults")?;
+    let vaults = repo
+        .list_user_vaults(user_id)
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))
+        .context("Failed to query user vaults")?;
 
     Ok(vaults
         .into_iter()
-        .map(|(vault_id, vault_name, is_default)| (vault_id, vault_name, is_default == 1))
+        .map(|v| (v.vault_id, v.vault_name, v.is_default))
         .collect())
 }

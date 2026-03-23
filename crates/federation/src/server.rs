@@ -23,12 +23,7 @@ pub async fn serve_manifest(
     if let Err(status) = require_federation_scope(&user) {
         return (status, "Forbidden").into_response();
     }
-    let count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM media_items WHERE is_public = 1 AND status = 'active'"
-    )
-    .fetch_one(&state.pool)
-    .await
-    .unwrap_or(0);
+    let count = state.media_repo.count_public_active().await.unwrap_or(0);
 
     Json(ServerManifest {
         server_id: state.server_id.clone(),
@@ -58,28 +53,25 @@ pub async fn serve_catalog(
     let page_size = params.page_size.unwrap_or(50).clamp(1, 200);
     let offset = (page - 1) * page_size;
 
-    let total: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM media_items WHERE is_public = 1 AND status = 'active'"
-    )
-    .fetch_one(&state.pool)
-    .await
-    .unwrap_or(0);
+    let total = state.media_repo.count_public_active().await.unwrap_or(0);
 
-    let items: Vec<CatalogItem> = sqlx::query_as::<_, (String, String, String, Option<String>, Option<String>, Option<String>, Option<i64>, String, Option<String>)>(
-        "SELECT slug, media_type, title, description, filename, mime_type, file_size, created_at, updated_at \
-         FROM media_items WHERE is_public = 1 AND status = 'active' \
-         ORDER BY created_at DESC LIMIT ?1 OFFSET ?2"
-    )
-    .bind(page_size)
-    .bind(offset)
-    .fetch_all(&state.pool)
-    .await
-    .unwrap_or_default()
-    .into_iter()
-    .map(|(slug, media_type, title, description, filename, mime_type, file_size, created_at, updated_at)| {
-        CatalogItem { slug, media_type, title, description, filename, mime_type, file_size, created_at, updated_at }
-    })
-    .collect();
+    let items: Vec<CatalogItem> = state.media_repo
+        .list_public_catalog(page_size as i64, offset as i64)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|row| CatalogItem {
+            slug: row.slug,
+            media_type: row.media_type,
+            title: row.title,
+            description: row.description,
+            filename: row.filename,
+            mime_type: row.mime_type,
+            file_size: row.file_size,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        })
+        .collect();
 
     Json(CatalogResponse {
         items,
@@ -98,17 +90,19 @@ pub async fn serve_media_metadata(
     if let Err(status) = require_federation_scope(&user) {
         return (status, "Forbidden").into_response();
     }
-    let item = sqlx::query_as::<_, (String, String, String, Option<String>, Option<String>, Option<String>, Option<i64>, String, Option<String>)>(
-        "SELECT slug, media_type, title, description, filename, mime_type, file_size, created_at, updated_at \
-         FROM media_items WHERE slug = ?1 AND is_public = 1 AND status = 'active'"
-    )
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await;
-
-    match item {
-        Ok(Some((slug, media_type, title, description, filename, mime_type, file_size, created_at, updated_at))) => {
-            Json(CatalogItem { slug, media_type, title, description, filename, mime_type, file_size, created_at, updated_at }).into_response()
+    match state.media_repo.get_public_metadata(&slug).await {
+        Ok(Some(row)) => {
+            Json(CatalogItem {
+                slug: row.slug,
+                media_type: row.media_type,
+                title: row.title,
+                description: row.description,
+                filename: row.filename,
+                mime_type: row.mime_type,
+                file_size: row.file_size,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+            }).into_response()
         }
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(e) => {
@@ -129,14 +123,7 @@ pub async fn serve_media_thumbnail(
         return (status, "Forbidden").into_response();
     }
     // Verify the item is public
-    let item = sqlx::query_as::<_, (String, Option<String>)>(
-        "SELECT media_type, vault_id FROM media_items WHERE slug = ?1 AND is_public = 1 AND status = 'active'"
-    )
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await;
-
-    let (media_type_str, vault_id) = match item {
+    let (media_type_str, vault_id) = match state.media_repo.get_public_media_for_thumbnail(&slug).await {
         Ok(Some(row)) => row,
         Ok(None) => return StatusCode::NOT_FOUND.into_response(),
         Err(e) => {
@@ -206,14 +193,7 @@ pub async fn serve_media_content(
     if let Err(status) = require_federation_scope(&user) {
         return (status, "Forbidden").into_response();
     }
-    let item = sqlx::query_as::<_, (String, String, Option<String>)>(
-        "SELECT media_type, filename, vault_id FROM media_items WHERE slug = ?1 AND is_public = 1 AND status = 'active'"
-    )
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await;
-
-    let (media_type_str, filename, vault_id) = match item {
+    let (media_type_str, filename, vault_id) = match state.media_repo.get_public_media_for_content(&slug).await {
         Ok(Some(row)) => row,
         Ok(None) => return StatusCode::NOT_FOUND.into_response(),
         Err(e) => {

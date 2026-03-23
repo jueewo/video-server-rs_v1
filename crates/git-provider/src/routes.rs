@@ -1,6 +1,6 @@
 use crate::{
-    api, db, CreateGitProviderRequest, GitProviderSafe, GitProviderState,
-    UpdateGitProviderRequest,
+    api, db, CreateGitProviderInput, GitProviderSafe, GitProviderState,
+    UpdateGitProviderInput,
 };
 use askama::Template;
 use axum::{
@@ -111,7 +111,7 @@ async fn list_providers_page(
 ) -> Result<Html<String>, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    let providers = db::list_providers(&state.pool, &user_id)
+    let providers = db::list_providers(state.repo.as_ref(), &user_id)
         .await
         .map_err(|e| {
             error!(error = %e, "Failed to list git providers");
@@ -169,7 +169,7 @@ async fn create_provider_form(
 ) -> Result<Response, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    let request = CreateGitProviderRequest {
+    let request = CreateGitProviderInput {
         name: form.name,
         provider_type: form.provider_type,
         base_url: form.base_url.trim_end_matches('/').to_string(),
@@ -177,7 +177,7 @@ async fn create_provider_form(
         is_default: form.is_default.as_deref() == Some("on"),
     };
 
-    match db::create_provider(&state.pool, &user_id, request).await {
+    match db::create_provider(state.repo.as_ref(), &user_id, request).await {
         Ok(_) => Ok(Redirect::to("/settings/git-providers").into_response()),
         Err(e) => {
             error!(error = %e, "Failed to create git provider");
@@ -198,7 +198,7 @@ async fn edit_provider_page(
 ) -> Result<Html<String>, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    let provider = db::get_provider_by_id(&state.pool, id, &user_id)
+    let provider = db::get_provider_by_id(state.repo.as_ref(), id, &user_id)
         .await
         .map_err(|e| {
             error!(error = %e, "Failed to get git provider");
@@ -240,7 +240,7 @@ async fn edit_provider_form(
 ) -> Result<Response, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    let request = UpdateGitProviderRequest {
+    let request = UpdateGitProviderInput {
         name: form.name,
         provider_type: form.provider_type,
         base_url: form.base_url.trim_end_matches('/').to_string(),
@@ -248,12 +248,12 @@ async fn edit_provider_form(
         is_default: form.is_default.as_deref() == Some("on"),
     };
 
-    match db::update_provider(&state.pool, id, &user_id, request).await {
+    match db::update_provider(state.repo.as_ref(), id, &user_id, request).await {
         Ok(true) => Ok(Redirect::to("/settings/git-providers").into_response()),
         Ok(false) => Err(StatusCode::NOT_FOUND.into_response()),
         Err(e) => {
             error!(error = %e, "Failed to update git provider");
-            let provider = db::get_provider_by_id(&state.pool, id, &user_id)
+            let provider = db::get_provider_by_id(state.repo.as_ref(), id, &user_id)
                 .await
                 .ok()
                 .flatten()
@@ -277,7 +277,7 @@ async fn delete_provider_handler(
 ) -> Result<Response, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    match db::delete_provider(&state.pool, id, &user_id).await {
+    match db::delete_provider(state.repo.as_ref(), id, &user_id).await {
         Ok(true) => Ok(Redirect::to("/settings/git-providers").into_response()),
         Ok(false) => {
             warn!("Git provider not found or not owned by user");
@@ -297,7 +297,7 @@ async fn set_default_handler(
 ) -> Result<Response, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    match db::set_default_provider(&state.pool, id, &user_id).await {
+    match db::set_default_provider(state.repo.as_ref(), id, &user_id).await {
         Ok(true) => Ok(Redirect::to("/settings/git-providers").into_response()),
         Ok(false) => Err(StatusCode::NOT_FOUND.into_response()),
         Err(e) => {
@@ -317,7 +317,7 @@ async fn list_providers_api(
 ) -> Result<Json<Vec<GitProviderSafe>>, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    let providers = db::list_providers(&state.pool, &user_id)
+    let providers = db::list_providers(state.repo.as_ref(), &user_id)
         .await
         .map_err(|e| {
             error!(error = %e, "Failed to list git providers");
@@ -393,7 +393,7 @@ async fn check_repo_api(
 ) -> Result<Json<CheckRepoResponse>, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    let provider = db::get_provider_by_name(&state.pool, &user_id, &request.provider_name)
+    let provider = db::get_provider_by_name(state.repo.as_ref(), &user_id, &request.provider_name)
         .await
         .map_err(|e| {
             error!(error = %e, "Failed to look up git provider");
@@ -472,7 +472,7 @@ async fn create_repo_api(
 ) -> Result<Json<CreateRepoResponse>, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    let provider = db::get_provider_by_name(&state.pool, &user_id, &request.provider_name)
+    let provider = db::get_provider_by_name(state.repo.as_ref(), &user_id, &request.provider_name)
         .await
         .map_err(|e| {
             error!(error = %e, "Failed to look up git provider");

@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 # Internal crates
 common = { path = "../common" }
+db = { path = "../db" }
 async-trait = { workspace = true }
 media-core = { path = "../media-core" }
 access-control = { path = "../access-control" }
@@ -21,9 +22,6 @@ tower-sessions = { workspace = true }
 
 # Templates
 askama = { workspace = true }
-
-# Database
-sqlx = { workspace = true }
 
 # Async runtime
 tokio = { workspace = true }

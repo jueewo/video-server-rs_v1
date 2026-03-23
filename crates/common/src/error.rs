@@ -31,7 +31,7 @@ pub enum Error {
     BadRequest(String),
 
     #[error("Database error: {0}")]
-    Database(#[from] sqlx::Error),
+    Database(String),
 
     #[error("Internal error: {0}")]
     Internal(String),

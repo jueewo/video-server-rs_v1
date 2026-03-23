@@ -91,6 +91,8 @@ pub struct UploadState {
     pub progress_tracker: ProgressTracker,
     pub metrics_store: crate::metrics::MetricsStore,
     pub audit_logger: crate::metrics::AuditLogger,
+    pub media_repo: Arc<dyn db::media::MediaRepository>,
+    pub vault_repo: Arc<dyn db::vaults::VaultRepository>,
 }
 
 impl UploadState {
@@ -102,6 +104,8 @@ impl UploadState {
         progress_tracker: ProgressTracker,
         metrics_store: crate::metrics::MetricsStore,
         audit_logger: crate::metrics::AuditLogger,
+        media_repo: Arc<dyn db::media::MediaRepository>,
+        vault_repo: Arc<dyn db::vaults::VaultRepository>,
     ) -> Self {
         Self {
             pool,
@@ -111,6 +115,8 @@ impl UploadState {
             progress_tracker,
             metrics_store,
             audit_logger,
+            media_repo,
+            vault_repo,
         }
     }
 }
@@ -202,6 +208,7 @@ pub async fn handle_video_upload(
         &user_id,
         &upload_data,
         &state.storage_config.user_storage,
+        state.vault_repo.as_ref(),
     )
     .await
     {
@@ -241,6 +248,7 @@ pub async fn handle_video_upload(
         metrics_store: state.metrics_store.clone(),
         audit_logger: state.audit_logger.clone(),
         user_id: Some(user_id.clone()),
+        media_repo: state.media_repo.clone(),
     };
 
     // Spawn processing in background
@@ -484,6 +492,7 @@ async fn create_upload_record(
     user_id: &str,
     data: &VideoUploadRequest,
     storage: &common::storage::UserStorageManager,
+    vault_repo: &dyn db::vaults::VaultRepository,
 ) -> Result<String> {
     let is_public_int = if data.is_public { 1 } else { 0 };
     let featured_int = 0;
@@ -493,7 +502,7 @@ async fn create_upload_record(
 
     // Get or create default vault for user
     let vault_id =
-        common::services::vault_service::get_or_create_default_vault(pool, storage, user_id)
+        common::services::vault_service::get_or_create_default_vault(vault_repo, storage, user_id)
             .await
             .context("Failed to get or create vault")?;
 
@@ -552,6 +561,8 @@ pub async fn handle_video_upload_vms(
         progress_tracker: state.progress_tracker.clone(),
         metrics_store: state.metrics_store.clone(),
         audit_logger: state.audit_logger.clone(),
+        media_repo: state.repo.clone(),
+        vault_repo: state.vault_repo.clone(),
     });
 
     // Call the original handler

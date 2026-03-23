@@ -13,9 +13,6 @@ tower-sessions = { workspace = true }
 # Async runtime
 tokio = { workspace = true }
 
-# Database
-sqlx = { workspace = true }
-
 # Serialization
 serde = { workspace = true }
 serde_json = "1.0"
@@ -46,6 +43,7 @@ validator = { version = "0.16", features = ["derive"] }
 
 # Internal dependencies
 common = { path = "../common" }
+db-traits = { path = "../db", package = "db" }
 user-auth = { path = "../user-auth" }
 access-control = { path = "../access-control" }
 

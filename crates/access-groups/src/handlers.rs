@@ -7,7 +7,7 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
+use std::sync::Arc;
 use tower_sessions::Session;
 
 use crate::{
@@ -22,10 +22,11 @@ use crate::{
         AddMemberRequest, CreateGroupRequest, GroupWithMetadata, InviteUserRequest,
         UpdateGroupRequest, UpdateMemberRoleRequest,
     },
+    AccessGroupState,
 };
 
 // Import new access control service
-use access_control::{AccessContext, AccessControlService, Permission};
+use access_control::{AccessContext, Permission};
 
 /// Helper to get authenticated user ID from session
 async fn get_user_id(session: &Session) -> Result<String> {
@@ -48,25 +49,26 @@ async fn get_user_id(session: &Session) -> Result<String> {
 
 /// List all groups for the current user
 pub async fn list_groups_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     session: Session,
 ) -> Result<Json<Vec<GroupWithMetadata>>> {
     let user_id = get_user_id(&session).await?;
-    let groups = get_user_groups(&pool, &user_id).await?;
+    let groups = get_user_groups(state.repo.as_ref(), &user_id).await?;
     Ok(Json(groups))
 }
 
 /// Get a specific group by slug
 pub async fn get_group_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path(slug): Path<String>,
     session: Session,
 ) -> Result<Response> {
     let user_id = get_user_id(&session).await?;
-    let group = get_group_by_slug(&pool, &slug).await?;
+    let repo = state.repo.as_ref();
+    let group = get_group_by_slug(repo, &slug).await?;
 
     // Check if user has access
-    let is_member = crate::db::is_group_member(&pool, group.id, &user_id).await?;
+    let is_member = crate::db::is_group_member(repo, group.id, &user_id).await?;
 
     if !is_member {
         return Err(AccessGroupError::Forbidden(
@@ -75,12 +77,12 @@ pub async fn get_group_handler(
     }
 
     // Get members
-    let members = get_group_members(&pool, group.id).await?;
+    let members = get_group_members(repo, group.id).await?;
 
     // Get pending invitations (only if user is admin)
-    let can_admin = check_permission(&pool, group.id, &user_id, "admin").await?;
+    let can_admin = check_permission(repo, group.id, &user_id, "admin").await?;
     let invitations = if can_admin {
-        Some(get_group_invitations(&pool, group.id).await?)
+        Some(get_group_invitations(repo, group.id).await?)
     } else {
         None
     };
@@ -93,7 +95,7 @@ pub async fn get_group_handler(
         user_role: Option<common::types::GroupRole>,
     }
 
-    let user_role = crate::db::get_user_role(&pool, group.id, &user_id).await?;
+    let user_role = crate::db::get_user_role(repo, group.id, &user_id).await?;
 
     let response = GroupDetailResponse {
         group,
@@ -107,7 +109,7 @@ pub async fn get_group_handler(
 
 /// Create a new group
 pub async fn create_group_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     session: Session,
     Json(request): Json<CreateGroupRequest>,
 ) -> Result<Response> {
@@ -120,10 +122,12 @@ pub async fn create_group_handler(
 
     tracing::info!("Got user_id from session: {}", user_id);
 
-    let group = create_group(&pool, &user_id, request).await.map_err(|e| {
-        tracing::error!("create_group failed: {:?}", e);
-        e
-    })?;
+    let group = create_group(state.repo.as_ref(), &user_id, request)
+        .await
+        .map_err(|e| {
+            tracing::error!("create_group failed: {:?}", e);
+            e
+        })?;
 
     tracing::info!("Group created successfully: {}", group.slug);
     Ok((StatusCode::CREATED, Json(group)).into_response())
@@ -131,16 +135,17 @@ pub async fn create_group_handler(
 
 /// Update a group
 pub async fn update_group_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path(slug): Path<String>,
     session: Session,
     Json(request): Json<UpdateGroupRequest>,
 ) -> Result<Json<crate::models::AccessGroup>> {
     let user_id = get_user_id(&session).await?;
-    let group = get_group_by_slug(&pool, &slug).await?;
+    let repo = state.repo.as_ref();
+    let group = get_group_by_slug(repo, &slug).await?;
 
     // Check if user has admin permission
-    let can_admin = check_permission(&pool, group.id, &user_id, "admin").await?;
+    let can_admin = check_permission(repo, group.id, &user_id, "admin").await?;
 
     if !can_admin {
         return Err(AccessGroupError::Forbidden(
@@ -148,18 +153,19 @@ pub async fn update_group_handler(
         ));
     }
 
-    let updated_group = update_group(&pool, &slug, request).await?;
+    let updated_group = update_group(repo, &slug, request).await?;
     Ok(Json(updated_group))
 }
 
 /// Delete a group
 pub async fn delete_group_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path(slug): Path<String>,
     session: Session,
 ) -> Result<StatusCode> {
     let user_id = get_user_id(&session).await?;
-    let group = get_group_by_slug(&pool, &slug).await?;
+    let repo = state.repo.as_ref();
+    let group = get_group_by_slug(repo, &slug).await?;
 
     // Only owner can delete
     if group.owner_id != user_id {
@@ -168,21 +174,22 @@ pub async fn delete_group_handler(
         ));
     }
 
-    delete_group(&pool, &slug).await?;
+    delete_group(repo, &slug).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 /// Get members of a group
 pub async fn list_members_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path(slug): Path<String>,
     session: Session,
 ) -> Result<Json<Vec<crate::models::MemberWithUser>>> {
     let user_id = get_user_id(&session).await?;
-    let group = get_group_by_slug(&pool, &slug).await?;
+    let repo = state.repo.as_ref();
+    let group = get_group_by_slug(repo, &slug).await?;
 
     // Check if user has access
-    let is_member = crate::db::is_group_member(&pool, group.id, &user_id).await?;
+    let is_member = crate::db::is_group_member(repo, group.id, &user_id).await?;
 
     if !is_member {
         return Err(AccessGroupError::Forbidden(
@@ -190,22 +197,23 @@ pub async fn list_members_handler(
         ));
     }
 
-    let members = get_group_members(&pool, group.id).await?;
+    let members = get_group_members(repo, group.id).await?;
     Ok(Json(members))
 }
 
 /// Add a member to a group
 pub async fn add_member_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path(slug): Path<String>,
     session: Session,
     Json(request): Json<AddMemberRequest>,
 ) -> Result<Response> {
     let user_id = get_user_id(&session).await?;
-    let group = get_group_by_slug(&pool, &slug).await?;
+    let repo = state.repo.as_ref();
+    let group = get_group_by_slug(repo, &slug).await?;
 
     // Check if user has admin permission
-    let can_admin = check_permission(&pool, group.id, &user_id, "admin").await?;
+    let can_admin = check_permission(repo, group.id, &user_id, "admin").await?;
 
     if !can_admin {
         return Err(AccessGroupError::Forbidden(
@@ -213,22 +221,23 @@ pub async fn add_member_handler(
         ));
     }
 
-    let member = add_member(&pool, group.id, request, &user_id).await?;
+    let member = add_member(repo, group.id, request, &user_id).await?;
 
     Ok((StatusCode::CREATED, Json(member)).into_response())
 }
 
 /// Remove a member from a group
 pub async fn remove_member_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path((slug, user_id_param)): Path<(String, String)>,
     session: Session,
 ) -> Result<StatusCode> {
     let user_id = get_user_id(&session).await?;
-    let group = get_group_by_slug(&pool, &slug).await?;
+    let repo = state.repo.as_ref();
+    let group = get_group_by_slug(repo, &slug).await?;
 
     // Check if user has admin permission
-    let can_admin = check_permission(&pool, group.id, &user_id, "admin").await?;
+    let can_admin = check_permission(repo, group.id, &user_id, "admin").await?;
 
     if !can_admin {
         return Err(AccessGroupError::Forbidden(
@@ -238,7 +247,7 @@ pub async fn remove_member_handler(
 
     // Don't allow removing yourself if you're the last admin/owner
     if user_id_param == user_id {
-        let user_role = crate::db::get_user_role(&pool, group.id, &user_id).await?;
+        let user_role = crate::db::get_user_role(repo, group.id, &user_id).await?;
         if user_role == Some(common::types::GroupRole::Owner) {
             return Err(AccessGroupError::Forbidden(
                 "Cannot remove yourself as owner. Transfer ownership first.".to_string(),
@@ -246,22 +255,23 @@ pub async fn remove_member_handler(
         }
     }
 
-    remove_member(&pool, group.id, &user_id_param).await?;
+    remove_member(repo, group.id, &user_id_param).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 /// Update member role
 pub async fn update_member_role_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path((slug, user_id_param)): Path<(String, String)>,
     session: Session,
     Json(request): Json<UpdateMemberRoleRequest>,
 ) -> Result<Json<crate::models::GroupMember>> {
     let user_id = get_user_id(&session).await?;
-    let group = get_group_by_slug(&pool, &slug).await?;
+    let repo = state.repo.as_ref();
+    let group = get_group_by_slug(repo, &slug).await?;
 
     // Check if user has admin permission
-    let can_admin = check_permission(&pool, group.id, &user_id, "admin").await?;
+    let can_admin = check_permission(repo, group.id, &user_id, "admin").await?;
 
     if !can_admin {
         return Err(AccessGroupError::Forbidden(
@@ -276,22 +286,23 @@ pub async fn update_member_role_handler(
         ));
     }
 
-    let member = update_member_role(&pool, group.id, &user_id_param, request.role).await?;
+    let member = update_member_role(repo, group.id, &user_id_param, request.role).await?;
     Ok(Json(member))
 }
 
 /// Create an invitation
 pub async fn create_invitation_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path(slug): Path<String>,
     session: Session,
     Json(request): Json<InviteUserRequest>,
 ) -> Result<Response> {
     let user_id = get_user_id(&session).await?;
-    let group = get_group_by_slug(&pool, &slug).await?;
+    let repo = state.repo.as_ref();
+    let group = get_group_by_slug(repo, &slug).await?;
 
     // Check if user has admin permission
-    let can_admin = check_permission(&pool, group.id, &user_id, "admin").await?;
+    let can_admin = check_permission(repo, group.id, &user_id, "admin").await?;
 
     if !can_admin {
         return Err(AccessGroupError::Forbidden(
@@ -299,22 +310,23 @@ pub async fn create_invitation_handler(
         ));
     }
 
-    let invitation = create_invitation(&pool, group.id, request, &user_id).await?;
+    let invitation = create_invitation(repo, group.id, request, &user_id).await?;
 
     Ok((StatusCode::CREATED, Json(invitation)).into_response())
 }
 
 /// List pending invitations for a group
 pub async fn list_invitations_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path(slug): Path<String>,
     session: Session,
 ) -> Result<Json<Vec<crate::models::GroupInvitation>>> {
     let user_id = get_user_id(&session).await?;
-    let group = get_group_by_slug(&pool, &slug).await?;
+    let repo = state.repo.as_ref();
+    let group = get_group_by_slug(repo, &slug).await?;
 
     // Check if user has admin permission
-    let can_admin = check_permission(&pool, group.id, &user_id, "admin").await?;
+    let can_admin = check_permission(repo, group.id, &user_id, "admin").await?;
 
     if !can_admin {
         return Err(AccessGroupError::Forbidden(
@@ -322,21 +334,22 @@ pub async fn list_invitations_handler(
         ));
     }
 
-    let invitations = get_group_invitations(&pool, group.id).await?;
+    let invitations = get_group_invitations(repo, group.id).await?;
     Ok(Json(invitations))
 }
 
 /// Cancel an invitation
 pub async fn cancel_invitation_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path((slug, invitation_id)): Path<(String, i32)>,
     session: Session,
 ) -> Result<StatusCode> {
     let user_id = get_user_id(&session).await?;
-    let group = get_group_by_slug(&pool, &slug).await?;
+    let repo = state.repo.as_ref();
+    let group = get_group_by_slug(repo, &slug).await?;
 
     // Check if user has admin permission
-    let can_admin = check_permission(&pool, group.id, &user_id, "admin").await?;
+    let can_admin = check_permission(repo, group.id, &user_id, "admin").await?;
 
     if !can_admin {
         return Err(AccessGroupError::Forbidden(
@@ -344,23 +357,24 @@ pub async fn cancel_invitation_handler(
         ));
     }
 
-    cancel_invitation(&pool, invitation_id).await?;
+    cancel_invitation(repo, invitation_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 /// Accept an invitation (requires authentication)
 pub async fn accept_invitation_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path(token): Path<String>,
     session: Session,
 ) -> Result<Response> {
     let user_id = get_user_id(&session).await?;
-    let invitation = get_invitation_by_token(&pool, &token).await?;
+    let repo = state.repo.as_ref();
+    let invitation = get_invitation_by_token(repo, &token).await?;
 
     // Verify the invitation was sent to this user's email address
-    let user_email = sqlx::query_scalar::<_, String>("SELECT email FROM users WHERE id = ?")
-        .bind(&user_id)
-        .fetch_optional(&pool)
+    let user_email = state
+        .user_repo
+        .get_user_email(&user_id)
         .await
         .map_err(|_| AccessGroupError::Internal("Database error".to_string()))?;
 
@@ -372,17 +386,18 @@ pub async fn accept_invitation_handler(
         }
     }
 
-    let member = accept_invitation(&pool, &token, &user_id).await?;
+    let member = accept_invitation(repo, &token, &user_id).await?;
 
     Ok((StatusCode::CREATED, Json(member)).into_response())
 }
 
 /// Get invitation details (public endpoint for viewing before accepting)
 pub async fn get_invitation_details_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path(token): Path<String>,
 ) -> Result<Response> {
-    let invitation = get_invitation_by_token(&pool, &token).await?;
+    let repo = state.repo.as_ref();
+    let invitation = get_invitation_by_token(repo, &token).await?;
 
     // Check if expired or accepted
     if invitation.is_expired() {
@@ -394,7 +409,7 @@ pub async fn get_invitation_details_handler(
     }
 
     // Get group details
-    let group = crate::db::get_group_by_id(&pool, invitation.group_id).await?;
+    let group = crate::db::get_group_by_id(repo, invitation.group_id).await?;
 
     #[derive(Serialize)]
     struct InvitationDetailsResponse {
@@ -433,30 +448,28 @@ pub struct BulkAssignResponse {
 
 /// Assign a single media item to this group (updates media_items.group_id)
 pub async fn assign_media_to_group_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path(slug): Path<String>,
     session: Session,
     Json(request): Json<AssignMediaRequest>,
 ) -> Result<StatusCode> {
     let user_id = get_user_id(&session).await?;
-    let group = get_group_by_slug(&pool, &slug).await?;
+    let repo = state.repo.as_ref();
+    let group = get_group_by_slug(repo, &slug).await?;
 
-    let can_write = check_permission(&pool, group.id, &user_id, "write").await?;
+    let can_write = check_permission(repo, group.id, &user_id, "write").await?;
     if !can_write {
         return Err(AccessGroupError::Forbidden(
             "Write permission required to assign media".to_string(),
         ));
     }
 
-    // Verify ownership
-    let media_id: Option<i64> = sqlx::query_scalar(
-        "SELECT id FROM media_items WHERE slug = ? AND user_id = ?",
-    )
-    .bind(&request.media_slug)
-    .bind(&user_id)
-    .fetch_optional(&pool)
-    .await
-    .map_err(|e| AccessGroupError::Internal(format!("Database error: {}", e)))?;
+    // Verify ownership (cross-domain query to media_items)
+    let media_id: Option<i32> = state
+        .media_repo
+        .get_media_id_by_slug_and_user(&request.media_slug, &user_id)
+        .await
+        .map_err(|e| AccessGroupError::Internal(format!("Database error: {}", e)))?;
 
     if media_id.is_none() {
         return Err(AccessGroupError::Forbidden(
@@ -464,44 +477,38 @@ pub async fn assign_media_to_group_handler(
         ));
     }
 
-    sqlx::query(
-        "UPDATE media_items SET group_id = ?, updated_at = datetime('now') WHERE slug = ?",
-    )
-    .bind(group.id)
-    .bind(&request.media_slug)
-    .execute(&pool)
-    .await
-    .map_err(|e| AccessGroupError::Internal(format!("Database error: {}", e)))?;
+    state
+        .media_repo
+        .assign_media_group(&request.media_slug, group.id)
+        .await
+        .map_err(|e| AccessGroupError::Internal(format!("Database error: {}", e)))?;
 
     Ok(StatusCode::NO_CONTENT)
 }
 
 /// Remove a media item from this group (sets group_id = NULL)
 pub async fn remove_media_from_group_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path((slug, media_slug)): Path<(String, String)>,
     session: Session,
 ) -> Result<StatusCode> {
     let user_id = get_user_id(&session).await?;
-    let group = get_group_by_slug(&pool, &slug).await?;
+    let repo = state.repo.as_ref();
+    let group = get_group_by_slug(repo, &slug).await?;
 
-    let can_write = check_permission(&pool, group.id, &user_id, "write").await?;
+    let can_write = check_permission(repo, group.id, &user_id, "write").await?;
     if !can_write {
         return Err(AccessGroupError::Forbidden(
             "Write permission required to remove media".to_string(),
         ));
     }
 
-    // Verify ownership and that media belongs to this group
-    let media_id: Option<i64> = sqlx::query_scalar(
-        "SELECT id FROM media_items WHERE slug = ? AND user_id = ? AND group_id = ?",
-    )
-    .bind(&media_slug)
-    .bind(&user_id)
-    .bind(group.id)
-    .fetch_optional(&pool)
-    .await
-    .map_err(|e| AccessGroupError::Internal(format!("Database error: {}", e)))?;
+    // Verify ownership and that media belongs to this group (cross-domain query)
+    let media_id: Option<i64> = state
+        .media_repo
+        .check_media_in_group(&media_slug, &user_id, group.id)
+        .await
+        .map_err(|e| AccessGroupError::Internal(format!("Database error: {}", e)))?;
 
     if media_id.is_none() {
         return Err(AccessGroupError::NotFound(
@@ -509,29 +516,27 @@ pub async fn remove_media_from_group_handler(
         ));
     }
 
-    sqlx::query(
-        "UPDATE media_items SET group_id = NULL, updated_at = datetime('now') WHERE slug = ? AND group_id = ?",
-    )
-    .bind(&media_slug)
-    .bind(group.id)
-    .execute(&pool)
-    .await
-    .map_err(|e| AccessGroupError::Internal(format!("Database error: {}", e)))?;
+    state
+        .media_repo
+        .unassign_media_group(&media_slug, group.id)
+        .await
+        .map_err(|e| AccessGroupError::Internal(format!("Database error: {}", e)))?;
 
     Ok(StatusCode::NO_CONTENT)
 }
 
 /// Bulk assign multiple media items to this group
 pub async fn bulk_assign_media_to_group_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path(slug): Path<String>,
     session: Session,
     Json(request): Json<BulkAssignMediaRequest>,
 ) -> Result<Json<BulkAssignResponse>> {
     let user_id = get_user_id(&session).await?;
-    let group = get_group_by_slug(&pool, &slug).await?;
+    let repo = state.repo.as_ref();
+    let group = get_group_by_slug(repo, &slug).await?;
 
-    let can_write = check_permission(&pool, group.id, &user_id, "write").await?;
+    let can_write = check_permission(repo, group.id, &user_id, "write").await?;
     if !can_write {
         return Err(AccessGroupError::Forbidden(
             "Write permission required to assign media".to_string(),
@@ -541,17 +546,13 @@ pub async fn bulk_assign_media_to_group_handler(
     let mut assigned = 0usize;
     for media_slug in &request.slugs {
         // user_id guard ensures we only update owned items; non-owned are silently skipped
-        let result = sqlx::query(
-            "UPDATE media_items SET group_id = ?, updated_at = datetime('now') WHERE slug = ? AND user_id = ?",
-        )
-        .bind(group.id)
-        .bind(media_slug)
-        .bind(&user_id)
-        .execute(&pool)
-        .await
-        .map_err(|e| AccessGroupError::Internal(format!("Database error: {}", e)))?;
+        let updated = state
+            .media_repo
+            .assign_media_group_for_user(media_slug, &user_id, group.id)
+            .await
+            .map_err(|e| AccessGroupError::Internal(format!("Database error: {}", e)))?;
 
-        if result.rows_affected() > 0 {
+        if updated {
             assigned += 1;
         }
     }
@@ -567,16 +568,17 @@ pub struct CheckAccessRequest {
 }
 
 pub async fn check_resource_access_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path(slug): Path<String>,
     session: Session,
     Json(request): Json<CheckAccessRequest>,
 ) -> Result<Json<bool>> {
     let user_id = get_user_id(&session).await?;
-    let group = get_group_by_slug(&pool, &slug).await?;
+    let repo = state.repo.as_ref();
+    let group = get_group_by_slug(repo, &slug).await?;
 
     // Check if user is member
-    let is_member = crate::db::is_group_member(&pool, group.id, &user_id).await?;
+    let is_member = crate::db::is_group_member(repo, group.id, &user_id).await?;
 
     if !is_member {
         return Ok(Json(false));
@@ -588,12 +590,11 @@ pub async fn check_resource_access_handler(
             AccessGroupError::InvalidInput(format!("Invalid resource type: {}", e))
         })?;
 
-    // Use new AccessControlService to check access
-    let access_control = AccessControlService::new(pool.clone());
     let context = AccessContext::new(resource_type, request.resource_id).with_user(user_id.clone());
 
     // Check if user has at least Read permission
-    let decision = access_control
+    let decision = state
+        .access_control
         .check_access(context, Permission::Read)
         .await
         .map_err(|e| AccessGroupError::Internal(e.to_string()))?;

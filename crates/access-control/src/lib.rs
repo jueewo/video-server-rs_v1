@@ -35,9 +35,8 @@
 //! use common::ResourceType;
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! # let pool = sqlx::SqlitePool::connect("sqlite::memory:").await?;
-//! // Create service
-//! let service = AccessControlService::new(pool);
+//! // Create service from trait objects
+//! // let service = AccessControlService::new(ac_repo, audit_repo);
 //!
 //! // Build context
 //! let context = AccessContext {
@@ -103,7 +102,6 @@ mod tests {
     #[test]
     fn test_crate_exports() {
         // Verify all main types are exported
-        let _ = AccessControlService::new;
         let _ = Permission::Read;
         let _ = AccessLayer::Public;
     }

@@ -3,14 +3,13 @@
 // Created: January 2025
 
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 
 // ============================================================================
 // Core Video Model
 // ============================================================================
 
 /// Complete video record with all metadata fields
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Video {
     // Core fields
     pub id: i32,
@@ -81,7 +80,7 @@ pub struct Video {
 // ============================================================================
 
 /// Lightweight video info for list views
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VideoSummary {
     pub id: i32,
     pub slug: String,

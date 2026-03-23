@@ -8,7 +8,6 @@ use axum::{
     response::{Html, IntoResponse, Redirect, Response},
 };
 use serde::Deserialize;
-use sqlx::Row;
 use tower_sessions::Session;
 use tracing::{error, info};
 
@@ -84,20 +83,7 @@ pub async fn media_detail_handler(
     };
 
     // Get media from database
-    let row = match sqlx::query(
-        r#"
-        SELECT
-            id, slug, media_type, video_type, title, description, filename, mime_type, file_size,
-            is_public, featured, status, category, thumbnail_url,
-            view_count, download_count, like_count, share_count, created_at
-        FROM media_items
-        WHERE slug = ?
-        "#,
-    )
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await
-    {
+    let row = match state.repo.get_media_detail(&slug).await {
         Ok(Some(row)) => row,
         Ok(None) => {
             return Err((StatusCode::NOT_FOUND, "Media not found".to_string()));
@@ -111,40 +97,14 @@ pub async fn media_detail_handler(
         }
     };
 
-    // SQLite returns INTEGER as i64, convert to i32
-    let media_id: i32 = row
-        .try_get::<i64, _>("id")
-        .map(|id| {
-            info!("Retrieved media_id: {}", id);
-            id as i32
-        })
-        .unwrap_or_else(|e| {
-            error!("Failed to get media_id from row for slug {}: {}", slug, e);
-            // Try as i32 fallback
-            row.try_get::<i32, _>("id").unwrap_or_else(|e2| {
-                error!("Also failed to get as i32: {}", e2);
-                0
-            })
-        });
-
-    let media_type: String = row.try_get("media_type").unwrap_or_else(|e| {
-        error!("Failed to get media_type from row: {}", e);
-        String::new()
-    });
-
-    let is_public: i32 = row
-        .try_get::<i64, _>("is_public")
-        .map(|v| v as i32)
-        .unwrap_or_else(|e| {
-            error!("Failed to get is_public from row: {}", e);
-            0
-        });
+    let media_id = row.id;
+    let media_type = row.media_type.clone();
+    let is_public_bool = row.is_public == 1;
 
     info!(
         "Media detail - slug: {}, id: {}, type: {}, public: {}",
-        slug, media_id, media_type, is_public
+        slug, media_id, media_type, row.is_public
     );
-    let is_public_bool = is_public == 1;
 
     // Check access control
     let resource_type = match media_type.as_str() {
@@ -191,26 +151,17 @@ pub async fn media_detail_handler(
     );
 
     // Get tags for this media
-    let tags = match sqlx::query_as::<_, (String,)>(
-        "SELECT tag FROM media_tags WHERE media_id = ? ORDER BY tag",
-    )
-    .bind(media_id)
-    .fetch_all(&state.pool)
-    .await
-    {
-        Ok(tags) => tags.into_iter().map(|(tag,)| tag).collect(),
+    let tags = match state.repo.get_tags_for_media(media_id).await {
+        Ok(tags) => tags,
         Err(e) => {
             error!("Error fetching tags: {}", e);
             Vec::new() // Don't fail if tags can't be loaded
         }
     };
 
-    let mime_type: String = row.try_get("mime_type").unwrap_or_default();
-    let filename_for_redirect: String = row.try_get("filename").unwrap_or_default();
-
     // Auto-redirect PDF files
-    if filename_for_redirect.ends_with(".pdf") {
-        info!("📄 Redirecting PDF document to pdf view page: {}", slug);
+    if row.filename.ends_with(".pdf") {
+        info!("Redirecting PDF document to pdf view page: {}", slug);
         let redirect_url = if let Some(ref code) = query.code {
             format!("/media/{}/pdf?code={}", slug, code)
         } else {
@@ -220,8 +171,8 @@ pub async fn media_detail_handler(
     }
 
     // Auto-redirect BPMN files
-    if filename_for_redirect.ends_with(".bpmn") {
-        info!("📊 Redirecting BPMN document to bpmn view page: {}", slug);
+    if row.filename.ends_with(".bpmn") {
+        info!("Redirecting BPMN document to bpmn view page: {}", slug);
         let redirect_url = if let Some(ref code) = query.code {
             format!("/media/{}/bpmn?code={}", slug, code)
         } else {
@@ -231,8 +182,8 @@ pub async fn media_detail_handler(
     }
 
     // Auto-redirect to markdown view for markdown documents
-    if mime_type == "text/markdown" {
-        info!("📄 Redirecting markdown document to view page: {}", slug);
+    if row.mime_type == "text/markdown" {
+        info!("Redirecting markdown document to view page: {}", slug);
         let redirect_url = if let Some(ref code) = query.code {
             format!("/media/{}/view?code={}", slug, code)
         } else {
@@ -243,34 +194,29 @@ pub async fn media_detail_handler(
 
     let media = MediaDetail {
         id: media_id,
-        slug: row.try_get("slug").unwrap_or_default(),
+        slug: row.slug,
         media_type: media_type.clone(),
-        video_type: row.try_get("video_type").ok(),
-        title: row.try_get("title").unwrap_or_default(),
-        description: row.try_get("description").ok(),
-        filename: row.try_get("filename").unwrap_or_default(),
-        mime_type,
-        file_size: row.try_get("file_size").unwrap_or(0),
+        video_type: row.video_type,
+        title: row.title,
+        description: row.description,
+        filename: row.filename,
+        mime_type: row.mime_type,
+        file_size: row.file_size,
         is_public: is_public_bool,
-        featured: row.try_get::<i32, _>("featured").unwrap_or(0) == 1,
-        status: row
-            .try_get("status")
-            .unwrap_or_else(|_| "active".to_string()),
-        category: row.try_get("category").ok(),
-        thumbnail_url: row.try_get("thumbnail_url").ok(),
-        view_count: row.try_get("view_count").unwrap_or(0),
-        download_count: row.try_get("download_count").unwrap_or(0),
-        like_count: row.try_get("like_count").unwrap_or(0),
-        share_count: row.try_get("share_count").unwrap_or(0),
-        created_at: row.try_get("created_at").unwrap_or_default(),
+        featured: row.featured == 1,
+        status: row.status,
+        category: row.category,
+        thumbnail_url: row.thumbnail_url,
+        view_count: row.view_count,
+        download_count: row.download_count,
+        like_count: row.like_count,
+        share_count: row.share_count,
+        created_at: row.created_at,
         tags,
     };
 
     // Increment view count
-    let _ = sqlx::query("UPDATE media_items SET view_count = view_count + 1 WHERE id = ?")
-        .bind(media_id)
-        .execute(&state.pool)
-        .await;
+    let _ = state.repo.increment_view_count(media_id).await;
 
     let template = MediaDetailTemplate {
         authenticated,

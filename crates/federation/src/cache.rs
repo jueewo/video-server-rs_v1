@@ -1,7 +1,7 @@
 //! Cache management for remote media metadata and thumbnails
 
 use anyhow::{Context, Result};
-use sqlx::SqlitePool;
+use db::federation::{FederationRepository, UpsertRemoteItemRequest};
 use std::path::{Path, PathBuf};
 use tracing::{info, warn};
 
@@ -11,7 +11,7 @@ use crate::models::{CatalogItem, FederationPeer};
 /// Sync a single peer's catalog into our local cache.
 /// `max_items` caps how many items to cache (0 = unlimited).
 pub async fn sync_peer_catalog(
-    pool: &SqlitePool,
+    repo: &dyn FederationRepository,
     peer: &FederationPeer,
     storage_dir: &str,
     max_items: i32,
@@ -27,11 +27,7 @@ pub async fn sync_peer_catalog(
 
     // Update peer's server_id if it changed (first sync)
     if peer.server_id != manifest.server_id {
-        sqlx::query("UPDATE federation_peers SET server_id = ?1 WHERE id = ?2")
-            .bind(&manifest.server_id)
-            .bind(peer.id)
-            .execute(pool)
-            .await?;
+        repo.update_peer_server_id(peer.id, &manifest.server_id).await?;
     }
 
     let mut total_synced = 0;
@@ -45,7 +41,7 @@ pub async fn sync_peer_catalog(
         }
 
         for item in &catalog.items {
-            upsert_remote_item(pool, &peer.server_id, item).await?;
+            upsert_remote_item(repo, &peer.server_id, item).await?;
 
             // Download thumbnail
             let thumb_dir = federation_cache_thumbnail_dir(storage_dir, &peer.server_id);
@@ -53,14 +49,7 @@ pub async fn sync_peer_catalog(
             if !thumb_path.exists() {
                 match client.fetch_thumbnail(&item.slug, &thumb_path).await {
                     Ok(_) => {
-                        sqlx::query(
-                            "UPDATE remote_media_cache SET thumbnail_cached = 1 \
-                             WHERE origin_server = ?1 AND remote_slug = ?2"
-                        )
-                        .bind(&peer.server_id)
-                        .bind(&item.slug)
-                        .execute(pool)
-                        .await?;
+                        repo.mark_thumbnail_cached(&peer.server_id, &item.slug).await?;
                     }
                     Err(e) => {
                         warn!("Failed to cache thumbnail for {}: {}", item.slug, e);
@@ -88,45 +77,27 @@ pub async fn sync_peer_catalog(
     }
 
     // Update peer status and reset failure tracking
-    sqlx::query(
-        "UPDATE federation_peers SET last_synced_at = datetime('now'), status = 'online', item_count = ?1, \
-         consecutive_failures = 0, next_retry_at = NULL WHERE id = ?2"
-    )
-    .bind(total_synced)
-    .bind(peer.id)
-    .execute(pool)
-    .await?;
+    repo.update_peer_sync_success(peer.id, total_synced).await?;
 
     info!("Synced {} items from peer '{}'", total_synced, peer.display_name);
     Ok(total_synced)
 }
 
 async fn upsert_remote_item(
-    pool: &SqlitePool,
+    repo: &dyn FederationRepository,
     origin_server: &str,
     item: &CatalogItem,
 ) -> Result<()> {
-    sqlx::query(
-        "INSERT INTO remote_media_cache (origin_server, remote_slug, media_type, title, description, filename, mime_type, file_size, cached_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now')) \
-         ON CONFLICT(origin_server, remote_slug) DO UPDATE SET \
-           title = excluded.title, \
-           description = excluded.description, \
-           filename = excluded.filename, \
-           mime_type = excluded.mime_type, \
-           file_size = excluded.file_size, \
-           updated_at = datetime('now')"
-    )
-    .bind(origin_server)
-    .bind(&item.slug)
-    .bind(&item.media_type)
-    .bind(&item.title)
-    .bind(&item.description)
-    .bind(&item.filename)
-    .bind(&item.mime_type)
-    .bind(item.file_size)
-    .execute(pool)
-    .await?;
+    repo.upsert_remote_item(&UpsertRemoteItemRequest {
+        origin_server,
+        remote_slug: &item.slug,
+        media_type: &item.media_type,
+        title: &item.title,
+        description: item.description.as_deref(),
+        filename: item.filename.as_deref(),
+        mime_type: item.mime_type.as_deref(),
+        file_size: item.file_size,
+    }).await?;
 
     Ok(())
 }
@@ -150,15 +121,12 @@ pub fn federation_cache_media_dir(storage_dir: &str, server_id: &str, slug: &str
 
 /// Remove all cached data for a peer
 pub async fn clear_peer_cache(
-    pool: &SqlitePool,
+    repo: &dyn FederationRepository,
     server_id: &str,
     storage_dir: &str,
 ) -> Result<()> {
     // Remove from database
-    sqlx::query("DELETE FROM remote_media_cache WHERE origin_server = ?1")
-        .bind(server_id)
-        .execute(pool)
-        .await?;
+    repo.clear_peer_cache(server_id).await?;
 
     // Remove from filesystem
     let cache_dir = Path::new(storage_dir)

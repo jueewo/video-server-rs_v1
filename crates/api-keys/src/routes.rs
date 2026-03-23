@@ -7,8 +7,8 @@ use axum::{
     routing::{get, post},
     Form, Json, Router,
 };
+use ::db::api_keys::ApiKeyRepository;
 use serde::Deserialize;
-use sqlx::SqlitePool;
 use std::sync::Arc;
 use tower_sessions::Session;
 use tracing::{error, warn};
@@ -50,7 +50,7 @@ struct ApiKeyCreatedTemplate {
 // Router Setup
 // -------------------------------
 
-pub fn api_key_routes(pool: Arc<SqlitePool>) -> Router {
+pub fn api_key_routes(repo: Arc<dyn ApiKeyRepository>) -> Router {
     Router::new()
         // UI Routes (session auth required)
         .route("/profile/api-keys", get(list_api_keys_page_handler))
@@ -69,7 +69,7 @@ pub fn api_key_routes(pool: Arc<SqlitePool>) -> Router {
         .route("/api/user/api-keys/{id}", get(get_api_key_json_handler))
         .route("/api/user/api-keys/{id}", axum::routing::put(update_api_key_json_handler))
         .route("/api/user/api-keys/{id}", axum::routing::delete(delete_api_key_json_handler))
-        .with_state(pool)
+        .with_state(repo)
 }
 
 // -------------------------------
@@ -102,12 +102,12 @@ async fn get_user_id_from_session(session: &Session) -> Result<String, Response>
 
 /// List all API keys (UI page)
 async fn list_api_keys_page_handler(
-    State(pool): State<Arc<SqlitePool>>,
+    State(repo): State<Arc<dyn ApiKeyRepository>>,
     session: Session,
 ) -> Result<Html<String>, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    let api_keys = db::list_user_api_keys(&pool, &user_id)
+    let api_keys = db::list_user_api_keys(repo.as_ref(), &user_id)
         .await
         .map_err(|e| {
             error!(error = %e, "Failed to list API keys");
@@ -149,7 +149,7 @@ struct CreateApiKeyFormData {
 
 /// Handle create API key form submission
 async fn create_api_key_form_handler(
-    State(pool): State<Arc<SqlitePool>>,
+    State(repo): State<Arc<dyn ApiKeyRepository>>,
     session: Session,
     Form(form): Form<CreateApiKeyFormData>,
 ) -> Result<Response, Response> {
@@ -199,7 +199,7 @@ async fn create_api_key_form_handler(
         expires_at,
     };
 
-    match db::create_api_key(&pool, &user_id, request).await {
+    match db::create_api_key(repo.as_ref(), &user_id, request).await {
         Ok(response) => {
             // Show the created key (only once!)
             let template = ApiKeyCreatedTemplate {
@@ -225,13 +225,13 @@ async fn create_api_key_form_handler(
 
 /// Revoke an API key (form submission)
 async fn revoke_api_key_handler(
-    State(pool): State<Arc<SqlitePool>>,
+    State(repo): State<Arc<dyn ApiKeyRepository>>,
     session: Session,
     Path(id): Path<i32>,
 ) -> Result<Response, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    match db::revoke_api_key(&pool, id, &user_id).await {
+    match db::revoke_api_key(repo.as_ref(), id, &user_id).await {
         Ok(true) => Ok(Redirect::to("/profile/api-keys").into_response()),
         Ok(false) => {
             warn!("API key not found or not owned by user");
@@ -250,13 +250,13 @@ async fn revoke_api_key_handler(
 
 /// Create API key (JSON API)
 async fn create_api_key_json_handler(
-    State(pool): State<Arc<SqlitePool>>,
+    State(repo): State<Arc<dyn ApiKeyRepository>>,
     session: Session,
     Json(request): Json<CreateApiKeyRequest>,
 ) -> Result<Json<crate::ApiKeyResponse>, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    match db::create_api_key(&pool, &user_id, request).await {
+    match db::create_api_key(repo.as_ref(), &user_id, request).await {
         Ok(response) => Ok(Json(response)),
         Err(e) => {
             error!(error = %e, "Failed to create API key");
@@ -267,12 +267,12 @@ async fn create_api_key_json_handler(
 
 /// List API keys (JSON API)
 async fn list_api_keys_json_handler(
-    State(pool): State<Arc<SqlitePool>>,
+    State(repo): State<Arc<dyn ApiKeyRepository>>,
     session: Session,
 ) -> Result<Json<Vec<crate::ApiKey>>, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    match db::list_user_api_keys(&pool, &user_id).await {
+    match db::list_user_api_keys(repo.as_ref(), &user_id).await {
         Ok(keys) => Ok(Json(keys)),
         Err(e) => {
             error!(error = %e, "Failed to list API keys");
@@ -283,13 +283,13 @@ async fn list_api_keys_json_handler(
 
 /// Get specific API key (JSON API)
 async fn get_api_key_json_handler(
-    State(pool): State<Arc<SqlitePool>>,
+    State(repo): State<Arc<dyn ApiKeyRepository>>,
     session: Session,
     Path(id): Path<i32>,
 ) -> Result<Json<crate::ApiKey>, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    match db::get_api_key_by_id(&pool, id, &user_id).await {
+    match db::get_api_key_by_id(repo.as_ref(), id, &user_id).await {
         Ok(Some(key)) => Ok(Json(key)),
         Ok(None) => Err(StatusCode::NOT_FOUND.into_response()),
         Err(e) => {
@@ -301,14 +301,14 @@ async fn get_api_key_json_handler(
 
 /// Update API key metadata (JSON API)
 async fn update_api_key_json_handler(
-    State(pool): State<Arc<SqlitePool>>,
+    State(repo): State<Arc<dyn ApiKeyRepository>>,
     session: Session,
     Path(id): Path<i32>,
     Json(request): Json<UpdateApiKeyRequest>,
 ) -> Result<Json<crate::ApiKey>, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    match db::update_api_key(&pool, id, &user_id, request).await {
+    match db::update_api_key(repo.as_ref(), id, &user_id, request).await {
         Ok(Some(key)) => Ok(Json(key)),
         Ok(None) => Err(StatusCode::NOT_FOUND.into_response()),
         Err(e) => {
@@ -320,13 +320,13 @@ async fn update_api_key_json_handler(
 
 /// Delete (revoke) API key (JSON API)
 async fn delete_api_key_json_handler(
-    State(pool): State<Arc<SqlitePool>>,
+    State(repo): State<Arc<dyn ApiKeyRepository>>,
     session: Session,
     Path(id): Path<i32>,
 ) -> Result<StatusCode, Response> {
     let user_id = get_user_id_from_session(&session).await?;
 
-    match db::revoke_api_key(&pool, id, &user_id).await {
+    match db::revoke_api_key(repo.as_ref(), id, &user_id).await {
         Ok(true) => Ok(StatusCode::NO_CONTENT),
         Ok(false) => Err(StatusCode::NOT_FOUND.into_response()),
         Err(e) => {

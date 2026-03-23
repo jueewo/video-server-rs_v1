@@ -118,6 +118,7 @@ mod tests {
     use super::*;
     use common::ResourceType;
     use sqlx::SqlitePool;
+    use std::sync::Arc;
 
     async fn setup_test_db() -> SqlitePool {
         let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
@@ -144,7 +145,7 @@ mod tests {
     #[tokio::test]
     async fn test_owner_has_admin_access() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = OwnerLayer::new(&repo);
 
         // Insert video owned by user123
@@ -177,7 +178,7 @@ mod tests {
     #[tokio::test]
     async fn test_non_owner_denied() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = OwnerLayer::new(&repo);
 
         sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
@@ -200,7 +201,7 @@ mod tests {
     #[tokio::test]
     async fn test_unauthenticated_denied() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = OwnerLayer::new(&repo);
 
         sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
@@ -223,7 +224,7 @@ mod tests {
     #[tokio::test]
     async fn test_is_owner_helper() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = OwnerLayer::new(&repo);
 
         sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")
@@ -248,7 +249,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_owner() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = OwnerLayer::new(&repo);
 
         sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")

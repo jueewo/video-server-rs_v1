@@ -4,10 +4,9 @@
 //! with metadata and processing capabilities.
 
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 
 /// Main document model representing a document in the database
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Document {
     /// Unique identifier
     pub id: i32,

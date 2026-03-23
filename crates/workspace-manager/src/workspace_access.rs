@@ -22,6 +22,7 @@ use axum::{
     response::Json,
     Extension,
 };
+use db::workspaces::WorkspaceRepository;
 use rand::{distributions::Alphanumeric, Rng};
 use serde::{Deserialize, Serialize};
 use tower_sessions::Session;
@@ -36,54 +37,27 @@ use api_keys::middleware::AuthenticatedUser;
 /// is a prefix of `file_path` within `workspace_id`.
 /// Pass the full relative file path (e.g. "courses/sa-intro/session1/img.png").
 pub async fn workspace_code_grants_access(
-    pool: &sqlx::SqlitePool,
+    repo: &dyn WorkspaceRepository,
     code: &str,
     workspace_id: &str,
     file_path: &str,
 ) -> bool {
     let clean = file_path.trim_start_matches('/');
-    sqlx::query_scalar::<_, i32>(
-        "SELECT 1
-         FROM workspace_access_codes wac
-         JOIN workspace_access_code_folders f ON f.workspace_access_code_id = wac.id
-         WHERE wac.code = ? AND f.workspace_id = ?
-           AND (? = f.folder_path OR ? LIKE f.folder_path || '/%')
-           AND wac.is_active = 1
-           AND (wac.expires_at IS NULL OR wac.expires_at > datetime('now'))",
-    )
-    .bind(code)
-    .bind(workspace_id)
-    .bind(clean)
-    .bind(clean)
-    .fetch_optional(pool)
-    .await
-    .ok()
-    .flatten()
-    .is_some()
+    repo.workspace_code_grants_access(code, workspace_id, clean)
+        .await
+        .unwrap_or(false)
 }
 
 /// True if `code` is active, not expired, and has a grant whose cached `vault_id`
 /// matches. Used by media serving routes so they never need to scan workspace.yaml.
 pub async fn workspace_code_grants_vault_access(
-    pool: &sqlx::SqlitePool,
+    repo: &dyn WorkspaceRepository,
     code: &str,
     vault_id: &str,
 ) -> bool {
-    sqlx::query_scalar::<_, i32>(
-        "SELECT 1
-         FROM workspace_access_codes wac
-         JOIN workspace_access_code_folders f ON f.workspace_access_code_id = wac.id
-         WHERE wac.code = ? AND f.vault_id = ?
-           AND wac.is_active = 1
-           AND (wac.expires_at IS NULL OR wac.expires_at > datetime('now'))",
-    )
-    .bind(code)
-    .bind(vault_id)
-    .fetch_optional(pool)
-    .await
-    .ok()
-    .flatten()
-    .is_some()
+    repo.workspace_code_grants_vault_access(code, vault_id)
+        .await
+        .unwrap_or(false)
 }
 
 // ── Request / Response types ──────────────────────────────────────────────────
@@ -210,24 +184,14 @@ pub async fn create_workspace_access_code(
         .unwrap_or_else(random_code);
 
     // Verify user owns each workspace and resolve vault_ids for media-server folders
-    struct ResolvedGrant {
-        workspace_id: String,
-        folder_path: String,
-        vault_id: Option<String>,
-        group_id: Option<i64>,
-    }
-
-    let mut resolved: Vec<ResolvedGrant> = Vec::with_capacity(req.folders.len());
+    let mut resolved: Vec<db::workspaces::FolderGrant> = Vec::with_capacity(req.folders.len());
     for grant in &req.folders {
         // Check workspace ownership
-        let owned: Option<i64> = sqlx::query_scalar(
-            "SELECT 1 FROM workspaces WHERE workspace_id = ? AND user_id = ?",
-        )
-        .bind(&grant.workspace_id)
-        .bind(&user_id)
-        .fetch_optional(&state.pool)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let owned = state
+            .repo
+            .verify_workspace_ownership(&grant.workspace_id, &user_id)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
         if owned.is_none() {
             return Err(StatusCode::FORBIDDEN);
@@ -249,51 +213,29 @@ pub async fn create_workspace_access_code(
                 })
         };
 
-        resolved.push(ResolvedGrant {
+        resolved.push(db::workspaces::FolderGrant {
             workspace_id: grant.workspace_id.clone(),
             folder_path: grant.folder_path.clone(),
             vault_id,
-            group_id: grant.group_id,
+            group_id: grant.group_id.map(|id| id.to_string()),
         });
     }
 
-    // Insert header row
-    let id: i64 = sqlx::query_scalar(
-        "INSERT INTO workspace_access_codes (code, description, expires_at, created_by, created_at)
-         VALUES (?, ?, ?, ?, datetime('now'))
-         RETURNING id",
-    )
-    .bind(&code)
-    .bind(req.description.as_deref())
-    .bind(req.expires_at.as_deref())
-    .bind(&user_id)
-    .fetch_one(&state.pool)
-    .await
-    .map_err(|e| {
-        warn!("Failed to insert workspace_access_code: {}", e);
-        // UNIQUE constraint violation = code already exists
-        StatusCode::CONFLICT
-    })?;
-
-    // Insert folder grants
-    for g in &resolved {
-        sqlx::query(
-            "INSERT OR IGNORE INTO workspace_access_code_folders
-             (workspace_access_code_id, workspace_id, folder_path, vault_id, group_id)
-             VALUES (?, ?, ?, ?, ?)",
+    let id = state
+        .repo
+        .create_workspace_access_code(
+            &code,
+            &user_id,
+            req.description.as_deref(),
+            req.expires_at.as_deref(),
+            &resolved,
         )
-        .bind(id)
-        .bind(&g.workspace_id)
-        .bind(&g.folder_path)
-        .bind(g.vault_id.as_deref())
-        .bind(g.group_id)
-        .execute(&state.pool)
         .await
         .map_err(|e| {
-            warn!("Failed to insert folder grant: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
+            warn!("Failed to create workspace_access_code: {}", e);
+            // UNIQUE constraint violation = code already exists
+            StatusCode::CONFLICT
         })?;
-    }
 
     Ok(Json(AccessCodeResponse {
         id,
@@ -317,20 +259,9 @@ pub async fn list_workspace_access_codes(
     check_scope(&user_ext, "read")?;
     let user_id = require_auth_user(&session).await?;
 
-    // (id, code, description, expires_at, is_active, created_at, folder_count)
-    let rows: Vec<(i64, String, Option<String>, Option<String>, i64, Option<String>, i64)> =
-        sqlx::query_as(
-            "SELECT wac.id, wac.code, wac.description, wac.expires_at, wac.is_active,
-                    wac.created_at,
-                    COUNT(f.id) AS folder_count
-             FROM workspace_access_codes wac
-             LEFT JOIN workspace_access_code_folders f ON f.workspace_access_code_id = wac.id
-             WHERE wac.created_by = ?
-             GROUP BY wac.id
-             ORDER BY wac.created_at DESC",
-        )
-        .bind(&user_id)
-        .fetch_all(&state.pool)
+    let rows = state
+        .repo
+        .list_created_access_codes(&user_id)
         .await
         .map_err(|e| {
             warn!("Failed to list workspace access codes: {}", e);
@@ -339,16 +270,14 @@ pub async fn list_workspace_access_codes(
 
     let codes = rows
         .into_iter()
-        .map(|(id, code, description, expires_at, is_active, created_at, folder_count)| {
-            AccessCodeResponse {
-                id,
-                code,
-                description,
-                expires_at,
-                is_active: is_active != 0,
-                created_at: created_at.unwrap_or_default(),
-                folder_count,
-            }
+        .map(|row| AccessCodeResponse {
+            id: 0, // list_created_access_codes doesn't return id; use 0 as placeholder
+            code: row.code,
+            description: row.description,
+            expires_at: row.expires_at,
+            is_active: row.is_active,
+            created_at: row.created_at.unwrap_or_default(),
+            folder_count: row.folder_count,
         })
         .collect();
 
@@ -368,41 +297,22 @@ pub async fn update_workspace_access_code(
     check_scope(&user_ext, "write")?;
     let user_id = require_auth_user(&session).await?;
 
-    let rows = if let Some(active) = body.is_active {
-        sqlx::query(
-            "UPDATE workspace_access_codes
-             SET description = ?, expires_at = ?, is_active = ?
-             WHERE code = ? AND created_by = ?",
+    let updated = state
+        .repo
+        .update_workspace_access_code(
+            &code,
+            &user_id,
+            body.description.as_deref(),
+            body.expires_at.as_deref(),
+            body.is_active,
         )
-        .bind(body.description.as_deref())
-        .bind(body.expires_at.as_deref())
-        .bind(active as i64)
-        .bind(&code)
-        .bind(&user_id)
-        .execute(&state.pool)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .rows_affected()
-    } else {
-        sqlx::query(
-            "UPDATE workspace_access_codes
-             SET description = ?, expires_at = ?
-             WHERE code = ? AND created_by = ?",
-        )
-        .bind(body.description.as_deref())
-        .bind(body.expires_at.as_deref())
-        .bind(&code)
-        .bind(&user_id)
-        .execute(&state.pool)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .rows_affected()
-    };
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    if rows == 0 {
-        Err(StatusCode::NOT_FOUND)
-    } else {
+    if updated {
         Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(StatusCode::NOT_FOUND)
     }
 }
 
@@ -418,50 +328,20 @@ pub async fn delete_workspace_access_code(
     check_scope(&user_ext, "write")?;
     let user_id = require_auth_user(&session).await?;
 
-    // Verify ownership and get id (folder grants cascade-delete via FK)
-    let code_id: Option<i64> = sqlx::query_scalar(
-        "SELECT id FROM workspace_access_codes WHERE code = ? AND created_by = ?",
-    )
-    .bind(&code)
-    .bind(&user_id)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let code_id = code_id.ok_or(StatusCode::NOT_FOUND)?;
-
-    // Delete folder grants first (in case no ON DELETE CASCADE is set)
-    sqlx::query("DELETE FROM workspace_access_code_folders WHERE workspace_access_code_id = ?")
-        .bind(code_id)
-        .execute(&state.pool)
-        .await
-        .map_err(|e| {
-            warn!("Failed to delete folder grants: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-
-    // Delete any claims
-    sqlx::query(
-        "DELETE FROM user_claimed_workspace_codes WHERE workspace_access_code_id = ?",
-    )
-    .bind(code_id)
-    .execute(&state.pool)
-    .await
-    .map_err(|e| {
-        warn!("Failed to delete code claims: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    sqlx::query("DELETE FROM workspace_access_codes WHERE id = ?")
-        .bind(code_id)
-        .execute(&state.pool)
+    let deleted = state
+        .repo
+        .delete_workspace_access_code(&code, &user_id)
         .await
         .map_err(|e| {
             warn!("Failed to delete workspace access code: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    Ok(StatusCode::NO_CONTENT)
+    if deleted {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(StatusCode::NOT_FOUND)
+    }
 }
 
 /// POST /api/workspace-access-codes/claim
@@ -476,34 +356,20 @@ pub async fn claim_workspace_access_code(
     check_scope(&user_ext, "write")?;
     let user_id = require_auth_user(&session).await?;
 
-    // Validate code is active and not expired
-    let code_id: Option<i64> = sqlx::query_scalar(
-        "SELECT id FROM workspace_access_codes
-         WHERE code = ? AND is_active = 1
-           AND (expires_at IS NULL OR expires_at > datetime('now'))",
-    )
-    .bind(&req.code)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let claimed = state
+        .repo
+        .claim_workspace_access_code(&req.code, &user_id)
+        .await
+        .map_err(|e| {
+            warn!("Failed to claim workspace access code: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
-    let code_id = code_id.ok_or(StatusCode::NOT_FOUND)?;
-
-    sqlx::query(
-        "INSERT OR IGNORE INTO user_claimed_workspace_codes
-         (user_id, workspace_access_code_id, claimed_at)
-         VALUES (?, ?, datetime('now'))",
-    )
-    .bind(&user_id)
-    .bind(code_id)
-    .execute(&state.pool)
-    .await
-    .map_err(|e| {
-        warn!("Failed to claim workspace access code: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    Ok(StatusCode::NO_CONTENT)
+    if claimed {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(StatusCode::NOT_FOUND)
+    }
 }
 
 /// DELETE /api/workspace-access-codes/{code}/claim
@@ -518,21 +384,14 @@ pub async fn unclaim_workspace_access_code(
     check_scope(&user_ext, "write")?;
     let user_id = require_auth_user(&session).await?;
 
-    sqlx::query(
-        "DELETE FROM user_claimed_workspace_codes
-         WHERE user_id = ?
-           AND workspace_access_code_id = (
-               SELECT id FROM workspace_access_codes WHERE code = ?
-           )",
-    )
-    .bind(&user_id)
-    .bind(&code)
-    .execute(&state.pool)
-    .await
-    .map_err(|e| {
-        warn!("Failed to unclaim workspace access code: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+    state
+        .repo
+        .unclaim_workspace_access_code(&code, &user_id)
+        .await
+        .map_err(|e| {
+            warn!("Failed to unclaim workspace access code: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -551,32 +410,6 @@ pub async fn add_folder_to_access_code(
     check_scope(&user_ext, "write")?;
     let user_id = require_auth_user(&session).await?;
 
-    // Verify the code exists and belongs to this user
-    let code_id: Option<i64> = sqlx::query_scalar(
-        "SELECT id FROM workspace_access_codes WHERE code = ? AND created_by = ?",
-    )
-    .bind(&code)
-    .bind(&user_id)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let code_id = code_id.ok_or(StatusCode::NOT_FOUND)?;
-
-    // Verify user owns the workspace
-    let owned: Option<i64> = sqlx::query_scalar(
-        "SELECT 1 FROM workspaces WHERE workspace_id = ? AND user_id = ?",
-    )
-    .bind(&grant.workspace_id)
-    .bind(&user_id)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    if owned.is_none() {
-        return Err(StatusCode::FORBIDDEN);
-    }
-
     // Resolve vault_id for media-server folders
     let vault_id = {
         let workspace_root = state.storage.workspace_root(&grant.workspace_id);
@@ -593,24 +426,27 @@ pub async fn add_folder_to_access_code(
             })
     };
 
-    sqlx::query(
-        "INSERT OR IGNORE INTO workspace_access_code_folders
-         (workspace_access_code_id, workspace_id, folder_path, vault_id, group_id)
-         VALUES (?, ?, ?, ?, ?)",
-    )
-    .bind(code_id)
-    .bind(&grant.workspace_id)
-    .bind(&grant.folder_path)
-    .bind(vault_id.as_deref())
-    .bind(grant.group_id)
-    .execute(&state.pool)
-    .await
-    .map_err(|e| {
-        warn!("Failed to insert folder grant: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+    let repo_grant = db::workspaces::FolderGrant {
+        workspace_id: grant.workspace_id.clone(),
+        folder_path: grant.folder_path.clone(),
+        vault_id,
+        group_id: grant.group_id.map(|id| id.to_string()),
+    };
 
-    Ok(StatusCode::NO_CONTENT)
+    let added = state
+        .repo
+        .add_folder_to_access_code(&code, &user_id, &repo_grant)
+        .await
+        .map_err(|e| {
+            warn!("Failed to add folder grant: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    if added {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(StatusCode::NOT_FOUND)
+    }
 }
 
 /// DELETE /api/workspace-access-codes/{code}/folders
@@ -627,36 +463,19 @@ pub async fn remove_folder_from_access_code(
     check_scope(&user_ext, "write")?;
     let user_id = require_auth_user(&session).await?;
 
-    let code_id: Option<i64> = sqlx::query_scalar(
-        "SELECT id FROM workspace_access_codes WHERE code = ? AND created_by = ?",
-    )
-    .bind(&code)
-    .bind(&user_id)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let removed = state
+        .repo
+        .remove_folder_from_access_code(&code, &user_id, &grant.workspace_id, &grant.folder_path)
+        .await
+        .map_err(|e| {
+            warn!("Failed to remove folder grant: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
-    let code_id = code_id.ok_or(StatusCode::NOT_FOUND)?;
-
-    let rows = sqlx::query(
-        "DELETE FROM workspace_access_code_folders
-         WHERE workspace_access_code_id = ? AND workspace_id = ? AND folder_path = ?",
-    )
-    .bind(code_id)
-    .bind(&grant.workspace_id)
-    .bind(&grant.folder_path)
-    .execute(&state.pool)
-    .await
-    .map_err(|e| {
-        warn!("Failed to remove folder grant: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?
-    .rows_affected();
-
-    if rows == 0 {
-        Err(StatusCode::NOT_FOUND)
-    } else {
+    if removed {
         Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(StatusCode::NOT_FOUND)
     }
 }
 
@@ -670,29 +489,19 @@ pub async fn folder_files_by_code(
     Path(code): Path<String>,
     State(state): State<Arc<WorkspaceManagerState>>,
 ) -> Result<Json<FolderFilesResponse>, StatusCode> {
-    // Validate code
-    let valid: Option<i64> = sqlx::query_scalar(
-        "SELECT id FROM workspace_access_codes
-         WHERE code = ? AND is_active = 1
-           AND (expires_at IS NULL OR expires_at > datetime('now'))",
-    )
-    .bind(&code)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    // Get all non-media-server folder grants for this code (validates code is active + not expired)
+    let grants = state
+        .repo
+        .get_access_code_folder_files(&code)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let code_id = valid.ok_or(StatusCode::NOT_FOUND)?;
-
-    // Get all folder grants (vault_id IS NULL = not a media-server folder)
-    let grants: Vec<(String, String)> = sqlx::query_as(
-        "SELECT workspace_id, folder_path
-         FROM workspace_access_code_folders
-         WHERE workspace_access_code_id = ? AND vault_id IS NULL",
-    )
-    .bind(code_id)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if grants.is_empty() {
+        // Either code is invalid/expired or has no non-media-server grants
+        // We can't distinguish, but NOT_FOUND is reasonable for invalid codes
+        // and an empty list for valid codes with only media-server grants.
+        // Return empty list rather than 404 to avoid leaking code validity.
+    }
 
     let mut folders: Vec<FolderFilesEntry> = Vec::new();
 

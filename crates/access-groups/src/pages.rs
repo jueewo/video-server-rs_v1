@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, State},
     response::{Html, IntoResponse, Response},
 };
-use sqlx::SqlitePool;
+use std::sync::Arc;
 use tower_sessions::Session;
 
 use crate::{
@@ -15,6 +15,7 @@ use crate::{
     },
     error::{AccessGroupError, Result},
     models::{GroupInvitation, GroupWithMetadata, MemberWithUser},
+    AccessGroupState,
 };
 
 /// Helper to get authenticated user ID from session
@@ -36,11 +37,11 @@ struct GroupsListTemplate {
 
 /// Groups list page handler
 pub async fn groups_list_page_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     session: Session,
 ) -> Result<Response> {
     let user_id = get_user_id(&session).await?;
-    let groups = get_user_groups(&pool, &user_id).await?;
+    let groups = get_user_groups(state.repo.as_ref(), &user_id).await?;
 
     let template = GroupsListTemplate {
         authenticated: true,
@@ -135,15 +136,16 @@ fn derive_type_label(resource_type: &str, filename: &str) -> String {
 
 /// Group detail page handler
 pub async fn group_detail_page_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path(slug): Path<String>,
     session: Session,
 ) -> Result<Response> {
     let user_id = get_user_id(&session).await?;
-    let group = get_group_by_slug(&pool, &slug).await?;
+    let repo = state.repo.as_ref();
+    let group = get_group_by_slug(repo, &slug).await?;
 
     // Check if user is a member
-    let is_member = crate::db::is_group_member(&pool, group.id, &user_id).await?;
+    let is_member = crate::db::is_group_member(repo, group.id, &user_id).await?;
     if !is_member {
         return Err(AccessGroupError::Forbidden(
             "You are not a member of this group".to_string(),
@@ -151,11 +153,11 @@ pub async fn group_detail_page_handler(
     }
 
     // Get members
-    let members = get_group_members(&pool, group.id).await?;
+    let members = get_group_members(repo, group.id).await?;
     let member_count = members.len();
 
     // Get user's role
-    let user_role_enum = crate::db::get_user_role(&pool, group.id, &user_id).await?;
+    let user_role_enum = crate::db::get_user_role(repo, group.id, &user_id).await?;
     let user_role = user_role_enum
         .as_ref()
         .map(|r| r.to_string())
@@ -171,24 +173,26 @@ pub async fn group_detail_page_handler(
 
     // Get pending invitations (only if admin)
     let pending_invitations = if can_admin {
-        get_group_invitations(&pool, group.id).await?
+        get_group_invitations(repo, group.id).await?
     } else {
         Vec::new()
     };
 
-    // Get all resources assigned to this group in one query
-    let rows: Vec<(String, String, String, String, Option<String>)> = sqlx::query_as(
-        "SELECT slug, title, media_type, filename, thumbnail_url \
-         FROM media_items WHERE group_id = ? ORDER BY media_type, created_at DESC",
-    )
-    .bind(group.id)
-    .fetch_all(&pool)
-    .await
-    .unwrap_or_default();
+    // Get all resources assigned to this group (cross-domain: media_items)
+    let rows = state
+        .media_repo
+        .list_group_media(group.id)
+        .await
+        .unwrap_or_default();
 
     let mut resources: Vec<ResourceItem> = Vec::new();
 
-    for (slug, title, resource_type, filename, thumbnail_url) in rows {
+    for row in rows {
+        let slug = row.slug;
+        let title = row.title;
+        let resource_type = row.media_type;
+        let filename = row.filename;
+        let thumbnail_url = row.thumbnail_url;
         // Use stored thumbnail_url; fall back to the /thumbnail endpoint for videos/images.
         // Documents may have NULL thumbnail_url when no thumbnail was generated.
         let thumbnail = thumbnail_url.unwrap_or_default();
@@ -271,10 +275,11 @@ struct InvitationDetailsView {
 
 /// Invitation acceptance page handler
 pub async fn accept_invitation_page_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path(token): Path<String>,
 ) -> Result<Response> {
-    match get_invitation_by_token(&pool, &token).await {
+    let repo = state.repo.as_ref();
+    match get_invitation_by_token(repo, &token).await {
         Ok(invitation) => {
             // Check if expired
             if invitation.is_expired() {
@@ -325,18 +330,17 @@ pub async fn accept_invitation_page_handler(
             }
 
             // Get group details
-            let group = crate::db::get_group_by_id(&pool, invitation.group_id).await?;
+            let group = crate::db::get_group_by_id(repo, invitation.group_id).await?;
 
-            let invited_by_name = sqlx::query_scalar::<_, Option<String>>(
-                "SELECT name FROM users WHERE id = ?",
-            )
-            .bind(&invitation.invited_by)
-            .fetch_optional(&pool)
-            .await
-            .ok()
-            .flatten()
-            .flatten()
-            .unwrap_or_else(|| invitation.invited_by.clone());
+            // Cross-domain query to users table
+            let invited_by_name = state
+                .user_repo
+                .get_user_name(&invitation.invited_by)
+                .await
+                .ok()
+                .flatten()
+                .flatten()
+                .unwrap_or_else(|| invitation.invited_by.clone());
 
             let template = AcceptInvitationTemplate {
                 authenticated: true,
@@ -397,15 +401,16 @@ struct GroupSettingsTemplate {
 
 /// Group settings page handler
 pub async fn group_settings_page_handler(
-    State(pool): State<SqlitePool>,
+    State(state): State<Arc<AccessGroupState>>,
     Path(slug): Path<String>,
     session: Session,
 ) -> Result<Response> {
     let user_id = get_user_id(&session).await?;
-    let group = get_group_by_slug(&pool, &slug).await?;
+    let repo = state.repo.as_ref();
+    let group = get_group_by_slug(repo, &slug).await?;
 
     // Check if user is admin
-    let user_role = crate::db::get_user_role(&pool, group.id, &user_id).await?;
+    let user_role = crate::db::get_user_role(repo, group.id, &user_id).await?;
     let can_admin = user_role.as_ref().map(|r| r.can_admin()).unwrap_or(false);
 
     if !can_admin {

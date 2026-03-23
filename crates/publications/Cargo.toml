@@ -7,11 +7,11 @@ description = "Unified publications registry for apps, courses, presentations, a
 [dependencies]
 course        = { path = "../course" }
 common        = { path = "../common" }
+db            = { path = "../db" }
 
 axum          = { workspace = true }
 tokio         = { workspace = true }
 tower-sessions = { workspace = true }
-sqlx          = { workspace = true }
 serde         = { workspace = true }
 serde_json    = { workspace = true }
 askama        = { workspace = true }

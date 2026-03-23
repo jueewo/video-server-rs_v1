@@ -12,7 +12,7 @@ use axum::{
 };
 use askama::Template;
 use common::storage::UserStorageManager;
-use sqlx::SqlitePool;
+use db::workspaces::WorkspaceRepository;
 use std::path::Path;
 use std::sync::Arc;
 use workspace_core::{FolderTypeRenderer, FolderViewContext};
@@ -106,7 +106,7 @@ fn resolve_branding(
 
 #[derive(Clone)]
 pub struct CourseState {
-    pub pool: SqlitePool,
+    pub workspace_repo: Arc<dyn WorkspaceRepository>,
     pub storage: UserStorageManager,
 }
 
@@ -228,19 +228,9 @@ async fn course_viewer_handler(
     };
 
     // Fetch all non-vault (course/docs) folder grants for this code
-    let grants: Vec<(String, String)> = sqlx::query_as(
-        "SELECT f.workspace_id, f.folder_path
-         FROM workspace_access_codes wac
-         JOIN workspace_access_code_folders f ON f.workspace_access_code_id = wac.id
-         WHERE wac.code = ? AND wac.is_active = 1
-           AND (wac.expires_at IS NULL OR wac.expires_at > datetime('now'))
-           AND f.vault_id IS NULL
-         ORDER BY f.folder_path",
-    )
-    .bind(&code)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let grants = state.workspace_repo.get_folder_grants_for_code(&code)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     if grants.is_empty() {
         let html = CodeNotFoundTemplate {
@@ -344,7 +334,6 @@ async fn course_viewer_handler(
 /// Render course viewer for a resolved workspace folder. Called by publications dispatcher.
 /// `base_url` is the clean publication URL (e.g. "/pub/my-course") used for lesson navigation links.
 pub async fn render_public_course(
-    _pool: &SqlitePool,
     storage: &UserStorageManager,
     workspace_id: &str,
     folder_path: &str,
@@ -397,7 +386,6 @@ pub async fn render_public_course(
 
 /// Render presentation viewer for a resolved workspace folder. Called by publications dispatcher.
 pub async fn render_public_presentation(
-    _pool: &SqlitePool,
     storage: &UserStorageManager,
     workspace_id: &str,
     folder_path: &str,
@@ -524,19 +512,9 @@ async fn presentation_viewer_handler(
     };
 
     // Fetch all non-vault folder grants for this code
-    let grants: Vec<(String, String)> = sqlx::query_as(
-        "SELECT f.workspace_id, f.folder_path
-         FROM workspace_access_codes wac
-         JOIN workspace_access_code_folders f ON f.workspace_access_code_id = wac.id
-         WHERE wac.code = ? AND wac.is_active = 1
-           AND (wac.expires_at IS NULL OR wac.expires_at > datetime('now'))
-           AND f.vault_id IS NULL
-         ORDER BY f.folder_path",
-    )
-    .bind(&code)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let grants = state.workspace_repo.get_folder_grants_for_code(&code)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     if grants.is_empty() {
         let html = PresentationNotFoundTemplate {
@@ -602,7 +580,7 @@ pub fn presentation_routes(state: Arc<CourseState>) -> Router {
 
 pub struct PresentationFolderRenderer {
     pub storage: UserStorageManager,
-    pub pool: SqlitePool,
+    pub workspace_repo: Arc<dyn WorkspaceRepository>,
 }
 
 #[async_trait]
@@ -617,21 +595,11 @@ impl FolderTypeRenderer for PresentationFolderRenderer {
         let data = presentation::load_presentation(&folder_abs)
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        let preview_code: Option<String> = sqlx::query_scalar(
-            "SELECT wac.code
-             FROM workspace_access_codes wac
-             JOIN workspace_access_code_folders f ON f.workspace_access_code_id = wac.id
-             WHERE f.workspace_id = ? AND f.folder_path = ? AND f.vault_id IS NULL
-               AND wac.is_active = 1
-               AND (wac.expires_at IS NULL OR wac.expires_at > datetime('now'))
-             LIMIT 1",
-        )
-        .bind(&ctx.workspace_id)
-        .bind(&ctx.folder_path)
-        .fetch_optional(&self.pool)
-        .await
-        .ok()
-        .flatten();
+        let preview_code: Option<String> = self.workspace_repo
+            .get_preview_code_for_folder(&ctx.workspace_id, &ctx.folder_path)
+            .await
+            .ok()
+            .flatten();
 
         // Build intermediate breadcrumb segments (all path components except the last)
         let breadcrumb_segments: Vec<(String, String)> = {
@@ -669,7 +637,7 @@ impl FolderTypeRenderer for PresentationFolderRenderer {
 
 pub struct CourseFolderRenderer {
     pub storage: UserStorageManager,
-    pub pool: SqlitePool,
+    pub workspace_repo: Arc<dyn WorkspaceRepository>,
 }
 
 #[async_trait]
@@ -684,21 +652,11 @@ impl FolderTypeRenderer for CourseFolderRenderer {
         let course = structure::load_course(&folder_abs, &ctx.folder_path)
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        let preview_code: Option<String> = sqlx::query_scalar(
-            "SELECT wac.code
-             FROM workspace_access_codes wac
-             JOIN workspace_access_code_folders f ON f.workspace_access_code_id = wac.id
-             WHERE f.workspace_id = ? AND f.folder_path = ? AND f.vault_id IS NULL
-               AND wac.is_active = 1
-               AND (wac.expires_at IS NULL OR wac.expires_at > datetime('now'))
-             LIMIT 1",
-        )
-        .bind(&ctx.workspace_id)
-        .bind(&ctx.folder_path)
-        .fetch_optional(&self.pool)
-        .await
-        .ok()
-        .flatten();
+        let preview_code: Option<String> = self.workspace_repo
+            .get_preview_code_for_folder(&ctx.workspace_id, &ctx.folder_path)
+            .await
+            .ok()
+            .flatten();
 
         let tmpl = CourseFolderTemplate {
             authenticated: true,

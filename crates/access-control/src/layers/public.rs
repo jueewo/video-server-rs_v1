@@ -106,6 +106,7 @@ mod tests {
     use super::*;
     use common::ResourceType;
     use sqlx::SqlitePool;
+    use std::sync::Arc;
 
     async fn setup_test_db() -> SqlitePool {
         let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
@@ -132,7 +133,7 @@ mod tests {
     #[tokio::test]
     async fn test_public_resource_grants_read() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = PublicLayer::new(&repo);
 
         // Insert public video
@@ -157,7 +158,7 @@ mod tests {
     #[tokio::test]
     async fn test_public_resource_grants_download() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = PublicLayer::new(&repo);
 
         // Insert public video
@@ -182,7 +183,7 @@ mod tests {
     #[tokio::test]
     async fn test_private_resource_denies_all() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = PublicLayer::new(&repo);
 
         // Insert private video
@@ -206,7 +207,7 @@ mod tests {
     #[tokio::test]
     async fn test_public_resource_denies_edit() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = PublicLayer::new(&repo);
 
         // Insert public video
@@ -230,7 +231,7 @@ mod tests {
     #[tokio::test]
     async fn test_nonexistent_resource() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool);
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool)));
         let layer = PublicLayer::new(&repo);
 
         let context = AccessContext::new(ResourceType::Video, 999);
@@ -243,7 +244,7 @@ mod tests {
     #[tokio::test]
     async fn test_is_public_helper() {
         let pool = setup_test_db().await;
-        let repo = AccessRepository::new(pool.clone());
+        let repo = AccessRepository::new(Arc::new(db_sqlite::SqliteDatabase::new(pool.clone())));
         let layer = PublicLayer::new(&repo);
 
         sqlx::query("INSERT INTO media_items (id, title, user_id, is_public, media_type, slug) VALUES (?, ?, ?, ?, 'video', 'test-video-1')")

@@ -10,7 +10,6 @@ use axum::{
     Extension, Json, Router,
 };
 use serde::Deserialize;
-use sqlx::SqlitePool;
 use std::sync::Arc;
 use tracing::{info, warn};
 
@@ -106,12 +105,7 @@ pub fn federation_consumer_routes() -> Router<Arc<FederationState>> {
 // ── HTML page handlers ─────────────────────────────────────
 
 async fn peers_page(State(state): State<Arc<FederationState>>) -> impl IntoResponse {
-    let peers = sqlx::query_as::<_, FederationPeer>(
-        "SELECT * FROM federation_peers ORDER BY display_name"
-    )
-    .fetch_all(&state.pool)
-    .await
-    .unwrap_or_default();
+    let peers = state.repo.list_peers().await.unwrap_or_default();
 
     let template = PeersTemplate {
         authenticated: true,
@@ -134,7 +128,7 @@ async fn catalog_page(
     Path(server_id): Path<String>,
     Query(params): Query<CatalogQuery>,
 ) -> impl IntoResponse {
-    let peer = match get_peer_by_server_id(&state.pool, &server_id).await {
+    let peer = match state.repo.get_peer_by_server_id(&server_id).await.ok().flatten() {
         Some(p) => p,
         None => return StatusCode::NOT_FOUND.into_response(),
     };
@@ -144,49 +138,15 @@ async fn catalog_page(
     let offset = (page - 1) * page_size;
     let filter_type = params.media_type.unwrap_or_default();
 
-    let (items, total) = if filter_type.is_empty() {
-        let items = sqlx::query_as::<_, RemoteMediaItem>(
-            "SELECT * FROM remote_media_cache WHERE origin_server = ?1 ORDER BY cached_at DESC LIMIT ?2 OFFSET ?3"
-        )
-        .bind(&server_id)
-        .bind(page_size)
-        .bind(offset)
-        .fetch_all(&state.pool)
+    let media_type_filter = if filter_type.is_empty() { None } else { Some(filter_type.as_str()) };
+
+    let items = state.repo.list_remote_media(&server_id, media_type_filter, page_size, offset)
         .await
         .unwrap_or_default();
 
-        let total: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM remote_media_cache WHERE origin_server = ?1"
-        )
-        .bind(&server_id)
-        .fetch_one(&state.pool)
+    let total = state.repo.count_remote_media(&server_id, media_type_filter)
         .await
         .unwrap_or(0);
-
-        (items, total)
-    } else {
-        let items = sqlx::query_as::<_, RemoteMediaItem>(
-            "SELECT * FROM remote_media_cache WHERE origin_server = ?1 AND media_type = ?2 ORDER BY cached_at DESC LIMIT ?3 OFFSET ?4"
-        )
-        .bind(&server_id)
-        .bind(&filter_type)
-        .bind(page_size)
-        .bind(offset)
-        .fetch_all(&state.pool)
-        .await
-        .unwrap_or_default();
-
-        let total: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM remote_media_cache WHERE origin_server = ?1 AND media_type = ?2"
-        )
-        .bind(&server_id)
-        .bind(&filter_type)
-        .fetch_one(&state.pool)
-        .await
-        .unwrap_or(0);
-
-        (items, total)
-    };
 
     let template = CatalogTemplate {
         authenticated: true,
@@ -205,20 +165,12 @@ async fn detail_page(
     State(state): State<Arc<FederationState>>,
     Path((server_id, slug)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    let peer = match get_peer_by_server_id(&state.pool, &server_id).await {
+    let peer = match state.repo.get_peer_by_server_id(&server_id).await.ok().flatten() {
         Some(p) => p,
         None => return StatusCode::NOT_FOUND.into_response(),
     };
 
-    let item = sqlx::query_as::<_, RemoteMediaItem>(
-        "SELECT * FROM remote_media_cache WHERE origin_server = ?1 AND remote_slug = ?2"
-    )
-    .bind(&server_id)
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await;
-
-    match item {
+    match state.repo.get_remote_item(&server_id, &slug).await {
         Ok(Some(item)) => {
             let template = DetailTemplate {
                 authenticated: true,
@@ -255,7 +207,7 @@ async fn proxy_thumbnail(
     }
 
     // Proxy from origin
-    let peer = match get_peer_by_server_id(&state.pool, &server_id).await {
+    let peer = match state.repo.get_peer_by_server_id(&server_id).await.ok().flatten() {
         Some(p) => p,
         None => return StatusCode::NOT_FOUND.into_response(),
     };
@@ -286,7 +238,7 @@ async fn proxy_content(
     State(state): State<Arc<FederationState>>,
     Path((server_id, slug)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    let peer = match get_peer_by_server_id(&state.pool, &server_id).await {
+    let peer = match state.repo.get_peer_by_server_id(&server_id).await.ok().flatten() {
         Some(p) => p,
         None => return StatusCode::NOT_FOUND.into_response(),
     };
@@ -344,7 +296,7 @@ async fn proxy_hls(
     State(state): State<Arc<FederationState>>,
     Path((server_id, slug, path)): Path<(String, String, String)>,
 ) -> impl IntoResponse {
-    let peer = match get_peer_by_server_id(&state.pool, &server_id).await {
+    let peer = match state.repo.get_peer_by_server_id(&server_id).await.ok().flatten() {
         Some(p) => p,
         None => return StatusCode::NOT_FOUND.into_response(),
     };
@@ -401,12 +353,7 @@ async fn list_peers_api(
     if let Err(e) = require_admin(&user) {
         return e.into_response();
     }
-    let peers = sqlx::query_as::<_, FederationPeer>(
-        "SELECT * FROM federation_peers ORDER BY display_name"
-    )
-    .fetch_all(&state.pool)
-    .await
-    .unwrap_or_default();
+    let peers = state.repo.list_peers().await.unwrap_or_default();
 
     Json(peers).into_response()
 }
@@ -440,18 +387,7 @@ async fn add_peer_api(
         }
     };
 
-    let result = sqlx::query(
-        "INSERT INTO federation_peers (server_id, server_url, display_name, api_key, status, item_count, created_at) \
-         VALUES (?1, ?2, ?3, ?4, 'online', 0, datetime('now'))"
-    )
-    .bind(&server_id)
-    .bind(&req.server_url)
-    .bind(&req.display_name)
-    .bind(&req.api_key)
-    .execute(&state.pool)
-    .await;
-
-    match result {
+    match state.repo.insert_peer(&server_id, &req.server_url, &req.display_name, &req.api_key).await {
         Ok(_) => {
             info!("Added federation peer: {} ({})", req.display_name, server_id);
             (StatusCode::CREATED, Json(serde_json::json!({ "server_id": server_id }))).into_response()
@@ -471,20 +407,10 @@ async fn remove_peer_api(
     if let Err(e) = require_admin(&user) {
         return e.into_response();
     }
-    // Get the peer to find its server_id for cache cleanup
-    let peer = sqlx::query_as::<_, FederationPeer>(
-        "SELECT * FROM federation_peers WHERE id = ?1"
-    )
-    .bind(peer_id)
-    .fetch_optional(&state.pool)
-    .await;
 
-    if let Ok(Some(peer)) = peer {
-        let _ = clear_peer_cache(&state.pool, &peer.server_id, &state.storage_dir).await;
-        let _ = sqlx::query("DELETE FROM federation_peers WHERE id = ?1")
-            .bind(peer_id)
-            .execute(&state.pool)
-            .await;
+    if let Ok(Some(peer)) = state.repo.get_peer_by_id(peer_id).await {
+        let _ = clear_peer_cache(state.repo.as_ref(), &peer.server_id, &state.storage_dir).await;
+        let _ = state.repo.delete_peer(peer_id).await;
         info!("Removed federation peer: {} ({})", peer.display_name, peer.server_id);
         StatusCode::NO_CONTENT.into_response()
     } else {
@@ -500,35 +426,18 @@ async fn sync_peer_api(
     if let Err(e) = require_admin(&user) {
         return e.into_response();
     }
-    let peer = sqlx::query_as::<_, FederationPeer>(
-        "SELECT * FROM federation_peers WHERE id = ?1"
-    )
-    .bind(peer_id)
-    .fetch_optional(&state.pool)
-    .await;
 
-    match peer {
+    match state.repo.get_peer_by_id(peer_id).await {
         Ok(Some(peer)) => {
             // Manual sync: reset backoff so it runs immediately, set status to syncing
-            let _ = sqlx::query(
-                "UPDATE federation_peers SET status = 'syncing', next_retry_at = NULL WHERE id = ?1"
-            )
-                .bind(peer_id)
-                .execute(&state.pool)
-                .await;
+            let _ = state.repo.set_peer_status(peer_id, "syncing").await;
 
-            match sync_peer_catalog(&state.pool, &peer, &state.storage_dir, state.max_items_per_peer).await {
+            match sync_peer_catalog(state.repo.as_ref(), &peer, &state.storage_dir, state.max_items_per_peer).await {
                 Ok(count) => {
                     Json(serde_json::json!({ "synced": count })).into_response()
                 }
                 Err(e) => {
-                    let _ = sqlx::query(
-                        "UPDATE federation_peers SET status = 'error', \
-                         consecutive_failures = consecutive_failures + 1 WHERE id = ?1"
-                    )
-                        .bind(peer_id)
-                        .execute(&state.pool)
-                        .await;
+                    let _ = state.repo.increment_peer_failures(peer_id).await;
                     (StatusCode::BAD_GATEWAY, Json(serde_json::json!({ "error": e.to_string() }))).into_response()
                 }
             }
@@ -545,16 +454,10 @@ async fn clear_cache_api(
     if let Err(e) = require_admin(&user) {
         return e.into_response();
     }
-    let peer = sqlx::query_as::<_, FederationPeer>(
-        "SELECT * FROM federation_peers WHERE id = ?1"
-    )
-    .bind(peer_id)
-    .fetch_optional(&state.pool)
-    .await;
 
-    match peer {
+    match state.repo.get_peer_by_id(peer_id).await {
         Ok(Some(peer)) => {
-            match clear_peer_cache(&state.pool, &peer.server_id, &state.storage_dir).await {
+            match clear_peer_cache(state.repo.as_ref(), &peer.server_id, &state.storage_dir).await {
                 Ok(_) => StatusCode::NO_CONTENT.into_response(),
                 Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
             }
@@ -564,17 +467,6 @@ async fn clear_cache_api(
 }
 
 // ── Helpers ────────────────────────────────────────────────
-
-async fn get_peer_by_server_id(pool: &SqlitePool, server_id: &str) -> Option<FederationPeer> {
-    sqlx::query_as::<_, FederationPeer>(
-        "SELECT * FROM federation_peers WHERE server_id = ?1"
-    )
-    .bind(server_id)
-    .fetch_optional(pool)
-    .await
-    .ok()
-    .flatten()
-}
 
 fn mime_from_path(path: &std::path::Path) -> &'static str {
     match path.extension().and_then(|e| e.to_str()) {

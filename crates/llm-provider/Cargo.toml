@@ -10,7 +10,7 @@ tower-sessions = { workspace = true }
 tower = { workspace = true }
 
 # Templates
-askama = { workspace = true }
+askama = { workspace = true, features = ["serde_json"] }
 
 # Async runtime
 tokio = { workspace = true }
@@ -26,7 +26,7 @@ anyhow = { workspace = true }
 tracing = { workspace = true }
 
 # Database
-sqlx = { workspace = true }
+db = { path = "../db" }
 
 # HTTP client for LLM APIs
 reqwest = { workspace = true, features = ["json", "stream"] }

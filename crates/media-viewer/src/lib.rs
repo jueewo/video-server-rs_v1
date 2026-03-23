@@ -15,8 +15,8 @@ use axum::{
     routing::get,
 };
 use common::storage::UserStorageManager;
+use db::media::MediaRepository;
 use serde::Deserialize;
-use sqlx::SqlitePool;
 use std::sync::Arc;
 use workspace_core::{FolderTypeRenderer, FolderViewContext};
 
@@ -24,7 +24,7 @@ use workspace_core::{FolderTypeRenderer, FolderViewContext};
 
 #[derive(Clone)]
 pub struct MediaViewerState {
-    pub pool: SqlitePool,
+    pub media_repo: Arc<dyn MediaRepository>,
     pub storage: UserStorageManager,
 }
 
@@ -124,39 +124,28 @@ async fn gallery_handler(
     State(state): State<Arc<MediaViewerState>>,
 ) -> Result<impl IntoResponse, StatusCode> {
     // Fetch all vault grants for this code
-    let vault_ids: Vec<(String,)> = sqlx::query_as(
-        "SELECT f.vault_id
-         FROM workspace_access_codes wac
-         JOIN workspace_access_code_folders f ON f.workspace_access_code_id = wac.id
-         WHERE wac.code = ? AND wac.is_active = 1
-           AND (wac.expires_at IS NULL OR wac.expires_at > datetime('now'))
-           AND f.vault_id IS NOT NULL",
-    )
-    .bind(&q.code)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let code_id = state.media_repo.get_workspace_code_id(&q.code)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
 
-    if vault_ids.is_empty() {
+    let vault_grants = state.media_repo.get_code_vault_grants(code_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    if vault_grants.is_empty() {
         return Err(StatusCode::NOT_FOUND);
     }
 
     // Collect media items across all vaults
     let mut items: Vec<GalleryItem> = Vec::new();
-    for (vault_id,) in &vault_ids {
-        let rows = sqlx::query!(
-            r#"SELECT slug, title, media_type, thumbnail_url, file_size
-               FROM media_items
-               WHERE vault_id = ? AND status = 'active'
-               ORDER BY created_at DESC"#,
-            vault_id,
-        )
-        .fetch_all(&state.pool)
-        .await
-        .map_err(|e| {
-            tracing::warn!("gallery_handler DB error: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    for (vault_id, group_id) in &vault_grants {
+        let rows = state.media_repo.get_vault_media(vault_id, *group_id)
+            .await
+            .map_err(|e| {
+                tracing::warn!("gallery_handler DB error: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
 
         for r in rows {
             if let Some(slug) = r.slug {
@@ -196,7 +185,7 @@ pub fn gallery_routes(state: Arc<MediaViewerState>) -> Router {
 
 /// Replaces `MediaFolderRenderer` from `media-manager`.
 pub struct MediaViewerRenderer {
-    pub pool: SqlitePool,
+    pub media_repo: Arc<dyn MediaRepository>,
 }
 
 #[async_trait]
@@ -212,20 +201,12 @@ impl FolderTypeRenderer for MediaViewerRenderer {
             .ok_or(StatusCode::BAD_REQUEST)?
             .to_string();
 
-        let rows = sqlx::query!(
-            r#"SELECT slug, title, media_type, thumbnail_url, file_size
-               FROM media_items
-               WHERE vault_id = ? AND user_id = ? AND status = 'active'
-               ORDER BY created_at DESC"#,
-            vault_id,
-            ctx.user_id,
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| {
-            tracing::warn!("MediaViewerRenderer DB error: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+        let rows = self.media_repo.get_vault_media_for_user(&vault_id, &ctx.user_id)
+            .await
+            .map_err(|e| {
+                tracing::warn!("MediaViewerRenderer DB error: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
 
         let items: Vec<GalleryItem> = rows
             .into_iter()

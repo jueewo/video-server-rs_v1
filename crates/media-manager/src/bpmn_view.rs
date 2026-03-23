@@ -8,7 +8,6 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::Row;
 use tower_sessions::Session;
 use tracing::{error, info};
 
@@ -39,46 +38,27 @@ pub async fn view_bpmn_handler(
         None
     };
 
-    let row = match sqlx::query(
-        r#"
-        SELECT
-            id, slug, title, filename, mime_type, user_id, vault_id, created_at, is_public
-        FROM media_items
-        WHERE slug = ? AND media_type = 'document'
-        "#,
-    )
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await
-    {
-        Ok(Some(row)) => row,
-        Ok(None) => {
-            return Err((StatusCode::NOT_FOUND, "Document not found".to_string()));
-        }
-        Err(e) => {
+    let doc = state
+        .repo
+        .get_document_for_viewing(&slug)
+        .await
+        .map_err(|e| {
             error!("Database error fetching BPMN document: {}", e);
-            return Err((
+            (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Database error: {}", e),
-            ));
-        }
-    };
+            )
+        })?
+        .ok_or((StatusCode::NOT_FOUND, "Document not found".to_string()))?;
 
-    let media_id: i32 = row.get("id");
-    let title: String = row.get("title");
-    let filename: String = row.get("filename");
-    let owner_id: Option<String> = row.get::<Option<String>, _>("user_id");
-    let vault_id: Option<String> = row.get("vault_id");
-    let created_at: String = row.get("created_at");
-
-    if !filename.ends_with(".bpmn") {
+    if !doc.filename.ends_with(".bpmn") {
         return Err((
             StatusCode::BAD_REQUEST,
             "Not a BPMN document".to_string(),
         ));
     }
 
-    let mut context = access_control::AccessContext::new(common::ResourceType::File, media_id);
+    let mut context = access_control::AccessContext::new(common::ResourceType::File, doc.id);
     if let Some(uid) = user_id.clone() {
         context = context.with_user(uid.clone());
     }
@@ -110,7 +90,7 @@ pub async fn view_bpmn_handler(
         ));
     }
 
-    let vault_id = vault_id.ok_or((
+    let vault_id = doc.vault_id.ok_or((
         StatusCode::INTERNAL_SERVER_ERROR,
         "No vault_id for document".to_string(),
     ))?;
@@ -119,11 +99,11 @@ pub async fn view_bpmn_handler(
     let file_path = state
         .user_storage
         .find_media_file(&vault_id, common::storage::MediaType::Document,
-            &filename,
+            &doc.filename,
         )
         .ok_or_else(|| {
-            error!("BPMN file not found: {} (vault: {})", filename, vault_id);
-            (StatusCode::NOT_FOUND, format!("File not found: {}", filename))
+            error!("BPMN file not found: {} (vault: {})", doc.filename, vault_id);
+            (StatusCode::NOT_FOUND, format!("File not found: {}", doc.filename))
         })?;
 
     let bpmn_xml = tokio::fs::read_to_string(&file_path).await.map_err(|e| {
@@ -134,17 +114,17 @@ pub async fn view_bpmn_handler(
         )
     })?;
 
-    let is_owner = owner_id.as_ref() == user_id.as_ref();
+    let is_owner = doc.user_id.as_ref() == user_id.as_ref();
 
-    info!("📊 Serving BPMN viewer for: {}", slug);
+    info!("Serving BPMN viewer for: {}", slug);
 
     let template = bpmn_viewer::BpmnViewerTemplate::new(
         authenticated,
-        title,
+        doc.title,
         slug,
         bpmn_xml,
-        filename,
-        created_at,
+        doc.filename,
+        doc.created_at,
         is_owner,
     );
 
@@ -198,45 +178,29 @@ pub async fn save_bpmn_handler(
         }),
     ))?;
 
-    let row = match sqlx::query(
-        r#"
-        SELECT
-            id, slug, title, filename, mime_type, user_id, vault_id
-        FROM media_items
-        WHERE slug = ? AND media_type = 'document'
-        "#,
-    )
-    .bind(&slug)
-    .fetch_optional(&state.pool)
-    .await
-    {
-        Ok(Some(row)) => row,
-        Ok(None) => {
-            return Err((
-                StatusCode::NOT_FOUND,
-                Json(SaveBpmnResponse {
-                    success: false,
-                    message: "Document not found".to_string(),
-                }),
-            ));
-        }
-        Err(e) => {
+    let doc = state
+        .repo
+        .get_document_for_viewing(&slug)
+        .await
+        .map_err(|e| {
             error!("Database error fetching BPMN document: {}", e);
-            return Err((
+            (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(SaveBpmnResponse {
                     success: false,
                     message: format!("Database error: {}", e),
                 }),
-            ));
-        }
-    };
+            )
+        })?
+        .ok_or((
+            StatusCode::NOT_FOUND,
+            Json(SaveBpmnResponse {
+                success: false,
+                message: "Document not found".to_string(),
+            }),
+        ))?;
 
-    let filename: String = row.get("filename");
-    let owner_id: Option<String> = row.get("user_id");
-    let vault_id: Option<String> = row.get("vault_id");
-
-    if !filename.ends_with(".bpmn") {
+    if !doc.filename.ends_with(".bpmn") {
         return Err((
             StatusCode::BAD_REQUEST,
             Json(SaveBpmnResponse {
@@ -246,7 +210,7 @@ pub async fn save_bpmn_handler(
         ));
     }
 
-    if owner_id.as_ref() != Some(&user_id) {
+    if doc.user_id.as_ref() != Some(&user_id) {
         return Err((
             StatusCode::FORBIDDEN,
             Json(SaveBpmnResponse {
@@ -256,7 +220,7 @@ pub async fn save_bpmn_handler(
         ));
     }
 
-    let vault_id = vault_id.ok_or((
+    let vault_id = doc.vault_id.ok_or((
         StatusCode::INTERNAL_SERVER_ERROR,
         Json(SaveBpmnResponse {
             success: false,
@@ -268,15 +232,15 @@ pub async fn save_bpmn_handler(
     let file_path = state
         .user_storage
         .find_media_file(&vault_id, common::storage::MediaType::Document,
-            &filename,
+            &doc.filename,
         )
         .ok_or_else(|| {
-            error!("BPMN file not found: {} (vault: {})", filename, vault_id);
+            error!("BPMN file not found: {} (vault: {})", doc.filename, vault_id);
             (
                 StatusCode::NOT_FOUND,
                 Json(SaveBpmnResponse {
                     success: false,
-                    message: format!("File not found: {}", filename),
+                    message: format!("File not found: {}", doc.filename),
                 }),
             )
         })?;
@@ -294,7 +258,7 @@ pub async fn save_bpmn_handler(
             )
         })?;
 
-    info!("💾 Saved BPMN file: {}", slug);
+    info!("Saved BPMN file: {}", slug);
 
     Ok(Json(SaveBpmnResponse {
         success: true,

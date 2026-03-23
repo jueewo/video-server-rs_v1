@@ -1,4 +1,4 @@
-use sqlx::SqlitePool;
+use db::publications::PublicationRepository;
 
 /// Generate a URL-friendly slug from a title.
 /// "Intro to Rust" → "intro-to-rust"
@@ -34,25 +34,17 @@ pub fn slugify(title: &str) -> String {
 
 /// Ensure slug is unique in the publications table.
 /// Appends -2, -3, etc. on UNIQUE conflict.
-pub async fn ensure_unique_slug(pool: &SqlitePool, base_slug: &str) -> Result<String, sqlx::Error> {
-    let exists: Option<i64> =
-        sqlx::query_scalar("SELECT 1 FROM publications WHERE slug = ?")
-            .bind(base_slug)
-            .fetch_optional(pool)
-            .await?;
-
-    if exists.is_none() {
+pub async fn ensure_unique_slug(
+    repo: &dyn PublicationRepository,
+    base_slug: &str,
+) -> Result<String, db::DbError> {
+    if !repo.slug_exists(base_slug).await? {
         return Ok(base_slug.to_string());
     }
 
     for i in 2..1000 {
         let candidate = format!("{}-{}", base_slug, i);
-        let exists: Option<i64> =
-            sqlx::query_scalar("SELECT 1 FROM publications WHERE slug = ?")
-                .bind(&candidate)
-                .fetch_optional(pool)
-                .await?;
-        if exists.is_none() {
+        if !repo.slug_exists(&candidate).await? {
             return Ok(candidate);
         }
     }

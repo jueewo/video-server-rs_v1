@@ -164,7 +164,6 @@ featured: false
 draft: false
 draft_content: false
 image: "../../../assets/images/utils/placeholder-hero-square.jpg"
-heroImage: "../../../assets/images/utils/placeholder-hero.jpg"
 ```
 
 ---

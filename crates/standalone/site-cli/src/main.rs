@@ -693,7 +693,6 @@ tags: []
 filtertags: []
 typetags: []
 image: "../../../assets/images/utils/placeholder-hero-square.jpg"
-heroImage: "../../../assets/images/utils/placeholder-hero.jpg"
 ---
 
 # {}

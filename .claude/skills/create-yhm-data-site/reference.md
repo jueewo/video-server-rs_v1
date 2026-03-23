@@ -428,7 +428,6 @@ featured: true              # used by filter_by_featured
 draft: false                # true = excluded from build
 draft_content: false        # true = content hidden, shows "under review" banner
 image: "./images/myimage.jpg"   # relative to this file
-heroImage: "../../../assets/images/utils/placeholder-hero.jpg"
 showtoc: false
 ---
 
@@ -533,7 +532,6 @@ featured: false
 draft: false
 draft_content: false
 image: "../../../assets/images/utils/placeholder-hero-square.jpg"
-heroImage: "../../../assets/images/utils/placeholder-hero.jpg"
 ```
 
 Missing `tags` or `typetags` will cause a build error: `data does not match collection schema`.

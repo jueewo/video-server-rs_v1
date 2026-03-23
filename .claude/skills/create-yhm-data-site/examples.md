@@ -437,7 +437,6 @@ featured: true
 draft: false
 draft_content: false
 image: "./images/launch-banner.webp"
-heroImage: "../../../assets/images/utils/placeholder-hero.jpg"
 showtoc: false
 ---
 
@@ -528,7 +527,6 @@ ext: false
 pubDate: 2026-01-01
 updatedDate: 2026-01-01
 image: "../../../assets/images/utils/placeholder-hero-square.jpg"
-heroImage: "../../../assets/images/utils/placeholder-hero.jpg"
 tags:
   - impressum
 typetags:
@@ -563,7 +561,6 @@ ext: false
 pubDate: 2026-01-01
 updatedDate: 2026-01-01
 image: "../../../assets/images/utils/placeholder-hero-square.jpg"
-heroImage: "../../../assets/images/utils/placeholder-hero.jpg"
 tags:
   - privacy
 typetags:
@@ -640,7 +637,7 @@ If a locale file is missing, Astro falls back to the default language. A `TitleA
 | `StatData` with `data` at top level | Stats don't render | Move `data` inside `props`: `props.data` |
 | Missing `collection` field in `legal` | Footer link goes to 404 | Add `collection: info` to each legal entry |
 | Collection without matching page in `pages:` | Legal/collection URLs 404 | Add `- slug: {collection_name}` to `pages:` + create `data/page_{slug}/{locale}/page.yaml` |
-| MDX in non-`mdcontent` collection with minimal frontmatter | `data does not match collection schema` | Add required `tags`, `typetags`, `featured`, `draft`, `image`, `heroImage` fields |
+| MDX in non-`mdcontent` collection with minimal frontmatter | `data does not match collection schema` | Add required `tags`, `typetags`, `featured`, `draft`, `image` fields |
 | Image as Astro asset with public path | Build error or missing image | Use `../../assets/images/` for Astro-optimized, `/images/` for public/ |
 | `draft: true` on an element | Element missing from page | Set `draft: false` when ready to publish |
 | Folder slug with spaces | `Missing parameter: lang` during Astro build | Use hyphens/underscores: `jueewo-ventures` not `jueewo ventures` |

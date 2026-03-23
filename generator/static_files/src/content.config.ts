@@ -23,7 +23,6 @@ const assetCardSchema = ({ image }: { image: () => any }) => z.object({
   pubDate: z.coerce.date().optional(),
   updatedDate: z.coerce.date().optional(),
   image: image().optional(),
-  heroImage: image().optional(),
   showtoc: z.boolean().optional(),
   enablelatex: z.boolean().optional(),
   enablemermaid: z.boolean().optional(),

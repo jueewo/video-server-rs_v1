@@ -133,6 +133,26 @@ workspaces and vaults — no additional `tenant_id` columns needed elsewhere.
 
 ---
 
+## Federation (Cross-Tier)
+
+Federation works across all tiers. Any AppKask instance — Tier 1, 2, or 3 — can
+peer with any other. This enables:
+
+| Scenario | How it works |
+|---|---|
+| **Tier 3 ↔ Tier 3** | Two standalone customers share public media catalogs |
+| **Tier 1 → Tier 3** | Your hosted platform pulls a customer's on-prem catalog for centralized browsing |
+| **Tier 3 → Tier 1** | A standalone instance pulls public content from your hosted platform |
+
+Federation is pull-based and peer-to-peer. No central coordinator. Each server
+controls what it exposes (only `is_public = 1` media items). Each consumer
+controls which peers it connects to.
+
+Configured in `config.yaml` (`federation_enabled: true`). Peers managed at
+runtime via `/federation` UI or admin API. See `docs/features/FEDERATION.md`.
+
+---
+
 ## What Is Already Right
 
 The following does not need to change for any tier:

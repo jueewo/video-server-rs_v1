@@ -273,6 +273,36 @@ content via access codes as before.
 
 ---
 
+## Phase 7 — Federation (Multi-Server)
+
+**Goal:** Enable multiple independent AppKask instances to browse and incorporate
+each other's public media catalogs — without shared databases or storage.
+
+**Implemented 2026-03-23** — see `docs/features/FEDERATION.md`
+
+- [x] `server_id` + `federation_enabled` in `config.yaml` (`DeploymentConfig`)
+- [x] `crates/federation/` — server API, HTTP client, local cache, background sync, admin UI
+- [x] Origin-side API: `/api/v1/federation/manifest`, `/catalog`, `/media/{slug}` (metadata + thumbnail + content)
+- [x] Consumer-side: peer management, catalog browser, content proxy with local caching
+- [x] Background sync task (configurable interval, default 15 min)
+- [x] UI: `/federation` peer overview, `/federation/{server_id}` remote catalog browser,
+      `/federation/{server_id}/media/{slug}` item detail (read-only, origin badge)
+- [x] HLS playlist URL rewriting for proxied video streaming
+- [x] Migration: `federation_peers` + `remote_media_cache` tables
+- [x] Navbar link (desktop + mobile)
+
+**Design decisions:**
+- Pull-based, not push (like Git remotes, not ActivityPub)
+- Proxy, not redirect (users stay on one hostname; works behind NAT)
+- Separate `remote_media_cache` table (not merged into `media_items`)
+- Media only — workspaces and agents are not federated
+
+**Result:** Two or more AppKask instances can share public media catalogs.
+Users browse federated content as if it were local. Cached content survives
+origin downtime.
+
+---
+
 ## What Stays Out of Scope
 
 - PostgreSQL support (SQLite is sufficient for the target use case)

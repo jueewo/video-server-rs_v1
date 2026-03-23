@@ -66,6 +66,30 @@ Short version: workspace access codes are the primary sharing primitive. They re
 
 ---
 
+## Federation — Shared Catalogs Across Servers
+
+Federation adds a cross-server layer on top of the workspace model. It is additive —
+every server works perfectly alone.
+
+```
+Server A (consumer)                    Server B (origin)
+┌──────────────────┐                   ┌──────────────────┐
+│  workspaces      │                   │  workspaces      │
+│  media_items     │ ← pull catalog ─  │  media_items     │
+│  remote_media_   │                   │  (is_public = 1) │
+│    cache         │                   └──────────────────┘
+└──────────────────┘
+```
+
+- **Scope:** Media only. Workspaces and agents are local concepts.
+- **Model:** Pull-based periodic sync (like RSS, not like ActivityPub).
+- **Proxy:** Users on Server A never contact Server B directly. Content is proxied and cached.
+- **Separation:** Remote items live in `remote_media_cache`, never in `media_items`. Removing a peer cleanly deletes all cached data.
+
+Users browse federated content at `/federation/{server_id}` — visually separated from local content with an origin badge.
+
+---
+
 ## Three Delivery Tiers
 
 The same codebase ships in three modes. The mental model stays consistent across all of them.

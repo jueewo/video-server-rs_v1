@@ -134,6 +134,23 @@ apps    = [workspace-apps]
 
 ---
 
+## Standalone modules wired in `main.rs`
+
+Not everything uses the renderer or app facade. Some crates are wired directly into
+`main.rs` because they add cross-cutting capabilities rather than folder-type UI:
+
+| Crate | What it adds | Wired via |
+|---|---|---|
+| `federation` | Multi-server catalog sharing, peer management, content proxy | `federation_server_routes()` + `federation_consumer_routes()` |
+| `agent-registry` | Global agent workforce, org chart | `agent_registry_routes()` |
+| `docs-viewer` | Markdown docs browser | `docs_routes()` nested at `/docs` |
+
+These follow the same pattern: define a state struct, expose a `Router<State>`, merge
+in `main.rs` with appropriate auth middleware. See `crates/federation/src/routes.rs` for
+a recent example.
+
+---
+
 ## Why this structure
 
 Feature flags answer: *"which deployment topology?"* — a small, stable set.

@@ -4,6 +4,7 @@
 //! on demand. The platform proxies API requests to the sidecar and manages
 //! its lifecycle (idle timeout, health checks, cleanup on shutdown).
 
+mod db_persist;
 mod proxy;
 mod sidecar;
 
@@ -46,6 +47,10 @@ pub fn app_runtime_routes(state: Arc<AppRuntimeState>) -> Router {
                 .put(proxy::proxy_handler)
                 .delete(proxy::proxy_handler)
                 .patch(proxy::proxy_handler),
+        )
+        .route(
+            "/api/app-db/{workspace_id}/{*folder_path}",
+            get(db_persist::db_status_handler).post(db_persist::db_save_handler),
         )
         .with_state(state)
 }

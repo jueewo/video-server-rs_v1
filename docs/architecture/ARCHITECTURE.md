@@ -42,7 +42,8 @@
 | **Observability** | OpenTelemetry SDK 0.31 · OTLP/gRPC · SigNoz |
 | **Federation** | Pull-based catalog sync between instances (`federation` crate) |
 | **AI integration** | MCP server (media-mcp) for Claude Desktop · Agent registry |
-| **Build** | Cargo workspace (41 crates) · feature flags |
+| **App Runtime** | Bun sidecar for full-stack apps (`app-runtime` crate) — on-demand spawn, HTTP proxy, idle cleanup |
+| **Build** | Cargo workspace (42 crates) |
 | **CI** | GitHub Actions (build, test, clippy) — manual trigger for now |
 
 ---

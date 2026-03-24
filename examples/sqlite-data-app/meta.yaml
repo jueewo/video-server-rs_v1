@@ -1,0 +1,2 @@
+title: SQLite Data Dashboard
+description: Query a bundled SQLite database directly in the browser via sql.js (WASM).

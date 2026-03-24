@@ -91,6 +91,11 @@ mkdir -p "$VENDOR_DIR/pdfjs"
 cp "$NM/pdfjs-dist/build/pdf.min.mjs"                                          "$VENDOR_DIR/pdfjs/"
 cp "$NM/pdfjs-dist/build/pdf.worker.min.mjs"                                   "$VENDOR_DIR/pdfjs/"
 
+# ── sql.js (SQLite WASM for browser-side DB access) ─────────────────────
+mkdir -p "$VENDOR_DIR/sql-js"
+cp "$NM/sql.js/dist/sql-wasm.js"                                                "$VENDOR_DIR/sql-js/"
+cp "$NM/sql.js/dist/sql-wasm.wasm"                                              "$VENDOR_DIR/sql-js/"
+
 # ── Monaco Editor (full min/vs tree, ~30 MB) ──────────────────────────────
 echo "📁 Copying Monaco Editor (this may take a moment)..."
 mkdir -p "$VENDOR_DIR/monaco"

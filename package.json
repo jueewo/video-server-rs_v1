@@ -1,13 +1,15 @@
 {
-  "name": "video-server-ui",
+  "name": "appkask-ui",
   "version": "1.0.0",
-  "description": "UI assets for video-server-rs",
+  "description": "UI assets for AppKask. Vendor libs: bash scripts/download-vendor.sh",
   "private": true,
   "type": "module",
   "scripts": {
     "build:css": "tailwindcss --input ./static/css/input.css --output ./static/css/tailwind.css --minify",
     "watch:css": "tailwindcss --input ./static/css/input.css --output ./static/css/tailwind.css --watch",
-    "dev": "npm run watch:css"
+    "dev": "bun run watch:css",
+    "vendor": "bash scripts/download-vendor.sh",
+    "vendor:update": "bash scripts/update-vendor.sh"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.18",

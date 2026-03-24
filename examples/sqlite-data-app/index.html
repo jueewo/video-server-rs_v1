@@ -19,17 +19,18 @@
         th { text-align: left; padding: 0.6rem 0.75rem; background: oklch(0.22 0.015 260); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.7; }
         td { padding: 0.6rem 0.75rem; border-bottom: 1px solid oklch(0.3 0.015 260); }
         tr:hover td { background: oklch(0.28 0.015 260); }
-        .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 180px; padding-top: 1rem; }
-        .bar-col { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 4px; }
-        .bar { width: 100%; border-radius: 3px 3px 0 0; transition: height 0.3s; min-width: 20px; }
-        .bar-label { font-size: 0.65rem; opacity: 0.5; writing-mode: vertical-lr; text-orientation: mixed; max-height: 60px; overflow: hidden; }
+        .db-chart { display: flex; align-items: flex-end; gap: 4px; height: 200px; }
+        .db-bar-group { display: flex; align-items: flex-end; flex: 1; gap: 2px; height: 100%; }
+        .db-bar { flex: 1; border-radius: 3px 3px 0 0; min-width: 4px; }
+        .db-bar-wrap { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 4px; }
+        .db-bar-label { font-size: 0.65rem; opacity: 0.5; text-align: center; white-space: nowrap; }
         .chart-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem; }
         .colors-hw { background: oklch(0.65 0.2 150); }
         .colors-co { background: oklch(0.65 0.2 250); }
         .colors-sw { background: oklch(0.65 0.2 310); }
         .colors-ed { background: oklch(0.65 0.2 50); }
-        .legend { display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 0.75rem; }
-        .legend-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 4px; vertical-align: middle; }
+        .db-legend { display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 0.75rem; }
+        .db-legend-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 4px; vertical-align: middle; }
         .db-status { font-size: 0.8rem; opacity: 0.5; margin-top: 1rem; }
         h1 { font-size: 1.4rem; font-weight: 700; margin: 0 0 0.25rem 0; }
         .subtitle { font-size: 0.85rem; opacity: 0.5; margin-bottom: 1.5rem; }
@@ -51,8 +52,8 @@
         <!-- Chart -->
         <div class="query-section">
             <div class="chart-title">Monthly Revenue by Category</div>
-            <div class="bar-chart" id="chart"></div>
-            <div class="legend" id="legend"></div>
+            <div class="db-chart" id="chart"></div>
+            <div class="db-legend" id="legend"></div>
         </div>
 
         <!-- Custom query -->
@@ -143,20 +144,21 @@ ORDER BY total_revenue DESC</textarea>
 
             const colorMap = { Hardware: 'colors-hw', Consulting: 'colors-co', Software: 'colors-sw', Education: 'colors-ed' };
 
+            const chartHeight = 180;
             const chart = document.getElementById('chart');
             chart.innerHTML = months.map(m => {
                 const monthRows = rows.filter(r => r[0] === m);
                 const bars = categories.map(cat => {
                     const row = monthRows.find(r => r[1] === cat);
                     const val = row ? row[2] : 0;
-                    const pct = (val / maxVal) * 100;
-                    return `<div class="bar ${colorMap[cat] || ''}" style="height:${pct}%" title="${cat}: \u20ac${val.toLocaleString()}"></div>`;
+                    const h = Math.round((val / maxVal) * chartHeight);
+                    return `<div class="db-bar ${colorMap[cat] || ''}" style="height:${h}px" title="${cat}: \u20ac${val.toLocaleString()}"></div>`;
                 }).join('');
-                return `<div class="bar-col">${bars}<div class="bar-label">${m.slice(5)}</div></div>`;
+                return `<div class="db-bar-wrap"><div class="db-bar-group">${bars}</div><div class="db-bar-label">${m.slice(5)}</div></div>`;
             }).join('');
 
             document.getElementById('legend').innerHTML = categories.map(cat =>
-                `<span><span class="legend-dot ${colorMap[cat] || ''}"></span>${cat}</span>`
+                `<span><span class="db-legend-dot ${colorMap[cat] || ''}"></span>${cat}</span>`
             ).join('');
         }
 

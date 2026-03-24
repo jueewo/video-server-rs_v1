@@ -36,6 +36,13 @@
         .subtitle { font-size: 0.85rem; opacity: 0.5; margin-bottom: 1.5rem; }
         .btn-run { background: oklch(0.55 0.15 250); color: white; border: none; padding: 0.5rem 1.25rem; border-radius: 0.5rem; cursor: pointer; font-weight: 600; font-size: 0.85rem; }
         .btn-run:hover { background: oklch(0.6 0.15 250); }
+        .btn-save { background: oklch(0.35 0.015 260); color: oklch(0.8 0 0); border: 1px solid oklch(0.45 0.015 260); padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; font-size: 0.8rem; }
+        .btn-save:hover { background: oklch(0.4 0.015 260); }
+        .btn-del { background: none; border: none; color: oklch(0.5 0 0); cursor: pointer; font-size: 0.85rem; padding: 0 0.25rem; }
+        .btn-del:hover { color: oklch(0.7 0.2 25); }
+        .db-select { background: oklch(0.18 0.015 260); color: oklch(0.9 0 0); border: 1px solid oklch(0.35 0.015 260); border-radius: 0.5rem; padding: 0.45rem 0.75rem; font-size: 0.8rem; flex: 1; min-width: 0; }
+        .db-select:focus { outline: none; border-color: oklch(0.6 0.15 250); }
+        .query-toolbar { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; }
         .results-wrap { overflow-x: auto; max-height: 400px; overflow-y: auto; border-radius: 0.5rem; margin-top: 1rem; }
         .error { color: oklch(0.7 0.2 25); background: oklch(0.25 0.05 25); padding: 0.75rem; border-radius: 0.5rem; font-family: monospace; font-size: 0.85rem; }
     </style>
@@ -58,8 +65,12 @@
 
         <!-- Custom query -->
         <div class="query-section">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem">
-                <div class="chart-title">Run Custom SQL</div>
+            <div class="query-toolbar">
+                <div class="chart-title" style="margin:0">Run Custom SQL</div>
+                <select id="saved-queries" class="db-select" onchange="loadSaved()">
+                    <option value="">-- saved queries --</option>
+                </select>
+                <button class="btn-save" onclick="saveQuery()">Save</button>
                 <button class="btn-run" onclick="runQuery()">Run</button>
             </div>
             <textarea id="sql">SELECT category, COUNT(*) as products, ROUND(SUM(price * units_sold), 0) as total_revenue
@@ -67,6 +78,7 @@ FROM products
 GROUP BY category
 ORDER BY total_revenue DESC</textarea>
             <div id="results"></div>
+            <div id="query-chart"></div>
         </div>
 
     </div>
@@ -97,6 +109,7 @@ ORDER BY total_revenue DESC</textarea>
 
                 renderStats();
                 renderChart();
+                renderSavedDropdown();
                 runQuery();
 
                 const size = (buf.byteLength / 1024).toFixed(1);
@@ -162,15 +175,117 @@ ORDER BY total_revenue DESC</textarea>
             ).join('');
         }
 
+        // ── Saved queries (localStorage + presets) ──────────────────────
+        const STORAGE_KEY = 'sqlite-dashboard-queries';
+        const presets = [
+            { name: 'Revenue by category', sql: 'SELECT category, COUNT(*) as products, ROUND(SUM(price * units_sold), 0) as total_revenue\nFROM products\nGROUP BY category\nORDER BY total_revenue DESC' },
+            { name: 'Top products by revenue', sql: 'SELECT name, category, ROUND(price * units_sold, 0) as revenue\nFROM products\nORDER BY revenue DESC\nLIMIT 5' },
+            { name: 'Revenue by region', sql: 'SELECT region, COUNT(*) as products, ROUND(SUM(price * units_sold), 0) as total\nFROM products\nGROUP BY region\nORDER BY total DESC' },
+            { name: 'Monthly totals', sql: 'SELECT month, ROUND(SUM(revenue), 0) as total\nFROM monthly_revenue\nGROUP BY month\nORDER BY month' },
+            { name: 'All products', sql: 'SELECT * FROM products ORDER BY category, name' },
+        ];
+
+        function getSavedQueries() {
+            try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+            catch { return []; }
+        }
+
+        function setSavedQueries(list) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+        }
+
+        function renderSavedDropdown() {
+            const sel = document.getElementById('saved-queries');
+            const saved = getSavedQueries();
+            sel.innerHTML = '<option value="">-- saved queries --</option>'
+                + '<optgroup label="Presets">'
+                + presets.map((q, i) => `<option value="p:${i}">${q.name}</option>`).join('')
+                + '</optgroup>'
+                + (saved.length ? '<optgroup label="My Queries">'
+                    + saved.map((q, i) => `<option value="s:${i}">${q.name}</option>`).join('')
+                    + '</optgroup>' : '');
+        }
+
+        window.loadSaved = function() {
+            const sel = document.getElementById('saved-queries');
+            const val = sel.value;
+            if (!val) return;
+            const [type, idx] = val.split(':');
+            const list = type === 'p' ? presets : getSavedQueries();
+            const q = list[parseInt(idx)];
+            if (q) {
+                document.getElementById('sql').value = q.sql;
+                runQuery();
+            }
+            sel.value = '';
+        };
+
+        window.saveQuery = function() {
+            const sql = document.getElementById('sql').value.trim();
+            if (!sql) return;
+            const name = prompt('Name for this query:');
+            if (!name) return;
+            const saved = getSavedQueries();
+            const existing = saved.findIndex(q => q.name === name);
+            if (existing >= 0) saved[existing].sql = sql;
+            else saved.push({ name, sql });
+            setSavedQueries(saved);
+            renderSavedDropdown();
+        };
+
+        // ── Auto-chart: detect label + numeric columns ──────────────────
+        const autoColors = [
+            'oklch(0.65 0.2 150)', 'oklch(0.65 0.2 250)',
+            'oklch(0.65 0.2 310)', 'oklch(0.65 0.2 50)',
+            'oklch(0.65 0.2 200)', 'oklch(0.65 0.2 100)',
+        ];
+
+        function renderAutoChart(columns, values) {
+            const chartEl = document.getElementById('query-chart');
+            if (!values.length || values.length > 50) { chartEl.innerHTML = ''; return; }
+
+            const isNum = v => v !== null && !isNaN(Number(v)) && typeof v !== 'string';
+            const isStr = v => typeof v === 'string';
+
+            // Find first text column (labels) and all numeric columns
+            const labelIdx = columns.findIndex((_, i) => values.some(r => isStr(r[i])));
+            const numCols = columns.map((c, i) => ({ name: c, idx: i }))
+                .filter(c => c.idx !== labelIdx && values.some(r => isNum(r[c.idx])));
+
+            if (labelIdx < 0 || !numCols.length) { chartEl.innerHTML = ''; return; }
+
+            const chartHeight = 160;
+            const maxVal = Math.max(...values.flatMap(r => numCols.map(c => Number(r[c.idx]) || 0)));
+            if (maxVal === 0) { chartEl.innerHTML = ''; return; }
+
+            const barsHtml = values.map(row => {
+                const label = row[labelIdx] ?? '';
+                const bars = numCols.map((c, ci) => {
+                    const val = Number(row[c.idx]) || 0;
+                    const h = Math.round((val / maxVal) * chartHeight);
+                    return `<div style="flex:1;min-width:6px;height:${h}px;background:${autoColors[ci % autoColors.length]};border-radius:3px 3px 0 0" title="${c.name}: ${val.toLocaleString()}"></div>`;
+                }).join('');
+                return `<div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:4px"><div style="display:flex;align-items:flex-end;gap:2px;width:100%;height:${chartHeight}px">${bars}</div><div class="db-bar-label">${label}</div></div>`;
+            }).join('');
+
+            const legendHtml = numCols.length > 1 ? '<div class="db-legend">' + numCols.map((c, ci) =>
+                `<span><span class="db-legend-dot" style="background:${autoColors[ci % autoColors.length]}"></span>${c.name}</span>`
+            ).join('') + '</div>' : '';
+
+            chartEl.innerHTML = `<div style="margin-top:1rem"><div style="display:flex;align-items:flex-end;gap:6px;height:${chartHeight + 30}px">${barsHtml}</div>${legendHtml}</div>`;
+        }
+
         window.runQuery = function() {
             const sql = document.getElementById('sql').value.trim();
             const container = document.getElementById('results');
-            if (!sql) { container.innerHTML = ''; return; }
+            const chartEl = document.getElementById('query-chart');
+            if (!sql) { container.innerHTML = ''; chartEl.innerHTML = ''; return; }
 
             try {
                 const results = query(sql);
                 if (!results.length) {
                     container.innerHTML = '<div style="opacity:0.5;margin-top:0.75rem">No results.</div>';
+                    chartEl.innerHTML = '';
                     return;
                 }
                 const { columns, values } = results[0];
@@ -181,8 +296,10 @@ ORDER BY total_revenue DESC</textarea>
                     ).join('')}</tbody>
                 </table></div>`;
                 container.innerHTML = html;
+                renderAutoChart(columns, values);
             } catch (err) {
                 container.innerHTML = `<div class="error">${err.message}</div>`;
+                chartEl.innerHTML = '';
             }
         };
 

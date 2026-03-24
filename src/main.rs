@@ -515,6 +515,7 @@ async fn main() -> anyhow::Result<()> {
                                     Some("ico") => "image/x-icon",
                                     Some("woff") => "font/woff",
                                     Some("woff2") => "font/woff2",
+                                    Some("wasm") => "application/wasm",
                                     Some("xml") => "application/xml",
                                     Some("txt") => "text/plain",
                                     _ => "application/octet-stream",

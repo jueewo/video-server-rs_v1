@@ -540,6 +540,8 @@ pub async fn serve_static_excluding_gallery(
                 "application/vnd.ms-fontobject"
             } else if file_path.ends_with(".json") {
                 "application/json; charset=utf-8"
+            } else if file_path.ends_with(".wasm") {
+                "application/wasm"
             } else {
                 "application/octet-stream"
             };

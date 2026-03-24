@@ -6,13 +6,14 @@
     <title>SQLite Data Dashboard</title>
     <link href="/static/vendor/daisyui.min.css" rel="stylesheet">
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 1.5rem; background: oklch(0.2 0.015 260); color: oklch(0.9 0 0); }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 1.5rem; background: oklch(0.2 0.015 260); color: oklch(0.9 0 0); overflow-x: hidden; max-width: 100%; }
         .grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
         .stat-card { background: oklch(0.25 0.015 260); border-radius: 0.75rem; padding: 1.25rem; }
         .stat-card .label { font-size: 0.8rem; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.05em; }
         .stat-card .value { font-size: 1.8rem; font-weight: 700; margin-top: 0.25rem; }
-        .query-section { background: oklch(0.25 0.015 260); border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 2rem; }
-        textarea { width: 100%; min-height: 80px; background: oklch(0.18 0.015 260); color: oklch(0.9 0 0); border: 1px solid oklch(0.35 0.015 260); border-radius: 0.5rem; padding: 0.75rem; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85rem; resize: vertical; }
+        .query-section { background: oklch(0.25 0.015 260); border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 2rem; overflow: hidden; }
+        textarea { width: 100%; max-width: 100%; min-height: 80px; background: oklch(0.18 0.015 260); color: oklch(0.9 0 0); border: 1px solid oklch(0.35 0.015 260); border-radius: 0.5rem; padding: 0.75rem; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85rem; resize: vertical; }
         textarea:focus { outline: none; border-color: oklch(0.6 0.15 250); }
         table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
         th { text-align: left; padding: 0.6rem 0.75rem; background: oklch(0.22 0.015 260); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.7; }
@@ -29,7 +30,7 @@
         .colors-ed { background: oklch(0.65 0.2 50); }
         .legend { display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 0.75rem; }
         .legend-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 4px; vertical-align: middle; }
-        .status { font-size: 0.8rem; opacity: 0.5; margin-top: 1rem; }
+        .db-status { font-size: 0.8rem; opacity: 0.5; margin-top: 1rem; }
         h1 { font-size: 1.4rem; font-weight: 700; margin: 0 0 0.25rem 0; }
         .subtitle { font-size: 0.85rem; opacity: 0.5; margin-bottom: 1.5rem; }
         .btn-run { background: oklch(0.55 0.15 250); color: white; border: none; padding: 0.5rem 1.25rem; border-radius: 0.5rem; cursor: pointer; font-weight: 600; font-size: 0.85rem; }
@@ -67,12 +68,11 @@ ORDER BY total_revenue DESC</textarea>
             <div id="results"></div>
         </div>
 
-        <div class="status" id="status"></div>
     </div>
+    <div class="db-status" id="status"></div>
 
-    <script type="module">
-        // Resolve sql-wasm relative to the server root (vendor dir)
-        const SQL_JS_URL = '/static/vendor/sql-js/sql-wasm.js';
+    <script src="/static/vendor/sql-js/sql-wasm.js"></script>
+    <script>
         const WASM_URL = '/static/vendor/sql-js/sql-wasm.wasm';
 
         // Resolve data.db relative to this app's directory
@@ -83,9 +83,6 @@ ORDER BY total_revenue DESC</textarea>
 
         async function init() {
             try {
-                // Dynamic import of sql.js
-                const sqlModule = await import(SQL_JS_URL);
-                const initSqlJs = sqlModule.default;
                 const SQL = await initSqlJs({ locateFile: () => WASM_URL });
 
                 // Fetch the database file
@@ -102,8 +99,8 @@ ORDER BY total_revenue DESC</textarea>
                 runQuery();
 
                 const size = (buf.byteLength / 1024).toFixed(1);
-                document.getElementById('status').textContent =
-                    `Database loaded: ${size} KB | sql.js ${SQL.version ? SQL.version : '1.x'} (WASM) | All queries run client-side`;
+                document.getElementById('status').innerHTML =
+                    `Database: ${size} KB &middot; sql.js (WASM) &middot; Client-side only`;
             } catch (err) {
                 document.getElementById('loading').innerHTML =
                     `<div class="error">Error: ${err.message}</div>`;

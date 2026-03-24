@@ -1,0 +1,29 @@
+id: runtime-app
+name: Runtime Application
+icon: server
+description: Full-stack app with a Bun backend (server.ts/server.js). The platform spawns the backend on demand and proxies API calls. Includes SQLite via bun:sqlite.
+color: "#8B5CF6"
+apps:
+  - app_id: js-tool-viewer
+    label: Open App
+    icon: play
+    url_template: /js-apps/{workspace_id}/{folder_path}
+metadata_schema:
+  - key: title
+    label: App Title
+    type: string
+    default: ""
+    required: true
+  - key: description
+    label: Description
+    type: multiline
+    default: ""
+    required: false
+agent_roles:
+  - role: app-developer
+    description: Creates and edits full-stack apps with Bun backend and frontend
+    default_actions:
+      - Create new runtime app
+      - Edit server logic
+      - Add API endpoint
+      - Edit frontend UI

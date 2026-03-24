@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="business">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Tracker</title>
+    <link href="/static/vendor/daisyui.min.css" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; background: oklch(0.15 0.01 260); }
+        body { font-family: system-ui, -apple-system, sans-serif; color: oklch(0.9 0 0); display: flex; align-items: center; justify-content: center; }
+        .db-app { width: 100%; max-width: 600px; padding: 1.5rem; background: oklch(0.2 0.015 260); border-radius: 1rem; }
+        h1 { font-size: 1.4rem; font-weight: 700; margin: 0 0 0.25rem 0; }
+        .db-subtitle { font-size: 0.85rem; opacity: 0.5; margin-bottom: 1.5rem; }
+        .db-input-row { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+        .db-input-row input { flex: 1; background: oklch(0.18 0.015 260); color: oklch(0.9 0 0); border: 1px solid oklch(0.35 0.015 260); border-radius: 0.5rem; padding: 0.6rem 0.75rem; font-size: 0.9rem; }
+        .db-input-row input:focus { outline: none; border-color: oklch(0.6 0.15 250); }
+        .db-input-row button { background: oklch(0.55 0.15 250); color: white; border: none; padding: 0.6rem 1.25rem; border-radius: 0.5rem; cursor: pointer; font-weight: 600; font-size: 0.85rem; white-space: nowrap; }
+        .db-input-row button:hover { background: oklch(0.6 0.15 250); }
+        .db-task-list { list-style: none; padding: 0; margin: 0; }
+        .db-task-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 0.25rem; }
+        .db-task-item:hover { background: oklch(0.25 0.015 260); }
+        .db-task-item.done .db-task-title { opacity: 0.4; text-decoration: line-through; }
+        .db-task-check { width: 20px; height: 20px; border-radius: 50%; border: 2px solid oklch(0.4 0.015 260); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .db-task-check.checked { background: oklch(0.55 0.15 150); border-color: oklch(0.55 0.15 150); }
+        .db-task-title { flex: 1; font-size: 0.9rem; }
+        .db-task-date { font-size: 0.7rem; opacity: 0.4; }
+        .db-task-delete { background: none; border: none; color: oklch(0.4 0 0); cursor: pointer; font-size: 1rem; padding: 0 0.25rem; opacity: 0; transition: opacity 0.15s; }
+        .db-task-item:hover .db-task-delete { opacity: 1; }
+        .db-task-delete:hover { color: oklch(0.7 0.2 25); }
+        .db-empty { text-align: center; opacity: 0.4; padding: 2rem; font-size: 0.9rem; }
+        .db-count { font-size: 0.8rem; opacity: 0.4; margin-top: 1rem; }
+        .db-error { color: oklch(0.7 0.2 25); background: oklch(0.25 0.05 25); padding: 0.75rem; border-radius: 0.5rem; font-size: 0.85rem; margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+<div class="db-app">
+    <h1>Task Tracker</h1>
+    <p class="db-subtitle">Full-stack app: Bun backend + SQLite storage</p>
+
+    <div id="error"></div>
+
+    <div class="db-input-row">
+        <input type="text" id="new-task" placeholder="What needs to be done?" autofocus>
+        <button onclick="addTask()">Add</button>
+    </div>
+
+    <ul class="db-task-list" id="tasks"></ul>
+    <div class="db-count" id="count"></div>
+
+</div>
+    <script>
+        // Derive the API base URL from the page's location.
+        // Page is served at: /js-apps/{workspace_id}/{folder_path...}/
+        // API proxy is at:   /api/apps/{workspace_id}/{folder_path...}/
+        const pagePath = location.pathname.replace(/\/index\.html$/, '').replace(/\/$/, '');
+        const API = pagePath.replace(/^\/js-apps\//, '/api/apps/');
+
+        async function api(path, opts = {}) {
+            const errEl = document.getElementById('error');
+            try {
+                const resp = await fetch(API + path, {
+                    headers: { 'Content-Type': 'application/json' },
+                    ...opts,
+                });
+                if (!resp.ok) {
+                    const body = await resp.text();
+                    throw new Error(body || resp.statusText);
+                }
+                errEl.innerHTML = '';
+                return resp.json();
+            } catch (e) {
+                errEl.innerHTML = `<div class="db-error">${e.message}</div>`;
+                throw e;
+            }
+        }
+
+        async function loadTasks() {
+            try {
+                const tasks = await api('/api/tasks');
+                renderTasks(tasks);
+            } catch (e) {
+                // Error already shown
+            }
+        }
+
+        function renderTasks(tasks) {
+            const list = document.getElementById('tasks');
+            const count = document.getElementById('count');
+
+            if (!tasks.length) {
+                list.innerHTML = '<li class="db-empty">No tasks yet. Add one above.</li>';
+                count.textContent = '';
+                return;
+            }
+
+            list.innerHTML = tasks.map(t => `
+                <li class="db-task-item ${t.done ? 'done' : ''}">
+                    <div class="db-task-check ${t.done ? 'checked' : ''}" onclick="toggleTask(${t.id})">${t.done ? '&#10003;' : ''}</div>
+                    <span class="db-task-title">${escapeHtml(t.title)}</span>
+                    <span class="db-task-date">${t.created_at?.slice(0, 10) || ''}</span>
+                    <button class="db-task-delete" onclick="deleteTask(${t.id})" title="Delete">&times;</button>
+                </li>
+            `).join('');
+
+            const done = tasks.filter(t => t.done).length;
+            count.textContent = `${done}/${tasks.length} completed`;
+        }
+
+        async function addTask() {
+            const input = document.getElementById('new-task');
+            const title = input.value.trim();
+            if (!title) return;
+            await api('/api/tasks', { method: 'POST', body: JSON.stringify({ title }) });
+            input.value = '';
+            loadTasks();
+        }
+
+        async function toggleTask(id) {
+            await api(`/api/tasks/${id}/toggle`, { method: 'POST' });
+            loadTasks();
+        }
+
+        async function deleteTask(id) {
+            await api(`/api/tasks/${id}`, { method: 'DELETE' });
+            loadTasks();
+        }
+
+        function escapeHtml(s) {
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // Enter key to add task
+        document.getElementById('new-task').addEventListener('keydown', e => {
+            if (e.key === 'Enter') addTask();
+        });
+
+        loadTasks();
+    </script>
+</body>
+</html>

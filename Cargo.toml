@@ -40,6 +40,7 @@ members = [
     "crates/federation",
     "crates/db",
     "crates/db-sqlite",
+    "crates/app-runtime",
 ]
 resolver = "2"
 
@@ -90,6 +91,7 @@ agent-registry = { path = "crates/agent-registry" }
 federation = { path = "crates/federation" }
 db = { path = "crates/db" }
 db-sqlite = { path = "crates/db-sqlite" }
+app-runtime = { path = "crates/app-runtime" }
 
 # Web framework
 axum = { version = "0.8", features = ["multipart", "ws"] }

@@ -188,15 +188,30 @@ Compare: the full platform binary is ~130 MB. The micro-server pulls in only wha
 
 To deploy: copy the binary + `index.html` + `meta.yaml` into a workspace folder.
 
+### `pub_app_proxy` (`crates/workspace-apps/src/pub_app_proxy.rs`)
+
+Proxy for published runtime apps:
+- Route: `/api/pub-apps/{slug}/{*rest}`
+- Looks up the publication by slug → resolves workspace_id + folder_path
+- Walks `rest` segments to find the app root (same logic as `find_app_root`)
+- Delegates to `forward_to_sidecar()` — shares the same `SidecarManager` as the main proxy
+- Published apps and workspace apps use the same sidecar instances
+
 ## Frontend API URL Convention
 
-The frontend derives its API base URL by replacing the js-tool-viewer path prefix:
+The frontend derives its API base URL from its page URL, handling both workspace and published contexts:
 
 ```javascript
 const pagePath = location.pathname.replace(/\/index\.html$/, '').replace(/\/$/, '');
-const API = pagePath.replace(/^\/js-apps\//, '/api/apps/');
-// /js-apps/ws-123/demo-apps/my-app → /api/apps/ws-123/demo-apps/my-app
+const API = pagePath.startsWith('/pub/')
+  ? pagePath.replace(/^\/pub\//, '/api/pub-apps/')    // published app
+  : pagePath.replace(/^\/js-apps\//, '/api/apps/');    // workspace app
 ```
+
+| Context | Page URL | API URL |
+|---------|----------|---------|
+| Workspace | `/js-apps/ws-123/task-tracker/` | `/api/apps/ws-123/task-tracker/` |
+| Published | `/pub/task-tracker/` | `/api/pub-apps/task-tracker/` |
 
 ## Course Embedding
 
@@ -208,9 +223,23 @@ Runtime apps can be embedded in course lessons:
 ```
 ````
 
-## Folder Type
+## Folder Types
 
-Registered as `runtime-app` in `crates/workspace-manager/src/builtin_types/runtime-app.yaml`. Opens via js-tool-viewer (same as `js-tool` type).
+Three folder types serve different app patterns:
+
+| Type | Name | Icon | Color | Purpose |
+|------|------|------|-------|---------|
+| `js-tool` | JavaScript Tool Collection | code-2 | Amber | Parent folder containing multiple JS tools as sub-folders |
+| `web-app` | Web App | globe | Blue | Single standalone browser app (WASM, sql.js, SPA) |
+| `runtime-app` | Runtime Application | server | Purple | Full-stack app with sidecar backend (Bun or custom binary) |
+
+Defined in `crates/workspace-manager/src/builtin_types/`.
+
+### Single-app serving
+
+When `js-tool-viewer` opens a folder that has `index.html` at its root (web-app or runtime-app), it serves the app directly. For collection folders (`js-tool`), it scans sub-directories for tools.
+
+The viewer redirects to a trailing-slash URL (`/js-apps/{ws}/{folder}/`) so that relative asset fetches (`data.db`, CSS, JS) resolve correctly.
 
 ## Security Notes
 

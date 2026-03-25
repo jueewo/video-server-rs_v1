@@ -90,9 +90,10 @@ Bun.serve({
 
 ## How It Works
 
-- The **frontend** (`index.html`) is served by the existing js-tool-viewer
+- The **frontend** (`index.html`) is served by the js-tool-viewer — single-app folders serve `index.html` directly (no sub-folder scanning)
 - The **backend** is spawned as a process by the platform on the first API request
-- API calls from the frontend go to `/api/apps/{workspace_id}/{folder}/...` and are proxied to the backend
+- **Workspace apps:** API calls go to `/api/apps/{workspace_id}/{folder}/...`
+- **Published apps:** API calls go to `/api/pub-apps/{slug}/...` (the platform resolves the publication to the source workspace)
 - The backend **auto-stops** after 5 minutes of inactivity and **auto-restarts** on the next request
 - If a Bun app has `package.json`, `bun install` runs automatically before first start
 
@@ -166,6 +167,25 @@ Add any workspace crate as a dependency to build focused microservices:
 media-core = { path = "../../media-core" }
 common = { path = "../../common" }
 ```
+
+## Folder Types
+
+| Type | Name | For |
+|------|------|-----|
+| `js-tool` | JavaScript Tool Collection | Parent folder with multiple JS tools as sub-folders |
+| `web-app` | Web App | Single standalone browser app (WASM, sql.js, SPA) |
+| `runtime-app` | Runtime Application | Full-stack app with sidecar backend |
+
+Set the folder type in your workspace's browse view. Single-app types (`web-app`, `runtime-app`) serve `index.html` directly. Collection types (`js-tool`) scan sub-folders for tools.
+
+## Publishing
+
+Runtime apps can be published individually via the workspace UI. Published apps are accessible at `/pub/{slug}/` without authentication.
+
+- **Static apps** (`web-app`): work out of the box — the published snapshot includes all files
+- **Sidecar apps** (`runtime-app`): the published page reaches the backend via `/api/pub-apps/{slug}/...`, which resolves the publication to the source workspace and spawns the sidecar from there
+
+Publish each runtime app as its own publication (not as part of a parent folder) so the slug maps directly to the app root.
 
 ## Requirements
 

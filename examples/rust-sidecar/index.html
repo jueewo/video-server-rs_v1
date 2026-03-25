@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rust Micro Server</title>
+  <link rel="stylesheet" href="/static/vendor/daisyui.min.css">
+  <style>
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #1d232a; }
+    .ms-app { background: #2a323c; border-radius: 1rem; padding: 2rem; width: 560px; color: #a6adba; }
+    .ms-app h1 { color: #f9fafb; margin: 0 0 0.25rem 0; font-size: 1.5rem; }
+    .ms-app h2 { color: #f9fafb; margin: 1.5rem 0 0.5rem 0; font-size: 1.1rem; }
+    .ms-subtitle { color: #6b7280; margin-bottom: 1.5rem; font-size: 0.9rem; }
+    .ms-result { margin-top: 0.75rem; padding: 0.75rem; border-radius: 0.5rem; background: #1d232a; font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; }
+    .ms-note { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: #1d232a; border-radius: 0.5rem; margin-bottom: 0.4rem; }
+    .ms-note-title { color: #f9fafb; font-weight: 500; }
+    .ms-note-body { color: #6b7280; font-size: 0.85rem; }
+    .ms-note-meta { color: #4b5563; font-size: 0.75rem; }
+    .ms-empty { color: #4b5563; font-style: italic; padding: 0.75rem; }
+    .ms-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .ms-row input { flex: 1; }
+    .ms-divider { border-top: 1px solid #374151; margin: 1.5rem 0; }
+  </style>
+</head>
+<body>
+  <div class="ms-app">
+    <h1>Rust Micro Server</h1>
+    <p class="ms-subtitle">Compiled axum binary (1.8 MB) running as a sidecar — uses <code>media-core</code> crate + SQLite.</p>
+
+    <!-- File Inspector -->
+    <h2>File Inspector</h2>
+    <p style="font-size:0.85rem; color:#6b7280;">Upload any file — the Rust backend detects its type using the platform's <code>media-core</code> crate.</p>
+    <input type="file" class="file-input file-input-bordered file-input-sm w-full" id="fileInput" onchange="inspectFile()">
+    <div class="ms-result" id="inspectResult" style="display:none;"></div>
+
+    <div class="ms-divider"></div>
+
+    <!-- Notes API -->
+    <h2>Notes</h2>
+    <p style="font-size:0.85rem; color:#6b7280;">CRUD API backed by SQLite — data persists across sidecar restarts.</p>
+    <div class="ms-row">
+      <input type="text" class="input input-bordered input-sm" id="noteTitle" placeholder="Title">
+      <input type="text" class="input input-bordered input-sm" id="noteBody" placeholder="Body (optional)">
+      <button class="btn btn-primary btn-sm" onclick="addNote()">Add</button>
+    </div>
+    <div id="notesList"></div>
+  </div>
+
+  <script>
+    const pagePath = location.pathname.replace(/\/index\.html$/, '').replace(/\/$/, '');
+    const API = pagePath.replace(/^\/js-apps\//, '/api/apps/');
+
+    // ── File Inspector ────────────────────────────────
+    async function inspectFile() {
+      const file = document.getElementById('fileInput').files[0];
+      if (!file) return;
+
+      const el = document.getElementById('inspectResult');
+      el.style.display = 'block';
+      el.textContent = 'Analyzing...';
+
+      const form = new FormData();
+      form.append('file', file);
+
+      try {
+        const resp = await fetch(API + '/api/inspect', { method: 'POST', body: form });
+        const data = await resp.json();
+        el.textContent = JSON.stringify(data, null, 2);
+      } catch (e) {
+        el.textContent = 'Error: ' + e.message;
+      }
+    }
+
+    // ── Notes API ─────────────────────────────────────
+    async function loadNotes() {
+      const el = document.getElementById('notesList');
+      try {
+        const resp = await fetch(API + '/api/notes');
+        const notes = await resp.json();
+        if (notes.length === 0) {
+          el.innerHTML = '<div class="ms-empty">No notes yet.</div>';
+          return;
+        }
+        el.innerHTML = notes.map(n => `
+          <div class="ms-note">
+            <div>
+              <div class="ms-note-title">${esc(n.title)}</div>
+              ${n.body ? '<div class="ms-note-body">' + esc(n.body) + '</div>' : ''}
+              <div class="ms-note-meta">${esc(n.created_at)}</div>
+            </div>
+            <button class="btn btn-ghost btn-xs" onclick="deleteNote(${n.id})">✕</button>
+          </div>
+        `).join('');
+      } catch (e) {
+        el.innerHTML = '<div class="ms-empty">Error loading notes.</div>';
+      }
+    }
+
+    async function addNote() {
+      const title = document.getElementById('noteTitle').value.trim();
+      if (!title) return;
+      const body = document.getElementById('noteBody').value.trim();
+
+      await fetch(API + '/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, body }),
+      });
+
+      document.getElementById('noteTitle').value = '';
+      document.getElementById('noteBody').value = '';
+      loadNotes();
+    }
+
+    async function deleteNote(id) {
+      await fetch(API + '/api/notes/' + id, { method: 'DELETE' });
+      loadNotes();
+    }
+
+    function esc(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    // Enter key to submit
+    document.getElementById('noteTitle').addEventListener('keydown', e => { if (e.key === 'Enter') addNote(); });
+    document.getElementById('noteBody').addEventListener('keydown', e => { if (e.key === 'Enter') addNote(); });
+
+    // Initial load
+    loadNotes();
+  </script>
+</body>
+</html>

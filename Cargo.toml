@@ -41,6 +41,7 @@ members = [
     "crates/db",
     "crates/db-sqlite",
     "crates/app-runtime",
+    "crates/standalone/micro-server",
 ]
 resolver = "2"
 

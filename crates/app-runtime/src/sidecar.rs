@@ -1,9 +1,19 @@
 use dashmap::DashMap;
+use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use tokio::net::TcpListener;
 use tokio::process::{Child, Command};
 use tracing::{debug, info, warn};
+
+/// App metadata from meta.yaml, used to detect custom server commands.
+#[derive(Deserialize, Default)]
+struct AppMeta {
+    /// Custom command to run the server binary (e.g. "./my-server" or "python server.py").
+    /// If absent, falls back to Bun with server.ts/server.js.
+    #[serde(default)]
+    server_command: Option<String>,
+}
 
 /// A running Bun sidecar process.
 struct AppSidecar {
@@ -85,43 +95,90 @@ impl SidecarManager {
         Ok(port)
     }
 
-    /// Spawn a Bun process for the app.
-    async fn spawn_sidecar(&self, app_dir: &Path) -> anyhow::Result<(Child, u16)> {
-        // Find an available port
-        let port = Self::find_available_port().await?;
-
-        // Determine the entry point
-        let entry = if app_dir.join("server.ts").exists() {
-            "server.ts"
-        } else if app_dir.join("server.js").exists() {
-            "server.js"
+    /// Read meta.yaml from the app directory (if present).
+    fn read_app_meta(app_dir: &Path) -> AppMeta {
+        let meta_path = app_dir.join("meta.yaml");
+        if meta_path.exists() {
+            let content = std::fs::read_to_string(&meta_path).unwrap_or_default();
+            serde_yaml::from_str(&content).unwrap_or_default()
         } else {
-            anyhow::bail!("No server.ts or server.js found in {}", app_dir.display());
-        };
-
-        // Install dependencies if package.json exists and node_modules doesn't
-        if app_dir.join("package.json").exists() && !app_dir.join("node_modules").exists() {
-            info!("Installing dependencies for {}", app_dir.display());
-            let install = Command::new("bun")
-                .arg("install")
-                .current_dir(app_dir)
-                .output()
-                .await?;
-            if !install.status.success() {
-                let stderr = String::from_utf8_lossy(&install.stderr);
-                anyhow::bail!("bun install failed: {}", stderr);
-            }
+            AppMeta::default()
         }
+    }
 
-        let child = Command::new("bun")
-            .arg("run")
-            .arg(entry)
-            .arg(format!("--port={}", port))
-            .current_dir(app_dir)
-            .kill_on_drop(true)
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()?;
+    /// Spawn a sidecar process for the app.
+    ///
+    /// If `meta.yaml` contains `server_command`, that command is used directly
+    /// (e.g. `./my-server`, `python server.py`). Otherwise falls back to Bun
+    /// with `server.ts` / `server.js`.
+    ///
+    /// The contract is the same for all backends:
+    /// - Accept `--port=NNNN` as a CLI argument
+    /// - Expose `GET /health` returning HTTP 200
+    async fn spawn_sidecar(&self, app_dir: &Path) -> anyhow::Result<(Child, u16)> {
+        let port = Self::find_available_port().await?;
+        let meta = Self::read_app_meta(app_dir);
+
+        let child = if let Some(ref cmd) = meta.server_command {
+            // Custom server command — split into program + args
+            let parts: Vec<&str> = cmd.split_whitespace().collect();
+            if parts.is_empty() {
+                anyhow::bail!("server_command in meta.yaml is empty");
+            }
+
+            let program = parts[0];
+            let args = &parts[1..];
+
+            info!(
+                "Starting custom sidecar: {} (port {})",
+                cmd, port
+            );
+
+            Command::new(program)
+                .args(args)
+                .arg(format!("--port={}", port))
+                .current_dir(app_dir)
+                .kill_on_drop(true)
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn()?
+        } else {
+            // Default: Bun with server.ts / server.js
+            let entry = if app_dir.join("server.ts").exists() {
+                "server.ts"
+            } else if app_dir.join("server.js").exists() {
+                "server.js"
+            } else {
+                anyhow::bail!(
+                    "No server.ts, server.js, or server_command in {}",
+                    app_dir.display()
+                );
+            };
+
+            // Install dependencies if package.json exists and node_modules doesn't
+            if app_dir.join("package.json").exists() && !app_dir.join("node_modules").exists() {
+                info!("Installing dependencies for {}", app_dir.display());
+                let install = Command::new("bun")
+                    .arg("install")
+                    .current_dir(app_dir)
+                    .output()
+                    .await?;
+                if !install.status.success() {
+                    let stderr = String::from_utf8_lossy(&install.stderr);
+                    anyhow::bail!("bun install failed: {}", stderr);
+                }
+            }
+
+            Command::new("bun")
+                .arg("run")
+                .arg(entry)
+                .arg(format!("--port={}", port))
+                .current_dir(app_dir)
+                .kill_on_drop(true)
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn()?
+        };
 
         // Wait for the sidecar to become ready
         self.wait_for_ready(port).await?;

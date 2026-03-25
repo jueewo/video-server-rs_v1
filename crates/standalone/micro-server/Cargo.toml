@@ -1,0 +1,25 @@
+[package]
+name = "micro-server"
+version = "0.1.0"
+edition = "2021"
+description = "Minimal axum sidecar binary — template for custom workspace apps"
+
+[[bin]]
+name = "micro-server"
+path = "src/main.rs"
+
+[dependencies]
+axum = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = "0.3"
+anyhow = { workspace = true }
+tower-http = { version = "0.6", features = ["fs", "cors"] }
+
+# Platform crate: media type detection + metadata
+media-core = { path = "../../media-core" }
+
+# SQLite for the notes API
+sqlx = { workspace = true }

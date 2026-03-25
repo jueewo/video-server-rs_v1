@@ -140,7 +140,8 @@ pub async fn proxy_handler(
 }
 
 /// Find the app root directory by progressively building the path from segments
-/// until we find a directory containing server.ts or server.js.
+/// until we find a directory containing server.ts, server.js, or a meta.yaml
+/// with `server_command`.
 ///
 /// Returns (app_dir, folder_key, remaining_api_path).
 fn find_app_root(
@@ -152,7 +153,7 @@ fn find_app_root(
     for (i, segment) in segments.iter().enumerate() {
         path = path.join(segment);
 
-        if path.join("server.ts").exists() || path.join("server.js").exists() {
+        if path.join("server.ts").exists() || path.join("server.js").exists() || has_server_command(&path) {
             let folder_key = segments[..=i].join("/");
             let api_path = segments[i + 1..].join("/");
             return Some((path, folder_key, api_path));
@@ -160,6 +161,22 @@ fn find_app_root(
     }
 
     None
+}
+
+/// Check if the directory has a meta.yaml with a server_command field.
+fn has_server_command(dir: &std::path::Path) -> bool {
+    let meta_path = dir.join("meta.yaml");
+    if !meta_path.exists() {
+        return false;
+    }
+    let content = std::fs::read_to_string(&meta_path).unwrap_or_default();
+    #[derive(serde::Deserialize, Default)]
+    struct Meta {
+        #[serde(default)]
+        server_command: Option<String>,
+    }
+    let meta: Meta = serde_yaml::from_str(&content).unwrap_or_default();
+    meta.server_command.is_some()
 }
 
 /// Convert axum Method to reqwest Method.

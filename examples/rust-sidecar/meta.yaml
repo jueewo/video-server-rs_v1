@@ -1,0 +1,3 @@
+title: Rust Micro API
+description: Example sidecar app using a compiled Rust/axum binary.
+server_command: ./micro-server

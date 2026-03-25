@@ -607,7 +607,13 @@ async fn main() -> anyhow::Result<()> {
     };
 
     // ── Start server ─────────────────────────────────────────────
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    // Support --port=NNNN from CLI (for sidecar mode) or PORT env var, default 3000
+    let port: u16 = std::env::args()
+        .find(|a| a.starts_with("--port="))
+        .and_then(|a| a.strip_prefix("--port=").unwrap().parse().ok())
+        .or_else(|| std::env::var("PORT").ok().and_then(|v| v.parse().ok()))
+        .unwrap_or(3000);
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
 
     println!("\n\u{2554}{}\u{2557}", "\u{2550}".repeat(64));
     println!("\u{2551}   \u{1f3a5}  MODULAR MEDIA SERVER - READY!                           \u{2551}");

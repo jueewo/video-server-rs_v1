@@ -1,8 +1,8 @@
-# App Runtime — Bun Sidecar Architecture
+# App Runtime — Sidecar Architecture
 
 ## Overview
 
-The `app-runtime` crate enables full-stack workspace apps by spawning Bun processes on demand and proxying API requests to them. This extends the platform beyond static HTML/JS apps to support server-side logic, database writes, external API calls, and more.
+The `app-runtime` crate enables full-stack workspace apps by spawning backend processes on demand and proxying API requests to them. Backends can be **Bun/TypeScript**, **compiled Rust binaries**, or **any executable** that speaks HTTP.
 
 ## App Capability Tiers
 
@@ -11,7 +11,7 @@ The `app-runtime` crate enables full-stack workspace apps by spawning Bun proces
 | 1 | HTML/CSS/JS | None | None | Calculator, diagram editor |
 | 2 | HTML/CSS/JS | Bundled .db | Client-side (sql.js WASM) | Data dashboard |
 | 3 | HTML/CSS/JS | Bundled .db | Platform REST API | *(planned)* |
-| **4** | **HTML/CSS/JS** | **App-managed** | **Bun sidecar** | **Task tracker, CRM** |
+| **4** | **HTML/CSS/JS** | **App-managed** | **Sidecar process** | **Task tracker, Rust micro API** |
 
 ## Architecture
 
@@ -20,44 +20,116 @@ Browser → Platform (Rust/axum) ─┬─ Static files (index.html, CSS, JS)
                                 │   served by js-tool-viewer (existing)
                                 │
                                 └─ /api/apps/{workspace_id}/{folder_path}/*
-                                    → Proxy → Bun sidecar on localhost:{port}
-                                               ├── server.ts
-                                               ├── data.db (bun:sqlite)
-                                               └── (any backend logic)
+                                    → Proxy → Sidecar on localhost:{port}
+                                               ├── server.ts (Bun)
+                                               ├── ./micro-server (Rust)
+                                               ├── or any executable
+                                               └── data.db (optional)
 ```
 
 ## App Structure
 
+### Bun app (default)
 ```
 my-app/
-  meta.yaml          # title + description (for js-tool-viewer gallery)
-  index.html          # frontend (served by platform via js-tool-viewer)
-  server.ts           # backend (spawned as Bun process by app-runtime)
-  data.db             # SQLite database (read/write by server.ts)
-  package.json        # optional npm dependencies
+  meta.yaml          # title + description
+  index.html          # frontend (served by js-tool-viewer)
+  server.ts           # Bun backend (spawned by app-runtime)
+  data.db             # SQLite database (optional)
+  package.json        # npm dependencies (optional, auto-installed)
 ```
 
-**Detection:** The proxy handler walks the folder path looking for `server.ts` or `server.js`. If found, that directory becomes the app root.
+### Custom binary app
+```
+my-rust-app/
+  meta.yaml          # must include server_command
+  index.html          # frontend
+  micro-server        # compiled binary (Rust, Go, etc.)
+  data.db             # SQLite database (optional)
+```
+
+**Detection:** The proxy walks the folder path looking for `server.ts`, `server.js`, or a `meta.yaml` with `server_command`. The first match becomes the app root.
+
+## Sidecar Contract
+
+Every sidecar backend — regardless of language — must implement:
+
+1. **Accept `--port=NNNN`** as a CLI argument (platform assigns a random port)
+2. **Expose `GET /health`** returning HTTP 200 (platform polls this for readiness)
+
+That's it. Everything else is up to the app.
+
+### Bun example
+```typescript
+const port = parseInt(process.argv.find(a => a.startsWith("--port="))?.split("=")[1] ?? "3001");
+Bun.serve({
+  port,
+  async fetch(req) {
+    if (new URL(req.url).pathname === "/health") return new Response("ok");
+    // ... app routes
+  }
+});
+```
+
+### Rust/axum example
+```rust
+fn parse_port() -> u16 {
+    std::env::args()
+        .find(|a| a.starts_with("--port="))
+        .and_then(|a| a.strip_prefix("--port=").unwrap().parse().ok())
+        .unwrap_or(3001)
+}
+// Router includes: .route("/health", get(|| async { "ok" }))
+```
+
+## Custom Server Command
+
+Add `server_command` to `meta.yaml` to use any executable:
+
+```yaml
+title: My Rust App
+server_command: ./micro-server
+```
+
+The platform splits the command on whitespace, appends `--port=NNNN`, and spawns the process. Examples:
+
+```yaml
+server_command: ./micro-server             # compiled Rust binary
+server_command: python server.py           # Python
+server_command: ./server                   # Go binary
+server_command: deno run --allow-net server.ts  # Deno
+```
+
+When `server_command` is set, `server.ts`/`server.js` and Bun are not required.
 
 ## Request Flow
 
 1. User browses to `/js-apps/{workspace_id}/{folder}/` → js-tool-viewer serves `index.html`
 2. Frontend JS calls `/api/apps/{workspace_id}/{folder}/api/tasks`
 3. `app-runtime` proxy handler receives the request
-4. `SidecarManager::ensure_running()` checks if Bun is already running for this app
-   - If not: picks a random port, spawns `bun run server.ts --port={port}`, waits for `/health` to respond
+4. `SidecarManager::ensure_running()` checks if a process is already running for this app
+   - If not: picks a random port, spawns the backend, waits for `/health`
    - If yes: returns existing port, updates `last_request` timestamp
 5. Proxy forwards the request to `http://127.0.0.1:{port}/api/tasks`
 6. Sidecar response is forwarded back to the browser
 
 ## Process Lifecycle
 
-- **Spawn on demand:** First API request triggers process creation
+The platform fully manages each sidecar's lifecycle — **no manual start/stop needed**.
+
+| Event | What happens |
+|-------|-------------|
+| **First API request** | Process spawned, health-checked, then request proxied |
+| **Subsequent requests** | Routed to existing process, idle timer reset |
+| **5 minutes idle** | Background task kills the process (SIGKILL) |
+| **Next request after idle stop** | Fresh process spawned transparently |
+| **Sidecar crashes** | Detected via `try_wait()`, respawned on next request |
+| **Platform shutdown** | `Drop` impl kills all sidecars immediately |
+| **Binary updated** | Kill old sidecar (or wait for idle timeout), next request spawns new version |
+
 - **Health check:** Polls `GET /health` every 100ms for up to 10s after spawn
-- **Idle timeout:** Background task sweeps every 60s, kills sidecars idle >5 minutes
-- **Crash recovery:** `try_wait()` detects exited processes, auto-respawns on next request
-- **Shutdown cleanup:** `Drop` implementation kills all sidecars when the platform stops
-- **Auto-install:** If `package.json` exists without `node_modules/`, runs `bun install` before first spawn
+- **Idle sweep:** Background task runs every 60s, kills sidecars idle >5 min
+- **Auto-install:** For Bun apps, if `package.json` exists without `node_modules/`, runs `bun install` before first spawn
 
 ## Key Components
 
@@ -76,51 +148,45 @@ Methods:
 - `stop(workspace_id, folder)` — stops a specific sidecar
 - `list_active() → Vec<(String, u16)>` — for debugging
 
+Reads `meta.yaml` for `server_command`. Falls back to `bun run server.ts` / `bun run server.js`.
+
 ### `proxy_handler` (`crates/app-runtime/src/proxy.rs`)
 
 - Route: `/api/apps/{workspace_id}/{*rest}`
-- Splits `rest` into app folder path + API path by finding `server.ts`/`server.js`
+- Splits `rest` into app folder path + API path by finding `server.ts`/`server.js` or `server_command` in `meta.yaml`
 - Forwards all HTTP methods, headers, and body
 - Skips hop-by-hop headers (host, connection, transfer-encoding)
 - Body limit: 10 MB
 
-### Routes (`crates/app-runtime/src/lib.rs`)
+### `db_persist` (`crates/app-runtime/src/db_persist.rs`)
 
-- Single route handles GET, POST, PUT, DELETE, PATCH
-- Background cleanup task spawned on startup
-- Wired into `src/main.rs` with ~3 lines
+Optional persistence for client-side sql.js (WASM) apps:
+- `POST /api/app-db/{workspace_id}/{*folder_path}` — save the DB blob (validates SQLite header, atomic write)
+- `GET /api/app-db/{workspace_id}/{*folder_path}` — check writable status
+- Enabled per-app via `db_writable: true` in `meta.yaml`
 
 ## Port Management
 
 - `TcpListener::bind("127.0.0.1:0")` finds a random available port
-- Port passed to Bun via `--port={port}` CLI argument
+- Port passed via `--port={port}` CLI argument
 - Sidecar only listens on localhost (not externally reachable)
 
-## Server.ts Contract
+## Micro Server — Stripped-Down Rust Binary
 
-Apps must implement:
+The `crates/standalone/micro-server` crate is a minimal axum template for custom sidecar apps. It demonstrates:
 
-```typescript
-// Required: health check endpoint
-"/health" → Response 200
+- Using the `media-core` crate for file type detection
+- A SQLite notes CRUD API
+- The full sidecar contract (`--port` + `/health`)
 
-// Required: parse port from CLI args
-const port = parseInt(process.argv.find(a => a.startsWith("--port="))?.split("=")[1] ?? "3001");
+```
+cargo build --package micro-server --release
+# → target/release/micro-server (4.8 MB with media-core + sqlx)
 ```
 
-Everything else is up to the app. Example using `bun:sqlite`:
+Compare: the full platform binary is ~130 MB. The micro-server pulls in only what it needs.
 
-```typescript
-import { Database } from "bun:sqlite";
-const db = new Database("data.db");
-
-Bun.serve({
-  port,
-  async fetch(req) {
-    // Handle routes...
-  }
-});
-```
+To deploy: copy the binary + `index.html` + `meta.yaml` into a workspace folder.
 
 ## Frontend API URL Convention
 
@@ -134,15 +200,13 @@ const API = pagePath.replace(/^\/js-apps\//, '/api/apps/');
 
 ## Course Embedding
 
-Runtime apps can be embedded in course lessons using the existing `app-embed` block:
+Runtime apps can be embedded in course lessons:
 
 ````markdown
 ```app-embed height=600
 /js-apps/{workspace_id}/{folder}/
 ```
 ````
-
-The app renders in an iframe. API calls work because the frontend uses relative URL derivation from its own location.
 
 ## Folder Type
 

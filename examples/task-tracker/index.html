@@ -51,10 +51,13 @@
 </div>
     <script>
         // Derive the API base URL from the page's location.
-        // Page is served at: /js-apps/{workspace_id}/{folder_path...}/
-        // API proxy is at:   /api/apps/{workspace_id}/{folder_path...}/
+        // Works in both contexts:
+        //   /js-apps/{workspace_id}/{folder_path}/  →  /api/apps/{workspace_id}/{folder_path}
+        //   /pub/{slug}/                            →  /api/pub-apps/{slug}
         const pagePath = location.pathname.replace(/\/index\.html$/, '').replace(/\/$/, '');
-        const API = pagePath.replace(/^\/js-apps\//, '/api/apps/');
+        const API = pagePath.startsWith('/pub/')
+            ? pagePath.replace(/^\/pub\//, '/api/pub-apps/')
+            : pagePath.replace(/^\/js-apps\//, '/api/apps/');
 
         async function api(path, opts = {}) {
             const errEl = document.getElementById('error');

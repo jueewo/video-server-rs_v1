@@ -35,6 +35,7 @@ pub fn js_tool_viewer_routes(state: Arc<JsToolViewerState>) -> Router {
     Router::new()
         .route("/js-apps", get(gallery_handler))
         .route("/js-apps/{workspace_id}/{folder}", get(folder_gallery_handler))
+        .route("/js-apps/{workspace_id}/{folder}/", get(folder_gallery_trailing_slash_handler))
         .route("/js-apps/{workspace_id}/{folder}/{*path}", get(serve_file_handler))
         .with_state(state)
 }
@@ -232,7 +233,7 @@ async fn gallery_handler(
         };
 
         for (folder_path, folder_config) in &config.folders {
-            if folder_config.folder_type != "js-tool" {
+            if !matches!(folder_config.folder_type.as_str(), "js-tool" | "web-app" | "runtime-app") {
                 continue;
             }
             let mut folder_tools =
@@ -256,11 +257,25 @@ async fn folder_gallery_handler(
     session: Session,
     Path((workspace_id, folder)): Path<(String, String)>,
     State(state): State<Arc<JsToolViewerState>>,
-) -> Result<Html<String>, StatusCode> {
+) -> Result<Response<Body>, StatusCode> {
     let user_id = require_auth(&session).await?;
     check_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
 
     let workspace_root = state.storage_base.join("workspaces").join(&workspace_id);
+    let folder_abs = workspace_root.join(&folder);
+
+    // If the folder itself has index.html at the root (single app, not a collection),
+    // redirect to trailing-slash URL so relative fetches resolve correctly.
+    if folder_abs.join("index.html").exists() {
+        let redirect_url = format!("/js-apps/{}/{}/", workspace_id, folder);
+        return Ok(Response::builder()
+            .status(StatusCode::MOVED_PERMANENTLY)
+            .header(header::LOCATION, redirect_url)
+            .body(Body::empty())
+            .unwrap());
+    }
+
+    // Otherwise, scan for sub-tools (collection mode)
     let tools = scan_tools_in_folder(&workspace_root, &workspace_id, &folder).await;
 
     let template = GalleryTemplate {
@@ -270,7 +285,41 @@ async fn folder_gallery_handler(
     let html = template
         .render()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    Ok(Html(html))
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
+        .body(Body::from(html))
+        .unwrap())
+}
+
+// ============================================================================
+// Trailing-slash handler — serves index.html for single-app folders
+// ============================================================================
+
+async fn folder_gallery_trailing_slash_handler(
+    session: Session,
+    Path((workspace_id, folder)): Path<(String, String)>,
+    State(state): State<Arc<JsToolViewerState>>,
+) -> Result<Response<Body>, StatusCode> {
+    let user_id = require_auth(&session).await?;
+    check_workspace_ownership(&state.pool, &workspace_id, &user_id).await?;
+
+    let workspace_root = state.storage_base.join("workspaces").join(&workspace_id);
+    let folder_abs = workspace_root.join(&folder);
+    let index_path = folder_abs.join("index.html");
+
+    if index_path.exists() {
+        let content = tokio::fs::read(&index_path)
+            .await
+            .map_err(|_| StatusCode::NOT_FOUND)?;
+        return Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
+            .body(Body::from(content))
+            .unwrap());
+    }
+
+    Err(StatusCode::NOT_FOUND)
 }
 
 // ============================================================================

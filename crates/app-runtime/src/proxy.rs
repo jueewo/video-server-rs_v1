@@ -179,6 +179,103 @@ fn has_server_command(dir: &std::path::Path) -> bool {
     meta.server_command.is_some()
 }
 
+/// Forward an HTTP request to a running sidecar and return the response.
+///
+/// Public so that other crates (e.g. workspace-apps) can proxy published app
+/// requests through the same sidecar infrastructure.
+pub async fn forward_to_sidecar(
+    state: &AppRuntimeState,
+    workspace_id: &str,
+    folder_key: &str,
+    app_dir: &std::path::Path,
+    api_path: &str,
+    method: Method,
+    headers: HeaderMap,
+    body: Body,
+) -> Response {
+    let port = match state
+        .sidecar
+        .ensure_running(workspace_id, folder_key, app_dir)
+        .await
+    {
+        Ok(port) => port,
+        Err(e) => {
+            error!(
+                "Failed to start sidecar for {}/{}: {}",
+                workspace_id, folder_key, e
+            );
+            return (
+                StatusCode::BAD_GATEWAY,
+                format!("Failed to start app backend: {}", e),
+            )
+                .into_response();
+        }
+    };
+
+    let upstream_url = format!("http://127.0.0.1:{}/{}", port, api_path);
+
+    let body_bytes = match axum::body::to_bytes(body, 10 * 1024 * 1024).await {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            warn!("Failed to read request body: {}", e);
+            return (StatusCode::BAD_REQUEST, "Failed to read request body").into_response();
+        }
+    };
+
+    let mut req = state
+        .sidecar
+        .http_client()
+        .request(reqwest_method(&method), &upstream_url);
+
+    for (name, value) in headers.iter() {
+        let name_str = name.as_str();
+        if matches!(
+            name_str,
+            "host" | "connection" | "transfer-encoding" | "keep-alive"
+        ) {
+            continue;
+        }
+        if let Ok(val) = value.to_str() {
+            req = req.header(name_str, val);
+        }
+    }
+
+    if !body_bytes.is_empty() {
+        req = req.body(body_bytes);
+    }
+
+    match req.send().await {
+        Ok(resp) => {
+            let status =
+                StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+            let mut builder = Response::builder().status(status);
+            for (name, value) in resp.headers().iter() {
+                builder = builder.header(name, value);
+            }
+            match resp.bytes().await {
+                Ok(bytes) => builder
+                    .body(Body::from(bytes))
+                    .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response()),
+                Err(e) => {
+                    error!("Failed to read sidecar response: {}", e);
+                    (StatusCode::BAD_GATEWAY, "Failed to read app response").into_response()
+                }
+            }
+        }
+        Err(e) => {
+            error!(
+                "Sidecar request failed for {}/{}: {}",
+                workspace_id, folder_key, e
+            );
+            (
+                StatusCode::BAD_GATEWAY,
+                format!("App backend unavailable: {}", e),
+            )
+                .into_response()
+        }
+    }
+}
+
 /// Convert axum Method to reqwest Method.
 fn reqwest_method(method: &Method) -> reqwest::Method {
     match *method {

@@ -23,6 +23,8 @@ const BUILTIN_JS_TOOL: &str = include_str!("builtin_types/js-tool.yaml");
 const BUILTIN_MEDIA_SERVER: &str = include_str!("builtin_types/media-server.yaml");
 const BUILTIN_PRESENTATION: &str = include_str!("builtin_types/presentation.yaml");
 const BUILTIN_YHM_SITE_DATA: &str = include_str!("builtin_types/yhm-site-data.yaml");
+const BUILTIN_RUNTIME_APP: &str = include_str!("builtin_types/runtime-app.yaml");
+const BUILTIN_WEB_APP: &str = include_str!("builtin_types/web-app.yaml");
 
 const BUILTINS: &[(&str, &str)] = &[
     ("course.yaml", BUILTIN_COURSE),
@@ -35,6 +37,8 @@ const BUILTINS: &[(&str, &str)] = &[
     ("media-server.yaml", BUILTIN_MEDIA_SERVER),
     ("presentation.yaml", BUILTIN_PRESENTATION),
     ("yhm-site-data.yaml", BUILTIN_YHM_SITE_DATA),
+    ("runtime-app.yaml", BUILTIN_RUNTIME_APP),
+    ("web-app.yaml", BUILTIN_WEB_APP),
 ];
 
 // ============================================================================

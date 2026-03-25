@@ -48,7 +48,9 @@
 
   <script>
     const pagePath = location.pathname.replace(/\/index\.html$/, '').replace(/\/$/, '');
-    const API = pagePath.replace(/^\/js-apps\//, '/api/apps/');
+    const API = pagePath.startsWith('/pub/')
+      ? pagePath.replace(/^\/pub\//, '/api/pub-apps/')
+      : pagePath.replace(/^\/js-apps\//, '/api/apps/');
 
     // ── File Inspector ────────────────────────────────
     async function inspectFile() {

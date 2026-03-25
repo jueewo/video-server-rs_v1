@@ -89,7 +89,7 @@ ORDER BY total_revenue DESC</textarea>
         const WASM_URL = '/static/vendor/sql-js/sql-wasm.wasm';
 
         // Resolve data.db relative to this app's directory
-        const base = document.baseURI.replace(/\/[^/]*$/, '');
+        const base = location.pathname.replace(/\/index\.html$/, '').replace(/\/$/, '');
         const DB_URL = base + '/data.db';
 
         let db;

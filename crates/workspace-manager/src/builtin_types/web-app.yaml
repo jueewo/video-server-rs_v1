@@ -1,0 +1,28 @@
+id: web-app
+name: Web App
+icon: globe
+description: A standalone browser app with index.html — no server needed. Supports WASM, sql.js, vanilla JS, or any pre-built SPA.
+color: "#3B82F6"
+apps:
+  - app_id: js-tool-viewer
+    label: Open App
+    icon: play
+    url_template: /js-apps/{workspace_id}/{folder_path}
+metadata_schema:
+  - key: title
+    label: App Title
+    type: string
+    default: ""
+    required: true
+  - key: description
+    label: Description
+    type: multiline
+    default: ""
+    required: false
+agent_roles:
+  - role: web-developer
+    description: Creates and edits browser-based web apps
+    default_actions:
+      - Create new web app
+      - Edit app logic
+      - Add UI component

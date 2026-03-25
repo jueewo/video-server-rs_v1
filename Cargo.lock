@@ -6973,13 +6973,18 @@ dependencies = [
 name = "workspace-apps"
 version = "0.1.0"
 dependencies = [
+ "app-runtime",
  "axum",
  "common",
  "db",
  "gallery3d",
  "js-tool-viewer",
  "publications",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_yaml",
  "sqlx",
+ "tracing",
 ]
 
 [[package]]

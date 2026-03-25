@@ -423,12 +423,12 @@ async fn main() -> anyhow::Result<()> {
         let app = app.merge(course_routes(course_state.clone()));
         let app = app.merge(presentation_routes(course_state));
 
-    // ── Apps feature ─────────────────────────────────────────────
-        let app = app.merge(workspace_app_routes(pool.clone(), database.clone(), database.clone(), storage_dir.clone(), apps_dir.clone(), (*user_storage).clone()));
-
     // ── App Runtime (Bun sidecar for full-stack apps) ────────────
     let app_runtime_state = Arc::new(app_runtime::AppRuntimeState::new(storage_dir.clone()));
-        let app = app.merge(app_runtime::app_runtime_routes(app_runtime_state));
+    let app = app.merge(app_runtime::app_runtime_routes(app_runtime_state.clone()));
+
+    // ── Apps feature ─────────────────────────────────────────────
+    let app = app.merge(workspace_app_routes(pool.clone(), database.clone(), database.clone(), storage_dir.clone(), apps_dir.clone(), (*user_storage).clone(), app_runtime_state));
 
     // ── Agent Registry (global workforce) ────────────────────────
     let agent_registry_state = Arc::new(agent_registry::AgentRegistryState {

@@ -8,6 +8,7 @@ mod db_persist;
 mod proxy;
 mod sidecar;
 
+pub use proxy::forward_to_sidecar;
 pub use sidecar::SidecarManager;
 
 use axum::routing::get;

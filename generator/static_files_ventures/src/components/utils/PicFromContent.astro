@@ -1,0 +1,105 @@
+---
+export interface Props {
+    imagePath: string;
+    altTitle: string;
+    class?: string;
+    priority?: boolean; // For above-the-fold images that should load immediately
+    sizes?: string; // Responsive image sizes hint
+    quality?: number; // Image quality (1-100, default 80)
+    widths?: number[]; // Custom widths for responsive images
+}
+
+const {
+    imagePath,
+    altTitle,
+    class: className,
+    priority = false,
+    sizes = "(max-width: 640px) 100vw, (max-width: 1024px) 75vw, 50vw",
+    quality = 80, // Good balance between quality and file size for SSG
+    widths = [320, 640, 960, 1280], // Default widths for general content
+} = Astro.props as Props;
+
+import { Image } from "astro:assets";
+import type { ImageMetadata } from "astro";
+
+import placeholderImage from "/src/assets/images/utils/placeholder-hero-square.jpg";
+
+const images = await import.meta.glob<{ default: ImageMetadata }>(
+    "/src/assets/images/**/*.{jpeg,jpg,png,gif,svg,webp}",
+);
+
+const getImage = (imagePath: string) => {
+    // Normalize the path to handle various input formats
+    let normalizedPath = imagePath.trim();
+
+    // Remove leading slash if present
+    if (normalizedPath.startsWith("/")) {
+        normalizedPath = normalizedPath.substring(1);
+    }
+
+    // Handle relative paths like ../../assets/images/foo.webp (used in page.yaml)
+    const relAssets = "../../assets/";
+    if (normalizedPath.includes(relAssets)) {
+        normalizedPath = normalizedPath.substring(
+            normalizedPath.indexOf(relAssets) + relAssets.length,
+        );
+    }
+
+    // Remove src/assets/ prefix if somehow included
+    if (normalizedPath.startsWith("src/assets/")) {
+        normalizedPath = normalizedPath.substring("src/assets/".length);
+    }
+
+    // Remove assets/ prefix to avoid double-prefixing
+    if (normalizedPath.startsWith("assets/")) {
+        normalizedPath = normalizedPath.substring("assets/".length);
+    }
+
+    // Build the full path
+    const fullPath = `/src/assets/${normalizedPath}`;
+
+    // Check if image exists in the glob
+    if (!images[fullPath]) {
+        console.warn(
+            `[PicFromContent] Image not found: ${fullPath}\nOriginal path: "${imagePath}"\nAvailable paths: ${Object.keys(images).length} images loaded`,
+        );
+        return placeholderImage;
+    }
+
+    return images[fullPath]();
+};
+
+// Determine loading strategy based on priority
+const loadingStrategy = priority ? "eager" : "lazy";
+const decodingStrategy = priority ? "sync" : "async";
+const fetchPriority = priority ? "high" : "auto";
+---
+
+<div class={className}>
+    {
+        imagePath &&
+            (imagePath.includes(".svg") ? (
+                <Image
+                    src={getImage(imagePath)}
+                    alt={altTitle}
+                    class="w-full lg:max-w-xl m-auto rounded-lg"
+                    loading={loadingStrategy}
+                    decoding={decodingStrategy}
+                    fetchpriority={fetchPriority}
+                />
+            ) : (
+                <Image
+                    src={getImage(imagePath)}
+                    alt={altTitle}
+                    class="w-full lg:max-w-xl m-auto rounded-lg"
+                    loading={loadingStrategy}
+                    decoding={decodingStrategy}
+                    fetchpriority={fetchPriority}
+                    widths={widths}
+                    format="webp"
+                    sizes={sizes}
+                    quality={quality}
+                />
+            ))
+    }
+</div>

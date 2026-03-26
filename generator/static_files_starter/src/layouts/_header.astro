@@ -1,0 +1,108 @@
+---
+import Config from "../website.config.cjs";
+import { b } from '../utils/siteBase';
+
+interface Props {
+  title?: string;
+  page_metatags?: any;
+  enablelatex?: boolean;
+  enablemermaid?: boolean;
+}
+
+const {lang, slug} = Astro.params;
+const {title, page_metatags, enablelatex, enablemermaid} = Astro.props;
+---
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5" />
+
+    {Config.datatool?.url && <link rel="preconnect" href={Config.datatool.url} />}
+
+    <!-- Self-hosted fonts: Sora (display) + DM Sans (body) -->
+    <link rel="preload" href={`${b}/fonts/sora-latin.woff2`} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={`${b}/fonts/dm-sans-latin.woff2`} as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href={`${b}/fonts/google-fonts.css`} media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href={`${b}/fonts/google-fonts.css`} /></noscript>
+
+    {Config.datatool?.url && <link rel="dns-prefetch" href={Config.datatool.url} />}
+
+    <link rel="icon" type="image/x-icon" href={`${b}${Config.favicon}`} />
+    <title>{Config.siteTitle} {title && ' | ' + title}</title>
+
+    <meta name="application-name" content={Config.siteName} />
+    <meta name="generator" content={`yhm using ${Astro.generator}`} />
+    <meta name="mantra" content={Config.siteMantra} />
+    <meta name="description" content={Config.siteDescription} />
+    <meta name="copyright" content={Config.footerContent.copyright} />
+
+    <slot name="head_metatags" />
+
+    {page_metatags && <title>{page_metatags.title}</title>}
+    {page_metatags && Object.keys(page_metatags).map((key) => (
+      <meta name={key} content={page_metatags[key]} slot="head_metatags"/>
+    ))}
+
+    <meta name="apple-mobile-web-app-title" content={Config.siteTitle} />
+    <link rel="apple-touch-icon" href={`${b}${Config.siteLogoIconTouch}`} />
+    <link rel="sitemap" href={`${b}/sitemap-index.xml`} />
+
+    <slot name="head" />
+
+    {enablelatex && (
+      <link rel="stylesheet" href={`${b}/vendor/katex/katex.min.css`} />
+      <script defer is:inline src={`${b}/vendor/katex/katex.min.js`}></script>
+      <script defer is:inline src={`${b}/vendor/katex/contrib/auto-render.min.js`}
+        onload="renderMathInElement(document.body);"></script>
+    )}
+
+    {enablemermaid && (
+      <script is:inline src={`${b}/vendor/mermaid/mermaid.min.js`}></script>
+      <script is:inline>
+        (function() {
+          function getMermaidTheme() {
+            return document.documentElement.classList.contains('dark') ? 'dark' : 'default';
+          }
+          function renderMermaid() {
+            document.querySelectorAll("pre.mermaid").forEach(function(el) {
+              if (!el.hasAttribute("data-src")) {
+                el.setAttribute("data-src", el.textContent.trim());
+              }
+              el.textContent = el.getAttribute("data-src");
+              el.removeAttribute("data-processed");
+            });
+            mermaid.initialize({ startOnLoad: false, theme: getMermaidTheme() });
+            mermaid.run();
+          }
+          if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", renderMermaid);
+          } else {
+            renderMermaid();
+          }
+          var observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(m) {
+              if (m.attributeName === 'class') renderMermaid();
+            });
+          });
+          observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+        })();
+      </script>
+    )}
+
+    <script is:inline>
+      // Theme initialization - runs inline to prevent flash of wrong theme
+      (function() {
+        var saved = localStorage.getItem("theme");
+        if (saved === "dark") {
+          document.documentElement.classList.add("dark");
+        } else if (!saved) {
+          if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+            document.documentElement.classList.add("dark");
+            localStorage.setItem("theme", "dark");
+          } else {
+            localStorage.setItem("theme", "light");
+          }
+        }
+      })();
+    </script>
+</head>

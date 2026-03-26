@@ -1,0 +1,119 @@
+---
+/**
+ * SlidingGallery — horizontal scroll-driven gallery
+ *
+ * Canonical JSON props:
+ *   props.id       — optional HTML id
+ *   props.items    — inline array: [{ title, image, link }]
+ *                    where link is { path, label } or a plain string
+ */
+
+const { id, items } = Astro.props;
+
+const slides: { title: string; image?: string; link?: { path: string; label?: string } | string }[] =
+  Array.isArray(items) ? items : [];
+---
+
+{slides.length > 0 ? (
+  <section id={id || "sg"}>
+    <ul id="ulelement">
+      {slides.map((slide) => {
+        const href = typeof slide.link === "string" ? slide.link : slide.link?.path;
+        return (
+        <li>
+          {slide.image && (
+            <img src={slide.image} alt={slide.title} loading="lazy" />
+          )}
+          <h2>
+            {href ? <a href={href}>{slide.title}</a> : slide.title}
+          </h2>
+        </li>
+        );
+      })}
+    </ul>
+  </section>
+) : (
+  <div class="py-8 text-center text-text-subtle text-sm border border-dashed border-border rounded-xl my-4">
+    <p class="font-mono">SlidingGallery</p>
+    <p class="text-xs mt-1">No items configured. Add props.items[] to sitedef JSON.</p>
+  </div>
+)}
+
+<script>
+  const sg = document.querySelector("section#sg") as HTMLElement | null;
+  if (sg) {
+    import("motion").then(({ animate, scroll }) => {
+      const items = sg.querySelectorAll("li");
+      const ul = sg.querySelector("ul") as HTMLElement | null;
+      if (!ul || items.length === 0) return;
+
+      scroll(
+        animate(ul, { transform: ["none", `translateX(-${items.length - 1}00vw)`] }),
+        { target: sg }
+      );
+
+      const segmentLength = 1 / items.length;
+      items.forEach((item, i) => {
+        const header = item.querySelector("h2");
+        if (!header) return;
+        scroll(animate(header, { x: [200, -200] }), {
+          target: sg,
+          offset: [[i * segmentLength, 1], [(i + 1) * segmentLength, 0]],
+        });
+      });
+    });
+  }
+</script>
+
+<style>
+  section {
+    height: 400vh;
+    position: relative;
+  }
+  ul,
+  li {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  ul {
+    display: flex;
+    position: sticky;
+    top: 0;
+  }
+  li {
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--color-surface);
+  }
+  h2 {
+    margin: 0;
+    font-size: 50px;
+    font-weight: 700;
+    letter-spacing: -3px;
+    line-height: 1.2;
+    position: relative;
+    bottom: 30px;
+    font-family: var(--font-heading);
+    color: var(--color-text);
+  }
+  h2 a {
+    color: var(--color-primary);
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+  h2 a:hover {
+    color: var(--color-primary-light);
+  }
+  img {
+    max-width: 60%;
+    max-height: 60%;
+    object-fit: contain;
+  }
+</style>

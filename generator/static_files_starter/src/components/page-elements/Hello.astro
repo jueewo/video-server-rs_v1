@@ -1,0 +1,8 @@
+---
+const { element } = Astro.props;
+const title = element.title ?? element.content?.title ?? "Hello";
+---
+
+<section class="py-12 px-4 text-center">
+    <p class="text-2xl font-heading text-text-muted">{title}</p>
+</section>

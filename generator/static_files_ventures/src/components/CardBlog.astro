@@ -1,0 +1,80 @@
+---
+import type { CollectionEntry } from "astro:content";
+import CardDraftOverlay from "./CardDraftOverlay.astro";
+import { Image } from "astro:assets";
+import { b } from '../utils/siteBase';
+
+interface Props {
+    card: CollectionEntry;
+    pathdir: string;
+    disableclick?: boolean;
+    pagelang?: string;
+}
+const { card, pathdir, disableclick, pagelang } = Astro.props;
+
+let [contentlang, slug] = card.id.replace(/\.(md|mdx)$/, "").split("/");
+if (!slug) ((slug = contentlang), (contentlang = "en"));
+const lang = pagelang || contentlang;
+---
+
+{/* CARDBLOG */}
+<a
+    href={!disableclick &&
+    (!card.data.draft_content || card.data.draft_content_clickable) &&
+    (!card.data.url || card.data.url.length == 0)
+        ? `${b}/${lang}/${pathdir}/${slug}`
+        : card.data.url}
+    class="block w-full group"
+>
+    <div class="static max-w-full">
+        <div class="card-ventures relative flex flex-col md:flex-row overflow-hidden">
+            {card.data.image && (
+                <div class="flex justify-center items-center content-center">
+                    <figure class="max-w-xl w-full md:w-48 h-48">
+                        <Image
+                            class="object-cover md:w-48 w-full h-48 rounded-lg"
+                            src={card.data.image}
+                            alt={card.data.title}
+                            widths={[320, 640, 960]}
+                            format="webp"
+                            sizes="(max-width: 768px) 100vw, 192px"
+                            quality={80}
+                        />
+                    </figure>
+                </div>
+            )}
+            <div class="p-5 md:w-full max-w-full overflow-hidden">
+                <span class="flex items-center">
+                    <h2 class="text-lg font-bold font-heading flex-auto text-text">{card.data.title}</h2>
+                    {card.data.badge && card.data.badge.length > 0 && (
+                        <span class="flex-shrink-0 bg-accent text-xs font-medium px-2 py-0.5 rounded">{card.data.badge}</span>
+                    )}
+                </span>
+                <p class="text-text-muted mt-1">{card.data.desc}</p>
+
+                <div class="flex flex-wrap items-center gap-2 mt-4">
+                    {card.data.linktxt && card.data.linktxt.length > 0 && (
+                        <span class="btn-ventures btn-primary-ventures text-sm">{card.data.linktxt}</span>
+                    )}
+
+                    {card.data.typetags?.map((tag: string) => (
+                        <span class="tag-ventures bg-primary/10 text-primary">#{tag}</span>
+                    ))}
+                    {card.data.tags?.map((tag: string) => (
+                        <span class="tag-ventures border border-border text-text-muted">{tag}</span>
+                    ))}
+                </div>
+            </div>
+
+            {card.data.content_msg && (
+                <span class="absolute right-3 top-3 bg-accent text-xs font-medium px-2 py-1 rounded-md">{card.data.content_msg}</span>
+            )}
+
+            {card.data.draft_content && (
+                <div class="absolute inset-0">
+                    <CardDraftOverlay card={card} />
+                </div>
+            )}
+        </div>
+    </div>
+</a>

@@ -1,0 +1,12 @@
+---
+import CTAForm from "../utils/CTAForm.astro";
+
+const { element, id, dataid, data } = Astro.props;
+---
+
+<!-- CTA Form -->
+<div class="flex justify-center">
+  <div id={element.id ?? element.props?.id} class="card-starter p-8 md:p-10 my-24 max-w-2xl w-full">
+    <CTAForm id={element.id ?? element.props?.id} element={element}/>
+  </div>
+</div>

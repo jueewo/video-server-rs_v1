@@ -1,0 +1,66 @@
+---
+import type { CollectionEntry } from "astro:content";
+
+interface Props {
+  id: String;
+  titletxt: String;
+  desctxt: String;
+  modalbtn: String;
+  closebtn: String;
+  fullpage: Boolean;
+}
+const { id, titletxt, desctxt, modalbtn, closebtn, fullpage } = Astro.props;
+---
+
+<div class="flex justify-center items-center m-4">
+  <button
+    class="btn-ventures bg-accent text-white font-medium"
+    onclick={id ? `${id}.showModal()` : `modal_1.showModal()`}
+  >
+    {modalbtn ? <span>{modalbtn}</span> : <span>OPEN</span>}
+
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke-width="1.5"
+      stroke="currentColor"
+      class="w-6 h-6 inline-block ml-1"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M19.5 8.25l-7.5 7.5-7.5-7.5"></path>
+    </svg>
+  </button>
+  <dialog id={id ? id : "modal_1"} class="fixed inset-0 z-50 m-auto p-0 bg-transparent backdrop:bg-black/50">
+    <form method="dialog" class="bg-surface rounded-xl shadow-2xl max-w-lg w-full mx-auto mt-[10vh] p-6 relative">
+      <!-- Close button -->
+      <button class="z-20 absolute right-3 top-3 p-1 rounded-full text-text-muted hover:text-text hover:bg-surface-alt transition-colors">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+          class="w-6 h-6"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M6 18L18 6M6 6l12 12"
+          >
+          </path>
+        </svg>
+      </button>
+
+      {titletxt && <h3 class="font-bold text-lg text-text">{titletxt}</h3>}
+      {desctxt && <p class="py-4 text-text-muted">{desctxt}</p>}
+
+      <slot />
+    </form>
+    <form method="dialog" class="fixed inset-0 -z-10">
+      <button class="w-full h-full cursor-default">close</button>
+    </form>
+  </dialog>
+</div>

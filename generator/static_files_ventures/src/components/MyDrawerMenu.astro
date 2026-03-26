@@ -1,0 +1,107 @@
+---
+const { lang } = Astro.params;
+const { headerNavigationMenu } = Astro.props;
+
+const currentPath = Astro.url.pathname;
+
+import config from '../website.config.cjs';
+const languages = config.languages;
+import { b } from '../utils/siteBase';
+import { t } from '../utils/localize';
+
+// Strip siteBase prefix for language switching
+const baseAndLang = b ? `${b}/${lang}` : `/${lang}`;
+const regex = new RegExp(`^${baseAndLang.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
+const newPath = currentPath.replace(regex, '');
+
+// Pre-compute open menus for static generation
+const openMenues: string[] = [];
+for (const menu of headerNavigationMenu) {
+  if (menu.children && menu.children.length > 0) {
+    for (const child of menu.children) {
+      if (currentPath == b+'/'+lang+child.link || currentPath == b+'/'+lang+child.link+'/') {
+        openMenues.push(t(menu.name, lang));
+      }
+    }
+  }
+}
+---
+
+<nav class="w-56 z-10">
+  <ul class="space-y-1 p-2">
+    {
+      headerNavigationMenu &&
+        headerNavigationMenu.map((menu: any) => (
+          <li>
+            {!menu.children || menu.children.length == 0 ? (
+              <a
+                href={menu.external || menu.link.startsWith("http")
+                  ? menu.link
+                  : lang ? b+'/'+lang+ menu.link : menu.link}
+                class:list={[
+                  "block px-3 py-2 rounded-md text-lg md:text-base transition-colors",
+                  !menu.external && (currentPath == b + '/' + lang + menu.link || currentPath == b + '/' + lang + menu.link + '/')
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "text-text hover:bg-surface-alt hover:text-primary",
+                ]}
+                aria-label={t(menu.name, lang)}
+                {...(menu.external || menu.link.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+              >
+                {t(menu.name, lang)}
+                {menu.external && <span class="text-xs ml-1">↗</span>}
+              </a>
+            ) : (
+              <details open={openMenues.includes(t(menu.name, lang))}>
+                <summary class="px-3 py-2 rounded-md text-lg md:text-base cursor-pointer text-text hover:bg-surface-alt hover:text-primary transition-colors">
+                  {t(menu.name, lang)}
+                </summary>
+                <ul class="ml-4 mt-1 space-y-1 border-l border-border pl-2">
+                  {menu.children.map((submenu: any) => (
+                    <li>
+                      <a
+                        href={submenu.external || submenu.link.startsWith("http")
+                          ? submenu.link
+                          : lang ? b+'/'+lang+ submenu.link : submenu.link}
+                        class:list={[
+                          "block px-3 py-1.5 rounded-md text-base md:text-sm transition-colors",
+                          !submenu.external && (currentPath == b + '/' + lang + submenu.link || currentPath == b + '/' + lang + submenu.link + '/')
+                            ? "bg-primary/10 text-primary font-medium"
+                            : "text-text-muted hover:bg-surface-alt hover:text-primary",
+                        ]}
+                        aria-label={t(submenu.name, lang)}
+                        {...(submenu.external || submenu.link.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                      >
+                        {t(submenu.name, lang)}
+                        {submenu.external && <span class="text-xs ml-1">↗</span>}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </li>
+        ))
+    }
+
+    <li class="mt-8 pt-4 border-t border-border">
+      <div class="flex flex-row items-center justify-center gap-1">
+        {
+          languages.map((language) => (
+            <a
+              class:list={[
+                "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                lang == language.locale
+                  ? "bg-primary text-white"
+                  : "text-text-muted hover:bg-surface-alt hover:text-primary",
+              ]}
+              href={b+'/'+language.locale+newPath}
+              title={language.language}
+            >
+              {language.locale.toUpperCase()}
+            </a>
+          ))
+        }
+      </div>
+    </li>
+  </ul>
+</nav>

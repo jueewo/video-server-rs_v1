@@ -338,8 +338,19 @@ async fn serve_file_handler(
     let workspace_root = state.storage_base.join("workspaces").join(&workspace_id);
     let target = workspace_root.join(&folder).join(&path);
 
-    // Bare directory paths → serve index.html
-    let target = if target.extension().is_none() || target.is_dir() {
+    // If target is a directory and path has no trailing slash, redirect so
+    // relative imports (e.g. ./pkg/cascade_engine.js in WASM apps) resolve.
+    if target.is_dir() && !path.ends_with('/') {
+        let redirect_url = format!("/js-apps/{}/{}/{}/", workspace_id, folder, path);
+        return Ok(Response::builder()
+            .status(StatusCode::MOVED_PERMANENTLY)
+            .header(header::LOCATION, redirect_url)
+            .body(Body::empty())
+            .unwrap());
+    }
+
+    // Directory with trailing slash or bare path without extension → index.html
+    let target = if target.is_dir() || target.extension().is_none() {
         target.join("index.html")
     } else {
         target

@@ -1,0 +1,37 @@
+---
+import type { CollectionEntry } from "astro:content";
+import PicFromContent from "./utils/PicFromContent.astro";
+
+interface Props {
+  card: CollectionEntry;
+}
+const { card, image, bgimage } = Astro.props;
+---
+
+<div class={card.fullscreen ? "relative w-full h-full" : "relative w-full"}>
+    <PicFromContent
+        imagePath={card.bgimage}
+        altTitle={card.title.replace(/ /g, '-')}
+        class=""
+    />
+
+    <div class="absolute inset-0 bg-black/40" />
+    <div class="absolute inset-0 flex items-center justify-center text-center text-white">
+        <div class="max-w-md px-4">
+            {card.image && card.image.length > 0 && (
+                <PicFromContent
+                    imagePath={card.bgimage}
+                    altTitle={card.title.replace(/ /g, '-')}
+                    class="max-w-sm rounded-lg inline-block fill-current"
+                />
+            )}
+            <div class="mb-5 text-3xl font-bold font-heading">
+                <Fragment set:html={card.title} />
+            </div>
+
+            <p class="mb-5 text-white/90">
+                <Fragment set:html={card.desc} />
+            </p>
+        </div>
+    </div>
+</div>

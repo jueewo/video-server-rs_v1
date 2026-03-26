@@ -1,0 +1,109 @@
+---
+const { element, alt, index } = Astro.props;
+const { lang } = Astro.params;
+
+import PicFromContent from "../utils/PicFromContent.astro";
+import { b } from '../../utils/siteBase';
+import { Image } from "astro:assets";
+import type { ImageMetadata } from "astro";
+import placeholderImage from "../../assets/images/utils/placeholder-hero-square.jpg";
+
+const images = await import.meta.glob<{ default: ImageMetadata }>(
+    "/src/assets/images/logos/*.{jpeg,jpg,png,gif,svg,webp}",
+);
+const getImage = (imagePath: string) => {
+    const prefix = "/src/assets";
+    if (!images[prefix + imagePath]) return placeholderImage;
+    return images[prefix + imagePath]();
+};
+
+const isFirstHero = index === 0 || index === undefined;
+const fullscreen = element.fullscreen ?? element.props?.fullscreen;
+const image_zoomable = element.image_zoomable ?? element.props?.image_zoomable;
+const ext = element.ext ?? element.props?.ext;
+const rawLink = element.link ?? element.props?.link;
+const image = element.image ?? element.content?.image;
+const title = element.title ?? element.content?.title ?? "";
+const desc = element.desc ?? element.content?.desc;
+const button = element.button ?? element.content?.button;
+
+const linkUrl = typeof rawLink === "string" ? rawLink : rawLink?.path || "";
+const is_external_link = linkUrl.includes("http") || linkUrl.includes("https") || linkUrl.includes("www");
+---
+
+<section class={(fullscreen ? "min-h-[85vh] flex items-center grid-pattern " : "") + "py-16 md:py-24 px-6"}>
+    <div class="max-w-4xl mx-auto text-center">
+        {image && (
+            <div class="mb-10 animate-fade-up">
+                <PicFromContent
+                    imagePath={image}
+                    altTitle={"image_" + title.replace(/ /g, "-")}
+                    class="w-3/4 lg:max-w-xl mx-auto rounded-lg"
+                    priority={isFirstHero}
+                    sizes="(max-width: 640px) 75vw, (max-width: 1024px) 50vw, 576px"
+                    quality={80}
+                />
+            </div>
+        )}
+
+        {image_zoomable && (
+            <>
+                <button
+                    class="text-text-muted hover:text-accent transition-colors mb-4"
+                    onclick={`document.getElementById('zoom_modal_${index}').showModal()`}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607ZM10.5 7.5v6m3-3h-6" />
+                    </svg>
+                    <span class="text-sm ml-1 font-heading font-medium">Enlarge</span>
+                </button>
+                <dialog id={"zoom_modal_" + index} class="fixed inset-0 z-[70] m-auto bg-surface border border-border rounded-lg shadow-2xl max-w-4xl w-full p-6 backdrop:bg-surface-invert/40 backdrop:backdrop-blur-sm">
+                    {image && (
+                        <Image
+                            src={getImage(image)}
+                            alt={"image_" + title.replace(/ /g, "-")}
+                            class="w-full rounded-xl"
+                            loading="lazy"
+                            decoding="async"
+                            format="webp"
+                            quality={80}
+                        />
+                    )}
+                    <div class="mt-4 flex justify-end">
+                        <form method="dialog"><button class="btn-ventures btn-secondary-ventures text-sm">Close</button></form>
+                    </div>
+                </dialog>
+            </>
+        )}
+
+        {/* Accent bar */}
+        <div class="flex justify-center mb-5 animate-fade-up">
+            <div class="accent-bar"></div>
+        </div>
+
+        <h2 class="text-3xl md:text-4xl lg:text-5xl font-heading font-bold tracking-[-0.02em] leading-[1.1] mb-5 animate-fade-up delay-1">
+            <Fragment set:html={title} />
+        </h2>
+
+        {desc && (Array.isArray(desc) ? desc : [desc]).map((line: string, i: number) => (
+            <p class="text-text-muted text-lg mt-4 max-w-2xl mx-auto leading-relaxed animate-fade-up delay-2">
+                <Fragment set:html={line} />
+            </p>
+        ))}
+
+        {linkUrl && (
+            <div class="mt-8 animate-fade-up delay-3">
+                {ext || is_external_link ? (
+                    <a href={linkUrl} target="_blank" rel="noopener noreferrer" class="btn-ventures btn-secondary-ventures">
+                        {button} <span class="text-[0.65rem] opacity-50">↗</span>
+                    </a>
+                ) : (
+                    <a href={b + "/" + lang + linkUrl} class="btn-ventures btn-primary-ventures">
+                        {button}
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                    </a>
+                )}
+            </div>
+        )}
+    </div>
+</section>

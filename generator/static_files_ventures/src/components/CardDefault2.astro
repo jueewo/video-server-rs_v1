@@ -1,0 +1,74 @@
+---
+import type { CollectionEntry } from "astro:content";
+import CardDraftOverlay from "./CardDraftOverlay.astro";
+import { Image } from "astro:assets";
+import { b } from '../utils/siteBase';
+
+interface Props {
+    card: CollectionEntry;
+    pathdir: String;
+    pagelang?: String;
+}
+const { card, pathdir, pagelang } = Astro.props;
+
+let [contentlang, slug] = card.id.replace(/\.(md|mdx)$/, "").split("/");
+if (!slug) ((slug = contentlang), (contentlang = "en"));
+const lang = pagelang || contentlang;
+---
+
+<a
+    href={(!card.data.draft_content || card.data.draft_content_clickable) &&
+    (!card.data.url || card.data.url.length == 0)
+        ? `${b}/${lang}/${pathdir}/${slug}`
+        : card.data.url}
+    class="block w-full group"
+>
+    <div class="w-full max-w-sm mx-auto">
+        <div class="card-ventures relative overflow-hidden">
+            {card.data.image ? (
+                <figure class="aspect-[4/3] overflow-hidden">
+                    <Image
+                        src={card.data.image}
+                        alt={card.data.title}
+                        class="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700 ease-out"
+                        widths={[320, 640, 960]}
+                        format="webp"
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 384px"
+                        quality={80}
+                    />
+                </figure>
+            ) : (
+                <div class="aspect-[4/3] bg-gradient-to-br from-surface-alt to-surface-raised" />
+            )}
+
+            {/* Gradient overlay with content */}
+            <div class="absolute h-3/5 bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent text-white p-5 flex flex-col justify-end">
+                <div class="flex items-start gap-2">
+                    <h2 class="text-lg font-heading font-bold tracking-tight flex-auto line-clamp-2">{card.data.title}</h2>
+                    {card.data.badge && card.data.badge.length > 0 && (
+                        <span class="flex-shrink-0 bg-accent text-[0.6875rem] font-bold uppercase tracking-wider px-2 py-0.5 rounded">{card.data.badge}</span>
+                    )}
+                </div>
+                <p class="text-sm text-white/70 mt-1.5 line-clamp-2">{card.data.desc}</p>
+                <div class="flex flex-wrap gap-1.5 mt-3">
+                    {card.data.typetags?.map((tag: string) => (
+                        <span class="text-[0.6875rem] font-medium bg-primary/80 text-white px-2 py-0.5 rounded">#{tag}</span>
+                    ))}
+                    {card.data.tags?.map((tag: string) => (
+                        <span class="text-[0.6875rem] border border-white/25 text-white/60 px-2 py-0.5 rounded">{tag}</span>
+                    ))}
+                </div>
+            </div>
+
+            {card.data.content_msg && (
+                <span class="absolute right-3 top-3 bg-accent text-[0.6875rem] font-bold px-2 py-1 rounded">{card.data.content_msg}</span>
+            )}
+
+            {card.data.draft_content && (
+                <div class="absolute inset-0">
+                    <CardDraftOverlay card={card} />
+                </div>
+            )}
+        </div>
+    </div>
+</a>

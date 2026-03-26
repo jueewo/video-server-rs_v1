@@ -1,0 +1,85 @@
+---
+// NewsBannerSSG — fetches bannerposts at build time (SSG-safe, no client-side fetch).
+// Falls back gracefully if the backend is not available during build.
+
+const { element, lang } = Astro.props;
+
+const title = element?.title ?? element?.content?.title ?? "News";
+const descRaw = element?.desc ?? element?.content?.desc ?? "";
+const desc: string = Array.isArray(descRaw) ? descRaw.join(' ') : (descRaw || '');
+const showbuttons = element?.showbuttons ?? element?.props?.showbuttons ?? false;
+
+type NewsItem = {
+    title: string;
+    desc: string;
+    img?: string;
+    link: string;
+    button: string;
+};
+
+let posts: NewsItem[] = [];
+
+try {
+    const apiBase = import.meta.env.API_BASE_URL || "http://localhost:3000";
+    const res = await fetch(`${apiBase}/api/const/bannerposts`);
+    if (res.ok) {
+        const data = await res.json();
+        posts = data.posts ?? [];
+    }
+} catch {
+    // Backend not available at build time — render empty gracefully.
+}
+---
+
+<div class="bg-surface my-12 p-4 md:p-12 lg:w-full">
+    <div class="max-w-3xl mx-auto mt-8 text-center">
+        <h1 class="text-4xl md:text-5xl font-bold font-heading text-text">{title}</h1>
+        {desc && <p class="pt-6 text-text-muted text-lg">{desc}</p>}
+    </div>
+
+    {posts.length > 0 && (
+        <div class="w-full flex gap-6 overflow-x-auto snap-x snap-mandatory p-4 my-9 scrollbar-thin" style="scroll-padding: 1rem;">
+            {posts.map((item, index) => (
+                <div class="snap-center flex-shrink-0 w-4/5 max-w-2xl">
+                    <div
+                        id={`item-${index}`}
+                        class={`card-ventures h-64 w-full gradient-section text-text-on-dark overflow-hidden ${item.img ? "flex flex-row" : "flex flex-col justify-center"}`}
+                    >
+                        {item.img && (
+                            <div class="flex-shrink-0 w-64">
+                                <img src={item.img} class="h-64 w-64 object-cover" alt={item.title} />
+                            </div>
+                        )}
+                        <div class="flex flex-col justify-between p-6 flex-1">
+                            <div>
+                                <h2 class="text-xl font-bold font-heading">{item.title}</h2>
+                                <p class="mt-2 text-sm opacity-90 line-clamp-3">{item.desc}</p>
+                            </div>
+                            <div class="flex justify-end mt-4">
+                                <a href={item.link} class="btn-ventures btn-secondary-ventures !border-white/30 !text-white hover:!bg-white/10 text-sm">
+                                    {item.button} &rsaquo;
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    )}
+
+    {showbuttons && posts.length > 0 && (
+        <div class="flex justify-center w-full py-2 gap-2">
+            {posts.map((_, index) => (
+                <a class="tag-ventures text-xs hover:bg-primary hover:text-text-on-primary hover:border-primary transition-colors" href={`#item-${index}`}>{index + 1}</a>
+            ))}
+        </div>
+    )}
+
+    {posts.length === 0 && (
+        <div class="p-4 my-9 w-full">
+            <div class="card-ventures gradient-section text-text-on-dark p-8 text-center">
+                <h2 class="text-xl font-bold font-heading">No news available</h2>
+            </div>
+        </div>
+    )}
+</div>

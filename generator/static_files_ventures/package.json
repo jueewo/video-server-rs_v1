@@ -1,0 +1,39 @@
+{
+  "name": "astro-ventures",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/alpinejs": "^0.5.0",
+    "@astrojs/lit": "^4.3.0",
+    "@astrojs/mdx": "^5.0.0",
+    "@astrojs/preact": "^5.0.0",
+    "@astrojs/sitemap": "^3.7.1",
+    "@astrojs/vue": "^6.0.0",
+    "@tailwindcss/typography": "^0.5.19",
+    "@types/alpinejs": "^3.13.11",
+    "@webcomponents/template-shadowroot": "^0.2.1",
+    "alpinejs": "^3.15.2",
+    "astro": "6",
+    "bpmn-js": "^18.9.1",
+    "canvas-confetti": "^1.9.4",
+    "fuse.js": "^7.1.0",
+    "lit": "^3.3.1",
+    "motion": "^12.23.26",
+    "preact": "^10.28.0",
+    "rehype-katex": "^7.0.1",
+    "remark-math": "^6.0.0",
+    "reveal.js": "^6.0.0",
+    "unist-util-visit": "^5.1.0",
+    "vue": "^3.5.25"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.1",
+    "tailwindcss": "^4.2.1"
+  }
+}

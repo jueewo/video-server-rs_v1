@@ -1,0 +1,51 @@
+---
+// Combined progress animations - scroll-driven ring indicator
+---
+
+<svg width="50" height="50" viewBox="0 0 100 100" class="ringsvg">
+    <circle cx="50" cy="50" r="30" class="bg"></circle>
+    <circle cx="50" cy="50" r="30" class="progressring"></circle>
+</svg>
+
+<script>
+    import { animate, scroll } from "motion";
+
+    // ProgressRing - manual stroke animation
+    scroll((progress: number) => {
+        const ring = document.querySelector(
+            ".progressring",
+        ) as SVGCircleElement;
+
+        if (ring) {
+            const circumference = 2 * Math.PI * 30; // 2*pi*r
+            const offset = circumference * (1 - progress);
+            ring.style.strokeDashoffset = offset.toString();
+        }
+    });
+</script>
+
+<style>
+    .ringsvg {
+        transform: rotate(-90deg);
+        position: fixed;
+        z-index: 40;
+        margin-top: 90px;
+        margin-left: 12px;
+    }
+
+    circle {
+        stroke-width: 6;
+        fill: none;
+    }
+
+    .progressring {
+        stroke: var(--color-primary, #0037ff);
+        stroke-linecap: round;
+        stroke-dasharray: 188.5; /* 2 * pi * 30 ~ 188.5 */
+        stroke-dashoffset: 188.5; /* Start completely hidden */
+    }
+
+    .bg {
+        stroke: rgba(133, 150, 193, 0.3);
+    }
+</style>

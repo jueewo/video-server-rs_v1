@@ -28,23 +28,33 @@ pub fn load_sitedef(source_dir: &Path) -> Result<SiteDef> {
     let mut sitedef: SiteDef = serde_yaml::from_str(&text)
         .with_context(|| format!("parsing {}", path.display()))?;
 
-    // Overlay menus.yaml if present
+    // Overlay menus.yaml if present — parse errors are non-fatal (fall back to sitedef)
     let menus_path = source_dir.join("menus.yaml");
     if menus_path.exists() {
-        let menus_text = std::fs::read_to_string(&menus_path)
-            .with_context(|| format!("reading {}", menus_path.display()))?;
-        let menus: crate::schema::MenuOverlay = serde_yaml::from_str(&menus_text)
-            .with_context(|| format!("parsing {}", menus_path.display()))?;
-        if let Some(menu) = menus.menu {
-            sitedef.menu = menu;
+        match std::fs::read_to_string(&menus_path) {
+            Ok(menus_text) => {
+                match serde_yaml::from_str::<crate::schema::MenuOverlay>(&menus_text) {
+                    Ok(menus) => {
+                        if let Some(menu) = menus.menu {
+                            sitedef.menu = menu;
+                        }
+                        if let Some(footermenu) = menus.footermenu {
+                            sitedef.footermenu = Some(footermenu);
+                        }
+                        if let Some(legal) = menus.legal {
+                            sitedef.legal = Some(legal);
+                        }
+                        info!("Loaded menu overrides from menus.yaml");
+                    }
+                    Err(e) => {
+                        tracing::warn!("Skipping menus.yaml (parse error): {e}");
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Skipping menus.yaml (read error): {e}");
+            }
         }
-        if let Some(footermenu) = menus.footermenu {
-            sitedef.footermenu = Some(footermenu);
-        }
-        if let Some(legal) = menus.legal {
-            sitedef.legal = Some(legal);
-        }
-        info!("Loaded menu overrides from menus.yaml");
     }
 
     Ok(sitedef)

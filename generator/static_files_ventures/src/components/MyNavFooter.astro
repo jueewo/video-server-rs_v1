@@ -1,0 +1,164 @@
+---
+import SocialMedia from "./SocialMedia.astro";
+import Config from "../website.config.cjs";
+import { Image, imageConfig } from "astro:assets";
+
+const {
+    sitename,
+    showlogo,
+    footerLogo,
+    social,
+    legal,
+    footerNavigationMenu,
+    footerContent,
+    extprop,
+} = Astro.props;
+
+const { lang } = Astro.params;
+
+import { getRelativeLocaleUrl } from "astro:i18n";
+import { b } from '../utils/siteBase';
+import { t } from '../utils/localize';
+---
+
+<!-- ─── Footer — Precision Forward ─────────────────────── -->
+<div id="footer" class="w-full relative bg-[#1a2030] text-[#e0e5ed] z-20 mt-24">
+    {/* Primary accent stripe at top of footer */}
+    <div class="h-[3px] bg-gradient-to-r from-primary via-primary to-accent"></div>
+
+    <div class="px-6 pt-16 pb-8 mx-auto max-w-6xl">
+        <div class="grid gap-12 lg:grid-cols-6">
+            {/* Brand column */}
+            <div class="lg:col-span-2">
+                <a
+                    href={lang ? `${b}/${lang}/home` : `${b}/home`}
+                    aria-label="Go home"
+                    class="inline-flex items-center group"
+                >
+                    {footerContent && showlogo && footerLogo && (
+                        <div class="w-10 h-10 transition-opacity group-hover:opacity-80 duration-200">
+                            <Image src={footerLogo} alt="logo" class="w-full h-full" />
+                        </div>
+                    )}
+                    <span class="ml-3 text-lg font-heading font-bold tracking-wide uppercase">
+                        {sitename}
+                    </span>
+                </a>
+
+                <div class="mt-4 max-w-xs">
+                    <p class="text-sm text-[#c0c8d4] leading-relaxed">
+                        <Fragment set:html={footerContent.text} />
+                    </p>
+                </div>
+
+                <div class="mt-6">
+                    <SocialMedia
+                        socialMedia={Config.socialMedia}
+                        baseURL={Config.baseURL}
+                    />
+                </div>
+            </div>
+
+            {/* Navigation columns */}
+            <div class="grid grid-cols-2 gap-8 lg:col-span-4 md:grid-cols-3">
+                {footerNavigationMenu &&
+                    footerNavigationMenu.map((category: any) => (
+                        <div>
+                            {/* Accent bar above category label */}
+                            <div class="w-6 h-0.5 bg-primary rounded-full mb-3"></div>
+                            <p class="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-[#8896a8] mb-4 font-heading">
+                                {category.link ? (
+                                    <a
+                                        href={
+                                            category.external || category.link.startsWith("http")
+                                                ? category.link
+                                                : lang
+                                                    ? `${b}/${lang}${category.link}`
+                                                    : category.link
+                                        }
+                                        class="hover:text-[#d0d6e0] transition-colors duration-200"
+                                        {...(category.external || category.link.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                                    >
+                                        {t(category.header, lang)}
+                                    </a>
+                                ) : (
+                                    <span>{t(category.header, lang)}</span>
+                                )}
+                            </p>
+                            <ul class="space-y-2.5">
+                                {category.links &&
+                                    category.links.map((link: any) => (
+                                        <li>
+                                            {link.link && link.link.length > 0 ? (
+                                                <a
+                                                    href={
+                                                        link.external || link.link.startsWith("http")
+                                                            ? link.link
+                                                            : lang
+                                                                ? `${b}/${lang}${link.link}`
+                                                                : link.link
+                                                    }
+                                                    class="text-sm text-[#a0aab8] hover:text-white transition-colors duration-200"
+                                                    {...(link.external || link.link.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                                                >
+                                                    {t(link.name, lang)}
+                                                    {link.external && (
+                                                        <span class="text-[0.65rem] ml-0.5 opacity-50">↗</span>
+                                                    )}
+                                                </a>
+                                            ) : (
+                                                <span class="text-sm text-[#606c7c]">
+                                                    {t(link.name, lang)}
+                                                </span>
+                                            )}
+                                        </li>
+                                    ))}
+                            </ul>
+                        </div>
+                    ))
+                }
+
+                {/* Legal column */}
+                {legal && legal.length > 0 && (
+                    <div>
+                        <div class="w-6 h-0.5 bg-primary rounded-full mb-3"></div>
+                        <p class="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-[#8896a8] mb-4 font-heading">Legal</p>
+                        <ul class="space-y-2.5">
+                            {legal.map((legalitem: any) => (
+                                <li>
+                                    <a
+                                        class="text-sm text-[#a0aab8] hover:text-white transition-colors duration-200"
+                                        href={
+                                            lang
+                                                ? `${b}/${lang}/${legalitem.collection}${legalitem.link}`
+                                                : legalitem.link
+                                        }
+                                    >
+                                        {t(legalitem.name, lang)}
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+            </div>
+        </div>
+    </div>
+
+    {/* Bottom bar */}
+    <div class="border-t border-[#2a3344] px-6 py-5">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p class="text-xs text-[#8896a8] font-heading tracking-wide">
+                {footerContent && (
+                    <Fragment set:html={`&copy; ${footerContent.copyright}`} />
+                )}
+                {extprop && extprop.length > 0 && (
+                    <>
+                        <span class="mx-2 opacity-30">·</span>
+                        <Fragment set:html={extprop} />
+                    </>
+                )}
+            </p>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,379 @@
+---
+import { IconInfo } from "../icons/IconInfo";
+
+const { id, element } = Astro.props;
+
+const surveydef = element.data ?? element.props?.data;
+const addonvalues = null;
+const title_override = '';
+const desc_override = '';
+const fullpage = false;
+const responseMessage = { msg: null };
+---
+
+<script>
+const tabs = document.querySelectorAll(".steps");
+const tab = document.querySelectorAll(".step");
+const panel = document.querySelectorAll(".panel");
+const page = document.querySelectorAll(".page");
+
+const validation_message = document.getElementById("validation_message");
+const back_button = document.getElementById("backbtn");
+const next_button = document.getElementById("nextbtn");
+
+back_button?.setAttribute("disabled", "true");
+
+function validateEmail(email) {
+  const res = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,10}$/;
+  return res.test(String(email).toLowerCase());
+}
+
+function onTabClick(event) {
+  var valid_page = true;
+
+  for (let i = 0; i < tab.length; i++) {
+    if (tab[i].classList.contains("active")) {
+      let inputelements = page[i].getElementsByTagName("input");
+
+      for (let j = 0; j < inputelements.length; j++) {
+        var valid_element = true;
+
+        if (inputelements[j].required) {
+          if (inputelements[j].required && (inputelements[j].type == "text")) {
+            valid_element = inputelements[j].value.length > 0;
+          }
+          if (inputelements[j].type == "email") {
+            valid_element = validateEmail(inputelements[j].value);
+          }
+          if (inputelements[j].required && inputelements[j].type == "checkbox") {
+            valid_element = inputelements[j].checked;
+          }
+          if (!valid_element) {
+            inputelements[j].classList.add('failed');
+            valid_page = false;
+          }
+        }
+      }
+
+      let textareaelements = page[i].getElementsByTagName("textarea");
+      for (let j = 0; j < textareaelements.length; j++) {
+        if (textareaelements[j].required) {
+          // validate textarea
+        }
+      }
+    }
+  }
+
+  if (!valid_page) {
+    validation_message.innerHTML = "Please fill in all required fields.";
+    return;
+  } else {
+    validation_message.innerHTML = "";
+  }
+
+  for (let i = 0; i < tab.length; i++) {
+    tab[i].classList.remove("active");
+  }
+  for (let i = 0; i < panel.length; i++) {
+    panel[i].classList.remove("active");
+    page[i].classList.remove("active");
+  }
+
+  event.target.classList.add('active');
+  let classString = event.target.getAttribute('data-target');
+
+  document.getElementById('panels').getElementsByClassName(classString)[0].classList.add("active");
+  document.getElementById('pages').getElementsByClassName(classString)[0].classList.add("active");
+}
+
+function onBack(event) {
+  var act_page = 0;
+  if (next_button) {
+    next_button.removeAttribute("disabled");
+  }
+
+  for (let i = 0; i < tab.length; i++) {
+    if (tab[i].classList.contains("active")) {
+      act_page = i;
+    }
+  }
+  if (act_page > 0) {
+    if (act_page == 1) {
+      event.target.setAttribute("disabled", true);
+    }
+
+    for (let i = 0; i < tab.length; i++) {
+      tab[i].classList.remove("active");
+    }
+    for (let i = 0; i < panel.length; i++) {
+      panel[i].classList.remove("active");
+      page[i].classList.remove("active");
+    }
+
+    tab[act_page - 1].classList.add("active");
+    panel[act_page - 1].classList.add("active");
+    page[act_page - 1].classList.add("active");
+  }
+}
+
+function onNext(event) {
+  var act_page = 0;
+  if (back_button) {
+    back_button.removeAttribute("disabled");
+  }
+
+  for (let i = 0; i < tab.length; i++) {
+    if (tab[i].classList.contains("active")) {
+      act_page = i;
+    }
+  }
+
+  if (act_page < (page.length - 1)) {
+    if (act_page == (page.length - 2)) {
+      event.target.setAttribute("disabled", true);
+    }
+
+    for (let i = 0; i < tab.length; i++) {
+      tab[i].classList.remove("active");
+    }
+    for (let i = 0; i < panel.length; i++) {
+      panel[i].classList.remove("active");
+      page[i].classList.remove("active");
+    }
+
+    tab[act_page + 1].classList.add("active");
+    panel[act_page + 1].classList.add("active");
+    page[act_page + 1].classList.add("active");
+  }
+}
+
+for (let i = 0; i < tab.length; i++) {
+  tab[i].addEventListener('click', onTabClick, false);
+}
+
+back_button?.addEventListener('click', onBack, false);
+next_button?.addEventListener('click', onNext, false);
+</script>
+
+<style>
+.panel { display: none; }
+.panel.active { display: block; }
+.page { display: none; }
+.page.active { display: block; }
+.failed {
+  border-color: var(--color-error) !important;
+  background-color: oklch(55% 0.22 25 / 0.05);
+}
+.survey-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.survey-step.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+.survey-step:hover {
+  color: var(--color-text);
+}
+</style>
+
+<div class={fullpage ? 'min-h-screen flex flex-col justify-center items-center' : 'flex flex-col justify-center items-center'}>
+
+{surveydef ? (
+    <div class="card-ventures p-6 m-auto w-96 lg:max-w-lg">
+      <h1 class="text-3xl font-semibold font-heading text-center text-primary">
+        { title_override ?
+          <span>{ title_override }</span> :
+          <span>{ surveydef.title }</span>
+        }
+      </h1>
+      { desc_override && <p class="text-text-muted text-center mt-2">{ desc_override }</p> }
+
+      <form method="POST" id="myform" enctype="multipart/form-data" class="w-80 space-y-4 mt-6">
+        <input type="text" hidden name="source" value={id} />
+        <input type="text" hidden name="surveyid" value={surveydef.id} />
+
+        { surveydef.hiddenfield && surveydef.hiddenfield.length > 0 &&
+          <div>
+            <label class="hidden">
+              <span class="text-sm font-medium text-text">{ surveydef.hiddenfield }</span>
+            </label>
+            <input
+              type="text"
+              id={surveydef.hiddenfield}
+              name={surveydef.hiddenfield}
+              placeholder={surveydef.hiddenfield}
+              class="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
+              hidden
+            />
+          </div>
+        }
+
+        <div class="flex flex-wrap border-b border-border mb-4">
+          { surveydef.pages.length > 0 && surveydef.pages.map((page, index) => (
+            <div class={index == 0 ? 'survey-step step active' : 'survey-step step'} data-target={page.label}>{page.label}</div>
+          ))}
+          <div class='survey-step step' data-target="FINAL">FINAL</div>
+        </div>
+
+        <div id="panels" class="mt-4">
+          { surveydef.pages.length > 0 && surveydef.pages.map((page, index) => (
+            <div class={index == 0 ? `${page.label} panel active` : `${page.label} panel`}>{page.label}</div>
+          ))}
+          <div class="FINAL panel">FINAL</div>
+        </div>
+
+        <div id="pages">
+        { surveydef.pages.length > 0 && surveydef.pages.map((page, index) => (
+          <div class={index == 0 ? `${page.label} page active` : `${page.label} page`}>
+            { page.fields.map((field) =>
+              <div class="field mb-4">
+                { field.element === 'input' &&
+                <div>
+                  { field.type !== 'checkbox' && field.type !== 'range' && field.type !== 'file' &&
+                  <span>
+                    <label class="block mb-1">
+                      <span class="text-sm font-medium text-text">{ field.title }</span>
+                    </label>
+                    <input
+                      type={field.type}
+                      id={field.id}
+                      name={field.name}
+                      required={field.required ? true : false}
+                      placeholder={field.placeholder}
+                      class="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text placeholder:text-text-subtle focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
+                    />
+                  </span>
+                  }
+
+                  { field.type === 'range' &&
+                  <span>
+                    <label class="block mb-1">
+                      <span class="text-sm font-medium text-text flex items-center gap-1">{ field.title }
+                        <span class="text-text-subtle text-xs" title={field.placeholder}>
+                          <IconInfo setclass="w-4 h-4 inline" />
+                        </span>
+                      </span>
+                    </label>
+                    <input
+                      type={field.type}
+                      id={field.id}
+                      name={field.name}
+                      required={field.required ? true : false}
+                      placeholder={field.placeholder}
+                      class="w-full accent-primary"
+                      min="0" max="10" step="1" value="2"
+                    />
+                    <div class="w-full flex justify-between text-xs px-2 text-text-subtle">
+                      { [...Array(11).keys()].map((nr) => <span>|</span>)}
+                    </div>
+                  </span>
+                  }
+
+                  { field.type === 'checkbox' &&
+                  <span>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type={field.type}
+                        id={field.id}
+                        name={field.name}
+                        required={field.required ? true : false}
+                        class="w-4 h-4 accent-primary rounded border-border"
+                      />
+                      <span class="text-sm text-text flex items-center gap-1">
+                        { field.title }
+                        <span class="text-text-subtle" title={field.placeholder}>
+                          <IconInfo setclass="w-4 h-4 inline" />
+                        </span>
+                      </span>
+                    </label>
+                  </span>
+                  }
+
+                  { field.type === 'file' &&
+                  <span>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <span class="text-sm text-text flex items-center gap-1">
+                        { field.title }
+                        <span class="text-text-subtle" title={field.placeholder}>
+                          <IconInfo setclass="w-4 h-4 inline" />
+                        </span>
+                      </span>
+                      <input
+                        type={field.type}
+                        id={field.id}
+                        name={field.name}
+                        required={field.required ? true : false}
+                        multiple
+                        class="text-sm text-text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary file:text-text-on-primary hover:file:bg-primary-dark"
+                      />
+                    </label>
+                  </span>
+                  }
+                </div>
+                }
+
+                { field.element == 'textarea' &&
+                <div>
+                  <label class="block mb-1">
+                    <span class="text-sm font-medium text-text">{ field.title }</span>
+                  </label>
+                  <textarea
+                    id={field.id}
+                    name={field.name}
+                    required={field.required ? true : false}
+                    placeholder={field.placeholder}
+                    class="w-full h-24 px-3 py-2 border border-border rounded-lg bg-surface text-text placeholder:text-text-subtle focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors resize-y"
+                  />
+                </div>
+                }
+              </div>
+              )
+            }
+          </div>))
+        }
+
+          <div class="FINAL page">
+            <div class="flex flex-col items-center gap-3">
+              <button data-send-button class="btn-ventures btn-primary-ventures">{ surveydef.buttontxt }</button>
+            </div>
+
+            <div class="text-xs mt-6 text-text-subtle text-center">
+              By clicking "{ surveydef.buttontxt }", you agree to our
+              <a
+                href="/info/privacy"
+                class="text-primary hover:underline"
+              >
+                Privacy Policy
+              </a>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="flex items-center justify-center gap-3 mt-6">
+          <button type="button" id="backbtn" class="btn-ventures btn-secondary-ventures text-sm">PREV</button>
+          <button type="button" id="nextbtn" class="btn-ventures btn-secondary-ventures text-sm">NEXT</button>
+        </div>
+
+        <div class="text-error text-sm text-center mt-2" id="validation_message"></div>
+
+      </form>
+
+      { responseMessage && responseMessage.msg && (
+        <div class="mt-8 p-3 rounded-lg bg-success/10 border border-success/20 text-success text-sm text-center">
+          <span>{ responseMessage.msg }</span>
+        </div>
+      )}
+    </div>
+
+  ) : <p class="text-text-muted">SURVEY NOT FOUND</p>}
+</div>

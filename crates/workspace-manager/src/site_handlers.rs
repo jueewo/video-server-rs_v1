@@ -83,7 +83,9 @@ pub(crate) async fn generate_site_handler(
         return Err(je(StatusCode::BAD_REQUEST));
     }
 
-    // Determine components dir: request override -> folder metadata -> env var
+    // Determine components dir: request override -> folder metadata only.
+    // Do NOT resolve SITE_COMPONENTS_DIR/BASE here — let site_publisher::publish()
+    // handle env-based resolution so it can respect sitedef.yaml componentLib.
     let components_dir = request
         .components_dir
         .as_deref()
@@ -96,8 +98,7 @@ pub(crate) async fn generate_site_handler(
                 .and_then(|v: &serde_yaml::Value| v.as_str())
                 .filter(|s: &&str| !s.is_empty())
                 .map(std::path::PathBuf::from)
-        })
-        .or_else(|| std::env::var("SITE_COMPONENTS_DIR").ok().map(Into::into));
+        });
 
     // Output path: {sites_dir}/builds/{workspace_id}/{folder_slug}
     let folder_slug = clean.replace('/', "_").replace(' ', "-");

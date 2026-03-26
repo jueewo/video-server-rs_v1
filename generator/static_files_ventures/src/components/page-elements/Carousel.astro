@@ -1,0 +1,51 @@
+---
+import { getImage } from "astro:assets";
+import type { ImageMetadata } from "astro";
+import ImageBanner from "../preact/ImageBanner";
+
+const { id, dataid, data } = Astro.props;
+
+const imageModules = import.meta.glob<{ default: ImageMetadata }>(
+    "/src/assets/images/**/*.{jpeg,jpg,png,gif,webp}",
+    { eager: true },
+);
+
+async function getOptimizedImage(publicPath: string) {
+    const assetPath = "/src/assets" + publicPath;
+    const imageModule = imageModules[assetPath];
+    if (!imageModule) return "";
+    const optimized = await getImage({
+        src: imageModule.default,
+        width: 800,
+        format: "webp",
+    });
+    return optimized.src;
+}
+
+let processedData: typeof data = [];
+if (data && data.length > 0) {
+    const nonDraftPosts = data.filter((post: any) => !post.draft);
+    const processed = await Promise.all(
+        nonDraftPosts.map(async (post: any) => ({
+            ...post,
+            img: await getOptimizedImage(post.img),
+        })),
+    );
+    processedData = processed.filter((post: any) => post.img !== "");
+}
+---
+
+{processedData && processedData.length > 0 && (
+    <section class="py-12 md:py-20">
+        <div class="max-w-5xl mx-auto px-4">
+            <ImageBanner
+                posts={processedData}
+                carouselId={id}
+                isAutoPlay={true}
+                autoPlayMilliseconds={5000}
+                showTitle={false}
+                client:only="preact"
+            />
+        </div>
+    </section>
+)}

@@ -1,0 +1,14 @@
+{
+  "name": "ventures",
+  "description": "Precision Forward — cool, structured, data-driven component library for consultancy & ventures. Pure Tailwind CSS, no DaisyUI.",
+  "framework": "Astro 6",
+  "styling": ["Tailwind CSS v4", "@tailwindcss/typography"],
+  "fonts": ["Manrope (headings)", "IBM Plex Sans (body)", "IBM Plex Mono (code/data)"],
+  "themes": "light/dark via .dark class toggle",
+  "elements": [
+    "Section", "Hero", "Hero2", "TitleHero", "TitleAlertBanner",
+    "StatData", "Carousel", "SlidingGallery", "TeamGrid", "Process",
+    "Presentation", "MdText", "NewsBanner", "FAQ", "CTA", "Survey",
+    "CTARemote", "LikeButton", "Video", "Collection", "Hello"
+  ]
+}

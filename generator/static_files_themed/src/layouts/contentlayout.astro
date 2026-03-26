@@ -2,7 +2,7 @@
 import "../styles/global.css";
 import "../styles/prose.css";
 import "../styles/toc.css";
-import { theme, isStarter, isVentures } from '../utils/theme';
+import { theme, layout, r } from '../utils/theme';
 
 import NavFooter from "../components/MyNavFooter.astro";
 import CardBlog from "../components/CardBlog.astro";
@@ -45,6 +45,9 @@ const title = entry.data.title;
 
 const entrySlug = entry.id.replace(/\.(md|mdx)$/, "").split("/").slice(1).join("-");
 const pageid = lang + '-' + collection + '-' + entrySlug;
+
+const isBar = layout.navbar === 'bar';
+const sepClass = layout.accentBars ? 'text-border-strong' : 'opacity-30';
 ---
 
 <html lang={lang ? lang : 'en'} data-theme={theme}>
@@ -53,8 +56,8 @@ const pageid = lang + '-' + collection + '-' + entrySlug;
 
   <body class="min-h-screen bg-surface text-text">
 
-    {isVentures ? (
-      <!-- ─── Ventures: top stripe + full-width navbar ──────── -->
+    {isBar ? (
+      <!-- ─── Bar navbar with top stripe ─────────────────────── -->
       <div class="fixed top-0 left-0 right-0 z-[51] h-[3px] bg-gradient-to-r from-primary via-primary to-accent"></div>
       <header class="fixed top-[3px] left-0 right-0 z-50 glass-theme border-b border-border">
         <div class="max-w-5xl mx-auto px-4 sm:px-6">
@@ -70,7 +73,7 @@ const pageid = lang + '-' + collection + '-' + entrySlug;
         </div>
       </header>
     ) : (
-      <!-- ─── Starter: floating pill nav ────────────────────── -->
+      <!-- ─── Floating pill nav ──────────────────────────────── -->
       <header class="fixed top-0 left-0 right-0 z-50 px-4 pt-4">
         <div class="max-w-4xl mx-auto">
           <nav class="glass-theme rounded-full border border-border px-5 py-2.5 flex items-center justify-between shadow-[0_2px_20px_hsl(var(--shadow-color)/0.06)]">
@@ -86,7 +89,7 @@ const pageid = lang + '-' + collection + '-' + entrySlug;
       </header>
     )}
 
-    <div class={isVentures ? "pt-[51px]" : "pt-20"}>
+    <div class={isBar ? "pt-[51px]" : "pt-20"}>
       <div class="flex flex-col items-center justify-center max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8">
 
           <div class="mt-4 w-full">
@@ -103,19 +106,19 @@ const pageid = lang + '-' + collection + '-' + entrySlug;
                   </svg>
                 </a>
               </li>
-              <li class={isVentures ? "text-border-strong" : "opacity-30"}>{isVentures ? "/" : "·"}</li>
+              <li class={sepClass}>{layout.breadcrumbSep}</li>
               <li>
                 <a href={b+'/'+(lang ? lang+'/' : '')+collection} class="hover:text-primary transition-colors">
                   {collection}
                 </a>
               </li>
-              <li class={isVentures ? "text-border-strong" : "opacity-30"}>{isVentures ? "/" : "·"}</li>
+              <li class={sepClass}>{layout.breadcrumbSep}</li>
               <li class="text-text truncate max-w-[200px] normal-case">{entry.data.title}</li>
             </ol>
           </nav>
 
           {entry.data.draft_content && (
-            <div class={`w-3/4 mx-auto mt-10 p-8 text-white text-center ${isVentures ? 'rounded-lg bg-primary' : 'rounded-2xl bg-accent'}`}>
+            <div class={`w-3/4 mx-auto mt-10 p-8 text-white text-center ${r.card} ${layout.accentBars ? 'bg-primary' : 'bg-accent'}`}>
               <h1 class="text-2xl font-heading font-bold">
                 {entry.data.draft_content_msg && entry.data.draft_content_msg.length > 0
                   ? entry.data.draft_content_msg
@@ -175,10 +178,10 @@ const pageid = lang + '-' + collection + '-' + entrySlug;
               <div class="flex justify-center pt-4">
                 <button id="contact-modal-btn" class="btn-theme btn-accent-theme text-sm"><IconEnvelope setclass="w-5 h-5" /> Contact & Newsletter</button>
               </div>
-              <dialog id="contact-modal" class={`fixed inset-0 z-[70] m-auto bg-surface border border-border shadow-2xl max-w-lg w-full p-6 backdrop:bg-surface-invert/40 backdrop:backdrop-blur-sm ${isVentures ? 'rounded-lg' : 'rounded-2xl'}`}>
+              <dialog id="contact-modal" class={`fixed inset-0 z-[70] m-auto bg-surface border border-border shadow-2xl max-w-lg w-full p-6 backdrop:bg-surface-invert/40 backdrop:backdrop-blur-sm ${r.dialog}`}>
                 <div class="flex justify-between items-center mb-4">
                   <h3 class="text-lg font-heading font-bold">Get in touch</h3>
-                  <form method="dialog"><button class={`p-1.5 hover:bg-surface-alt transition-colors text-text-muted ${isVentures ? 'rounded' : 'rounded-full'}`}>✕</button></form>
+                  <form method="dialog"><button class={`p-1.5 hover:bg-surface-alt transition-colors text-text-muted ${r.button}`}>✕</button></form>
                 </div>
                 <SurveyRemote url={Config.datatool.url} surveyid="survey_contact_1" sourceid={"astro-cms-site&contentlayout&"+pageid} title="Please enter your contact data" submitbuttontxt="Send" thankyoumessage="THANK YOU!" showicon client:only="preact" />
                 <div class="mt-4 flex justify-end">
@@ -195,7 +198,7 @@ const pageid = lang + '-' + collection + '-' + entrySlug;
 
           <!-- Date metadata -->
           <div class="mt-16 mb-8 flex items-center gap-3 text-xs text-text-subtle font-heading tracking-wide">
-            {isVentures ? (
+            {layout.accentBars ? (
               <div class="accent-bar"></div>
             ) : (
               <div class="w-8 h-px bg-border-strong"></div>
@@ -205,21 +208,21 @@ const pageid = lang + '-' + collection + '-' + entrySlug;
             )}
             {entry.data.updatedDate && (
               <>
-                <span class={isVentures ? "text-border-strong" : "opacity-30"}>·</span>
+                <span class={sepClass}>·</span>
                 <span>Updated <FormattedDate date={entry.data.updatedDate} /></span>
               </>
             )}
-            {!isVentures && <div class="w-8 h-px bg-border-strong"></div>}
+            {!layout.accentBars && <div class="w-8 h-px bg-border-strong"></div>}
           </div>
       </div>
     </div>
 
     <!-- TOC sidebar -->
     {!entry.data.draft_content && entry.data.showtoc && headings && (
-      <div id="toc-panel" class={`fixed right-0 h-[calc(100vh-5rem)] w-64 bg-surface/95 backdrop-blur-md border-l border-border transform translate-x-full transition-transform duration-300 z-40 overflow-y-auto p-5 ${isVentures ? 'top-12 shadow-none' : 'top-20 shadow-lg'}`}>
+      <div id="toc-panel" class={`fixed right-0 h-[calc(100vh-5rem)] w-64 bg-surface/95 backdrop-blur-md border-l border-border transform translate-x-full transition-transform duration-300 z-40 overflow-y-auto p-5 ${isBar ? 'top-12 shadow-none' : 'top-20 shadow-lg'}`}>
         <div class="space-y-0.5">
-          {isVentures && <div class="accent-bar mb-3"></div>}
-          <div class={`text-[0.6875rem] font-bold uppercase text-text-subtle mb-3 ${isVentures ? 'tracking-[0.1em]' : 'tracking-[0.12em]'}`}>On this page</div>
+          {layout.accentBars && <div class="accent-bar mb-3"></div>}
+          <div class={`text-[0.6875rem] font-bold uppercase text-text-subtle mb-3 ${layout.accentBars ? 'tracking-[0.1em]' : 'tracking-[0.12em]'}`}>On this page</div>
           <a href="#" class="block py-1.5 text-sm font-semibold text-text hover:text-primary transition-colors truncate">{entry.data.title}</a>
           {headings.map((heading: any) => (
             <a href={`#${heading.slug}`} class={`block py-1 text-text-muted hover:text-primary transition-colors truncate ${heading.depth > 2 ? 'pl-4 text-xs' : 'pl-2 text-sm'}`}>

@@ -1,49 +1,53 @@
 ---
 import PicFromContent from "../utils/PicFromContent.astro";
-import { isVentures } from '../../utils/theme';
+import { layout, r, h } from '../../utils/theme';
 
 const { id, title, desc, desc2, image, img, h1, h2: isH2 } = Astro.props;
 
 const descStr: string = Array.isArray(desc) ? desc.join(' ') : (desc || '');
 const desc2Str: string = Array.isArray(desc2) ? desc2.join(' ') : (desc2 || '');
+
+const isEditorial = layout.headingStyle === 'editorial';
+const wideLayout = layout.accentBars;
+const imgSize = wideLayout ? 'w-14 h-14 lg:w-16 lg:h-16' : 'w-16 h-16 lg:w-20 lg:h-20';
 ---
 
-<section id={id} class={`pt-24 pb-10 ${isVentures ? 'px-6 md:px-8 lg:px-12' : 'px-6'}`}>
-    <div class={isVentures ? "max-w-5xl mx-auto" : "max-w-4xl mx-auto"}>
+<section id={id} class={`pt-24 pb-10 ${wideLayout ? 'px-6 md:px-8 lg:px-12' : 'px-6'}`}>
+    <div class={wideLayout ? "max-w-5xl mx-auto" : "max-w-4xl mx-auto"}>
         <div class="flex flex-col lg:flex-row items-start gap-6">
             {(image ?? img) && (
                 <div class="flex-shrink-0">
                     <PicFromContent
                         imagePath={image ?? img}
                         altTitle={"image_" + title?.replace(/ /g, '-')}
-                        class={isVentures ? "w-14 h-14 lg:w-16 lg:h-16 rounded-lg" : "w-16 h-16 lg:w-20 lg:h-20 rounded-xl"}
+                        class={`${imgSize} ${r.image}`}
                     />
                 </div>
             )}
             <div>
                 {/* Accent bar */}
-                <div class={`animate-fade-up ${isVentures ? 'mb-5' : 'mb-4'}`}>
+                <div class={`animate-fade-up ${wideLayout ? 'mb-5' : 'mb-4'}`}>
                     <div class="accent-bar"></div>
                 </div>
 
                 {h1 ? (
-                    isVentures ? (
-                        <h1 class="text-4xl md:text-5xl font-heading font-bold tracking-[-0.02em] leading-[1.1] text-text animate-fade-up delay-1">
-                            {title}
+                    isEditorial ? (
+                        <h1 class={`text-4xl md:text-5xl lg:text-6xl font-heading ${h.h1Weight} ${h.h1Tracking} ${h.h1Leading} animate-fade-up delay-1`}>
+                            <span class="gradient-text">{title}</span>
                         </h1>
                     ) : (
-                        <h1 class="text-4xl md:text-5xl lg:text-6xl font-heading font-extrabold tracking-[-0.04em] leading-[1.05] animate-fade-up delay-1">
-                            <span class="gradient-text">{title}</span>
+                        <h1 class={`text-4xl md:text-5xl font-heading ${h.h1Weight} ${h.h1Tracking} ${h.h1Leading} text-text animate-fade-up delay-1`}>
+                            {title}
                         </h1>
                     )
                 ) : isH2 ? (
-                    <h2 class={`text-3xl md:text-4xl font-heading text-text animate-fade-up delay-1 ${isVentures ? 'font-semibold tracking-[-0.02em] leading-[1.15]' : 'font-bold tracking-[-0.035em] leading-[1.1]'}`}>{title}</h2>
+                    <h2 class={`text-3xl md:text-4xl font-heading text-text animate-fade-up delay-1 ${h.h2Weight} ${h.h2Tracking} ${h.h2Leading}`}>{title}</h2>
                 ) : (
-                    <h3 class={`text-2xl md:text-3xl font-heading text-text animate-fade-up delay-1 ${isVentures ? 'font-semibold tracking-[-0.015em] leading-[1.2]' : 'font-bold tracking-[-0.03em] leading-[1.15]'}`}>{title}</h3>
+                    <h3 class={`text-2xl md:text-3xl font-heading text-text animate-fade-up delay-1 ${h.h3Weight} ${h.h3Tracking} ${h.h3Leading}`}>{title}</h3>
                 )}
 
                 {descStr && (
-                    <p class={`mt-4 text-text-muted leading-relaxed animate-fade-up delay-2 ${h1 ? (isVentures ? 'text-lg max-w-2xl' : 'text-lg md:text-xl max-w-2xl') : 'max-w-xl'}`}>
+                    <p class={`mt-4 text-text-muted leading-relaxed animate-fade-up delay-2 ${h1 ? (isEditorial ? 'text-lg md:text-xl max-w-2xl' : 'text-lg max-w-2xl') : 'max-w-xl'}`}>
                         <Fragment set:html={descStr} />
                     </p>
                 )}

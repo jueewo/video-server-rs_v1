@@ -1,7 +1,7 @@
 ---
 import Config from "../website.config.cjs";
 import { b } from '../utils/siteBase';
-import { isVentures } from '../utils/theme';
+import { layout } from '../utils/theme';
 
 interface Props {
   title?: string;
@@ -21,17 +21,9 @@ const {title, page_metatags, enablelatex, enablemermaid} = Astro.props;
     {Config.datatool?.url && <link rel="preconnect" href={Config.datatool.url} />}
 
     {/* Self-hosted fonts — theme-specific */}
-    {isVentures ? (
-        <>
-            <link rel="preload" href={`${b}/fonts/manrope-latin.woff2`} as="font" type="font/woff2" crossorigin />
-            <link rel="preload" href={`${b}/fonts/ibm-plex-sans-latin.woff2`} as="font" type="font/woff2" crossorigin />
-        </>
-    ) : (
-        <>
-            <link rel="preload" href={`${b}/fonts/sora-latin.woff2`} as="font" type="font/woff2" crossorigin />
-            <link rel="preload" href={`${b}/fonts/dm-sans-latin.woff2`} as="font" type="font/woff2" crossorigin />
-        </>
-    )}
+    {layout.fonts.map((font) => (
+        <link rel="preload" href={`${b}${font}`} as="font" type="font/woff2" crossorigin />
+    ))}
     <link rel="stylesheet" href={`${b}/fonts/google-fonts.css`} media="print" onload="this.media='all'" />
     <noscript><link rel="stylesheet" href={`${b}/fonts/google-fonts.css`} /></noscript>
 

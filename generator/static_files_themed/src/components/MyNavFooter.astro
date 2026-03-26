@@ -2,7 +2,7 @@
 import SocialMedia from "./SocialMedia.astro";
 import Config from "../website.config.cjs";
 import { Image, imageConfig } from "astro:assets";
-import { isVentures } from '../utils/theme';
+import { layout } from '../utils/theme';
 
 const {
     sitename,
@@ -20,12 +20,16 @@ const { lang } = Astro.params;
 import { getRelativeLocaleUrl } from "astro:i18n";
 import { b } from '../utils/siteBase';
 import { t } from '../utils/localize';
+
+const logoHoverClass = layout.logoHover === 'scale'
+    ? 'transition-transform group-hover:scale-110 duration-300'
+    : 'transition-opacity group-hover:opacity-80 duration-200';
 ---
 
 <!-- ─── Footer ─────────────────────────────────────────── -->
 <div id="footer" class="w-full relative bg-[--c-footer-bg] text-[--c-footer-text] z-20 mt-24">
     {/* Top decoration */}
-    {isVentures ? (
+    {layout.footerTop === 'stripe' ? (
         <div class="h-[3px] bg-gradient-to-r from-primary via-primary to-accent"></div>
     ) : (
         <div class="h-px bg-gradient-to-r from-transparent via-accent to-transparent"></div>
@@ -41,7 +45,7 @@ import { t } from '../utils/localize';
                     class="inline-flex items-center group"
                 >
                     {footerContent && showlogo && footerLogo && (
-                        <div class={`w-10 h-10 ${isVentures ? 'transition-opacity group-hover:opacity-80 duration-200' : 'transition-transform group-hover:scale-110 duration-300'}`}>
+                        <div class={`w-10 h-10 ${logoHoverClass}`}>
                             <Image src={footerLogo} alt="logo" class="w-full h-full" />
                         </div>
                     )}
@@ -69,7 +73,7 @@ import { t } from '../utils/localize';
                 {footerNavigationMenu &&
                     footerNavigationMenu.map((category: any) => (
                         <div>
-                            {isVentures && <div class="w-6 h-0.5 bg-primary rounded-full mb-3"></div>}
+                            {layout.accentBars && <div class="w-6 h-0.5 bg-primary rounded-full mb-3"></div>}
                             <p class="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-[--c-footer-text-subtle] mb-4 font-heading">
                                 {category.link ? (
                                     <a
@@ -125,7 +129,7 @@ import { t } from '../utils/localize';
                 {/* Legal column */}
                 {legal && legal.length > 0 && (
                     <div>
-                        {isVentures && <div class="w-6 h-0.5 bg-primary rounded-full mb-3"></div>}
+                        {layout.accentBars && <div class="w-6 h-0.5 bg-primary rounded-full mb-3"></div>}
                         <p class="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-[--c-footer-text-subtle] mb-4 font-heading">Legal</p>
                         <ul class="space-y-2.5">
                             {legal.map((legalitem: any) => (

@@ -1,0 +1,177 @@
+@import "tailwindcss";
+
+@plugin "@tailwindcss/typography";
+
+/* ── Dark mode: class-based toggle ─────────────────────── */
+@variant dark (&:where(.dark, .dark *));
+
+/* ── Base Typography ──────────────────────────────────── */
+body {
+  font-family: var(--font-body);
+  color: var(--c-text);
+  background-color: var(--c-surface);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  transition: background-color 0.3s ease, color 0.2s ease;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}
+
+/* ── Section divider ──────────────────────────────────── */
+.section-rule {
+  border: none;
+  height: 1px;
+  background: var(--c-border);
+  margin: 0;
+}
+
+/* ── Gradient section backgrounds ─────────────────────── */
+.gradient-section {
+  background: linear-gradient(135deg, var(--c-primary-dark), var(--c-primary));
+}
+.gradient-section-subtle {
+  background: linear-gradient(180deg, var(--c-surface), var(--c-surface-alt));
+}
+
+/* ── Custom scrollbar ─────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--c-border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--c-text-subtle); }
+
+/* ── Scroll section support ───────────────────────────── */
+main { overflow-x: hidden; }
+main:has(.scroll-section) { overflow-x: clip !important; }
+
+/* ── Accordion animation ──────────────────────────────── */
+.accordion-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease;
+}
+.accordion-content.is-open {
+  grid-template-rows: 1fr;
+}
+.accordion-content > div {
+  overflow: hidden;
+}
+
+/* ── Animations ───────────────────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(var(--anim-translate-y, 20px)); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(calc(-1 * var(--anim-translate-x, 24px))); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(var(--anim-translate-x, 24px)); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fade-up {
+  animation: fade-up var(--anim-duration, 0.6s) var(--anim-easing, cubic-bezier(0.25, 0.1, 0.25, 1.0)) both;
+}
+.animate-slide-left {
+  animation: slide-in-left var(--anim-duration, 0.6s) var(--anim-easing, cubic-bezier(0.25, 0.1, 0.25, 1.0)) both;
+}
+.animate-slide-right {
+  animation: slide-in-right var(--anim-duration, 0.6s) var(--anim-easing, cubic-bezier(0.25, 0.1, 0.25, 1.0)) both;
+}
+
+.delay-1 { animation-delay: var(--anim-delay-1, 0.1s); }
+.delay-2 { animation-delay: var(--anim-delay-2, 0.2s); }
+.delay-3 { animation-delay: var(--anim-delay-3, 0.3s); }
+.delay-4 { animation-delay: var(--anim-delay-4, 0.4s); }
+.delay-5 { animation-delay: var(--anim-delay-5, 0.5s); }
+
+/* ── Link hover effect ────────────────────────────────── */
+a.link-editorial {
+  text-decoration: none;
+  background-image: linear-gradient(var(--c-primary), var(--c-primary));
+  background-size: 0% 1.5px;
+  background-position: left bottom;
+  background-repeat: no-repeat;
+  transition: background-size 0.3s ease;
+}
+a.link-editorial:hover {
+  background-size: 100% 1.5px;
+}
+
+/* ── DaisyUI compatibility ────────────────────────────── */
+/* Content pages (impressum, privacy) use DaisyUI classes inline.
+   Map them to design tokens so they render without the DaisyUI runtime. */
+
+.card {
+  background-color: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.card-body {
+  padding: 1.5rem;
+}
+.card-title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--c-text);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.table th,
+.table td {
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--c-border);
+  color: var(--c-text);
+}
+.table thead th {
+  font-weight: 600;
+  color: var(--c-text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.table-sm th,
+.table-sm td {
+  padding: 0.4rem 0.5rem;
+}
+
+.alert {
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--c-border);
+  background: var(--c-surface-alt);
+}
+.alert-info {
+  border-color: var(--c-primary);
+  background: color-mix(in srgb, var(--c-primary) 8%, var(--c-surface));
+}
+
+.link {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.2s ease;
+}
+.link:hover { color: var(--c-primary); }
+.link-primary { color: var(--c-primary); }
+
+.bg-base-100     { background-color: var(--c-surface); }
+.bg-base-200     { background-color: var(--c-surface-alt); }
+.border-base-300 { border-color: var(--c-border); }
+.text-base-content\/50 { color: var(--c-text-subtle); }
+.text-base-content\/60 { color: var(--c-text-subtle); }
+.text-base-content\/80 { color: var(--c-text-muted); }

@@ -1,0 +1,16 @@
+---
+// Redirect /{lang}/ → /{lang}/home
+import WebSiteConfig from "../../website.config.cjs";
+import { b } from '../../utils/siteBase';
+
+export const prerender = true;
+
+export function getStaticPaths() {
+    return WebSiteConfig.languages.map((l: { locale: string }) => ({
+        params: { lang: l.locale },
+    }));
+}
+
+const { lang } = Astro.params;
+return Astro.redirect(b + "/" + lang + "/home/", 302);
+---

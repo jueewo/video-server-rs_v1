@@ -29,15 +29,25 @@ pub struct PublishConfig {
 ///
 /// The convention is:
 ///   `{components_base}/static_files/`           for "daisy-default" (or None)
+///   `{components_base}/static_files_themed/`    for "starter" or "ventures" (unified themed lib)
 ///   `{components_base}/static_files_{lib}/`     for any other lib name
 ///
 /// Set `SITE_COMPONENTS_BASE` env var to the `generator/` directory.
 pub fn resolve_components_dir(components_base: &Path, component_lib: Option<&str>) -> PathBuf {
     let lib = component_lib.unwrap_or("daisy-default");
-    let dir_name = if lib == "daisy-default" {
-        "static_files".to_string()
-    } else {
-        format!("static_files_{}", lib)
+    let themed_dir = components_base.join("static_files_themed");
+    let dir_name = match lib {
+        "daisy-default" => "static_files".to_string(),
+        // Any non-default theme uses the unified themed library if its
+        // theme CSS exists there; otherwise falls back to static_files_{lib}.
+        other => {
+            let theme_css = themed_dir.join("src/styles").join(format!("theme-{}.css", other));
+            if theme_css.exists() {
+                "static_files_themed".to_string()
+            } else {
+                format!("static_files_{}", other)
+            }
+        }
     };
     components_base.join(dir_name)
 }
@@ -78,6 +88,26 @@ pub fn publish(config: &PublishConfig) -> Result<()> {
             copy_dir_all(components_dir, &config.output_dir)?;
         } else {
             tracing::warn!("Components dir not found: {}", components_dir.display());
+        }
+    }
+
+    // Step 1b: for any theme using the unified themed library, write
+    // global.css and prose.css entry points that import the correct theme.
+    if component_lib != "daisy-default" {
+        let styles_dir = config.output_dir.join("src").join("styles");
+        let theme_css_path = styles_dir.join(format!("theme-{}.css", component_lib));
+        if styles_dir.exists() && theme_css_path.exists() {
+            let global_css = format!(
+                "@import './base.css';\n@import './theme-{}.css';\n",
+                component_lib
+            );
+            std::fs::write(styles_dir.join("global.css"), &global_css)?;
+            let prose_css = format!(
+                "@import './prose-{}.css';\n",
+                component_lib
+            );
+            std::fs::write(styles_dir.join("prose.css"), &prose_css)?;
+            info!("Wrote themed CSS entry points for '{}'", component_lib);
         }
     }
 

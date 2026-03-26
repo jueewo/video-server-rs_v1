@@ -1,0 +1,434 @@
+---
+import "../styles/global.css";
+import { theme, isStarter, isVentures } from '../utils/theme';
+
+import NavFooter from "../components/MyNavFooter.astro";
+import Config from "../website.config.cjs";
+import Header from "./_header.astro";
+
+import { Image } from "astro:assets";
+import type { ImageMetadata } from "astro";
+
+import ThemeToggle from "../components/utils/ThemeToggle.astro";
+import SearchBar from "../components/SearchBar.astro";
+import { b } from '../utils/siteBase';
+import { t } from '../utils/localize';
+
+import placeholderImage from "../assets/images/utils/placeholder-hero-square.jpg";
+
+interface Props {
+    title?: string;
+    page_metatags?: any;
+}
+
+const { lang, slug } = Astro.params;
+const { title, page_metatags } = Astro.props;
+
+const default_lang = Config.defaultLanguage.locale;
+const actlang = lang ? lang : default_lang;
+
+const images = await import.meta.glob<{ default: ImageMetadata }>(
+    "/src/assets/images/logos/*.{jpeg,jpg,png,gif,svg,webp}",
+);
+
+const getImage = (imagePath: string) => {
+    const prefix = "/src/assets";
+    if (!images[prefix + imagePath]) return placeholderImage;
+    return images[prefix + imagePath]();
+};
+
+const headerNav = Config.headerNavigationMenu || [];
+const currentPath = Astro.url.pathname;
+const languages = Config.languages || [];
+
+// Build lang-switch path
+const baseAndLang = b ? `${b}/${actlang}` : `/${actlang}`;
+const regex = new RegExp(`^${baseAndLang.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
+const newPath = currentPath.replace(regex, '');
+---
+
+<html lang={actlang} data-theme={theme}>
+    <Header title={title} page_metatags={page_metatags} />
+
+    <body class="min-h-screen bg-surface text-text">
+
+        {isVentures ? (
+            <!-- ─── Ventures: top accent stripe + full-width navbar ── -->
+            <div class="fixed top-0 left-0 right-0 z-[51] h-[3px] bg-gradient-to-r from-primary via-primary to-accent"></div>
+
+            <header class="fixed top-[3px] left-0 right-0 z-50 glass-theme border-b border-border">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <nav class="flex items-center justify-between h-14">
+                        <a href={b + "/" + actlang + "/home"} class="flex items-center gap-2.5 group shrink-0">
+                            <Image
+                                src={getImage(Config.siteLogoIcon)}
+                                alt={"Logo for " + Config.siteName}
+                                class="h-7 w-7 transition-opacity group-hover:opacity-80 duration-200"
+                            />
+                            <span class="hidden sm:inline font-heading font-bold text-sm tracking-wide text-text uppercase">
+                                {Config.siteName}
+                            </span>
+                        </a>
+
+                        <div class="hidden md:flex items-center gap-0.5" aria-label="Main navigation">
+                            {headerNav.map((menu: any) => (
+                                !menu.children || menu.children.length === 0 ? (
+                                    <a
+                                        href={menu.external || menu.link?.startsWith("http")
+                                            ? menu.link
+                                            : `${b}/${actlang}${menu.link}`}
+                                        class={`relative px-3 py-1.5 text-[0.8125rem] font-medium transition-colors duration-200 ${
+                                            !menu.external && (currentPath === `${b}/${actlang}${menu.link}` || currentPath === `${b}/${actlang}${menu.link}/`)
+                                                ? 'text-primary after:absolute after:bottom-[-0.6875rem] after:left-3 after:right-3 after:h-0.5 after:bg-primary after:rounded-full'
+                                                : 'text-text-muted hover:text-text'
+                                        }`}
+                                        {...(menu.external || menu.link?.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                                    >
+                                        {t(menu.name, actlang)}
+                                        {menu.external && <span class="text-[0.65rem] ml-0.5 opacity-50">↗</span>}
+                                    </a>
+                                ) : (
+                                    <div class="relative group/drop">
+                                        <button class="px-3 py-1.5 text-[0.8125rem] font-medium text-text-muted hover:text-text transition-colors inline-flex items-center gap-1">
+                                            {t(menu.name, actlang)}
+                                            <svg class="w-3 h-3 opacity-40 transition-transform duration-200 group-hover/drop:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M19 9l-7 7-7-7" /></svg>
+                                        </button>
+                                        <div class="absolute left-1/2 -translate-x-1/2 top-full pt-2 opacity-0 invisible group-hover/drop:opacity-100 group-hover/drop:visible transition-all duration-200 translate-y-1 group-hover/drop:translate-y-0">
+                                            <div class="glass-theme border border-border rounded-lg shadow-[0_4px_20px_hsl(var(--shadow-color)/0.08)] py-1 min-w-[180px]">
+                                                <div class="h-0.5 bg-primary mx-3 mb-1 rounded-full"></div>
+                                                {menu.children.map((sub: any) => (
+                                                    <a
+                                                        href={sub.external || sub.link?.startsWith("http")
+                                                            ? sub.link
+                                                            : `${b}/${actlang}${sub.link}`}
+                                                        class="block px-4 py-2 text-[0.8125rem] text-text-muted hover:text-primary hover:bg-primary/5 transition-all duration-200"
+                                                        {...(sub.external || sub.link?.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                                                    >
+                                                        {t(sub.name, actlang)}
+                                                        {sub.external && <span class="text-[0.65rem] ml-0.5 opacity-50">↗</span>}
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )
+                            ))}
+                        </div>
+
+                        <div class="flex items-center gap-1">
+                            {languages.length > 1 && (
+                                <div class="hidden md:flex items-center gap-1 mr-1">
+                                    {languages.map((language: any) => (
+                                        <a
+                                            href={`${b}/${language.locale}${newPath}`}
+                                            class={`px-2 py-1 text-[0.6875rem] font-bold uppercase tracking-wider rounded transition-all duration-200 ${
+                                                actlang === language.locale
+                                                    ? 'text-primary bg-primary/8'
+                                                    : 'text-text-subtle hover:text-text'
+                                            }`}
+                                        >
+                                            {language.locale.toUpperCase()}
+                                        </a>
+                                    ))}
+                                </div>
+                            )}
+                            <SearchBar lang={actlang} searchableCollections={Config.searchableCollections} />
+                            <ThemeToggle />
+                            <button
+                                id="mobile-menu-btn"
+                                class="md:hidden p-2 text-text-muted hover:text-text transition-colors"
+                                aria-label="Open menu"
+                            >
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h8m-8 6h16" />
+                                </svg>
+                            </button>
+                        </div>
+                    </nav>
+                </div>
+            </header>
+        ) : (
+            <!-- ─── Starter: floating pill navbar ─────────────────── -->
+            <header class="fixed top-0 left-0 right-0 z-50 px-4 pt-4">
+                <div class="max-w-5xl mx-auto">
+                    <nav class="glass-theme rounded-full border border-border px-6 py-3 flex items-center justify-between shadow-[0_2px_20px_hsl(var(--shadow-color)/0.06)]">
+                        <a href={b + "/" + actlang + "/home"} class="flex items-center gap-2.5 group">
+                            <Image
+                                src={getImage(Config.siteLogoIcon)}
+                                alt={"Logo for " + Config.siteName}
+                                class="h-7 w-7 transition-transform group-hover:scale-110 duration-300"
+                            />
+                            <span class="hidden sm:inline font-heading font-bold text-sm tracking-tight text-text uppercase">
+                                {Config.siteName}
+                            </span>
+                        </a>
+
+                        <div class="hidden md:flex items-center gap-0.5" aria-label="Main navigation">
+                            {headerNav.map((menu: any) => (
+                                !menu.children || menu.children.length === 0 ? (
+                                    <a
+                                        href={menu.external || menu.link?.startsWith("http")
+                                            ? menu.link
+                                            : `${b}/${actlang}${menu.link}`}
+                                        class={`px-3 py-1.5 text-[0.8125rem] font-medium rounded-full transition-all duration-300 ${
+                                            !menu.external && (currentPath === `${b}/${actlang}${menu.link}` || currentPath === `${b}/${actlang}${menu.link}/`)
+                                                ? 'text-primary bg-primary/8'
+                                                : 'text-text-muted hover:text-text'
+                                        }`}
+                                        {...(menu.external || menu.link?.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                                    >
+                                        {t(menu.name, actlang)}
+                                        {menu.external && <span class="text-[0.65rem] ml-0.5 opacity-50">↗</span>}
+                                    </a>
+                                ) : (
+                                    <div class="relative group/drop">
+                                        <button class="px-3 py-1.5 text-[0.8125rem] font-medium rounded-full text-text-muted hover:text-text transition-colors inline-flex items-center gap-1">
+                                            {t(menu.name, actlang)}
+                                            <svg class="w-3 h-3 opacity-40 transition-transform duration-200 group-hover/drop:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M19 9l-7 7-7-7" /></svg>
+                                        </button>
+                                        <div class="absolute left-1/2 -translate-x-1/2 top-full pt-3 opacity-0 invisible group-hover/drop:opacity-100 group-hover/drop:visible transition-all duration-200 translate-y-1 group-hover/drop:translate-y-0">
+                                            <div class="glass-theme border border-border rounded-2xl shadow-[0_8px_30px_hsl(var(--shadow-color)/0.1)] py-2 min-w-[180px]">
+                                                {menu.children.map((sub: any) => (
+                                                    <a
+                                                        href={sub.external || sub.link?.startsWith("http")
+                                                            ? sub.link
+                                                            : `${b}/${actlang}${sub.link}`}
+                                                        class="block px-4 py-2 text-[0.8125rem] text-text-muted hover:text-primary hover:bg-primary/5 transition-all duration-200 first:rounded-t-xl last:rounded-b-xl"
+                                                        {...(sub.external || sub.link?.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                                                    >
+                                                        {t(sub.name, actlang)}
+                                                        {sub.external && <span class="text-[0.65rem] ml-0.5 opacity-50">↗</span>}
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )
+                            ))}
+                        </div>
+
+                        <div class="flex items-center gap-1">
+                            <SearchBar lang={actlang} searchableCollections={Config.searchableCollections} />
+                            <ThemeToggle />
+                            <button
+                                id="mobile-menu-btn"
+                                class="md:hidden p-2 rounded-full text-text-muted hover:text-text hover:bg-surface-alt/60 transition-colors"
+                                aria-label="Open menu"
+                            >
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h8m-8 6h16" />
+                                </svg>
+                            </button>
+                        </div>
+                    </nav>
+                </div>
+            </header>
+        )}
+
+        {isVentures ? (
+            <!-- ─── Ventures: full-screen mobile overlay ─────────── -->
+            <div id="mobile-menu" class="fixed inset-0 z-[60] hidden">
+                <div id="mobile-menu-overlay" class="absolute inset-0 bg-surface-invert/50 backdrop-blur-sm transition-opacity"></div>
+                <div id="mobile-menu-panel" class="absolute inset-0 bg-surface-invert flex flex-col items-center justify-center transform scale-95 opacity-0 transition-all duration-300">
+                    <button id="mobile-menu-close" class="absolute top-5 right-5 p-3 text-text-on-dark hover:text-primary transition-colors" aria-label="Close menu">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                    <nav class="space-y-2 text-center" aria-label="Mobile navigation">
+                        {headerNav.map((menu: any) => (
+                            !menu.children || menu.children.length === 0 ? (
+                                <a
+                                    href={menu.external || menu.link?.startsWith("http")
+                                        ? menu.link
+                                        : `${b}/${actlang}${menu.link}`}
+                                    class={`block px-6 py-3 text-xl font-heading font-semibold transition-colors duration-200 ${
+                                        !menu.external && (currentPath === `${b}/${actlang}${menu.link}` || currentPath === `${b}/${actlang}${menu.link}/`)
+                                            ? 'text-primary'
+                                            : 'text-text-on-dark hover:text-primary'
+                                    }`}
+                                    {...(menu.external || menu.link?.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                                >
+                                    {t(menu.name, actlang)}
+                                </a>
+                            ) : (
+                                <div class="py-2">
+                                    <div class="text-[0.6875rem] font-bold uppercase tracking-[0.15em] text-text-subtle mb-2">{t(menu.name, actlang)}</div>
+                                    {menu.children.map((sub: any) => (
+                                        <a
+                                            href={sub.external || sub.link?.startsWith("http")
+                                                ? sub.link
+                                                : `${b}/${actlang}${sub.link}`}
+                                            class="block px-6 py-2 text-lg text-text-on-dark/70 hover:text-primary transition-colors duration-200"
+                                            {...(sub.external || sub.link?.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                                        >
+                                            {t(sub.name, actlang)}
+                                        </a>
+                                    ))}
+                                </div>
+                            )
+                        ))}
+
+                        {languages.length > 1 && (
+                            <div class="pt-6 flex justify-center gap-3">
+                                {languages.map((language: any) => (
+                                    <a
+                                        href={`${b}/${language.locale}${newPath}`}
+                                        class={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded transition-all duration-200 ${
+                                            actlang === language.locale
+                                                ? 'bg-primary text-text-on-primary'
+                                                : 'text-text-on-dark/50 border border-border-strong hover:text-primary hover:border-primary'
+                                        }`}
+                                    >
+                                        {language.locale.toUpperCase()}
+                                    </a>
+                                ))}
+                            </div>
+                        )}
+                    </nav>
+                </div>
+            </div>
+        ) : (
+            <!-- ─── Starter: slide-over mobile menu ──────────────── -->
+            <div id="mobile-menu" class="fixed inset-0 z-[60] hidden">
+                <div id="mobile-menu-overlay" class="absolute inset-0 bg-surface-invert/30 backdrop-blur-sm transition-opacity"></div>
+                <div id="mobile-menu-panel" class="absolute right-0 top-0 h-full w-[280px] bg-surface border-l border-border shadow-2xl transform translate-x-full transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]">
+                    <div class="flex items-center justify-between p-5 border-b border-border">
+                        <span class="font-heading font-bold text-sm uppercase tracking-tight">{Config.siteName}</span>
+                        <button id="mobile-menu-close" class="p-2 rounded-full text-text-muted hover:text-text hover:bg-surface-alt transition-colors" aria-label="Close menu">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    <nav class="p-5 space-y-1" aria-label="Mobile navigation">
+                        {headerNav.map((menu: any) => (
+                            !menu.children || menu.children.length === 0 ? (
+                                <a
+                                    href={menu.external || menu.link?.startsWith("http")
+                                        ? menu.link
+                                        : `${b}/${actlang}${menu.link}`}
+                                    class={`block px-3 py-2.5 text-[0.9375rem] font-medium rounded-xl transition-all duration-200 ${
+                                        !menu.external && (currentPath === `${b}/${actlang}${menu.link}` || currentPath === `${b}/${actlang}${menu.link}/`)
+                                            ? 'text-primary bg-primary/5'
+                                            : 'text-text-muted hover:text-text hover:bg-surface-alt'
+                                    }`}
+                                    {...(menu.external || menu.link?.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                                >
+                                    {t(menu.name, actlang)}
+                                    {menu.external && <span class="text-xs ml-1 opacity-40">↗</span>}
+                                </a>
+                            ) : (
+                                <div class="pt-3">
+                                    <div class="px-3 py-1.5 text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-text-subtle">{t(menu.name, actlang)}</div>
+                                    {menu.children.map((sub: any) => (
+                                        <a
+                                            href={sub.external || sub.link?.startsWith("http")
+                                                ? sub.link
+                                                : `${b}/${actlang}${sub.link}`}
+                                            class="block px-3 py-2 text-[0.9375rem] pl-5 text-text-muted hover:text-primary rounded-lg transition-all duration-200"
+                                            {...(sub.external || sub.link?.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                                        >
+                                            {t(sub.name, actlang)}
+                                            {sub.external && <span class="text-xs ml-1 opacity-40">↗</span>}
+                                        </a>
+                                    ))}
+                                </div>
+                            )
+                        ))}
+
+                        {languages.length > 1 && (
+                            <div class="pt-5 mt-5 border-t border-border">
+                                <div class="flex gap-2 px-3">
+                                    {languages.map((language: any) => (
+                                        <a
+                                            href={`${b}/${language.locale}${newPath}`}
+                                            class={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-full transition-all duration-200 ${
+                                                actlang === language.locale
+                                                    ? 'bg-primary text-text-on-primary'
+                                                    : 'text-text-muted border border-border hover:border-primary hover:text-primary'
+                                            }`}
+                                        >
+                                            {language.locale.toUpperCase()}
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </nav>
+                </div>
+            </div>
+        )}
+
+        <!-- ─── Main content ─────────────────────────────────── -->
+        <main class={isVentures ? "pt-[59px]" : "pt-20"}>
+            <slot />
+            <slot name="actionbanner" />
+        </main>
+
+        <!-- ─── Footer ───────────────────────────────────────── -->
+        <footer>
+            <NavFooter
+                sitename={Config.footerContent.sitename}
+                showlogo={true}
+                footerLogo={getImage(Config.footerContent.footerLogo)}
+                social={Config.socialMedia}
+                legal={Config.legal}
+                footerNavigationMenu={Config.footerNavigationMenu}
+                footerContent={Config.footerContent}
+                extprop={`Built with ${Astro.generator} by <a class='link-editorial text-primary' target='_blank' href='https://yawninghero.com'><i>yh</i></a>`}
+            />
+        </footer>
+
+        <!-- Mobile menu script -->
+        {isVentures ? (
+            <script>
+                const btn = document.getElementById('mobile-menu-btn');
+                const menu = document.getElementById('mobile-menu');
+                const panel = document.getElementById('mobile-menu-panel');
+                const overlay = document.getElementById('mobile-menu-overlay');
+                const closeBtn = document.getElementById('mobile-menu-close');
+
+                function openMenu() {
+                    menu?.classList.remove('hidden');
+                    requestAnimationFrame(() => {
+                        panel?.classList.remove('scale-95', 'opacity-0');
+                        panel?.classList.add('scale-100', 'opacity-100');
+                    });
+                }
+                function closeMenu() {
+                    panel?.classList.add('scale-95', 'opacity-0');
+                    panel?.classList.remove('scale-100', 'opacity-100');
+                    setTimeout(() => menu?.classList.add('hidden'), 300);
+                }
+
+                btn?.addEventListener('click', openMenu);
+                closeBtn?.addEventListener('click', closeMenu);
+                overlay?.addEventListener('click', closeMenu);
+            </script>
+        ) : (
+            <script>
+                const btn = document.getElementById('mobile-menu-btn');
+                const menu = document.getElementById('mobile-menu');
+                const panel = document.getElementById('mobile-menu-panel');
+                const overlay = document.getElementById('mobile-menu-overlay');
+                const closeBtn = document.getElementById('mobile-menu-close');
+
+                function openMenu() {
+                    menu?.classList.remove('hidden');
+                    requestAnimationFrame(() => {
+                        panel?.classList.remove('translate-x-full');
+                    });
+                }
+                function closeMenu() {
+                    panel?.classList.add('translate-x-full');
+                    setTimeout(() => menu?.classList.add('hidden'), 300);
+                }
+
+                btn?.addEventListener('click', openMenu);
+                closeBtn?.addEventListener('click', closeMenu);
+                overlay?.addEventListener('click', closeMenu);
+            </script>
+        )}
+    </body>
+</html>

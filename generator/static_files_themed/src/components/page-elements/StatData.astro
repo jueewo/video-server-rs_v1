@@ -1,0 +1,43 @@
+---
+import { IconUsers } from "../icons/IconUsers.tsx";
+import { IconHeart } from "../icons/IconHeart.tsx";
+import { IconBriefcase } from "../icons/IconBriefcase.tsx";
+import { IconSearch } from "../icons/IconSearch.tsx";
+import { IconMap } from "../icons/IconMap.tsx";
+
+const { id, dataid, data } = Astro.props;
+
+const iconMap: Record<string, any> = {
+    users: IconUsers,
+    briefcase: IconBriefcase,
+    heart: IconHeart,
+    search: IconSearch,
+    map: IconMap,
+};
+---
+
+<section class="py-16 px-6">
+    <div id={id} class="max-w-5xl mx-auto">
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-px bg-border rounded-2xl overflow-hidden border border-border">
+            {data && data.length > 0 && data.map((stat: any, idx: number) => (
+                <div class="bg-surface p-6 md:p-8 group relative hover:bg-surface-alt transition-colors duration-300">
+                    {/* Accent top-line on hover */}
+                    <div class="absolute top-0 left-0 right-0 h-[2px] bg-accent scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></div>
+
+                    {stat.figure && (
+                        <div class="mb-4 text-accent">
+                            {stat.figure === 'users' && <IconUsers setclass="w-5 h-5 stroke-current" />}
+                            {stat.figure === 'briefcase' && <IconBriefcase setclass="w-5 h-5 stroke-current" />}
+                            {stat.figure === 'heart' && <IconHeart setclass="w-5 h-5 stroke-current" />}
+                            {stat.figure === 'search' && <IconSearch setclass="w-5 h-5 stroke-current" />}
+                            {stat.figure === 'map' && <IconMap setclass="w-5 h-5 stroke-current" />}
+                        </div>
+                    )}
+                    <div class="text-2xl md:text-3xl font-heading font-extrabold tracking-tight text-text">{stat.value}</div>
+                    <div class="text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-text-subtle mt-2 font-heading">{stat.title}</div>
+                    {stat.desc && <div class="text-sm text-text-muted mt-2 leading-relaxed">{stat.desc}</div>}
+                </div>
+            ))}
+        </div>
+    </div>
+</section>

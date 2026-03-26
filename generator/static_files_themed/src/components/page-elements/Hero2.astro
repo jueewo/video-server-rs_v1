@@ -1,0 +1,127 @@
+---
+const { element, alt, index } = Astro.props;
+const { lang } = Astro.params;
+
+import PicFromContent from "../utils/PicFromContent.astro";
+import { b } from '../../utils/siteBase';
+
+const fullscreen = element.fullscreen ?? element.props?.fullscreen;
+const rawLink = element.link ?? element.props?.link;
+const bgImagePath = element.bgimage ?? element.content?.bgimage ?? "";
+const bgimage_alt = element.bgimage_alt ?? element.content?.bgimage_alt ?? "";
+const image = element.image ?? element.content?.image;
+const image_alt = element.image_alt ?? element.content?.image_alt;
+const title = element.title ?? element.content?.title ?? "";
+const desc = element.desc ?? element.content?.desc;
+const button = element.button ?? element.content?.button;
+const tags = element.tags ?? element.content?.tags;
+
+const hasBgImage = bgImagePath && bgImagePath.length > 0;
+const isFirstHero = index === 0 || index === undefined;
+const linkUrl = typeof rawLink === "string" ? rawLink : rawLink?.path || "";
+const is_external_link = linkUrl.includes("http") || linkUrl.includes("https") || linkUrl.includes("www");
+const isReversed = alt && index % 2 === 0;
+---
+
+<section class={
+    (fullscreen ? "min-h-[90vh] flex items-center hero-bg " : "") +
+    "relative overflow-hidden py-16 md:py-24"
+}>
+
+    {/* Background image layer */}
+    {hasBgImage && (
+        <div class="absolute inset-0 z-0">
+            <PicFromContent
+                imagePath={bgImagePath}
+                altTitle={bgimage_alt}
+                class="w-full h-full [&_img]:w-full [&_img]:h-full [&_img]:object-cover"
+                priority={isFirstHero}
+                sizes="100vw"
+                quality={75}
+            />
+            <div class="absolute inset-0 bg-gradient-to-br from-surface/92 via-surface/80 to-surface/92" />
+        </div>
+    )}
+
+    <div class={
+        "max-w-6xl mx-auto px-6 relative z-10 " +
+        (hasBgImage
+            ? "text-center max-w-3xl"
+            : image
+                ? `flex flex-col ${isReversed ? 'lg:flex-row-reverse' : 'lg:flex-row'} items-center gap-10 lg:gap-20`
+                : "max-w-4xl")
+    }>
+
+        {/* Image — asymmetric sizing */}
+        {image && !hasBgImage && (
+            <div class="w-full lg:w-5/12 flex-shrink-0">
+                <div class="relative">
+                    <PicFromContent
+                        imagePath={image}
+                        altTitle={image_alt || "image_" + title.replace(/ /g, "-")}
+                        class="w-full max-w-md mx-auto rounded-2xl shadow-[0_8px_40px_hsl(var(--shadow-color)/0.12)]"
+                        priority={isFirstHero}
+                        sizes="(max-width: 640px) 90vw, (max-width: 1024px) 50vw, 420px"
+                        quality={80}
+                    />
+                    {/* Decorative accent corner */}
+                    <div class="absolute -bottom-3 -right-3 w-16 h-16 border-b-2 border-r-2 border-accent rounded-br-2xl opacity-60"></div>
+                </div>
+            </div>
+        )}
+
+        {/* Content */}
+        <div class={
+            hasBgImage ? "max-w-2xl mx-auto" :
+            image ? "w-full lg:w-7/12" : ""
+        }>
+            {/* Tags above title — editorial labels */}
+            {tags && tags.length > 0 && (
+                <div class={"flex flex-wrap gap-4 mb-5 " + (hasBgImage ? "justify-center" : "") + " animate-fade-up"}>
+                    {tags.map((tag: string) => (
+                        <span class="tag-theme">{tag}</span>
+                    ))}
+                </div>
+            )}
+
+            <h2 class={
+                (fullscreen
+                    ? "text-4xl sm:text-5xl md:text-6xl lg:text-7xl "
+                    : "text-3xl md:text-4xl lg:text-[2.75rem] ") +
+                "font-heading font-extrabold leading-[1.05] tracking-[-0.04em] animate-fade-up delay-1"
+            }>
+                <Fragment set:html={title} />
+            </h2>
+
+            {/* Decorative accent rule after title */}
+            <div class={"mt-5 mb-6 animate-fade-up delay-2 " + (hasBgImage ? "flex justify-center" : "")}>
+                <div class="w-12 h-[3px] bg-accent rounded-full"></div>
+            </div>
+
+            {desc && (Array.isArray(desc) ? desc : [desc]).map((line: string, i: number) => (
+                <p class={
+                    "text-text-muted leading-relaxed animate-fade-up delay-3 " +
+                    (fullscreen ? "text-lg md:text-xl " : "text-[1.0625rem] ") +
+                    (i > 0 ? "mt-4" : "")
+                }>
+                    <Fragment set:html={line} />
+                </p>
+            ))}
+
+            {linkUrl && (
+                <div class={"mt-8 animate-fade-up delay-4 " + (hasBgImage ? "flex justify-center" : "")}>
+                    {is_external_link ? (
+                        <a href={linkUrl} target="_blank" rel="noopener noreferrer" class="btn-theme btn-primary-theme">
+                            {button} <span class="text-xs ml-1 opacity-60">↗</span>
+                        </a>
+                    ) : (
+                        <a href={b + "/" + lang + linkUrl} class="btn-theme btn-primary-theme">
+                            {button}
+                            <svg class="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                        </a>
+                    )}
+                </div>
+            )}
+        </div>
+    </div>
+</section>

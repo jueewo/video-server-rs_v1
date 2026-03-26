@@ -1,0 +1,63 @@
+---
+import ChatBot from "./ChatBotAlpha.tsx";
+import { Image } from "astro:assets";
+import chatbotImage from "../../assets/images/team/profile_robot_3.jpg";
+---
+
+<div>
+    <div id="my-drawer" class="relative z-10">
+        <input id="my-drawer-chat" type="checkbox" class="hidden peer" />
+        <div>
+            <div id="chatavatar">
+                <label for="my-drawer-chat" class="cursor-pointer">
+                    <div class="relative">
+                        <div class="w-16 h-16 rounded-full overflow-hidden border-2 border-primary shadow-lg">
+                            <Image src={chatbotImage} alt="Chatbot" class="w-full h-full object-cover" />
+                        </div>
+                        <!-- Online indicator -->
+                        <span class="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></span>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <div class="fixed inset-0 z-30 hidden peer-checked:block">
+            <!-- Overlay -->
+            <label for="my-drawer-chat" class="absolute inset-0 bg-black/40"></label>
+
+            <!-- Sidebar panel -->
+            <div class="absolute right-0 top-0 h-full w-80 md:w-96 bg-surface text-text shadow-2xl overflow-y-auto">
+                <!-- CLOSE BUTTON  -->
+                <label
+                    for="my-drawer-chat"
+                    class="z-40 absolute right-2 top-2 p-2 rounded-full bg-secondary text-white hover:bg-secondary/80 transition-colors cursor-pointer"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke-width="1.5"
+                        stroke="currentColor"
+                        class="w-6 h-6"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </label>
+
+                <ChatBot client:visible />
+            </div>
+        </div>
+
+        <style>
+            #chatavatar {
+                position: fixed;
+                right: 1em;
+                bottom: 1em;
+                z-index: 40;
+            }
+        </style>
+    </div>
+</div>

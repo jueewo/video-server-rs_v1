@@ -1,0 +1,355 @@
+---
+// Presentation component for reveal.js presentations
+// Loads markdown slides from assets/slides/ directory
+// Supports images from assets/slides/<presentation-name>/ folder
+// WITH LAZY LOADING - Only initializes when visible
+
+// reveal.js CSS is loaded dynamically alongside the JS to avoid bundling
+// ~200 KiB of CSS on every page (see initializePresentation below).
+import { getImage } from "astro:assets";
+import type { ImageMetadata } from "astro";
+
+const { element } = Astro.props;
+
+// Get the datafile path — flat with legacy props fallback
+const datafile = element?.datafile ?? element?.props?.datafile ?? "slides/demoslides.md";
+const id       = element?.id       ?? element?.props?.id       ?? "presentation";
+
+// Extract presentation name from datafile (e.g., "slides/demoslides.md" -> "demoslides")
+const presentationName =
+    datafile.split("/").pop()?.replace(".md", "") || "default";
+
+// Import all markdown files from slides directory
+const slidesModules = import.meta.glob("/src/assets/slides/*.md", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+});
+
+// Import all images from the presentation's folder
+const imageModules = import.meta.glob<{ default: ImageMetadata }>(
+    "/src/assets/slides/**/*.{jpeg,jpg,png,gif,svg,webp}",
+    { eager: true },
+);
+
+// Extract the file path and get the content
+const filePath = `/src/assets/${datafile}`;
+let markdownContent = (slidesModules[filePath] as string) || "";
+
+// Process images: replace markdown image paths with optimized URLs
+const imagePathPrefix = `/src/assets/slides/${presentationName}/`;
+
+// Create a map of image filenames to their optimized URLs
+const imageMap = new Map<string, string>();
+
+for (const [path, module] of Object.entries(imageModules)) {
+    if (path.startsWith(imagePathPrefix)) {
+        const filename = path.split("/").pop() || "";
+        try {
+            const optimizedImage = await getImage({
+                src: module.default,
+                format: "webp",
+                quality: 80,
+            });
+            imageMap.set(filename, optimizedImage.src);
+        } catch (e) {
+            console.warn(`Failed to optimize image: ${path}`, e);
+        }
+    }
+}
+
+// Replace image paths in markdown
+// Matches: ![alt](filename.ext) or ![alt](./filename.ext) or ![alt](folder/filename.ext)
+const imageRegex = /!\[([^\]]*)\]\((?:\.\/)?(?:[^/)]+\/)?([^)]+)\)/g;
+
+markdownContent = markdownContent.replace(
+    imageRegex,
+    (match, alt, filename) => {
+        const imageSrc = imageMap.get(filename);
+        if (imageSrc) {
+            return `![${alt}](${imageSrc})`;
+        }
+        return match; // Keep original if not found
+    },
+);
+
+// Parse title and description
+const title = element?.title ?? element?.content?.title ?? "Presentation";
+const descRaw = element?.desc ?? element?.content?.desc ?? "";
+const desc: string = Array.isArray(descRaw) ? descRaw.join(' ') : (descRaw || '');
+---
+
+<div
+    class="w-full bg-surface my-12 p-4 md:p-12"
+    data-presentation-wrapper={id}
+>
+    {
+        (title || desc) && (
+            <div class="max-w-4xl m-auto text-center mb-8">
+                {title && (
+                    <h2 class="text-3xl font-bold font-heading mb-4 text-text">
+                        <Fragment set:html={title} />
+                    </h2>
+                )}
+                {desc && (
+                    <p class="text-lg text-text-muted">
+                        <Fragment set:html={desc} />
+                    </p>
+                )}
+            </div>
+        )
+    }
+
+    <div
+        class="reveal-container w-full"
+        style="height: 600px;"
+        data-presentation-container={id}
+    >
+        <!-- Loading skeleton -->
+        <div class="presentation-loading" data-loading={id}>
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <p class="loading-text">Loading presentation...</p>
+            </div>
+        </div>
+
+        <!-- Reveal.js container -->
+        <div id={id} class="reveal" data-reveal={id} style="opacity: 0;">
+            <div class="slides">
+                <section
+                    data-markdown
+                    data-separator="^\r?\n---\r?\n$"
+                    data-separator-vertical="^\r?\n--\r?\n$"
+                >
+                    <textarea data-template>
+                        {markdownContent}
+                    </textarea>
+                </section>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .reveal-container {
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Allow overview mode thumbnails to render outside container bounds */
+    .reveal-container:has(.reveal.overview) {
+        overflow: visible;
+    }
+
+    .reveal {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        transition: opacity 0.3s ease-in-out;
+    }
+
+    /* Loading skeleton */
+    .presentation-loading {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: oklch(0% 0 0 / 0.05);
+        backdrop-filter: blur(4px);
+        border-radius: var(--radius-xl);
+        z-index: 10;
+    }
+
+    .presentation-loading.hidden {
+        display: none;
+    }
+
+    .loading-content {
+        text-align: center;
+    }
+
+    .loading-spinner {
+        width: 48px;
+        height: 48px;
+        border: 4px solid var(--color-border);
+        border-left-color: var(--color-primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .loading-text {
+        font-size: 14px;
+        color: var(--color-text-muted);
+        font-weight: 500;
+    }
+
+    /* Override reveal.js defaults for better integration */
+    .reveal .slides {
+        text-align: left;
+    }
+
+    .reveal h2 {
+        font-size: 2em;
+        margin-bottom: 0.5em;
+    }
+
+    .reveal p {
+        margin: 1em 0;
+    }
+
+    .reveal a {
+        color: var(--color-primary);
+    }
+
+    .reveal a:hover {
+        color: var(--color-primary-light);
+    }
+
+    /* Image styling */
+    .reveal img {
+        max-width: 100%;
+        height: auto;
+        margin: 1em auto;
+        display: block;
+    }
+
+    .reveal section img {
+        border: none;
+        box-shadow: none;
+        background: none;
+    }
+</style>
+
+<script>
+    // Lazy loading with IntersectionObserver
+    if (typeof window !== "undefined") {
+        const initializePresentation = async (containerId: string) => {
+            const revealElement = document.querySelector(
+                `[data-reveal="${containerId}"]`,
+            ) as HTMLElement;
+            const loadingElement = document.querySelector(
+                `[data-loading="${containerId}"]`,
+            ) as HTMLElement;
+
+            if (!revealElement) return;
+
+            try {
+                // Load reveal.js CSS on demand — injected as <link> tags only when
+                // a presentation is actually initialized, avoiding ~630 KiB of
+                // render-blocking CSS on every page.
+                const loadCSS = (href: string) => new Promise<void>((resolve) => {
+                    if (document.querySelector(`link[href="${href}"]`)) { resolve(); return; }
+                    const link = document.createElement("link");
+                    link.rel = "stylesheet";
+                    link.href = href;
+                    link.onload = () => resolve();
+                    document.head.appendChild(link);
+                });
+
+                // Load CSS and JS in parallel
+                const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+                const [
+                    { default: Reveal },
+                    { default: Markdown },
+                    { default: Highlight },
+                ] = await Promise.all([
+                    // @ts-ignore
+                    import("reveal.js"),
+                    import("reveal.js/plugin/markdown"),
+                    import("reveal.js/plugin/highlight"),
+                    loadCSS(`${base}/vendor/reveal/reveal.css`),
+                    loadCSS(`${base}/vendor/reveal/simple.css`),
+                    loadCSS(`${base}/vendor/reveal/monokai.css`),
+                ]);
+
+                // Initialize reveal.js with selector
+                // @ts-ignore - Reveal.js constructor overload not properly typed
+                const deck = new (Reveal as any)(
+                    document.querySelector(`#${containerId}`),
+                    {
+                        plugins: [Markdown, Highlight],
+                        embedded: true,
+                        width: 960,
+                        height: 700,
+                        margin: 0.1,
+                        minScale: 0.2,
+                        maxScale: 2.0,
+                        controls: true,
+                        progress: true,
+                        center: true,
+                        hash: false,
+                        transition: "slide",
+                    },
+                );
+
+                await deck.initialize();
+
+                // Hide loading, show presentation
+                if (loadingElement) {
+                    loadingElement.classList.add("hidden");
+                }
+                revealElement.style.opacity = "1";
+            } catch (error) {
+                console.error("Failed to initialize presentation:", error);
+                if (loadingElement) {
+                    loadingElement.innerHTML = `
+                        <div class="loading-content">
+                            <p class="loading-text" style="color: var(--color-error);">Failed to load presentation</p>
+                        </div>
+                    `;
+                }
+            }
+        };
+
+        // Use IntersectionObserver for lazy initialization
+        const observePresentation = () => {
+            const wrappers = document.querySelectorAll(
+                "[data-presentation-wrapper]",
+            );
+
+            const observer = new IntersectionObserver(
+                (entries) => {
+                    entries.forEach((entry) => {
+                        if (entry.isIntersecting) {
+                            const wrapper = entry.target as HTMLElement;
+                            const presentationId = wrapper.getAttribute(
+                                "data-presentation-wrapper",
+                            );
+
+                            if (presentationId) {
+                                // Initialize when visible
+                                initializePresentation(presentationId);
+                                // Stop observing after initialization
+                                observer.unobserve(wrapper);
+                            }
+                        }
+                    });
+                },
+                {
+                    rootMargin: "100px", // Start loading 100px before it comes into view
+                    threshold: 0.1,
+                },
+            );
+
+            wrappers.forEach((wrapper) => observer.observe(wrapper));
+        };
+
+        // Initialize when DOM is ready
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", observePresentation);
+        } else {
+            observePresentation();
+        }
+    }
+</script>

@@ -1,0 +1,278 @@
+/* ─────────────────────────────────────────────────────────
+   THEME: Precision Forward (ventures)
+
+   Palette: cool slate / deep blue / emerald accent
+   Feel: structured, data-driven, institutional authority
+   ───────────────────────────────────────────────────────── */
+
+@theme {
+  --color-primary: var(--c-primary);
+  --color-primary-light: var(--c-primary-light);
+  --color-primary-dark: var(--c-primary-dark);
+
+  --color-accent: var(--c-accent);
+  --color-accent-dark: var(--c-accent-dark);
+
+  --color-surface: var(--c-surface);
+  --color-surface-alt: var(--c-surface-alt);
+  --color-surface-raised: var(--c-surface-raised);
+  --color-surface-invert: var(--c-surface-invert);
+
+  --color-text: var(--c-text);
+  --color-text-muted: var(--c-text-muted);
+  --color-text-subtle: var(--c-text-subtle);
+  --color-text-on-dark: #e8ecf1;
+  --color-text-on-primary: #f7f8fa;
+
+  --color-border: var(--c-border);
+  --color-border-strong: var(--c-border-strong);
+
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+
+  --font-display: 'Manrope', system-ui, sans-serif;
+  --font-heading: 'Manrope', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-full: 9999px;
+}
+
+/* ── Light mode (cool blue-grey) ─────────────────────── */
+:root {
+  --c-surface: #eef1f6;
+  --c-surface-alt: #e2e7ef;
+  --c-surface-raised: #d4dae5;
+  --c-surface-invert: #0a0d12;
+
+  --c-text: #0a0d12;
+  --c-text-muted: #3d4a5c;
+  --c-text-subtle: #718296;
+
+  --c-primary: #1447c8;
+  --c-primary-light: #2563eb;
+  --c-primary-dark: #0f3494;
+  --c-accent: #059669;
+  --c-accent-dark: #047857;
+
+  --c-border: #c4ccd9;
+  --c-border-strong: #97a3b5;
+
+  --shadow-color: 215 25% 15%;
+
+  /* Footer colors */
+  --c-footer-bg: #1a2030;
+  --c-footer-text: #e0e5ed;
+  --c-footer-text-muted: #c0c8d4;
+  --c-footer-text-subtle: #8896a8;
+  --c-footer-text-disabled: #606c7c;
+  --c-footer-border: #2a3344;
+  --c-footer-hover: #ffffff;
+
+  /* Animation tuning */
+  --anim-duration: 0.5s;
+  --anim-easing: cubic-bezier(0.25, 0.1, 0.25, 1.0);
+  --anim-translate-y: 16px;
+  --anim-translate-x: 20px;
+  --anim-delay-1: 0.08s;
+  --anim-delay-2: 0.16s;
+  --anim-delay-3: 0.24s;
+  --anim-delay-4: 0.32s;
+  --anim-delay-5: 0.4s;
+
+  /* Heading typography */
+  --heading-letter-spacing: -0.02em;
+  --heading-line-height: 1.15;
+  --heading-h1-weight: 700;
+  --heading-h2-weight: 600;
+}
+
+/* ── Dark mode ───────────────────────────────────────── */
+.dark {
+  --c-surface: #090c11;
+  --c-surface-alt: #10141c;
+  --c-surface-raised: #181e2b;
+  --c-surface-invert: #eef1f6;
+
+  --c-text: #dce2ed;
+  --c-text-muted: #8694aa;
+  --c-text-subtle: #4d5d73;
+
+  --c-primary: #5b9cf5;
+  --c-primary-light: #8dbcfa;
+  --c-primary-dark: #2563eb;
+  --c-accent: #34d399;
+  --c-accent-dark: #10b981;
+
+  --c-border: #1a2030;
+  --c-border-strong: #283042;
+
+  --shadow-color: 215 30% 3%;
+
+  --c-footer-bg: #1a2030;
+}
+
+/* ── Heading styles ───────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: var(--heading-letter-spacing);
+  line-height: var(--heading-line-height);
+}
+h1 { font-weight: 700; }
+h2 { font-weight: 600; }
+h3, h4, h5, h6 { font-weight: 600; }
+
+/* ── Buttons — sharp, uppercase, architectural ────────── */
+.btn-theme {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.85rem 2.25rem;
+  font-weight: 600;
+  font-family: var(--font-heading);
+  font-size: 0.8125rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+  text-decoration: none;
+  line-height: 1.5;
+}
+
+.btn-theme:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 3px;
+}
+
+.btn-primary-theme {
+  background: var(--c-primary);
+  color: var(--color-text-on-primary);
+  box-shadow: 0 2px 6px hsl(var(--shadow-color) / 0.15);
+}
+.btn-primary-theme:hover {
+  background: var(--c-primary-dark);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--c-primary) 25%, transparent),
+    0 4px 12px hsl(var(--shadow-color) / 0.2);
+}
+
+.btn-secondary-theme {
+  background: transparent;
+  color: var(--c-text);
+  border: 1.5px solid var(--c-border-strong);
+}
+.btn-secondary-theme:hover {
+  border-color: var(--c-primary);
+  color: var(--c-primary);
+}
+
+.btn-accent-theme {
+  background: var(--c-accent);
+  color: #f7f8fa;
+}
+.btn-accent-theme:hover {
+  background: var(--c-accent-dark);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 20%, transparent);
+}
+
+/* ── Tags — compact filled chips ─────────────────────── */
+.tag-theme {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-family: var(--font-heading);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-primary);
+  background: color-mix(in srgb, var(--c-primary) 8%, transparent);
+  border-radius: var(--radius-sm);
+  transition: background 0.2s ease;
+}
+.dark .tag-theme {
+  color: var(--c-primary-light);
+  background: color-mix(in srgb, var(--c-primary-light) 12%, transparent);
+}
+
+/* ── Cards — flat, left-accent-border hover ──────────── */
+.card-theme {
+  background-color: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+.card-theme:hover {
+  border-color: var(--c-border-strong);
+  border-left-color: var(--c-primary);
+  background-color: var(--c-surface-alt);
+  box-shadow: 0 2px 8px hsl(var(--shadow-color) / 0.08);
+}
+
+/* ── Glass — backdrop blur, straight edges ───────────── */
+.glass-theme {
+  background: hsl(220 25% 94% / 0.88);
+  backdrop-filter: blur(14px) saturate(1.5);
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
+}
+.dark .glass-theme {
+  background: hsl(220 35% 5% / 0.92);
+}
+
+/* ── Grid-dot pattern background ─────────────────────── */
+.hero-bg {
+  position: relative;
+}
+.hero-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, var(--c-border-strong) 1px, transparent 1px);
+  background-size: 20px 20px;
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 0;
+}
+.dark .hero-bg::before {
+  opacity: 0.35;
+}
+
+/* ── Accent bar motif ────────────────────────────────── */
+.accent-bar {
+  width: 48px;
+  height: 3px;
+  background: var(--c-primary);
+  border-radius: 1px;
+}
+.accent-bar-accent {
+  width: 48px;
+  height: 3px;
+  background: var(--c-accent);
+  border-radius: 1px;
+}
+
+/* ── Section rule — clean architectural line ──────────── */
+.section-rule {
+  background: var(--c-border);
+  width: 100%;
+}
+
+/* ── Reveal width animation ───────────────────────────── */
+@keyframes reveal-width {
+  from { width: 0; }
+  to { width: 40px; }
+}
+
+/* ── Shadow utility ───────────────────────────────────── */
+.shadow { box-shadow: 0 1px 3px hsl(var(--shadow-color) / 0.06); }

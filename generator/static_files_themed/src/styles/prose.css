@@ -1,0 +1,3 @@
+/* This file is overwritten by site-publisher with the correct theme import.
+   Default: starter theme for local development. */
+@import './prose-starter.css';

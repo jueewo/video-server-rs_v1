@@ -1,0 +1,116 @@
+---
+import { getCollection } from "astro:content";
+
+const { lang, searchableCollections } = Astro.props;
+
+// Define the type for a post entry
+type PostEntry = {
+    id: string;
+    slug: string;
+    collection: string;
+    data: {
+        title: string;
+        description?: string;
+        desc?: string;
+        tags?: string[];
+        url?: string;
+        draft?: boolean;
+        language?: string;
+    };
+};
+
+const collections = searchableCollections || [];
+
+// Fetch all content
+let allPosts: PostEntry[] = [];
+
+for (const collection of collections) {
+    try {
+        const allItems = await getCollection(collection);
+        const langItems = allItems.filter(
+            (item) =>
+                item.id.startsWith(`${lang}/`) ||
+                item.data.language === lang ||
+                !item.id.includes("/"),
+        );
+        allPosts = [...allPosts, ...langItems];
+    } catch (error) {
+        // Collection doesn't exist or is empty
+    }
+}
+
+// Filter out drafts and format for the Search component
+const posts = allPosts
+    .filter((post) => !post.data.draft)
+    .map((post) => ({
+        frontmatter: {
+            title: post.data.title,
+            description: post.data.description,
+            desc: post.data.desc,
+            tags: post.data.tags,
+            url: post.data.url,
+        },
+        collection: post.collection,
+        slug: post.id.replace(/\.(md|mdx)$/, ""),
+    }));
+
+// Serialize search data for client-side use
+const searchData = JSON.stringify(posts);
+---
+
+<div class="search-wrapper">
+    <!-- Container where Search component will be mounted -->
+    <div id="search-container"></div>
+
+    <!-- Search trigger button -->
+    <button
+        id="search-trigger"
+        class="p-2 rounded-md text-text-muted hover:text-text hover:bg-surface-raised transition-colors"
+        type="button"
+        aria-label="Search"
+    >
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="w-10 h-10"
+        >
+            <circle cx="11" cy="11" r="6"></circle>
+            <path stroke-linecap="round" d="M20 20l-4.35-4.35"></path>
+        </svg>
+    </button>
+</div>
+
+<script>
+    import { initializeSearch } from "./SearchBarLoader";
+
+    const searchDataElement = document.getElementById("search-data");
+    const searchData = searchDataElement?.textContent || "[]";
+
+    // Initialize search with data
+    initializeSearch(searchData);
+</script>
+
+<!-- Hidden element to store search data -->
+<script id="search-data" type="application/json" set:html={searchData} />
+
+<style>
+    .search-wrapper {
+        position: relative;
+    }
+
+    #search-trigger {
+        transition: opacity 0.2s ease;
+    }
+
+    #search-trigger:disabled {
+        opacity: 0.6;
+        cursor: wait;
+    }
+
+    #search-container {
+        /* Container styling is handled by the Search component */
+    }
+</style>

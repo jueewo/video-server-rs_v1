@@ -149,6 +149,8 @@ pub struct RenameFileRequest {
     pub from: String,
     /// New workspace-relative path (same directory, different filename).
     pub to: String,
+    /// Optional target workspace ID. When set, moves to a different workspace (copy + delete).
+    pub target_workspace_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -157,6 +159,8 @@ pub struct CopyFileRequest {
     pub from: String,
     /// Destination workspace-relative path.
     pub to: String,
+    /// Optional target workspace ID. When set, copies to a different workspace.
+    pub target_workspace_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -470,7 +474,7 @@ pub struct AgentViewerTemplate {
 pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
     Router::new()
         // Workspace CRUD API
-        .route("/api/user/workspaces", post(workspace_crud::create_workspace))
+        .route("/api/user/workspaces", post(workspace_crud::create_workspace).get(file_ops::list_user_workspaces_json))
         .route(
             "/api/user/workspaces/{workspace_id}",
             put(workspace_crud::update_workspace).delete(workspace_crud::delete_workspace),

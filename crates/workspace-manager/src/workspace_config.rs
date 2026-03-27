@@ -166,6 +166,27 @@ impl WorkspaceConfig {
         }
     }
 
+    /// Copy folder config (and any sub-folder configs) from one path to another.
+    /// Used when duplicating or copying typed folders.
+    pub fn copy_folder_prefix(&mut self, from_prefix: &str, to_prefix: &str) {
+        let entries: Vec<(String, FolderConfig)> = self
+            .folders
+            .iter()
+            .filter(|(k, _)| *k == from_prefix || k.starts_with(&format!("{}/", from_prefix)))
+            .map(|(k, v)| {
+                let new_key = if *k == from_prefix {
+                    to_prefix.to_string()
+                } else {
+                    format!("{}{}", to_prefix, &k[from_prefix.len()..])
+                };
+                (new_key, v.clone())
+            })
+            .collect();
+        for (k, v) in entries {
+            self.folders.insert(k, v);
+        }
+    }
+
     /// Remove a folder from the config
     pub fn remove_folder(&mut self, path: &str) -> bool {
         self.folders.remove(path).is_some()

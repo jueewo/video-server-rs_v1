@@ -16,6 +16,39 @@ use std::sync::Arc;
 use tower_sessions::Session;
 use tracing::{info, warn};
 
+/// GET /api/user/workspaces
+///
+/// Returns a JSON list of the current user's workspaces (id + name).
+/// Used by the move/copy dialog to offer cross-workspace targets.
+pub(crate) async fn list_user_workspaces_json(
+    user: Option<Extension<AuthenticatedUser>>,
+    session: Session,
+    State(state): State<Arc<WorkspaceManagerState>>,
+) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
+    check_scope(&user, "read")?;
+    let user_id = require_auth(&session).await?;
+    let tenant_id: String = session
+        .get("tenant_id")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "platform".to_string());
+
+    let rows = state.repo.list_user_workspaces(&user_id, &tenant_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let result: Vec<serde_json::Value> = rows
+        .into_iter()
+        .map(|r| serde_json::json!({
+            "workspace_id": r.workspace_id,
+            "name": r.name,
+        }))
+        .collect();
+
+    Ok(Json(result))
+}
+
 /// POST /api/workspaces/{workspace_id}/files/save
 pub(crate) async fn save_file(
     user: Option<Extension<AuthenticatedUser>>,
@@ -298,12 +331,72 @@ pub(crate) async fn rename_file(
     let workspace_root = state.storage.workspace_root(&workspace_id);
     let from = file_editor::safe_resolve_pub(&workspace_root, &request.from)
         .map_err(|_| StatusCode::BAD_REQUEST)?;
-    let to = file_editor::safe_resolve_pub(&workspace_root, &request.to)
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
 
     if !from.exists() {
         return Err(StatusCode::NOT_FOUND);
     }
+
+    // Cross-workspace move: copy to target, then delete source
+    if let Some(ref target_ws) = request.target_workspace_id {
+        if target_ws != &workspace_id {
+            verify_workspace_ownership(state.repo.as_ref(), target_ws, &user_id).await?;
+            let target_root = state.storage.workspace_root(target_ws);
+            let to = file_editor::safe_resolve_pub(&target_root, &request.to)
+                .map_err(|_| StatusCode::BAD_REQUEST)?;
+            if to.exists() { return Err(StatusCode::CONFLICT); }
+
+            let is_dir = from.is_dir();
+            if is_dir {
+                for entry in walkdir::WalkDir::new(&from).into_iter().filter_map(|e| e.ok()) {
+                    let rel = entry.path().strip_prefix(&from).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+                    let dest = to.join(rel);
+                    if entry.file_type().is_dir() {
+                        std::fs::create_dir_all(&dest).map_err(|e| { warn!("mkdir {:?}: {}", dest, e); StatusCode::INTERNAL_SERVER_ERROR })?;
+                    } else {
+                        std::fs::copy(entry.path(), &dest).map_err(|e| { warn!("copy {:?}: {}", dest, e); StatusCode::INTERNAL_SERVER_ERROR })?;
+                    }
+                }
+                std::fs::remove_dir_all(&from).map_err(|e| { warn!("rmdir {:?}: {}", from, e); StatusCode::INTERNAL_SERVER_ERROR })?;
+
+                // Move folder metadata: copy to target workspace.yaml, remove from source
+                if let Ok(source_config) = WorkspaceConfig::load(&workspace_root) {
+                    if let Ok(mut target_config) = WorkspaceConfig::load(&target_root) {
+                        for (k, v) in &source_config.folders {
+                            if *k == request.from || k.starts_with(&format!("{}/", request.from)) {
+                                let new_key = if *k == request.from {
+                                    request.to.clone()
+                                } else {
+                                    format!("{}{}", request.to, &k[request.from.len()..])
+                                };
+                                target_config.folders.insert(new_key, v.clone());
+                            }
+                        }
+                        if let Err(e) = target_config.save(&target_root) {
+                            warn!("Failed to update target workspace.yaml after move: {}", e);
+                        }
+                    }
+                }
+                if let Ok(mut config) = WorkspaceConfig::load(&workspace_root) {
+                    config.remove_folder(&request.from);
+                    // Also remove sub-folder entries
+                    let prefix = format!("{}/", request.from);
+                    config.folders.retain(|k, _| !k.starts_with(&prefix));
+                    if let Err(e) = config.save(&workspace_root) {
+                        warn!("Failed to update source workspace.yaml after move: {}", e);
+                    }
+                }
+                state.repo.delete_access_code_folders_for_path(&workspace_id, &request.from).await.ok();
+            } else {
+                if let Some(parent) = to.parent() { std::fs::create_dir_all(parent).ok(); }
+                std::fs::copy(&from, &to).map_err(|e| { warn!("copy {:?}: {}", to, e); StatusCode::INTERNAL_SERVER_ERROR })?;
+                std::fs::remove_file(&from).map_err(|e| { warn!("rm {:?}: {}", from, e); StatusCode::INTERNAL_SERVER_ERROR })?;
+            }
+            return Ok(StatusCode::NO_CONTENT);
+        }
+    }
+
+    let to = file_editor::safe_resolve_pub(&workspace_root, &request.to)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
     if to.exists() {
         return Err(StatusCode::CONFLICT);
     }
@@ -348,12 +441,24 @@ pub(crate) async fn copy_file(
     let workspace_root = state.storage.workspace_root(&workspace_id);
     let from = file_editor::safe_resolve_pub(&workspace_root, &request.from)
         .map_err(|_| StatusCode::BAD_REQUEST)?;
-    let to = file_editor::safe_resolve_pub(&workspace_root, &request.to)
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
 
     if !from.exists() {
         return Err(StatusCode::NOT_FOUND);
     }
+
+    // Resolve target root (same or different workspace)
+    let target_root = if let Some(ref target_ws) = request.target_workspace_id {
+        if target_ws != &workspace_id {
+            verify_workspace_ownership(state.repo.as_ref(), target_ws, &user_id).await?;
+        }
+        state.storage.workspace_root(target_ws)
+    } else {
+        workspace_root.clone()
+    };
+
+    let to = file_editor::safe_resolve_pub(&target_root, &request.to)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+
     if to.exists() {
         return Err(StatusCode::CONFLICT);
     }
@@ -373,6 +478,36 @@ pub(crate) async fn copy_file(
                     warn!("Failed to copy {:?} -> {:?}: {}", entry.path(), dest, e);
                     StatusCode::INTERNAL_SERVER_ERROR
                 })?;
+            }
+        }
+        // Copy folder metadata in workspace.yaml (same workspace only)
+        if request.target_workspace_id.is_none() || request.target_workspace_id.as_deref() == Some(&workspace_id) {
+            if let Ok(mut config) = WorkspaceConfig::load(&workspace_root) {
+                config.copy_folder_prefix(&request.from, &request.to);
+                if let Err(e) = config.save(&workspace_root) {
+                    warn!("Failed to update workspace.yaml after copy: {}", e);
+                }
+            }
+        } else if let Some(ref target_ws) = request.target_workspace_id {
+            // Cross-workspace: copy metadata from source config to target config
+            if let Ok(source_config) = WorkspaceConfig::load(&workspace_root) {
+                let target_ws_root = state.storage.workspace_root(target_ws);
+                if let Ok(mut target_config) = WorkspaceConfig::load(&target_ws_root) {
+                    // Collect entries to copy
+                    for (k, v) in &source_config.folders {
+                        if *k == request.from || k.starts_with(&format!("{}/", request.from)) {
+                            let new_key = if *k == request.from {
+                                request.to.clone()
+                            } else {
+                                format!("{}{}", request.to, &k[request.from.len()..])
+                            };
+                            target_config.folders.insert(new_key, v.clone());
+                        }
+                    }
+                    if let Err(e) = target_config.save(&target_ws_root) {
+                        warn!("Failed to update target workspace.yaml after copy: {}", e);
+                    }
+                }
             }
         }
     } else {

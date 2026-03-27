@@ -51,6 +51,17 @@ const themes: Record<string, ThemeLayout> = {
     footerTop: 'stripe',
     fonts: ['/fonts/manrope-latin.woff2', '/fonts/ibm-plex-sans-latin.woff2'],
   },
+  mustcato: {
+    navbar: 'floating',
+    mobileMenu: 'slideout',
+    borderRadius: 'round',
+    headingStyle: 'editorial',
+    accentBars: false,
+    breadcrumbSep: '·',
+    logoHover: 'scale',
+    footerTop: 'line',
+    fonts: ['/fonts/sora-latin.woff2', '/fonts/dm-sans-latin.woff2'],
+  },
 };
 
 // ─── Resolved theme + layout ────────────────────────────────

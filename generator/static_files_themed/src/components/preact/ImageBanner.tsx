@@ -190,7 +190,7 @@ export default function ImageBanner({
             id={`post${index}`}
             className="carousel-item flex-shrink-0 w-full snap-center justify-center"
           >
-            <div class="w-full">
+            <div class="w-full relative">
               <a
                 href={post.link?.path || ""}
                 aria-label={post.link?.label || ""}
@@ -203,10 +203,25 @@ export default function ImageBanner({
                   alt={post.title}
                   className={
                     classNameForImage
-                      ? "w-full ".concat(classNameForImage)
-                      : "w-full"
+                      ? "w-full max-h-[60vh] object-contain ".concat(classNameForImage)
+                      : "w-full max-h-[60vh] object-contain"
                   }
                 />
+                {(post.title || post.desc) && (
+                  <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent px-6 py-5 flex flex-col justify-end"
+                    style={{ minHeight: '25%' }}>
+                    {post.title && (
+                      <div class="text-white font-semibold text-lg md:text-xl leading-tight mb-1">
+                        {post.title}
+                      </div>
+                    )}
+                    {post.desc && (
+                      <div class="text-white/80 text-sm md:text-base leading-snug">
+                        {post.desc}
+                      </div>
+                    )}
+                  </div>
+                )}
               </a>
             </div>
           </div>

@@ -1,9 +1,0 @@
----
-import WebSiteConfig from "../website.config.cjs";
-import { b } from '../utils/siteBase';
-
-export const prerender = true;
-
-const defaultLang = WebSiteConfig.defaultLanguage.locale;
-return Astro.redirect(b + "/" + defaultLang + "/home/", 302);
----

@@ -7,6 +7,7 @@ A YHM site lives inside a workspace folder of type `yhm-site-data`:
 ```
 {workspace}/{folder}/
   sitedef.yaml          ← site configuration (required)
+  menus.yaml            ← navigation menus (overrides menu/footermenu in sitedef.yaml)
   data/
     page_{slug}/
       {locale}/
@@ -64,18 +65,11 @@ collections:
     coltype: mdContentCollection
     searchable: false
 
-menu:
+menu:           # DEPRECATED — use menus.yaml instead (see below)
   - name: Home
     path: /home
-  - name: Resources
-    submenu:
-      - name: About
-        path: /about
-      - name: GitHub
-        path: https://github.com/example
-        external: true   # opens in new tab, shows ↗ icon
 
-footermenu:
+footermenu:      # DEPRECATED — use menus.yaml instead (see below)
   - header: Product
     link: /home
     links:
@@ -119,6 +113,102 @@ footercontent:
 mediaVaultId: "vault-abc123"
 inlineMedia: true
 ```
+
+---
+
+## menus.yaml
+
+Navigation menus are defined in a separate `menus.yaml` file at the site root. When present, it **overrides** the `menu`, `footermenu`, and `legal` keys from `sitedef.yaml`.
+
+```yaml
+# menus.yaml — Localized navigation menus
+
+menu:
+  - name:
+      en: Home
+      de: Startseite
+    path: /home
+  - name:
+      en: Consulting
+      de: Beratung
+    path: /consulting
+  - name:
+      en: Academy
+      de: Akademie
+    path: /academy
+  - name: Blog                    # plain string works for single-language or untranslated names
+    path: /blog
+  - name:
+      en: Company
+      de: Unternehmen
+    submenu:
+      - name:
+          en: About
+          de: Über uns
+        path: /about
+      - name: Ventures
+        path: /ventures
+      - name:
+          en: Products
+          de: Produkte
+        path: /products
+  - name:
+      en: Topics
+      de: Themen
+    submenu:
+      - name: AI
+        path: /topic_ai
+      - name: Crypto
+        path: /topic_crypto
+      - name:
+          en: Robotics
+          de: Robotik
+        path: /topic_robotics
+
+footermenu:
+  - header:
+      en: Company
+      de: Unternehmen
+    link: /about
+    links:
+      - name:
+          en: About us
+          de: Über uns
+        link: /about
+        external: false
+      - name:
+          en: Consulting
+          de: Beratung
+        link: /consulting
+        external: false
+  - header:
+      en: Learn
+      de: Lernen
+    link: /academy
+    links:
+      - name:
+          en: Academy
+          de: Akademie
+        link: /academy
+        external: false
+      - name: Blog
+        link: /blog
+        external: false
+  - header:
+      en: Topics
+      de: Themen
+    link: /topic_ai
+    links:
+      - name: AI
+        link: /topic_ai
+        external: false
+```
+
+**Key points:**
+- `name` can be a plain string or a locale map (`{ en: "About", de: "Über uns" }`)
+- Top-level items with `path` are direct links; items with `submenu` create dropdowns
+- `external: true` on submenu items opens in a new tab with ↗ icon
+- Always edit `menus.yaml`, not the menu/footermenu sections in `sitedef.yaml`
 
 ---
 

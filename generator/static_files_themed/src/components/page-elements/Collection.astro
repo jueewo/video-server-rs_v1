@@ -14,6 +14,7 @@ var filter_by_featured = _props("filter_by_featured");
 var filter_featured = _props("filter_featured");
 var filter_filtertag = _props("filter_filtertag");
 var filter_by_filtertag = filter_filtertag && filter_filtertag.length > 0;
+const show_filters = _props("show_filters");
 
 const collection_carddata = (await getCollection(_props("collection")))
     .filter((a) =>
@@ -60,6 +61,34 @@ if (show_default_lang) {
         );
     }
 }
+
+// Collect all unique filtertags for the filter UI
+const allFilterTags: string[] = [];
+if (show_filters) {
+    const tagSet = new Set<string>();
+    [...collection_carddata_actlang, ...collection_carddata_defaultlang].forEach((card) => {
+        card.data.filtertags?.forEach((tag: string) => tagSet.add(tag));
+    });
+    // Remove generic "course" tag — not useful as a filter
+    tagSet.delete("course");
+    allFilterTags.push(...Array.from(tagSet).sort());
+}
+
+// Human-readable labels for filtertags
+const tagLabels: Record<string, string> = {
+    // Academy categories
+    "processes": "Processes",
+    "ai-data": "AI & Data",
+    "operations": "Operations & Planning",
+    "digitalization": "Digitalization",
+    "rust": "Rust",
+    // Blog categories
+    "ai": "AI",
+    "simulation": "Simulation",
+    "crypto": "Crypto",
+    "academy": "Academy",
+    "general": "General",
+};
 ---
 
 {_props("title") && _props("title").length > 0 && (
@@ -68,36 +97,55 @@ if (show_default_lang) {
     </div>
 )}
 
+{show_filters && allFilterTags.length > 0 && (
+    <div class="collection-filter mt-8 flex flex-wrap justify-center gap-2 px-4 max-w-5xl mx-auto">
+        <button
+            class="filter-chip active text-sm font-medium px-3 py-1.5 rounded-full border border-primary bg-primary text-white transition-colors cursor-pointer"
+            data-filter="all"
+        >
+            All
+        </button>
+        {allFilterTags.map((tag) => (
+            <button
+                class="filter-chip text-sm font-medium px-3 py-1.5 rounded-full border border-border text-text-muted hover:border-primary hover:text-primary transition-colors cursor-pointer"
+                data-filter={tag}
+            >
+                {tagLabels[tag] || tag}
+            </button>
+        ))}
+    </div>
+)}
+
 {(!_props("card") || _props("card") === "default") && (
     <>
-        <div class="mt-12 grid justify-items-center grid-cols-1 gap-8 px-4 md:px-10 md:gap-10 md:grid-cols-2 xl:gap-8 xl:grid-cols-3 xl:px-5 max-w-7xl mx-auto">
+        <div class="collection-grid mt-12 grid justify-items-center grid-cols-1 gap-8 px-4 md:px-10 md:gap-10 md:grid-cols-2 xl:gap-8 xl:grid-cols-3 xl:px-5 max-w-7xl mx-auto">
             {collection_carddata_actlang.map((card) => (
-                <>
+                <div class="collection-card w-full" data-filtertags={card.data.filtertags?.join(",") || ""}>
                     {card.data.featured && (
                         <CardDefault2 card={card} pathdir={collection_name} pagelang={lang} />
                     )}
                     {!card.data.featured && (
                         <CardInfo card={card} pathdir={collection_name} pagelang={lang} />
                     )}
-                </>
+                </div>
             ))}
         </div>
 
         {collection_carddata_defaultlang.length > 0 && (
             <>
-                <div class="mt-10 mx-12">
+                <div class="mt-10 mx-12 collection-default-lang-banner">
                     <TitleAlertBanner title="Content in English" desc="Additional content available in English" />
                 </div>
-                <div class="mt-8 grid justify-items-center grid-cols-1 gap-8 px-4 md:px-10 md:gap-10 md:grid-cols-2 xl:gap-8 xl:grid-cols-3 xl:px-5 max-w-7xl mx-auto">
+                <div class="collection-grid mt-8 grid justify-items-center grid-cols-1 gap-8 px-4 md:px-10 md:gap-10 md:grid-cols-2 xl:gap-8 xl:grid-cols-3 xl:px-5 max-w-7xl mx-auto">
                     {collection_carddata_defaultlang.map((card) => (
-                        <>
+                        <div class="collection-card w-full" data-filtertags={card.data.filtertags?.join(",") || ""}>
                             {card.data.featured && (
                                 <CardDefault2 card={card} pathdir={collection_name} pagelang={lang} />
                             )}
                             {!card.data.featured && (
                                 <CardInfo card={card} pathdir={collection_name} pagelang={lang} />
                             )}
-                        </>
+                        </div>
                     ))}
                 </div>
             </>
@@ -107,19 +155,23 @@ if (show_default_lang) {
 
 {_props("card") === "blog" && (
     <>
-        <div class="grid justify-items-center items-center gap-10 grid-cols-1 xl:grid-cols-2 xl:px-9 max-w-7xl mx-auto px-4">
+        <div class="collection-grid mt-10 grid justify-items-center items-center gap-10 grid-cols-1 xl:grid-cols-2 xl:px-9 max-w-7xl mx-auto px-4">
             {collection_carddata_actlang.map((card) => (
-                <CardBlog card={card} pathdir={collection_name} pagelang={lang} />
+                <div class="collection-card w-full" data-filtertags={card.data.filtertags?.join(",") || ""}>
+                    <CardBlog card={card} pathdir={collection_name} pagelang={lang} />
+                </div>
             ))}
         </div>
         {collection_carddata_defaultlang.length > 0 && (
             <>
-                <div class="mt-10 mx-12">
+                <div class="mt-10 mx-12 collection-default-lang-banner">
                     <TitleAlertBanner title="Content in English" />
                 </div>
-                <div class="grid justify-items-center items-center gap-10 grid-cols-1 xl:grid-cols-2 xl:px-9 max-w-7xl mx-auto px-4">
+                <div class="collection-grid grid justify-items-center items-center gap-10 grid-cols-1 xl:grid-cols-2 xl:px-9 max-w-7xl mx-auto px-4">
                     {collection_carddata_defaultlang.map((card) => (
-                        <CardBlog card={card} pathdir={collection_name} pagelang={lang} />
+                        <div class="collection-card w-full" data-filtertags={card.data.filtertags?.join(",") || ""}>
+                            <CardBlog card={card} pathdir={collection_name} pagelang={lang} />
+                        </div>
                     ))}
                 </div>
             </>
@@ -129,22 +181,71 @@ if (show_default_lang) {
 
 {_props("card") === "info" && (
     <>
-        <div class="mt-12 grid justify-items-center grid-cols-1 gap-8 px-4 md:px-10 md:gap-10 md:grid-cols-2 xl:gap-8 xl:grid-cols-3 xl:px-5 max-w-7xl mx-auto">
+        <div class="collection-grid mt-12 grid justify-items-center grid-cols-1 gap-8 px-4 md:px-10 md:gap-10 md:grid-cols-2 xl:gap-8 xl:grid-cols-3 xl:px-5 max-w-7xl mx-auto">
             {collection_carddata_actlang.map((card) => (
-                <CardInfo card={card} pathdir={collection_name} pagelang={lang} />
+                <div class="collection-card w-full" data-filtertags={card.data.filtertags?.join(",") || ""}>
+                    <CardInfo card={card} pathdir={collection_name} pagelang={lang} />
+                </div>
             ))}
         </div>
         {collection_carddata_defaultlang.length > 0 && (
             <>
-                <div class="mt-10 mx-12">
+                <div class="mt-10 mx-12 collection-default-lang-banner">
                     <TitleAlertBanner title="Content in English" />
                 </div>
-                <div class="mt-8 grid justify-items-center grid-cols-1 gap-8 px-4 md:px-10 md:gap-10 md:grid-cols-2 xl:gap-8 xl:grid-cols-3 xl:px-5 max-w-7xl mx-auto">
+                <div class="collection-grid mt-8 grid justify-items-center grid-cols-1 gap-8 px-4 md:px-10 md:gap-10 md:grid-cols-2 xl:gap-8 xl:grid-cols-3 xl:px-5 max-w-7xl mx-auto">
                     {collection_carddata_defaultlang.map((card) => (
-                        <CardInfo card={card} pathdir={collection_name} pagelang={lang} />
+                        <div class="collection-card w-full" data-filtertags={card.data.filtertags?.join(",") || ""}>
+                            <CardInfo card={card} pathdir={collection_name} pagelang={lang} />
+                        </div>
                     ))}
                 </div>
             </>
         )}
     </>
+)}
+
+{show_filters && (
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const filterContainer = document.querySelector(".collection-filter");
+            if (!filterContainer) return;
+
+            const chips = filterContainer.querySelectorAll<HTMLButtonElement>(".filter-chip");
+            const cards = document.querySelectorAll<HTMLElement>(".collection-card");
+            const banners = document.querySelectorAll<HTMLElement>(".collection-default-lang-banner");
+
+            chips.forEach((chip) => {
+                chip.addEventListener("click", () => {
+                    const filter = chip.dataset.filter;
+
+                    // Update active chip
+                    chips.forEach((c) => {
+                        c.classList.remove("active", "bg-primary", "text-white", "border-primary");
+                        c.classList.add("border-border", "text-text-muted");
+                    });
+                    chip.classList.add("active", "bg-primary", "text-white", "border-primary");
+                    chip.classList.remove("border-border", "text-text-muted");
+
+                    // Filter cards
+                    let visibleCount = 0;
+                    cards.forEach((card) => {
+                        const tags = (card.dataset.filtertags || "").split(",");
+                        const show = filter === "all" || tags.includes(filter!);
+                        card.style.display = show ? "" : "none";
+                        if (show) visibleCount++;
+                    });
+
+                    // Show/hide default language banners based on visible cards after them
+                    banners.forEach((banner) => {
+                        const nextGrid = banner.nextElementSibling as HTMLElement;
+                        if (nextGrid) {
+                            const visibleInGrid = nextGrid.querySelectorAll('.collection-card:not([style*="display: none"])');
+                            banner.style.display = visibleInGrid.length > 0 ? "" : "none";
+                        }
+                    });
+                });
+            });
+        });
+    </script>
 )}

@@ -190,7 +190,7 @@ export default function ImageBanner({
             id={`post${index}`}
             className="carousel-item flex-shrink-0 w-full snap-center justify-center"
           >
-            <div class="w-2/3 ">
+            <div class="w-full">
               <a
                 href={post.link?.path || ""}
                 aria-label={post.link?.label || ""}

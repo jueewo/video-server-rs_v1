@@ -20,6 +20,17 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
 }
 
+/* ── Dropdown touch support ──────────────────────────── */
+/* JS adds .dropdown-open on tap; CSS hover still works on desktop */
+[data-dropdown].dropdown-open > .dropdown-panel {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translate(-50%, 0) !important;
+}
+[data-dropdown].dropdown-open > .dropdown-toggle svg {
+  transform: rotate(180deg);
+}
+
 /* ── Section divider ──────────────────────────────────── */
 .section-rule {
   border: none;

@@ -95,12 +95,12 @@ const logoHoverClass = layout.logoHover === 'scale'
                                         {menu.external && <span class="text-[0.65rem] ml-0.5 opacity-50">↗</span>}
                                     </a>
                                 ) : (
-                                    <div class="relative group/drop">
-                                        <button class="px-3 py-1.5 text-[0.8125rem] font-medium text-text-muted hover:text-text transition-colors inline-flex items-center gap-1">
+                                    <div class="relative group/drop" data-dropdown>
+                                        <button class="dropdown-toggle px-3 py-1.5 text-[0.8125rem] font-medium text-text-muted hover:text-text transition-colors inline-flex items-center gap-1">
                                             {t(menu.name, actlang)}
                                             <svg class="w-3 h-3 opacity-40 transition-transform duration-200 group-hover/drop:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M19 9l-7 7-7-7" /></svg>
                                         </button>
-                                        <div class="absolute left-1/2 -translate-x-1/2 top-full pt-2 opacity-0 invisible group-hover/drop:opacity-100 group-hover/drop:visible transition-all duration-200 translate-y-1 group-hover/drop:translate-y-0">
+                                        <div class="dropdown-panel absolute left-1/2 -translate-x-1/2 top-full pt-2 opacity-0 invisible group-hover/drop:opacity-100 group-hover/drop:visible transition-all duration-200 translate-y-1 group-hover/drop:translate-y-0">
                                             <div class={`glass-theme border border-border ${r.dropdown} shadow-[0_4px_20px_hsl(var(--shadow-color)/0.08)] py-1 min-w-[180px]`}>
                                                 {layout.accentBars && <div class="h-0.5 bg-primary mx-3 mb-1 rounded-full"></div>}
                                                 {menu.children.map((sub: any) => (
@@ -188,12 +188,12 @@ const logoHoverClass = layout.logoHover === 'scale'
                                         {menu.external && <span class="text-[0.65rem] ml-0.5 opacity-50">↗</span>}
                                     </a>
                                 ) : (
-                                    <div class="relative group/drop">
-                                        <button class={`px-3 py-1.5 text-[0.8125rem] font-medium ${r.navItem} text-text-muted hover:text-text transition-colors inline-flex items-center gap-1`}>
+                                    <div class="relative group/drop" data-dropdown>
+                                        <button class={`dropdown-toggle px-3 py-1.5 text-[0.8125rem] font-medium ${r.navItem} text-text-muted hover:text-text transition-colors inline-flex items-center gap-1`}>
                                             {t(menu.name, actlang)}
                                             <svg class="w-3 h-3 opacity-40 transition-transform duration-200 group-hover/drop:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M19 9l-7 7-7-7" /></svg>
                                         </button>
-                                        <div class="absolute left-1/2 -translate-x-1/2 top-full pt-3 opacity-0 invisible group-hover/drop:opacity-100 group-hover/drop:visible transition-all duration-200 translate-y-1 group-hover/drop:translate-y-0">
+                                        <div class="dropdown-panel absolute left-1/2 -translate-x-1/2 top-full pt-3 opacity-0 invisible group-hover/drop:opacity-100 group-hover/drop:visible transition-all duration-200 translate-y-1 group-hover/drop:translate-y-0">
                                             <div class={`glass-theme border border-border ${r.dropdown} shadow-[0_8px_30px_hsl(var(--shadow-color)/0.1)] py-2 min-w-[180px]`}>
                                                 {menu.children.map((sub: any) => (
                                                     <a
@@ -386,6 +386,29 @@ const logoHoverClass = layout.logoHover === 'scale'
                 extprop={`Built with ${Astro.generator} by <a class='link-editorial text-primary' target='_blank' href='https://yawninghero.com'><i>yh</i></a>`}
             />
         </footer>
+
+        <!-- Dropdown touch support -->
+        <script>
+            document.querySelectorAll('[data-dropdown]').forEach(function(drop) {
+                var toggle = drop.querySelector('.dropdown-toggle');
+                if (!toggle) return;
+                toggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var wasOpen = drop.classList.contains('dropdown-open');
+                    // Close all other dropdowns
+                    document.querySelectorAll('[data-dropdown].dropdown-open').forEach(function(d) {
+                        d.classList.remove('dropdown-open');
+                    });
+                    if (!wasOpen) drop.classList.add('dropdown-open');
+                });
+            });
+            // Close dropdowns on outside click/tap
+            document.addEventListener('click', function() {
+                document.querySelectorAll('[data-dropdown].dropdown-open').forEach(function(d) {
+                    d.classList.remove('dropdown-open');
+                });
+            });
+        </script>
 
         <!-- Mobile menu script -->
         {layout.mobileMenu === 'fullscreen' ? (

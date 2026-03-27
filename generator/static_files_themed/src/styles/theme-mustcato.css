@@ -1,0 +1,311 @@
+/* ─────────────────────────────────────────────────────────
+   THEME: Mustcato — Premium Business
+
+   Palette: warm ivory / deep wine / golden accent
+   Feel: premium, approachable, trustworthy — moscato warmth
+   Audience: business owners, consultants, researchers
+   ───────────────────────────────────────────────────────── */
+
+@theme {
+  /* Primary: deep wine — trust, warmth, premium */
+  --color-primary: var(--c-primary);
+  --color-primary-light: var(--c-primary-light);
+  --color-primary-dark: var(--c-primary-dark);
+
+  /* Accent: warm gold — energy, quality, authority */
+  --color-accent: var(--c-accent);
+  --color-accent-dark: var(--c-accent-dark);
+
+  /* Surfaces */
+  --color-surface: var(--c-surface);
+  --color-surface-alt: var(--c-surface-alt);
+  --color-surface-raised: var(--c-surface-raised);
+  --color-surface-invert: var(--c-surface-invert);
+
+  /* Text */
+  --color-text: var(--c-text);
+  --color-text-muted: var(--c-text-muted);
+  --color-text-subtle: var(--c-text-subtle);
+  --color-text-on-dark: #faf6f0;
+  --color-text-on-primary: #faf6f0;
+
+  /* Borders */
+  --color-border: var(--c-border);
+  --color-border-strong: var(--c-border-strong);
+
+  /* Semantic */
+  --color-success: #3a7d5f;
+  --color-warning: #c49215;
+  --color-error: #b83a3a;
+  --color-info: #3a6490;
+
+  /* Fonts — Sora for headings, DM Sans for body (same as starter, warm + readable) */
+  --font-display: 'Sora', system-ui, sans-serif;
+  --font-heading: 'Sora', system-ui, sans-serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+
+  /* Radii — softly rounded, premium not playful */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --radius-full: 9999px;
+}
+
+/* ── Light mode (warm ivory + wine) ──────────────────── */
+:root {
+  --c-surface: #fbf8f4;
+  --c-surface-alt: #f3ede5;
+  --c-surface-raised: #ebe3d9;
+  --c-surface-invert: #1c1618;
+
+  --c-text: #1c1618;
+  --c-text-muted: #5e5258;
+  --c-text-subtle: #948790;
+
+  --c-primary: #6b2040;
+  --c-primary-light: #8c3058;
+  --c-primary-dark: #521832;
+  --c-accent: #b8862e;
+  --c-accent-dark: #966c22;
+
+  --c-border: #e0d8ce;
+  --c-border-strong: #c8beb0;
+
+  /* Warm shadow color */
+  --shadow-color: 15 20% 18%;
+
+  /* Footer colors */
+  --c-footer-bg: var(--c-surface-invert);
+  --c-footer-text: #faf6f0;
+  --c-footer-text-muted: rgba(250, 246, 240, 0.6);
+  --c-footer-text-subtle: rgba(250, 246, 240, 0.4);
+  --c-footer-text-disabled: rgba(250, 246, 240, 0.3);
+  --c-footer-border: rgba(250, 246, 240, 0.1);
+  --c-footer-hover: #faf6f0;
+
+  /* Animation tuning */
+  --anim-duration: 0.7s;
+  --anim-easing: cubic-bezier(0.22, 1, 0.36, 1);
+  --anim-translate-y: 24px;
+  --anim-translate-x: 32px;
+  --anim-delay-1: 0.1s;
+  --anim-delay-2: 0.2s;
+  --anim-delay-3: 0.3s;
+  --anim-delay-4: 0.4s;
+  --anim-delay-5: 0.5s;
+
+  /* Heading typography */
+  --heading-letter-spacing: -0.035em;
+  --heading-line-height: 1.1;
+  --heading-h1-weight: 800;
+  --heading-h2-weight: 700;
+}
+
+/* ── Dark mode ────────────────────────────────────────── */
+.dark {
+  --c-surface: #141012;
+  --c-surface-alt: #1e181a;
+  --c-surface-raised: #2a2224;
+  --c-surface-invert: #f3ede5;
+
+  --c-text: #ede6dc;
+  --c-text-muted: #a09298;
+  --c-text-subtle: #6b5e64;
+
+  --c-primary: #d4607a;
+  --c-primary-light: #e07890;
+  --c-primary-dark: #b84860;
+  --c-accent: #d4a248;
+  --c-accent-dark: #b8882e;
+
+  --c-border: #2e2628;
+  --c-border-strong: #443a3c;
+
+  --shadow-color: 350 15% 5%;
+
+  --c-footer-bg: var(--c-surface-invert);
+}
+
+/* ── Heading styles ───────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: var(--heading-letter-spacing);
+  line-height: var(--heading-line-height);
+}
+h1 { font-weight: 800; }
+h2 { font-weight: 700; }
+h3, h4, h5, h6 { font-weight: 600; }
+
+/* ── Buttons ──────────────────────────────────────────── */
+.btn-theme {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.8rem 2rem;
+  font-weight: 600;
+  font-family: var(--font-heading);
+  font-size: 0.875rem;
+  letter-spacing: 0.01em;
+  border-radius: var(--radius-full);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  border: none;
+  text-decoration: none;
+  line-height: 1.5;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-theme:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 3px;
+}
+
+.btn-primary-theme {
+  background: var(--c-primary);
+  color: var(--color-text-on-primary);
+  box-shadow:
+    0 1px 2px hsl(var(--shadow-color) / 0.1),
+    0 4px 12px hsl(var(--shadow-color) / 0.08);
+}
+.btn-primary-theme:hover {
+  background: var(--c-primary-dark);
+  box-shadow:
+    0 2px 4px hsl(var(--shadow-color) / 0.12),
+    0 8px 24px hsl(var(--shadow-color) / 0.12);
+  transform: translateY(-2px);
+}
+
+.btn-secondary-theme {
+  background: transparent;
+  color: var(--c-text);
+  border: 1.5px solid var(--c-border-strong);
+}
+.btn-secondary-theme:hover {
+  border-color: var(--c-primary);
+  background: var(--c-primary);
+  color: var(--color-text-on-primary);
+}
+
+.btn-accent-theme {
+  background: var(--c-accent);
+  color: #faf6f0;
+}
+.btn-accent-theme:hover {
+  background: var(--c-accent-dark);
+  transform: translateY(-2px);
+}
+
+/* ── Tags — editorial labels ─────────────────────────── */
+.tag-theme {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font-heading);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-primary);
+  border-bottom: 1.5px solid var(--c-primary);
+  transition: color 0.2s ease;
+}
+.dark .tag-theme {
+  color: var(--c-primary-light);
+  border-color: var(--c-primary-light);
+}
+
+/* ── Cards ────────────────────────────────────────────── */
+.card-theme {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px hsl(var(--shadow-color) / 0.04);
+}
+.card-theme:hover {
+  box-shadow:
+    0 4px 12px hsl(var(--shadow-color) / 0.06),
+    0 16px 40px hsl(var(--shadow-color) / 0.08);
+  border-color: var(--c-border-strong);
+  transform: translateY(-3px);
+}
+
+/* ── Glass ────────────────────────────────────────────── */
+.glass-theme {
+  background: hsl(20 25% 97% / 0.8);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+}
+.dark .glass-theme {
+  background: hsl(345 12% 8% / 0.85);
+}
+
+/* ── Gradient text ────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, var(--c-primary), var(--c-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Hero background — warm radial glow ──────────────── */
+.hero-bg {
+  position: relative;
+}
+.hero-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 60%, hsl(340 60% 30% / 0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 85% 30%, hsl(40 65% 50% / 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 90% 50% at 50% 90%, hsl(340 50% 25% / 0.05) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+.dark .hero-bg::before {
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 60%, hsl(345 50% 40% / 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 85% 30%, hsl(40 55% 55% / 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 90% 50% at 50% 90%, hsl(345 45% 35% / 0.04) 0%, transparent 50%);
+}
+
+/* ── Noise/grain texture overlay ──────────────────────── */
+.hero-bg {
+  isolation: isolate;
+}
+.hero-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 35%, hsl(var(--shadow-color) / 0.03) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 75% 44%, hsl(var(--shadow-color) / 0.025) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 46% 72%, hsl(var(--shadow-color) / 0.02) 0.5px, transparent 0.5px);
+  background-size: 7px 7px, 11px 11px, 13px 13px;
+  pointer-events: none;
+  z-index: 1;
+  mix-blend-mode: multiply;
+}
+.dark .hero-bg::after {
+  mix-blend-mode: screen;
+}
+
+/* ── Accent bar motif ────────────────────────────────── */
+.accent-bar {
+  width: 32px;
+  height: 3px;
+  background: var(--c-accent);
+  border-radius: 9999px;
+}
+
+/* ── Section rule — editorial gradient line ───────────── */
+.section-rule {
+  background: linear-gradient(90deg, transparent, var(--c-border-strong), transparent);
+  max-width: 80%;
+}

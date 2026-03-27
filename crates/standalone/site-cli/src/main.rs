@@ -113,9 +113,14 @@ enum Commands {
         /// Output directory
         #[arg(short, long)]
         output: PathBuf,
-        /// Path to the component library (overrides SITE_COMPONENTS_BASE)
+        /// Path to the component library (overrides auto-resolution)
         #[arg(long)]
         components_dir: Option<PathBuf>,
+        /// Base directory containing component libraries (e.g. generator/).
+        /// The correct library is auto-selected based on componentLib in sitedef.yaml.
+        /// Overrides SITE_COMPONENTS_BASE env var.
+        #[arg(long, env = "SITE_COMPONENTS_BASE")]
+        components_base: Option<PathBuf>,
         /// Build locally: run `bun install && bun run build` for preview
         #[arg(long, default_value_t = false)]
         build: bool,
@@ -265,9 +270,10 @@ async fn main() -> Result<()> {
         Commands::Publish {
             output,
             components_dir,
+            components_base,
             build,
             push,
-        } => cmd_publish(source, &output, components_dir, build, push),
+        } => cmd_publish(source, &output, components_dir, components_base, build, push),
     }
 }
 
@@ -351,9 +357,12 @@ fn cmd_status(source: &Path) -> Result<()> {
         "Default:     {}",
         sitedef.defaultlanguage.locale
     );
-    println!("Themes:      dark={} light={}", sitedef.settings.themedark, sitedef.settings.themelight);
-    if let Some(lib) = &sitedef.settings.component_lib {
-        println!("Components:  {}", lib);
+    let lib = sitedef.settings.component_lib.as_deref().unwrap_or("daisy-default");
+    println!("Component lib: {}", lib);
+    if lib == "daisy-default" {
+        println!("Themes:      dark={} light={}", sitedef.settings.themedark, sitedef.settings.themelight);
+    } else {
+        println!("Theme:       {} (CSS: theme-{}.css)", lib, lib);
     }
     println!();
     println!("Pages ({}):", sitedef.pages.len());
@@ -966,15 +975,27 @@ fn cmd_publish(
     source: &Path,
     output: &Path,
     components_dir: Option<PathBuf>,
+    components_base: Option<PathBuf>,
     build: bool,
     push: bool,
 ) -> Result<()> {
     tracing::info!("Publishing site from {} → {}", source.display(), output.display());
 
+    // Resolve: explicit --components-dir wins; otherwise --components-base auto-selects
+    // based on componentLib in sitedef.yaml; the publisher also checks env vars as fallback.
+    let effective_components_dir = components_dir.or_else(|| {
+        components_base.map(|base| {
+            let sitedef = site_generator::load_sitedef(source).ok()?;
+            let lib = sitedef.settings.component_lib.as_deref();
+            let resolved = site_publisher::resolve_components_dir(&base, lib);
+            if resolved.exists() { Some(resolved) } else { None }
+        }).flatten()
+    });
+
     let publish_config = site_publisher::PublishConfig {
         source_dir: source.to_path_buf(),
         output_dir: output.to_path_buf(),
-        components_dir,
+        components_dir: effective_components_dir,
         build,
         base_path: None,
     };

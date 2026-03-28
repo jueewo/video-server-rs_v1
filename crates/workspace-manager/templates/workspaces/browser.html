@@ -3,11 +3,11 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-7xl">
     <!-- Breadcrumbs -->
-    <div class="text-sm breadcrumbs mb-4">
+    <div class="text-sm breadcrumbs mb-4 [&_li:last-child_a]:pointer-events-auto [&_li:last-child_a]:hover:text-primary [&_li:last-child_a]:cursor-pointer">
         <ul>
-            <li><a href="/workspaces">Workspaces</a></li>
+            <li><a href="/workspaces" class="link link-hover hover:text-primary">Workspaces</a></li>
             {% for (label, url) in breadcrumbs %}
-            <li><a href="{{ url }}">{{ label }}</a></li>
+            <li><a href="{{ url }}" class="link link-hover hover:text-primary">{{ label }}</a></li>
             {% endfor %}
         </ul>
     </div>

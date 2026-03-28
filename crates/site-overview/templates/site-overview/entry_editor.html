@@ -8,11 +8,7 @@
         <ul>
             <li><a href="/workspaces">Workspaces</a></li>
             {% for (label, url) in breadcrumbs %}
-            {% if !loop.last %}
             <li><a href="{{ url }}">{{ label }}</a></li>
-            {% else %}
-            <li>{{ label }}</li>
-            {% endif %}
             {% endfor %}
             <li><a href="/workspaces/{{ workspace_id }}/site-collection?path={{ folder_path }}&collection={{ collection_name }}">{{ collection_name }}</a></li>
             <li class="font-mono text-xs">{{ locale }}/{{ slug }}</li>

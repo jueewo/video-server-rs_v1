@@ -29,6 +29,9 @@
             <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}?files=1" class="btn btn-sm btn-ghost gap-1">
                 <i data-lucide="folder-open" class="w-4 h-4"></i> Files
             </a>
+            <button onclick="togglePagePreview()" class="btn btn-sm btn-ghost gap-1" id="preview-btn">
+                <i data-lucide="eye" class="w-4 h-4"></i> Preview
+            </button>
         </div>
     </div>
 
@@ -58,7 +61,15 @@
         </form>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+    <!-- Preview panel (hidden by default) -->
+    <div id="preview-panel" class="hidden mb-6">
+        <div class="card bg-base-100 border border-base-300 shadow-sm">
+            <div class="card-body p-5 max-h-[80vh] overflow-y-auto" id="preview-content">
+            </div>
+        </div>
+    </div>
+
+    <div id="editor-grid" class="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
         <!-- Element list -->
         <div class="lg:col-span-3">
@@ -197,6 +208,7 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
 <script src="/static/js/json-form-editor.js"></script>
 <script src="/static/js/site-schemas.js"></script>
+<script src="/static/js/site-preview.js"></script>
 <script src="/static/js/media-picker.js"></script>
 <script>
 var WORKSPACE_ID = '{{ workspace_id }}';
@@ -308,6 +320,36 @@ function escHtml(s) {
 }
 
 function switchTab(tab) { if (jfe) jfe.switchTab(tab); }
+
+// ── Preview toggle ────────────────────────────────────────────────────────────
+var _pagePreviewOn = false;
+
+function togglePagePreview() {
+    _pagePreviewOn = !_pagePreviewOn;
+    var grid    = document.getElementById('editor-grid');
+    var preview = document.getElementById('preview-panel');
+    var btn     = document.getElementById('preview-btn');
+
+    if (_pagePreviewOn) {
+        // Build preview from pageData.elements
+        var fakeData = {
+            elements_above: pageData.elements || [],
+            elements_below: [],
+            faqdata: []
+        };
+        document.getElementById('preview-content').innerHTML = renderPreview(fakeData, '');
+        grid.classList.add('hidden');
+        preview.classList.remove('hidden');
+        btn.classList.add('btn-active');
+        btn.querySelector('[data-lucide]').setAttribute('data-lucide', 'eye-off');
+    } else {
+        grid.classList.remove('hidden');
+        preview.classList.add('hidden');
+        btn.classList.remove('btn-active');
+        btn.querySelector('[data-lucide]').setAttribute('data-lucide', 'eye');
+    }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
 
 // ── Render element list ───────────────────────────────────────────────────────
 function renderElementList() {

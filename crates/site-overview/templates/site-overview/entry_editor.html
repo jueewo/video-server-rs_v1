@@ -27,6 +27,9 @@
                class="btn btn-sm btn-ghost gap-1">
                 <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
             </a>
+            <button onclick="togglePreview()" class="btn btn-sm btn-ghost gap-1" id="preview-btn">
+                <i data-lucide="eye" class="w-4 h-4"></i> Preview
+            </button>
             <button onclick="saveEntry()" class="btn btn-sm btn-primary gap-1" id="save-btn">
                 <i data-lucide="save" class="w-4 h-4"></i> Save
             </button>
@@ -38,7 +41,17 @@
 
         <!-- Left: tabbed editor (2/3 width) -->
         <div class="lg:col-span-2 flex flex-col gap-4">
-            <div class="card bg-base-100 border border-base-300 shadow-sm flex-1">
+
+            <!-- Preview panel (hidden by default) -->
+            <div id="preview-panel" class="hidden">
+                <div class="card bg-base-100 border border-base-300 shadow-sm">
+                    <div class="card-body p-5 max-h-[80vh] overflow-y-auto" id="preview-content">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Editor panel -->
+            <div id="editor-panel" class="card bg-base-100 border border-base-300 shadow-sm flex-1">
                 <div class="card-body p-3">
 
                     <!-- Tab bar -->
@@ -339,8 +352,10 @@
 </dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
+<script src="/static/vendor/marked.min.js"></script>
 <script src="/static/js/json-form-editor.js"></script>
 <script src="/static/js/site-schemas.js"></script>
+<script src="/static/js/site-preview.js"></script>
 <script src="/static/js/media-picker.js"></script>
 <script>
 var WORKSPACE_ID    = '{{ workspace_id }}';
@@ -374,6 +389,37 @@ function markUnsaved() {
 
 function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Preview toggle ────────────────────────────────────────────────────────────
+
+var _previewOn = false;
+
+function togglePreview() {
+    _previewOn = !_previewOn;
+    var editor  = document.getElementById('editor-panel');
+    var preview = document.getElementById('preview-panel');
+    var btn     = document.getElementById('preview-btn');
+
+    if (_previewOn) {
+        // Sync latest JSON edits if dirty
+        if (fmJsonDirty) {
+            try { fmData = JSON.parse(document.getElementById('fm-json-editor').value); }
+            catch(e) { /* ignore parse errors in preview */ }
+        }
+        var body = document.getElementById('body-editor').value;
+        document.getElementById('preview-content').innerHTML = renderPreview(fmData, body);
+        editor.classList.add('hidden');
+        preview.classList.remove('hidden');
+        btn.classList.add('btn-active');
+        btn.querySelector('[data-lucide]').setAttribute('data-lucide', 'eye-off');
+    } else {
+        editor.classList.remove('hidden');
+        preview.classList.add('hidden');
+        btn.classList.remove('btn-active');
+        btn.querySelector('[data-lucide]').setAttribute('data-lucide', 'eye');
+    }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 // ── Frontmatter form ─────────────────────────────────────────────────────────

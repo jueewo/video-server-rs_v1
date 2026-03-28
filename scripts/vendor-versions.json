@@ -15,7 +15,8 @@
     "monaco-editor": "0.45.0",
     "daisyui": "5.5.19",
     "reveal.js": "6.0.0",
-    "sql.js": "1.14.1"
+    "sql.js": "1.14.1",
+    "katex": "0.16.21"
   },
   "notes": {
     "sql.js": "SQLite compiled to WASM for browser-side database access. Used by data apps (js-tool folders) to query .db files client-side.",

@@ -96,6 +96,12 @@ mkdir -p "$VENDOR_DIR/sql-js"
 cp "$NM/sql.js/dist/sql-wasm.js"                                                "$VENDOR_DIR/sql-js/"
 cp "$NM/sql.js/dist/sql-wasm.wasm"                                              "$VENDOR_DIR/sql-js/"
 
+# ── KaTeX (math rendering: JS + CSS + fonts) ────────────────────────────────
+mkdir -p "$VENDOR_DIR/katex"
+cp "$NM/katex/dist/katex.min.js"                                               "$VENDOR_DIR/katex/"
+cp "$NM/katex/dist/katex.min.css"                                              "$VENDOR_DIR/katex/"
+cp -r "$NM/katex/dist/fonts"                                                   "$VENDOR_DIR/katex/"
+
 # ── Monaco Editor (full min/vs tree, ~30 MB) ──────────────────────────────
 echo "📁 Copying Monaco Editor (this may take a moment)..."
 mkdir -p "$VENDOR_DIR/monaco"

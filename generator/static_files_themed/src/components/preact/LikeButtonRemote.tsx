@@ -76,13 +76,13 @@ export default function LikeButton({
 
   return (
     <>
-      <div class="flex justify-center">
+      <div class="flex justify-center my-6 px-4">
         {!alreadyliked.value ? (
           <div
-            class="btn-primary-theme transition ease-in-out delay-150 hover:-translate-y-1 hover:scale-110 duration-300 cursor-pointer flex items-center gap-2"
+            class="btn-theme btn-primary-theme text-sm transition ease-in-out delay-150 hover:-translate-y-1 hover:scale-105 duration-300 cursor-pointer"
             onClick={likeclicked}
           >
-            {showicon && <IconHeart setclass="w-8 h-8" />}
+            {showicon && <IconHeart setclass="w-5 h-5" />}
 
             <span>{label ? label : "Like"}</span>
             <span
@@ -96,8 +96,8 @@ export default function LikeButton({
             </span>
           </div>
         ) : (
-          <div class="btn-primary-theme flex items-center gap-2">
-            {showicon && <IconHeart setclass="w-8 h-8" />}
+          <div class="btn-theme btn-primary-theme">
+            {showicon && <IconHeart setclass="w-5 h-5" />}
 
             <span>{label ? label : "Like"}</span>
             <span

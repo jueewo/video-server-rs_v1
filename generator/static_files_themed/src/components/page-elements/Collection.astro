@@ -15,6 +15,7 @@ var filter_featured = _props("filter_featured");
 var filter_filtertag = _props("filter_filtertag");
 var filter_by_filtertag = filter_filtertag && filter_filtertag.length > 0;
 const show_filters = _props("show_filters");
+const show_search = _props("show_search");
 
 const collection_carddata = (await getCollection(_props("collection")))
     .filter((a) =>
@@ -62,26 +63,20 @@ if (show_default_lang) {
     }
 }
 
-// Collect all unique filtertags for the filter UI
-const allFilterTags: string[] = [];
-if (show_filters) {
-    const tagSet = new Set<string>();
-    [...collection_carddata_actlang, ...collection_carddata_defaultlang].forEach((card) => {
-        card.data.filtertags?.forEach((tag: string) => tagSet.add(tag));
-    });
-    // Remove generic "course" tag — not useful as a filter
-    tagSet.delete("course");
-    allFilterTags.push(...Array.from(tagSet).sort());
+// Helper: get filtertags string for a card, adding "other" if it has no program tag
+function getCardFilterTags(card: any): string {
+    const tags = card.data.filtertags || [];
+    const hasProgram = tags.some((t: string) => ["agentic-ai", "analytics-decision", "processes-digital"].includes(t));
+    return hasProgram ? tags.join(",") : [...tags, "other"].join(",");
 }
 
-// Human-readable labels for filtertags
+// Human-readable labels for filtertags — only labeled tags appear as filter chips
 const tagLabels: Record<string, string> = {
-    // Academy categories
-    "processes": "Processes",
-    "ai-data": "AI & Data",
-    "operations": "Operations & Planning",
-    "digitalization": "Digitalization",
-    "rust": "Rust",
+    // Academy programs
+    "agentic-ai": "Agentic AI Program",
+    "analytics-decision": "Analytics & Decision Science",
+    "processes-digital": "Processes & Digitalization",
+    "other": "Others",
     // Blog categories
     "ai": "AI",
     "simulation": "Simulation",
@@ -89,11 +84,42 @@ const tagLabels: Record<string, string> = {
     "academy": "Academy",
     "general": "General",
 };
+
+// Program tags — used to detect "other" courses
+const programTags = ["agentic-ai", "analytics-decision", "processes-digital"];
+
+// Collect unique filtertags for the filter UI — only show tags that have labels
+const allFilterTags: string[] = [];
+if (show_filters) {
+    const tagSet = new Set<string>();
+    let hasOther = false;
+    [...collection_carddata_actlang, ...collection_carddata_defaultlang].forEach((card) => {
+        const tags = card.data.filtertags || [];
+        tags.forEach((tag: string) => {
+            if (tagLabels[tag]) tagSet.add(tag);
+        });
+        // If card has no program tag, mark it as "other"
+        if (!tags.some((t: string) => programTags.includes(t))) hasOther = true;
+    });
+    tagSet.delete("course");
+    if (hasOther) tagSet.add("other");
+    allFilterTags.push(...Array.from(tagSet).sort());
+}
 ---
 
 {_props("title") && _props("title").length > 0 && (
     <div class="mt-12 text-center">
         <h2 class="text-3xl font-bold font-heading">{_props("title")}</h2>
+    </div>
+)}
+
+{show_search && (
+    <div class="collection-search mt-8 flex justify-center px-4 max-w-xl mx-auto">
+        <input
+            type="text"
+            class="collection-search-input w-full px-4 py-2.5 rounded-full border border-border bg-transparent text-sm placeholder:text-text-muted focus:outline-none focus:border-primary transition-colors"
+            placeholder="Search courses by title, topic, or keyword..."
+        />
     </div>
 )}
 
@@ -120,7 +146,7 @@ const tagLabels: Record<string, string> = {
     <>
         <div class="collection-grid mt-12 grid justify-items-center grid-cols-1 gap-8 px-4 md:px-10 md:gap-10 md:grid-cols-2 xl:gap-8 xl:grid-cols-3 xl:px-5 max-w-7xl mx-auto">
             {collection_carddata_actlang.map((card) => (
-                <div class="collection-card w-full" data-filtertags={card.data.filtertags?.join(",") || ""}>
+                <div class="collection-card w-full" data-filtertags={getCardFilterTags(card)} data-title={card.data.title?.toLowerCase() || ""} data-desc={card.data.desc?.toLowerCase() || ""} data-tags={card.data.tags?.join(" ").toLowerCase() || ""}>
                     {card.data.featured && (
                         <CardDefault2 card={card} pathdir={collection_name} pagelang={lang} />
                     )}
@@ -138,7 +164,7 @@ const tagLabels: Record<string, string> = {
                 </div>
                 <div class="collection-grid mt-8 grid justify-items-center grid-cols-1 gap-8 px-4 md:px-10 md:gap-10 md:grid-cols-2 xl:gap-8 xl:grid-cols-3 xl:px-5 max-w-7xl mx-auto">
                     {collection_carddata_defaultlang.map((card) => (
-                        <div class="collection-card w-full" data-filtertags={card.data.filtertags?.join(",") || ""}>
+                        <div class="collection-card w-full" data-filtertags={getCardFilterTags(card)} data-title={card.data.title?.toLowerCase() || ""} data-desc={card.data.desc?.toLowerCase() || ""} data-tags={card.data.tags?.join(" ").toLowerCase() || ""}>
                             {card.data.featured && (
                                 <CardDefault2 card={card} pathdir={collection_name} pagelang={lang} />
                             )}
@@ -157,7 +183,7 @@ const tagLabels: Record<string, string> = {
     <>
         <div class="collection-grid mt-10 grid justify-items-center items-center gap-10 grid-cols-1 xl:grid-cols-2 xl:px-9 max-w-7xl mx-auto px-4">
             {collection_carddata_actlang.map((card) => (
-                <div class="collection-card w-full" data-filtertags={card.data.filtertags?.join(",") || ""}>
+                <div class="collection-card w-full" data-filtertags={getCardFilterTags(card)} data-title={card.data.title?.toLowerCase() || ""} data-desc={card.data.desc?.toLowerCase() || ""} data-tags={card.data.tags?.join(" ").toLowerCase() || ""}>
                     <CardBlog card={card} pathdir={collection_name} pagelang={lang} />
                 </div>
             ))}
@@ -169,7 +195,7 @@ const tagLabels: Record<string, string> = {
                 </div>
                 <div class="collection-grid grid justify-items-center items-center gap-10 grid-cols-1 xl:grid-cols-2 xl:px-9 max-w-7xl mx-auto px-4">
                     {collection_carddata_defaultlang.map((card) => (
-                        <div class="collection-card w-full" data-filtertags={card.data.filtertags?.join(",") || ""}>
+                        <div class="collection-card w-full" data-filtertags={getCardFilterTags(card)} data-title={card.data.title?.toLowerCase() || ""} data-desc={card.data.desc?.toLowerCase() || ""} data-tags={card.data.tags?.join(" ").toLowerCase() || ""}>
                             <CardBlog card={card} pathdir={collection_name} pagelang={lang} />
                         </div>
                     ))}
@@ -183,7 +209,7 @@ const tagLabels: Record<string, string> = {
     <>
         <div class="collection-grid mt-12 grid justify-items-center grid-cols-1 gap-8 px-4 md:px-10 md:gap-10 md:grid-cols-2 xl:gap-8 xl:grid-cols-3 xl:px-5 max-w-7xl mx-auto">
             {collection_carddata_actlang.map((card) => (
-                <div class="collection-card w-full" data-filtertags={card.data.filtertags?.join(",") || ""}>
+                <div class="collection-card w-full" data-filtertags={getCardFilterTags(card)} data-title={card.data.title?.toLowerCase() || ""} data-desc={card.data.desc?.toLowerCase() || ""} data-tags={card.data.tags?.join(" ").toLowerCase() || ""}>
                     <CardInfo card={card} pathdir={collection_name} pagelang={lang} />
                 </div>
             ))}
@@ -195,7 +221,7 @@ const tagLabels: Record<string, string> = {
                 </div>
                 <div class="collection-grid mt-8 grid justify-items-center grid-cols-1 gap-8 px-4 md:px-10 md:gap-10 md:grid-cols-2 xl:gap-8 xl:grid-cols-3 xl:px-5 max-w-7xl mx-auto">
                     {collection_carddata_defaultlang.map((card) => (
-                        <div class="collection-card w-full" data-filtertags={card.data.filtertags?.join(",") || ""}>
+                        <div class="collection-card w-full" data-filtertags={getCardFilterTags(card)} data-title={card.data.title?.toLowerCase() || ""} data-desc={card.data.desc?.toLowerCase() || ""} data-tags={card.data.tags?.join(" ").toLowerCase() || ""}>
                             <CardInfo card={card} pathdir={collection_name} pagelang={lang} />
                         </div>
                     ))}
@@ -205,47 +231,60 @@ const tagLabels: Record<string, string> = {
     </>
 )}
 
-{show_filters && (
+{(show_filters || show_search) && (
     <script>
         document.addEventListener("DOMContentLoaded", () => {
-            const filterContainer = document.querySelector(".collection-filter");
-            if (!filterContainer) return;
-
-            const chips = filterContainer.querySelectorAll<HTMLButtonElement>(".filter-chip");
             const cards = document.querySelectorAll<HTMLElement>(".collection-card");
             const banners = document.querySelectorAll<HTMLElement>(".collection-default-lang-banner");
+            let activeFilter = "all";
+            let activeQuery = "";
 
-            chips.forEach((chip) => {
-                chip.addEventListener("click", () => {
-                    const filter = chip.dataset.filter;
+            function applyFilters() {
+                cards.forEach((card) => {
+                    const tags = (card.dataset.filtertags || "").split(",");
+                    const matchesFilter = activeFilter === "all" || tags.includes(activeFilter);
+                    let matchesSearch = true;
+                    if (activeQuery) {
+                        const haystack = `${card.dataset.title || ""} ${card.dataset.desc || ""} ${card.dataset.tags || ""} ${card.dataset.filtertags || ""}`;
+                        matchesSearch = haystack.includes(activeQuery);
+                    }
+                    card.style.display = (matchesFilter && matchesSearch) ? "" : "none";
+                });
+                banners.forEach((banner) => {
+                    const nextGrid = banner.nextElementSibling as HTMLElement;
+                    if (nextGrid) {
+                        const visible = nextGrid.querySelectorAll('.collection-card:not([style*="display: none"])');
+                        banner.style.display = visible.length > 0 ? "" : "none";
+                    }
+                });
+            }
 
-                    // Update active chip
-                    chips.forEach((c) => {
-                        c.classList.remove("active", "bg-primary", "text-white", "border-primary");
-                        c.classList.add("border-border", "text-text-muted");
-                    });
-                    chip.classList.add("active", "bg-primary", "text-white", "border-primary");
-                    chip.classList.remove("border-border", "text-text-muted");
-
-                    // Filter cards
-                    let visibleCount = 0;
-                    cards.forEach((card) => {
-                        const tags = (card.dataset.filtertags || "").split(",");
-                        const show = filter === "all" || tags.includes(filter!);
-                        card.style.display = show ? "" : "none";
-                        if (show) visibleCount++;
-                    });
-
-                    // Show/hide default language banners based on visible cards after them
-                    banners.forEach((banner) => {
-                        const nextGrid = banner.nextElementSibling as HTMLElement;
-                        if (nextGrid) {
-                            const visibleInGrid = nextGrid.querySelectorAll('.collection-card:not([style*="display: none"])');
-                            banner.style.display = visibleInGrid.length > 0 ? "" : "none";
-                        }
+            // Tag filter chips
+            const filterContainer = document.querySelector(".collection-filter");
+            if (filterContainer) {
+                const chips = filterContainer.querySelectorAll<HTMLButtonElement>(".filter-chip");
+                chips.forEach((chip) => {
+                    chip.addEventListener("click", () => {
+                        activeFilter = chip.dataset.filter || "all";
+                        chips.forEach((c) => {
+                            c.classList.remove("active", "bg-primary", "text-white", "border-primary");
+                            c.classList.add("border-border", "text-text-muted");
+                        });
+                        chip.classList.add("active", "bg-primary", "text-white", "border-primary");
+                        chip.classList.remove("border-border", "text-text-muted");
+                        applyFilters();
                     });
                 });
-            });
+            }
+
+            // Search input
+            const searchInput = document.querySelector<HTMLInputElement>(".collection-search-input");
+            if (searchInput) {
+                searchInput.addEventListener("input", () => {
+                    activeQuery = searchInput.value.toLowerCase().trim();
+                    applyFilters();
+                });
+            }
         });
     </script>
 )}

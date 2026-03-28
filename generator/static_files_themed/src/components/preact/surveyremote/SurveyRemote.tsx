@@ -144,7 +144,7 @@ export default function SurveyComponent({
                 </div>
               )}
               <div class="flex justify-center">
-                <form onSubmit={onSubmit}>
+                <form onSubmit={onSubmit} class="w-full max-w-xl">
                   <div id="pages">
                     {survey?.pages &&
                       survey.pages.length > 0 &&

@@ -197,13 +197,15 @@
     if (typeof mermaid !== 'undefined') {
         mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
     }
-    renderMathInElement(document.getElementById('rendered'), {
-        delimiters: [
-            {left: '\\[', right: '\\]', display: true},
-            {left: '\\(', right: '\\)', display: false}
-        ],
-        throwOnError: false
-    });
+    if (typeof renderMathInElement === 'function') {
+        renderMathInElement(document.getElementById('rendered'), {
+            delimiters: [
+                {left: '\\[', right: '\\]', display: true},
+                {left: '\\(', right: '\\)', display: false}
+            ],
+            throwOnError: false
+        });
+    }
     const _md = document.querySelectorAll('.mermaid');
     if (_md.length && typeof mermaid !== 'undefined') {
         mermaid.run({nodes: _md});

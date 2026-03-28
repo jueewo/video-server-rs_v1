@@ -97,9 +97,10 @@ cp "$NM/sql.js/dist/sql-wasm.js"                                                
 cp "$NM/sql.js/dist/sql-wasm.wasm"                                              "$VENDOR_DIR/sql-js/"
 
 # ── KaTeX (math rendering: JS + CSS + fonts) ────────────────────────────────
-mkdir -p "$VENDOR_DIR/katex"
+mkdir -p "$VENDOR_DIR/katex/contrib"
 cp "$NM/katex/dist/katex.min.js"                                               "$VENDOR_DIR/katex/"
 cp "$NM/katex/dist/katex.min.css"                                              "$VENDOR_DIR/katex/"
+cp "$NM/katex/dist/contrib/auto-render.min.js"                                 "$VENDOR_DIR/katex/contrib/"
 cp -r "$NM/katex/dist/fonts"                                                   "$VENDOR_DIR/katex/"
 
 # ── Monaco Editor (full min/vs tree, ~30 MB) ──────────────────────────────

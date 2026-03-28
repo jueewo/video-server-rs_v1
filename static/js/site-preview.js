@@ -8,6 +8,18 @@
 
 /* global marked */
 
+// ── Preview width toggle ─────────────────────────────────────────────────────
+
+function setPreviewWidth(w) {
+    var mockup = document.getElementById('preview-mockup');
+    if (!mockup) return;
+    mockup.style.maxWidth = w === '100%' ? '' : w;
+    document.querySelectorAll('.preview-width-btn').forEach(function(b) {
+        b.classList.toggle('btn-active', b.dataset.w === w);
+    });
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
 // Configure marked for safe rendering
 if (typeof marked !== 'undefined') {
     marked.setOptions({ breaks: true, gfm: true });

@@ -44,8 +44,26 @@
 
             <!-- Preview panel (hidden by default) -->
             <div id="preview-panel" class="hidden">
-                <div class="card bg-base-100 border border-base-300 shadow-sm">
-                    <div class="card-body p-5 max-h-[80vh] overflow-y-auto" id="preview-content">
+                <div class="bg-base-200/50 rounded-xl p-4 flex flex-col items-center">
+                    <!-- Width toggle -->
+                    <div class="flex gap-1 mb-3">
+                        <button onclick="setPreviewWidth('100%')" class="btn btn-xs btn-ghost gap-1 preview-width-btn btn-active" data-w="100%" title="Desktop">
+                            <i data-lucide="monitor" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button onclick="setPreviewWidth('768px')" class="btn btn-xs btn-ghost gap-1 preview-width-btn" data-w="768px" title="Tablet">
+                            <i data-lucide="tablet" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button onclick="setPreviewWidth('375px')" class="btn btn-xs btn-ghost gap-1 preview-width-btn" data-w="375px" title="Phone">
+                            <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                    <!-- Browser mockup -->
+                    <div id="preview-mockup" class="mockup-browser bg-base-300 border border-base-300 shadow-lg w-full transition-all duration-300">
+                        <div class="mockup-browser-toolbar">
+                            <div class="input">{{ folder_path }}/{{ collection_name }}/{{ locale }}/{{ slug }}</div>
+                        </div>
+                        <div class="bg-base-100 p-6 max-h-[70vh] overflow-y-auto" id="preview-content">
+                        </div>
                     </div>
                 </div>
             </div>

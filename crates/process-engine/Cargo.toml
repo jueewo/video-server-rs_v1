@@ -1,0 +1,28 @@
+[package]
+name = "process-engine"
+version = "0.1.0"
+edition = "2021"
+description = "BPMN-inspired process runtime engine with agentic AI task support"
+
+[dependencies]
+db            = { path = "../db" }
+agent-tools   = { path = "../agent-tools" }
+llm-provider  = { path = "../llm-provider" }
+bpmn-simulator-processor = { path = "../workspace-processors/bpmn-simulator" }
+
+axum          = { workspace = true }
+tokio         = { workspace = true }
+tower-sessions = { workspace = true }
+serde         = { workspace = true }
+serde_json    = { workspace = true }
+serde_yaml    = "0.9"
+anyhow        = { workspace = true }
+tracing       = { workspace = true }
+reqwest       = { workspace = true }
+uuid          = { workspace = true }
+chrono        = { workspace = true }
+async-trait   = { workspace = true }
+thiserror     = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

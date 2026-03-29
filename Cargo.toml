@@ -37,6 +37,7 @@ members = [
     "crates/git-provider",
     "crates/agent-tools",
     "crates/agent-registry",
+    "crates/process-engine",
     "crates/federation",
     "crates/db",
     "crates/db-sqlite",
@@ -93,6 +94,7 @@ federation = { path = "crates/federation" }
 db = { path = "crates/db" }
 db-sqlite = { path = "crates/db-sqlite" }
 app-runtime = { path = "crates/app-runtime" }
+process-engine = { path = "crates/process-engine" }
 
 # Web framework
 axum = { version = "0.8", features = ["multipart", "ws"] }

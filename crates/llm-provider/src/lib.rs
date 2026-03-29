@@ -1,3 +1,4 @@
+pub mod completion;
 pub mod crypto;
 pub mod db;
 pub mod providers;

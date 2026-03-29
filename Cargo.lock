@@ -608,6 +608,7 @@ name = "bpmn-simulator-processor"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "roxmltree",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -3866,6 +3867,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "process-engine"
+version = "0.1.0"
+dependencies = [
+ "agent-tools",
+ "anyhow",
+ "async-trait",
+ "axum",
+ "bpmn-simulator-processor",
+ "chrono",
+ "db",
+ "llm-provider",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tower-sessions",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "profiling"
 version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4398,6 +4423,12 @@ dependencies = [
  "serde",
  "serde_derive",
 ]
+
+[[package]]
+name = "roxmltree"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
 
 [[package]]
 name = "rsa"
@@ -6269,6 +6300,7 @@ dependencies = [
  "opentelemetry-otlp",
  "opentelemetry_sdk",
  "pdf-viewer",
+ "process-engine",
  "rate-limiter",
  "reqwest 0.12.28",
  "serde",

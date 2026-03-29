@@ -38,36 +38,36 @@ export default function NewsBanner({
 
   return (
     <>
-      <div class="w-3/4 mx-20 mt-20">
+      <div class="w-full px-4 sm:px-8 md:w-3/4 md:mx-auto mt-12 md:mt-20">
         <div class="text-center">
           <div class="max-w-md mx-auto">
-            <h1 class="text-5xl font-bold font-heading text-text">{title}</h1>
-            {desc && desc.length > 0 && <p class="pt-6 text-text-muted">{desc}</p>}
+            <h1 class="text-3xl md:text-5xl font-bold font-heading text-text">{title}</h1>
+            {desc && desc.length > 0 && <p class="pt-4 md:pt-6 text-text-muted">{desc}</p>}
           </div>
         </div>
       </div>
 
       {loadeddata && loadeddata.length > 0 && (
-        <div class="w-screen flex overflow-x-auto gap-4 p-4 bg-surface-alt rounded-xl my-9 scrollbar-thin">
+        <div class="w-screen flex overflow-x-auto gap-4 p-4 bg-surface-alt rounded-xl my-6 md:my-9 scrollbar-thin">
           {loadeddata.map((newsitem, index) => (
-            <div key={index} class="flex-shrink-0 w-4/5">
+            <div key={index} class="flex-shrink-0 w-[85%] sm:w-4/5">
               <div
                 id={`item-${index}`}
-                class={`card-theme h-64 w-full bg-gradient-to-r from-primary to-blue-900 text-white flex ${newsitem.img ? "flex-row" : ""}`}
+                class={`card-theme w-full bg-gradient-to-r from-primary to-blue-900 text-white flex ${newsitem.img ? "flex-col sm:flex-row" : ""}`}
               >
                 {newsitem.img && (
                   <figure class="flex-shrink-0">
-                    <img src={newsitem.img} class="rounded-lg h-64 w-64 object-cover" />
+                    <img src={newsitem.img} class="rounded-t-lg sm:rounded-l-lg sm:rounded-tr-none h-40 w-full sm:h-64 sm:w-48 md:w-64 object-cover" />
                   </figure>
                 )}
-                <div class="p-5 flex flex-col justify-between flex-1">
+                <div class="p-4 sm:p-5 flex flex-col justify-between flex-1 min-h-[10rem] sm:min-h-[16rem]">
                   <div>
-                    <h2 class="text-lg font-bold font-heading">{newsitem.title}</h2>
-                    <p class="mt-2 text-white/80">{newsitem.desc}</p>
+                    <h2 class="text-base sm:text-lg font-bold font-heading">{newsitem.title}</h2>
+                    <p class="mt-1 sm:mt-2 text-sm sm:text-base text-white/80">{newsitem.desc}</p>
                   </div>
-                  <div class="flex justify-end">
+                  <div class="flex justify-end mt-3 sm:mt-0">
                     <a href={newsitem.link}>
-                      <button class="btn-theme bg-white/20 hover:bg-white/30 text-white">{newsitem.button} &#10095;</button>
+                      <button class="btn-theme bg-white/20 hover:bg-white/30 text-white text-sm">{newsitem.button} &#10095;</button>
                     </a>
                   </div>
                 </div>

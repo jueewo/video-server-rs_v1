@@ -102,20 +102,10 @@
     #bpmn-canvas.view-mode .djs-palette {
         display: none !important;
     }
-    /* Disable interaction in view mode */
-    #bpmn-canvas.view-mode .djs-hit-all,
-    #bpmn-canvas.view-mode .djs-hit-click-stroke,
-    #bpmn-canvas.view-mode .djs-hit-no-move,
+    /* Hide bendpoint/segment handles in view mode (visual cleanup) */
     #bpmn-canvas.view-mode .djs-bendpoint,
     #bpmn-canvas.view-mode .djs-segment-dragger {
-        pointer-events: none !important;
-    }
-    /* Keep scroll/pan working in view mode */
-    #bpmn-canvas.view-mode .djs-container {
-        pointer-events: auto;
-    }
-    #bpmn-canvas.view-mode .djs-container svg {
-        pointer-events: none;
+        display: none !important;
     }
     /* Hide panel open button by default; JS adds .btn-visible to show it */
     #panel-open-btn {
@@ -222,6 +212,24 @@
         const canvas = modeler.get('canvas');
         canvas.zoom('fit-viewport', 'auto');
     }
+
+    // Block all editing interactions in view mode via high-priority eventBus listeners
+    (function() {
+        const eventBus = modeler.get('eventBus');
+        const blocked = [
+            'shape.move.start', 'shape.move.move', 'shape.move.end',
+            'bendpoint.move.start', 'bendpoint.move.move', 'bendpoint.move.end',
+            'connectionSegment.move.start', 'connectionSegment.move.move', 'connectionSegment.move.end',
+            'connect.start', 'connect.move', 'connect.end',
+            'resize.start', 'resize.move', 'resize.end',
+            'element.dblclick'
+        ];
+        blocked.forEach(function(event) {
+            eventBus.on(event, 10000, function() {
+                if (!editMode) return false;
+            });
+        });
+    })();
 
     let editMode = false;
 

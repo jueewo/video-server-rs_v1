@@ -86,6 +86,17 @@ cp "$NM/bpmn-js/dist/assets/bpmn-js.css"                                      "$
 cp "$NM/bpmn-js/dist/assets/diagram-js.css"                                   "$VENDOR_DIR/bpmn-js/"
 cp -r "$NM/bpmn-js/dist/assets/bpmn-font"                                     "$VENDOR_DIR/bpmn-js/"
 
+# ── bpmn-js custom bundle (modeler + token-simulation + agent renderer) ──
+echo "📦 Building custom bpmn-js bundle..."
+cd "$SCRIPT_DIR/bpmn-bundle"
+bun install --no-progress 2>&1 | grep -v "^$" || true
+bun build entry.js \
+  --outfile "$VENDOR_DIR/bpmn-js/bpmn-modeler-custom.min.js" \
+  --minify --target browser --format iife
+cp node_modules/bpmn-js-token-simulation/assets/css/bpmn-js-token-simulation.css \
+   "$VENDOR_DIR/bpmn-js/bpmn-token-simulation.css"
+cd "$REPO_ROOT"
+
 # ── PDF.js (ES module + worker) ────────────────────────────────────────────
 mkdir -p "$VENDOR_DIR/pdfjs"
 cp "$NM/pdfjs-dist/build/pdf.min.mjs"                                          "$VENDOR_DIR/pdfjs/"

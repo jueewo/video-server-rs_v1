@@ -1,4 +1,4 @@
-use crate::helpers::{check_scope, require_auth, verify_workspace_ownership, format_human_date, monaco_language, agent_format_helper_html, parent_browse_url, build_path_crumbs, count_files_in_dir};
+use crate::helpers::{check_scope, require_auth, verify_workspace_ownership, format_human_date, monaco_language, agent_format_helper_html, parent_browse_url, typed_folder_browse_url, build_path_crumbs, count_files_in_dir};
 use crate::{WorkspaceManagerState, WorkspaceConfig, WorkspaceDisplay, WorkspaceStats, WorkspaceListTemplate, NewWorkspaceTemplate, WorkspaceDashboardTemplate, WorkspaceBrowserTemplate, ImageViewerTemplate, DrawioEditorTemplate, MermaidEditorTemplate, ExcalidrawEditorTemplate, MarkdownPreviewTemplate, AgentViewerTemplate};
 use crate::file_browser;
 use crate::file_editor;
@@ -605,6 +605,7 @@ pub(crate) async fn open_file_page(
     }
 
     let workspace_root = state.storage.workspace_root(&workspace_id);
+    let ws_config = WorkspaceConfig::load(&workspace_root).ok();
 
     let file_name = std::path::Path::new(&file_path)
         .file_name()
@@ -699,7 +700,9 @@ pub(crate) async fn open_file_page(
                 true, // is_owner — always true for workspace files
             );
             template.save_url = save_url;
-            template.back_url = back_url;
+            let (label, url) = typed_folder_browse_url(&workspace_id, &file_path, ws_config.as_ref());
+            template.back_url = url;
+            template.back_label = label;
             template.path_crumbs = build_path_crumbs(&workspace_id, &workspace_name, &file_path);
             template
                 .render()

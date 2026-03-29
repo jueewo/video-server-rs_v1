@@ -1,0 +1,11 @@
+{
+  "name": "bpmn-custom-bundle",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "bpmn-js": "18.13.2",
+    "bpmn-js-token-simulation": "^0.39.0",
+    "@bpmn-io/properties-panel": "^3.0.0",
+    "bpmn-js-properties-panel": "^5.0.0"
+  }
+}

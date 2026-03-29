@@ -2,6 +2,43 @@
 {% block title %}{{ folder_name }} — {{ workspace_name }}{% endblock %}
 {% block extra_head %}
 <link rel="stylesheet" href="/static/vendor/bpmn-js/bpmn-font/css/bpmn.css">
+<style>
+    .bpmn-card .svg-preview {
+        aspect-ratio: 16 / 10;
+        overflow: hidden;
+        background: #fafafa;
+        border-bottom: 1px solid oklch(var(--bc) / 0.1);
+        position: relative;
+    }
+    .bpmn-card .svg-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        padding: 8px;
+    }
+    .bpmn-card .svg-preview .title-overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 6px 10px;
+        background: linear-gradient(transparent, rgba(0,0,0,0.55));
+        color: white;
+        font-size: 0.75rem;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .bpmn-card .svg-fallback {
+        aspect-ratio: 16 / 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: oklch(var(--b2));
+        border-bottom: 1px solid oklch(var(--bc) / 0.1);
+    }
+</style>
 {% endblock %}
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-7xl">
@@ -26,6 +63,8 @@
         </div>
         <div class="flex gap-2">
             <button onclick="newDiagramIn(FOLDER_PATH)" class="btn btn-sm btn-primary gap-2"><i data-lucide="plus" class="w-4 h-4"></i> New Diagram</button>
+            <a href="/workspaces/{{ workspace_id }}/browse/{{ folder_path }}?files=1"
+               class="btn btn-sm btn-ghost gap-2"><i data-lucide="folder-open" class="w-4 h-4"></i> Files</a>
             <a href="{{ back_url }}" class="btn btn-sm btn-ghost gap-2"><i data-lucide="arrow-left" class="w-4 h-4"></i> Workspace</a>
         </div>
     </div>
@@ -66,32 +105,46 @@
         {% endif %}
         <div class="bpmn-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {% for file in &group.files %}
-            <div class="bpmn-card card bg-base-100 border border-base-300 hover:shadow-md transition-all duration-150"
+            <div class="bpmn-card card bg-base-100 border border-base-300 hover:shadow-md transition-all duration-150 overflow-hidden"
                  data-search="{{ file.search_text }}">
-                <div class="card-body p-4">
-                    <div class="flex items-start justify-between gap-1">
-                        <i data-lucide="workflow" class="w-8 h-8 text-base-content/40"></i>
-                        <button onclick='openFileSettings({{ file.path|tojson|safe }}, {{ file.md_path|tojson|safe }})'
-                                class="btn btn-xs btn-ghost opacity-40 hover:opacity-100 -mt-1 -mr-1"
-                                title="Rename or delete">
-                            <i data-lucide="settings" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                    <h3 class="font-medium text-sm truncate mt-2" title="{{ file.name }}">{{ file.name }}</h3>
+                <!-- SVG preview or fallback icon -->
+                <a href="/workspaces/{{ workspace_id }}/edit?file={{ file.path }}" class="block">
+                {% if let Some(svg) = &file.svg_path %}
+                <div class="svg-preview">
+                    <img src="/api/workspaces/{{ workspace_id }}/files/serve?path={{ svg }}" alt="{{ file.name }}" loading="lazy">
+                    <div class="title-overlay">{{ file.name }}</div>
+                </div>
+                {% else %}
+                <div class="svg-fallback">
+                    <i data-lucide="workflow" class="w-10 h-10 text-base-content/20"></i>
+                </div>
+                {% endif %}
+                </a>
+                <div class="card-body p-3">
+                    {% if file.svg_path.is_none() %}
+                    <h3 class="font-medium text-sm truncate" title="{{ file.name }}">{{ file.name }}</h3>
+                    {% endif %}
                     {% if let Some(desc) = &file.description %}
-                    <p class="text-xs text-base-content/60 mt-1 line-clamp-2" title="{{ desc }}">{{ desc }}</p>
+                    <p class="text-xs text-base-content/60 line-clamp-2" title="{{ desc }}">{{ desc }}</p>
                     {% endif %}
-                    {% if !file.modified.is_empty() %}
-                    <p class="text-xs text-base-content/40 mt-1">{{ file.modified }}</p>
-                    {% endif %}
-                    <div class="card-actions mt-3 gap-1">
-                        <a href="/workspaces/{{ workspace_id }}/edit?file={{ file.path }}"
-                           class="btn btn-xs btn-primary flex-1">Open</a>
-                        <a href="/workspaces/{{ workspace_id }}/edit-text?file={{ file.md_path }}"
-                           class="btn btn-xs btn-ghost"
-                           title="Edit documentation">
-                            <i data-lucide="file-text" class="w-4 h-4"></i>
-                        </a>
+                    <div class="flex items-center justify-between mt-1">
+                        {% if !file.modified.is_empty() %}
+                        <span class="text-xs text-base-content/40">{{ file.modified }}</span>
+                        {% else %}
+                        <span></span>
+                        {% endif %}
+                        <div class="flex gap-1">
+                            <a href="/workspaces/{{ workspace_id }}/edit-text?file={{ file.md_path }}"
+                               class="btn btn-xs btn-ghost opacity-50 hover:opacity-100"
+                               title="Edit documentation">
+                                <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                            </a>
+                            <button onclick='openFileSettings({{ file.path|tojson|safe }}, {{ file.md_path|tojson|safe }})'
+                                    class="btn btn-xs btn-ghost opacity-50 hover:opacity-100"
+                                    title="Settings">
+                                <i data-lucide="settings" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -117,18 +170,18 @@
                        placeholder="new-name" />
                 <span class="join-item flex items-center px-3 bg-base-200 border border-base-300 text-base-content/50 text-sm">.bpmn</span>
             </div>
-            <label class="label"><span class="text-base-content/40">Renames the .md doc file too if it exists</span></label>
+            <label class="label"><span class="text-base-content/40">Renames all sidecar files (.md, .svg)</span></label>
         </div>
         <button onclick="renameFile()" class="btn btn-sm btn-primary w-full mb-4">Rename</button>
 
         <div class="divider my-2"></div>
 
         <div id="fileDeleteSection">
-            <p class="text-sm text-base-content/60 mb-2">Permanently delete this diagram and its documentation.</p>
+            <p class="text-sm text-base-content/60 mb-2">Permanently delete this diagram, its documentation, and thumbnail.</p>
             <button onclick="showFileDeleteConfirm()" class="btn btn-sm btn-error btn-outline w-full">Delete diagram</button>
         </div>
         <div id="fileDeleteConfirmSection" class="hidden">
-            <p class="text-sm font-semibold text-error mb-3">Delete diagram + docs? This cannot be undone.</p>
+            <p class="text-sm font-semibold text-error mb-3">Delete diagram + all sidecars? This cannot be undone.</p>
             <div class="flex gap-2">
                 <button onclick="hideFileDeleteConfirm()" class="btn btn-sm btn-ghost flex-1">Cancel</button>
                 <button onclick="deleteFile()" class="btn btn-sm btn-error flex-1">Yes, delete</button>
@@ -233,6 +286,7 @@
 
         const newBpmn = dir + newStem + '.bpmn';
         const newMd   = dir + newStem + '.md';
+        const newSvg  = dir + newStem + '.bpmn.svg';
 
         // Rename .bpmn (required)
         const r1 = await fetch(`/api/workspaces/${WORKSPACE_ID}/files/rename`, {
@@ -252,6 +306,13 @@
             body: JSON.stringify({ from: _fileMdPath, to: newMd }),
         });
 
+        // Rename .bpmn.svg sidecar if it exists (best-effort, ignore 404)
+        await fetch(`/api/workspaces/${WORKSPACE_ID}/files/rename`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from: _filePath + '.svg', to: newSvg }),
+        });
+
         window.location.reload();
     }
 
@@ -264,6 +325,11 @@
 
         // Delete .md sidecar if it exists (best-effort, ignore 404)
         await fetch(`/api/workspaces/${WORKSPACE_ID}/files?path=${encodeURIComponent(_fileMdPath)}`, {
+            method: 'DELETE',
+        });
+
+        // Delete .bpmn.svg sidecar if it exists (best-effort, ignore 404)
+        await fetch(`/api/workspaces/${WORKSPACE_ID}/files?path=${encodeURIComponent(_filePath + '.svg')}`, {
             method: 'DELETE',
         });
 

@@ -5,15 +5,127 @@
 <link rel="stylesheet" href="/static/vendor/bpmn-js/bpmn-js.css">
 <link rel="stylesheet" href="/static/vendor/bpmn-js/diagram-js.css">
 <link rel="stylesheet" href="/static/vendor/bpmn-js/bpmn-font/css/bpmn.css">
+<link rel="stylesheet" href="/static/vendor/bpmn-js/bpmn-token-simulation.css">
+<link rel="stylesheet" href="/static/vendor/bpmn-js/properties-panel.css">
 <style>
+    .bpmn-editor-layout {
+        display: flex;
+        gap: 0;
+        position: relative;
+    }
     #bpmn-canvas {
+        flex: 1;
         height: 600px;
         border: 1px solid #e5e7eb;
         border-radius: 0.5rem;
         background: #fafafa;
+        transition: border-radius 0.15s;
+    }
+    #bpmn-canvas.panel-open {
+        border-radius: 0.5rem 0 0 0.5rem;
+    }
+    /* Properties panel — hidden by default, shown via .panel-visible */
+    #properties-wrapper {
+        width: 0;
+        min-width: 0;
+        height: 600px;
+        border: none;
+        border-radius: 0 0.5rem 0.5rem 0;
+        background: white;
+        font-size: 13px;
+        display: flex;
+        flex-direction: column;
+        transition: width 0.15s, min-width 0.15s;
+        overflow: hidden;
+    }
+    #properties-wrapper.panel-visible {
+        width: 320px;
+        min-width: 320px;
+        border: 1px solid #e5e7eb;
+        border-left: none;
+    }
+    #properties-panel {
+        flex: 1;
+        overflow-y: auto;
+    }
+    #properties-panel .bio-properties-panel {
+        height: 100%;
+    }
+    /* Panel open button — small icon in canvas top-right corner */
+    #panel-open-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 10;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+        padding: 4px 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        color: #666;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        transition: all 0.1s;
+    }
+    #panel-open-btn:hover {
+        color: #333;
+        border-color: #ccc;
+    }
+    /* Panel close button at top of panel */
+    #panel-close-btn {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 10px;
+        border-bottom: 1px solid #e5e7eb;
+        background: #fafafa;
+        font-size: 12px;
+        color: #666;
+        flex-shrink: 0;
+    }
+    #panel-close-btn button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 2px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+    }
+    #panel-close-btn button:hover {
+        background: #e5e7eb;
     }
     /* Hide palette in view mode */
     #bpmn-canvas.view-mode .djs-palette {
+        display: none !important;
+    }
+    /* Disable interaction in view mode */
+    #bpmn-canvas.view-mode .djs-hit-all,
+    #bpmn-canvas.view-mode .djs-hit-click-stroke,
+    #bpmn-canvas.view-mode .djs-hit-no-move,
+    #bpmn-canvas.view-mode .djs-bendpoint,
+    #bpmn-canvas.view-mode .djs-segment-dragger {
+        pointer-events: none !important;
+    }
+    /* Keep scroll/pan working in view mode */
+    #bpmn-canvas.view-mode .djs-container {
+        pointer-events: auto;
+    }
+    #bpmn-canvas.view-mode .djs-container svg {
+        pointer-events: none;
+    }
+    /* Hide panel open button by default; JS adds .btn-visible to show it */
+    #panel-open-btn {
+        display: none;
+    }
+    #panel-open-btn.btn-visible {
+        display: flex;
+    }
+    /* Hide built-in token simulation toggle (we use our own button in the toolbar) */
+    .bts-toggle-mode {
         display: none !important;
     }
 </style>
@@ -41,6 +153,8 @@
     <div class="page-header">
         {% include "components/page-header.html" %}
         <div class="page-header-actions">
+            <!-- Simulation toggle (always visible) -->
+            <button id="sim-toggle" onclick="toggleSimulation()" class="btn btn-sm btn-outline gap-2"><i data-lucide="play" class="w-4 h-4"></i> Simulate</button>
             <!-- View mode buttons -->
             <div id="view-actions">
                 {% if is_owner %}
@@ -64,19 +178,35 @@
                 <span id="edit-mode-indicator" class="hidden badge badge-warning">Edit Mode</span>
             </div>
             <div class="divider"></div>
-            <div id="bpmn-canvas" class="view-mode"></div>
+            <div class="bpmn-editor-layout">
+                <div id="bpmn-canvas" class="view-mode" style="position:relative">
+                    <div id="panel-open-btn" onclick="showPanel()">
+                        <i data-lucide="settings-2" class="w-3.5 h-3.5"></i> Properties
+                    </div>
+                </div>
+                <div id="properties-wrapper">
+                    <div id="panel-close-btn">
+                        <span>Properties</span>
+                        <button onclick="collapsePanel()" title="Close panel"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+                    </div>
+                    <div id="properties-panel"></div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 {% endblock %}
 {% block extra_scripts %}
 <!-- bpmn-js modeler -->
-<script src="/static/vendor/bpmn-js/bpmn-modeler.min.js"></script>
+<script src="/static/vendor/bpmn-js/bpmn-modeler-custom.min.js"></script>
 <script>
     const bpmnXml = {{ bpmn_xml|tojson|safe }};
     const slug = {{ slug|tojson|safe }};
+    const saveUrl = {{ save_url|tojson|safe }};
 
-    const modeler = new BpmnJS({ container: '#bpmn-canvas' });
+    const modeler = new BpmnJS({
+        container: '#bpmn-canvas'
+    });
 
     async function loadDiagram(xml) {
         try {
@@ -93,28 +223,57 @@
         canvas.zoom('fit-viewport', 'auto');
     }
 
+    let editMode = false;
+
     function enterEditMode() {
-        const canvas = document.getElementById('bpmn-canvas');
-        canvas.classList.remove('view-mode');
+        editMode = true;
+        document.getElementById('bpmn-canvas').classList.remove('view-mode');
         document.getElementById('view-actions').classList.add('hidden');
         document.getElementById('edit-actions').classList.remove('hidden');
         document.getElementById('edit-mode-indicator').classList.remove('hidden');
+        showPanel();
+    }
+
+    function exitEditMode() {
+        editMode = false;
+        document.getElementById('bpmn-canvas').classList.add('view-mode');
+        document.getElementById('view-actions').classList.remove('hidden');
+        document.getElementById('edit-actions').classList.add('hidden');
+        document.getElementById('edit-mode-indicator').classList.add('hidden');
+        hidePanel();
     }
 
     function cancelEdit() {
-        loadDiagram(bpmnXml).then(() => {
-            const canvas = document.getElementById('bpmn-canvas');
-            canvas.classList.add('view-mode');
-            document.getElementById('view-actions').classList.remove('hidden');
-            document.getElementById('edit-actions').classList.add('hidden');
-            document.getElementById('edit-mode-indicator').classList.add('hidden');
-        });
+        loadDiagram(bpmnXml).then(() => exitEditMode());
+    }
+
+    function showPanel() {
+        document.getElementById('properties-wrapper').classList.add('panel-visible');
+        document.getElementById('panel-open-btn').classList.remove('btn-visible');
+        document.getElementById('bpmn-canvas').classList.add('panel-open');
+        try { modeler.get('propertiesPanel').attachTo('#properties-panel'); } catch(e) {}
+        setTimeout(() => fitView(), 150);
+    }
+
+    function collapsePanel() {
+        document.getElementById('properties-wrapper').classList.remove('panel-visible');
+        if (editMode) document.getElementById('panel-open-btn').classList.add('btn-visible');
+        document.getElementById('bpmn-canvas').classList.remove('panel-open');
+        try { modeler.get('propertiesPanel').detach(); } catch(e) {}
+        setTimeout(() => fitView(), 150);
+    }
+
+    function hidePanel() {
+        try { modeler.get('propertiesPanel').detach(); } catch(e) {}
+        document.getElementById('properties-wrapper').classList.remove('panel-visible');
+        document.getElementById('panel-open-btn').classList.remove('btn-visible');
+        document.getElementById('bpmn-canvas').classList.remove('panel-open');
     }
 
     async function saveBpmn() {
         try {
             const { xml } = await modeler.saveXML({ format: true });
-            const response = await fetch({{ save_url|tojson|safe }}, {
+            const response = await fetch(saveUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ content: xml }),
@@ -122,12 +281,9 @@
             const result = await response.json();
             if (result.success) {
                 showToast('BPMN saved successfully', 'success');
-                // Return to view mode with saved content
-                const canvas = document.getElementById('bpmn-canvas');
-                canvas.classList.add('view-mode');
-                document.getElementById('view-actions').classList.remove('hidden');
-                document.getElementById('edit-actions').classList.add('hidden');
-                document.getElementById('edit-mode-indicator').classList.add('hidden');
+                exitEditMode();
+                // Generate SVG thumbnail in background
+                saveSvgThumbnail();
             } else {
                 showToast(result.message, 'error');
             }
@@ -135,6 +291,47 @@
             console.error('Save failed:', err);
             showToast('Failed to save BPMN', 'error');
         }
+    }
+
+    async function saveSvgThumbnail() {
+        try {
+            const { svg } = await modeler.saveSVG();
+            // Derive the SVG sidecar save URL from the BPMN save URL
+            // Workspace: /api/workspaces/{id}/bpmn/save?path=foo.bpmn
+            //         -> /api/workspaces/{id}/files/save-text?path=foo.bpmn.svg
+            // Media:    /api/media/{slug}/save-bpmn (no sidecar support yet)
+            if (saveUrl.includes('/bpmn/save?path=')) {
+                const params = new URLSearchParams(saveUrl.split('?')[1]);
+                const svgPath = params.get('path') + '.svg';
+                const base = saveUrl.split('/bpmn/save')[0];
+                const svgUrl = base + '/files/save-text?path=' + encodeURIComponent(svgPath);
+                await fetch(svgUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: svg }),
+                });
+            }
+        } catch (e) {
+            console.warn('SVG thumbnail export failed:', e);
+        }
+    }
+
+    let simActive = false;
+    function toggleSimulation() {
+        const toggleMode = modeler.get('toggleMode');
+        toggleMode.toggleMode();
+        simActive = !simActive;
+        const btn = document.getElementById('sim-toggle');
+        if (simActive) {
+            btn.classList.remove('btn-outline');
+            btn.classList.add('btn-success');
+            btn.innerHTML = '<i data-lucide="square" class="w-4 h-4"></i> Stop';
+        } else {
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline');
+            btn.innerHTML = '<i data-lucide="play" class="w-4 h-4"></i> Simulate';
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     // Initial load

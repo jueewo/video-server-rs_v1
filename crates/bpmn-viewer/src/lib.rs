@@ -67,6 +67,8 @@ pub struct BpmnFileEntry {
     pub description: Option<String>,
     /// Workspace-relative path to the sidecar `.md` file (may or may not exist).
     pub md_path: String,
+    /// Workspace-relative path to the sidecar `.bpmn.svg` file, if it exists.
+    pub svg_path: Option<String>,
     /// Combined name + description text for client-side search filtering.
     pub search_text: String,
 }
@@ -172,6 +174,17 @@ impl FolderTypeRenderer for BpmnFolderRenderer {
                     .map(|l| l.trim_start_matches('#').trim().to_string())
             });
 
+            // SVG sidecar: same path + ".svg" (e.g. "foo.bpmn.svg")
+            let svg_abs = std::path::PathBuf::from(format!("{}.svg", e.path().display()));
+            let svg_path = if svg_abs.exists() {
+                svg_abs
+                    .strip_prefix(&ctx.workspace_root)
+                    .ok()
+                    .map(|p| p.to_string_lossy().to_string())
+            } else {
+                None
+            };
+
             let search_text = match &description {
                 Some(d) => format!("{} {}", name, d),
                 None => name.clone(),
@@ -183,6 +196,7 @@ impl FolderTypeRenderer for BpmnFolderRenderer {
                 modified,
                 description,
                 md_path,
+                svg_path,
                 search_text,
             });
         }

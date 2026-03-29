@@ -11,6 +11,7 @@
     "hls.js": "1.6.15",
     "marked": "17.0.5",
     "bpmn-js": "18.13.2",
+    "bpmn-js-token-simulation": "0.39.3",
     "pdfjs-dist": "5.5.207",
     "monaco-editor": "0.45.0",
     "daisyui": "5.5.19",
@@ -24,6 +25,7 @@
     "@excalidraw/excalidraw": "Stuck at 0.17.6 — 0.18.0 has unfixed regressions (canvas size overflow, btoa font subsetting errors) and dropped UMD bundle requiring complex bun build workarounds.",
     "pdfjs-dist": "Pinned to exact version; worker and main module must match exactly.",
     "bpmn-js": "Major bumps often include breaking API changes in the modeler.",
+    "bpmn-js-token-simulation": "Must be compatible with the pinned bpmn-js version. Built into custom bundle via scripts/bpmn-bundle/.",
     "mermaid": "v10→v11 had rendering engine changes; test diagrams after major bump.",
     "monaco-editor": "Major bumps can change loader API or language service behavior."
   }

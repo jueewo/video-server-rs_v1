@@ -233,6 +233,45 @@ pub(crate) fn parent_browse_url(workspace_id: &str, file_path: &str) -> String {
     }
 }
 
+/// Find the typed folder root for a file path by checking which ancestor path
+/// is a key in the workspace config's folders map. Returns the folder path
+/// and its browse URL, or falls back to `parent_browse_url`.
+pub(crate) fn typed_folder_browse_url(
+    workspace_id: &str,
+    file_path: &str,
+    ws_config: Option<&crate::WorkspaceConfig>,
+) -> (String, String) {
+    if let Some(config) = ws_config {
+        // Walk ancestors from longest to shortest to find the typed folder root
+        let mut path = std::path::Path::new(file_path);
+        while let Some(parent) = path.parent() {
+            if parent.as_os_str().is_empty() {
+                break;
+            }
+            let parent_str = parent.to_string_lossy();
+            if config.folders.contains_key(parent_str.as_ref()) {
+                let label = parent
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(parent_str.as_ref())
+                    .to_string();
+                let url = format!("/workspaces/{}/browse/{}", workspace_id, parent_str);
+                return (label, url);
+            }
+            path = parent;
+        }
+    }
+    // Fallback: immediate parent
+    let url = parent_browse_url(workspace_id, file_path);
+    let label = std::path::Path::new(file_path)
+        .parent()
+        .and_then(|p| p.file_name())
+        .and_then(|n| n.to_str())
+        .unwrap_or("Workspace")
+        .to_string();
+    (label, url)
+}
+
 /// Build structured breadcrumb items for a workspace file:
 /// Workspaces → workspace_name → folder → subfolder → …
 pub(crate) fn build_path_crumbs(

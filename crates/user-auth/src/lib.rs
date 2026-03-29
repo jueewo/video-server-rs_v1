@@ -15,6 +15,7 @@ use openidconnect::{
 use db::user_auth::{UpsertUserRequest, UserAuthRepository};
 use serde::Deserialize;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use tower_sessions::Session;
 use tracing::{self, error, info, warn};
 
@@ -58,7 +59,7 @@ impl OidcConfig {
 // -------------------------------
 #[derive(Clone)]
 pub struct AuthState {
-    pub oidc_client: Option<CoreClient>,
+    pub oidc_client: Arc<RwLock<Option<CoreClient>>>,
     pub config: OidcConfig,
     pub repo: Arc<dyn UserAuthRepository>,
 }
@@ -68,34 +69,10 @@ impl AuthState {
         config: OidcConfig,
         repo: Arc<dyn UserAuthRepository>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        println!("🔍 Discovering OIDC provider: {}", config.issuer_url);
-
-        let issuer_url = IssuerUrl::new(config.issuer_url.clone())?;
-
-        let provider_metadata =
-            match CoreProviderMetadata::discover_async(issuer_url, async_http_client).await {
-                Ok(metadata) => {
-                    println!("✅ OIDC provider discovery successful");
-                    Some(metadata)
-                }
-                Err(e) => {
-                    println!("⚠️  OIDC provider discovery failed: {}", e);
-                    println!("   Continuing without OIDC (emergency login only)");
-                    None
-                }
-            };
-
-        let oidc_client = provider_metadata.map(|metadata| {
-            CoreClient::from_provider_metadata(
-                metadata,
-                ClientId::new(config.client_id.clone()),
-                Some(ClientSecret::new(config.client_secret.clone())),
-            )
-            .set_redirect_uri(RedirectUrl::new(config.redirect_uri.clone()).unwrap())
-        });
+        let oidc_client = Self::discover_oidc_client(&config).await;
 
         Ok(Self {
-            oidc_client,
+            oidc_client: Arc::new(RwLock::new(oidc_client)),
             config,
             repo,
         })
@@ -103,10 +80,55 @@ impl AuthState {
 
     pub fn new_without_oidc(config: OidcConfig, repo: Arc<dyn UserAuthRepository>) -> Self {
         Self {
-            oidc_client: None,
+            oidc_client: Arc::new(RwLock::new(None)),
             config,
             repo,
         }
+    }
+
+    /// Attempt OIDC provider discovery. Returns None if provider is unreachable.
+    async fn discover_oidc_client(config: &OidcConfig) -> Option<CoreClient> {
+        println!("🔍 Discovering OIDC provider: {}", config.issuer_url);
+
+        let issuer_url = IssuerUrl::new(config.issuer_url.clone()).ok()?;
+
+        match CoreProviderMetadata::discover_async(issuer_url, async_http_client).await {
+            Ok(metadata) => {
+                println!("✅ OIDC provider discovery successful");
+                let client = CoreClient::from_provider_metadata(
+                    metadata,
+                    ClientId::new(config.client_id.clone()),
+                    Some(ClientSecret::new(config.client_secret.clone())),
+                )
+                .set_redirect_uri(RedirectUrl::new(config.redirect_uri.clone()).unwrap());
+                Some(client)
+            }
+            Err(e) => {
+                println!("⚠️  OIDC provider discovery failed: {}", e);
+                println!("   Continuing without OIDC (emergency login only)");
+                None
+            }
+        }
+    }
+
+    /// Get the OIDC client, retrying discovery if it was previously unavailable.
+    pub async fn get_oidc_client(&self) -> Option<CoreClient> {
+        // Fast path: client already available
+        {
+            let client = self.oidc_client.read().await;
+            if client.is_some() {
+                return client.clone();
+            }
+        }
+
+        // Slow path: try discovery again
+        info!("OIDC client unavailable, retrying discovery...");
+        let discovered = Self::discover_oidc_client(&self.config).await;
+        if discovered.is_some() {
+            let mut client = self.oidc_client.write().await;
+            *client = discovered.clone();
+        }
+        discovered
     }
 }
 
@@ -292,7 +314,7 @@ pub async fn login_page_handler(
         return Ok(Html(template.render().unwrap()));
     }
 
-    let oidc_available = state.oidc_client.is_some();
+    let oidc_available = state.get_oidc_client().await.is_some();
     let emergency_enabled = state.config.enable_emergency_login;
 
     let template = LoginTemplate {
@@ -319,8 +341,8 @@ pub async fn oidc_authorize_handler(
     session: Session,
 ) -> Result<Redirect, StatusCode> {
     let client = state
-        .oidc_client
-        .as_ref()
+        .get_oidc_client()
+        .await
         .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
 
     // Generate PKCE challenge with S256 method (for Casdoor)
@@ -387,7 +409,7 @@ pub async fn oidc_callback_handler(
     Query(query): Query<OidcCallbackQuery>,
     session: Session,
 ) -> Result<Redirect, StatusCode> {
-    let client = state.oidc_client.as_ref().ok_or_else(|| {
+    let client = state.get_oidc_client().await.ok_or_else(|| {
         error!(
             event = "auth_error",
             auth_type = "oidc",

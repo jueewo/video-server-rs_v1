@@ -193,10 +193,10 @@ async fn main() -> anyhow::Result<()> {
 
     let auth_state = match AuthState::new(oidc_config.clone(), database.clone()).await {
         Ok(state) => {
-            if state.oidc_client.is_some() {
+            if state.oidc_client.read().await.is_some() {
                 println!("\u{2705} OIDC authentication enabled");
             } else {
-                println!("\u{26a0}\u{fe0f}  OIDC authentication disabled (provider unavailable)");
+                println!("\u{26a0}\u{fe0f}  OIDC authentication disabled (provider unavailable, will retry on login)");
             }
             Arc::new(state)
         }

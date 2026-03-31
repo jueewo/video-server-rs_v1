@@ -25,6 +25,8 @@ pub struct JsToolViewerState {
     pub pool: SqlitePool,
     /// Absolute path to the storage root (e.g. `./storage`).
     pub storage_base: PathBuf,
+    /// Optional appstore registry for template-based app preview.
+    pub appstore_registry: Option<Arc<appstore::AppTemplateRegistry>>,
 }
 
 // ============================================================================
@@ -139,7 +141,8 @@ async fn read_meta_yaml(tool_dir: &std::path::Path) -> (String, String) {
     (default_name, String::new())
 }
 
-/// Scan a folder directory for tool sub-dirs (each must have index.html).
+/// Scan a folder directory for tool sub-dirs.
+/// Detects both plain tools (with index.html) and template-based apps (with app.yaml).
 async fn scan_tools_in_folder(
     workspace_root: &std::path::Path,
     workspace_id: &str,
@@ -157,7 +160,11 @@ async fn scan_tools_in_folder(
         if !entry_path.is_dir() {
             continue;
         }
-        if !entry_path.join("index.html").exists() {
+
+        let has_index = entry_path.join("index.html").exists();
+        let has_app_yaml = entry_path.join("app.yaml").exists();
+
+        if !has_index && !has_app_yaml {
             continue;
         }
 
@@ -171,7 +178,19 @@ async fn scan_tools_in_folder(
             continue;
         }
 
-        let (title, description) = read_meta_yaml(&entry_path).await;
+        // For template-based apps, read title from app.yaml
+        let (title, description) = if has_app_yaml {
+            match appstore::AppConfig::load(&entry_path) {
+                Ok(Some(config)) => {
+                    let t = if config.title.is_empty() { tool_name.clone() } else { config.title };
+                    (t, config.description)
+                }
+                _ => read_meta_yaml(&entry_path).await,
+            }
+        } else {
+            read_meta_yaml(&entry_path).await
+        };
+
         let url = format!("/js-apps/{}/{}/{}/", workspace_id, folder_path, tool_name);
 
         tools.push(ToolEntry {
@@ -264,9 +283,9 @@ async fn folder_gallery_handler(
     let workspace_root = state.storage_base.join("workspaces").join(&workspace_id);
     let folder_abs = workspace_root.join(&folder);
 
-    // If the folder itself has index.html at the root (single app, not a collection),
+    // If the folder itself has index.html or app.yaml at the root (single app, not a collection),
     // redirect to trailing-slash URL so relative fetches resolve correctly.
-    if folder_abs.join("index.html").exists() {
+    if folder_abs.join("index.html").exists() || folder_abs.join("app.yaml").exists() {
         let redirect_url = format!("/js-apps/{}/{}/", workspace_id, folder);
         return Ok(Response::builder()
             .status(StatusCode::MOVED_PERMANENTLY)
@@ -319,6 +338,15 @@ async fn folder_gallery_trailing_slash_handler(
             .unwrap());
     }
 
+    // Template-based app: serve entry point from appstore template
+    if let Some(entry_content) = resolve_template_file(&state, &folder_abs, "").await {
+        return Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
+            .body(Body::from(entry_content))
+            .unwrap());
+    }
+
     Err(StatusCode::NOT_FOUND)
 }
 
@@ -336,7 +364,8 @@ async fn serve_file_handler(
 
     // Build target path: workspace_root / folder / path
     let workspace_root = state.storage_base.join("workspaces").join(&workspace_id);
-    let target = workspace_root.join(&folder).join(&path);
+    let folder_abs = workspace_root.join(&folder);
+    let target = folder_abs.join(&path);
 
     // If target is a directory and path has no trailing slash, redirect so
     // relative imports (e.g. ./pkg/cascade_engine.js in WASM apps) resolve.
@@ -356,37 +385,88 @@ async fn serve_file_handler(
         target
     };
 
-    // Path traversal check via canonicalize
-    let canonical_target = match target.canonicalize() {
-        Ok(p) => p,
-        Err(_) => return Err(StatusCode::NOT_FOUND),
-    };
-    let canonical_root = workspace_root
-        .canonicalize()
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    // Try serving from workspace folder first
+    if let Ok(canonical_target) = target.canonicalize() {
+        let canonical_root = workspace_root
+            .canonicalize()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    if !canonical_target.starts_with(&canonical_root) {
-        tracing::warn!(
-            "Path traversal attempt: workspace={}, folder={}, path={}",
-            workspace_id,
-            folder,
-            path
-        );
-        return Err(StatusCode::FORBIDDEN);
+        if !canonical_target.starts_with(&canonical_root) {
+            tracing::warn!(
+                "Path traversal attempt: workspace={}, folder={}, path={}",
+                workspace_id,
+                folder,
+                path
+            );
+            return Err(StatusCode::FORBIDDEN);
+        }
+
+        if canonical_target.is_file() {
+            let content = tokio::fs::read(&canonical_target)
+                .await
+                .map_err(|_| StatusCode::NOT_FOUND)?;
+            let mime = mime_for_path(&canonical_target);
+            return Ok(Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, mime)
+                .body(Body::from(content))
+                .unwrap());
+        }
     }
 
-    // Read and serve
-    let content = tokio::fs::read(&canonical_target)
-        .await
-        .map_err(|_| StatusCode::NOT_FOUND)?;
+    // File not in workspace folder — try appstore template
+    if let Some(content) = resolve_template_file(&state, &folder_abs, &path).await {
+        let mime = mime_for_path(std::path::Path::new(&path));
+        return Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, mime)
+            .body(Body::from(content))
+            .unwrap());
+    }
 
-    let mime = mime_for_path(&canonical_target);
+    Err(StatusCode::NOT_FOUND)
+}
 
-    Ok(Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, mime)
-        .body(Body::from(content))
-        .unwrap())
+/// Resolve a file from an appstore template for a folder that has app.yaml.
+///
+/// For template-based apps, the folder only contains data files; the app code
+/// (index.html, app.js, etc.) lives in the appstore template directory.
+///
+/// - Empty path → serve template entry point (index.html)
+/// - `data/{file}` → serve from workspace folder (strip data/ prefix)
+/// - Otherwise → serve from template directory
+async fn resolve_template_file(
+    state: &JsToolViewerState,
+    folder_abs: &std::path::Path,
+    path: &str,
+) -> Option<Vec<u8>> {
+    let registry = state.appstore_registry.as_ref()?;
+
+    let app_config = appstore::AppConfig::load(folder_abs).ok()??;
+    let template = registry.get(&app_config.template)?;
+    let template_dir = registry.template_dir(&app_config.template);
+
+    let target = if path.is_empty() {
+        // Serve entry point from template
+        template_dir.join(&template.entry)
+    } else if let Some(data_path) = path.strip_prefix("data/") {
+        // Serve from workspace folder
+        folder_abs.join(data_path)
+    } else {
+        // Try template dir
+        template_dir.join(path)
+    };
+
+    // Path traversal protection
+    let canonical = target.canonicalize().ok()?;
+    let safe = [&template_dir, folder_abs]
+        .iter()
+        .any(|root| root.canonicalize().ok().map_or(false, |r| canonical.starts_with(r)));
+    if !safe {
+        return None;
+    }
+
+    tokio::fs::read(&canonical).await.ok()
 }
 
 fn mime_for_path(path: &std::path::Path) -> &'static str {

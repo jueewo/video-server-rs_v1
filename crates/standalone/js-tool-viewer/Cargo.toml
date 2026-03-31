@@ -5,6 +5,7 @@ edition = "2021"
 description = "Serves self-contained HTML/JS tools and pre-built Preact/Vue3 apps from workspace folders"
 
 [dependencies]
+appstore = { path = "../../appstore" }
 axum = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tower-sessions = { workspace = true }

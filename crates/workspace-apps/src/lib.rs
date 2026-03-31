@@ -34,6 +34,7 @@ pub fn workspace_app_routes(
     let js_state = Arc::new(JsToolViewerState {
         pool: pool.clone(),
         storage_base: storage_base.clone(),
+        appstore_registry: appstore_registry.clone(),
     });
     let pub_state = Arc::new(PublicationsState {
         repo: repo.clone(),

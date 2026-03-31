@@ -296,6 +296,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "appstore"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sqlx",
+ "tempfile",
+ "tokio",
+ "tower-sessions",
+ "tracing",
+]
+
+[[package]]
 name = "arbitrary"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3942,6 +3958,7 @@ checksum = "33cb294fe86a74cbcf50d4445b37da762029549ebeea341421c7c70370f86cac"
 name = "publications"
 version = "0.1.0"
 dependencies = [
+ "appstore",
  "askama",
  "axum",
  "chrono",
@@ -6279,6 +6296,7 @@ dependencies = [
  "anyhow",
  "api-keys",
  "app-runtime",
+ "appstore",
  "askama",
  "axum",
  "bpmn-viewer",
@@ -7006,6 +7024,7 @@ name = "workspace-apps"
 version = "0.1.0"
 dependencies = [
  "app-runtime",
+ "appstore",
  "axum",
  "common",
  "db",

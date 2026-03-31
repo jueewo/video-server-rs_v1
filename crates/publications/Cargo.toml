@@ -5,6 +5,7 @@ edition = "2021"
 description = "Unified publications registry for apps, courses, presentations, and collections"
 
 [dependencies]
+appstore      = { path = "../appstore" }
 course        = { path = "../course" }
 common        = { path = "../common" }
 db            = { path = "../db" }

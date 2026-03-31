@@ -42,6 +42,7 @@ members = [
     "crates/db",
     "crates/db-sqlite",
     "crates/app-runtime",
+    "crates/appstore",
     "crates/standalone/micro-server",
 ]
 resolver = "2"
@@ -94,6 +95,7 @@ federation = { path = "crates/federation" }
 db = { path = "crates/db" }
 db-sqlite = { path = "crates/db-sqlite" }
 app-runtime = { path = "crates/app-runtime" }
+appstore = { path = "crates/appstore" }
 process-engine = { path = "crates/process-engine" }
 
 # Web framework

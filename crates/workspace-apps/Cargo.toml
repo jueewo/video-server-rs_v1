@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+appstore       = { path = "../appstore" }
 js-tool-viewer = { path = "../standalone/js-tool-viewer" }
 gallery3d      = { path = "../standalone/3d-gallery" }
 publications   = { path = "../publications" }

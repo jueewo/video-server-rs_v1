@@ -29,6 +29,7 @@ pub fn workspace_app_routes(
     apps_dir: PathBuf,
     user_storage: UserStorageManager,
     app_runtime_state: Arc<app_runtime::AppRuntimeState>,
+    appstore_registry: Option<Arc<appstore::AppTemplateRegistry>>,
 ) -> Router {
     let js_state = Arc::new(JsToolViewerState {
         pool: pool.clone(),
@@ -40,6 +41,7 @@ pub fn workspace_app_routes(
         storage_base: storage_base.clone(),
         apps_dir,
         user_storage,
+        appstore_registry,
     });
     let pub_proxy_state = Arc::new(PubAppProxyState {
         pub_repo: repo,

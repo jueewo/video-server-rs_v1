@@ -40,6 +40,7 @@ use rate_limiter::RateLimitConfig;
 use user_auth::{auth_routes, AuthState, OidcConfig};
 use vault_manager::{vault_routes, VaultManagerState};
 use workspace_manager::{workspace_routes, WorkspaceManagerState};
+use appstore::{AppstoreState, AppTemplateRegistry, appstore_routes};
 use federation::{federation_consumer_routes, federation_server_routes, FederationState};
 
 use media_manager::{
@@ -427,8 +428,21 @@ async fn main() -> anyhow::Result<()> {
     let app_runtime_state = Arc::new(app_runtime::AppRuntimeState::new(storage_dir.clone()));
     let app = app.merge(app_runtime::app_runtime_routes(app_runtime_state.clone()));
 
+    // ── Appstore (template registry) ────────────────────────────
+    let appstore_dir = storage_dir.join("appstore");
+    let appstore_registry = AppTemplateRegistry::load(&appstore_dir)
+        .expect("Failed to load appstore templates");
+    println!("📦 Appstore: {} templates loaded", appstore_registry.list().len());
+    let appstore_registry = Arc::new(appstore_registry);
+    let appstore_state = Arc::new(AppstoreState {
+        registry: appstore_registry.clone(),
+        pool: pool.clone(),
+        storage_base: storage_dir.clone(),
+    });
+    let app = app.merge(appstore_routes(appstore_state));
+
     // ── Apps feature ─────────────────────────────────────────────
-    let app = app.merge(workspace_app_routes(pool.clone(), database.clone(), database.clone(), storage_dir.clone(), apps_dir.clone(), (*user_storage).clone(), app_runtime_state));
+    let app = app.merge(workspace_app_routes(pool.clone(), database.clone(), database.clone(), storage_dir.clone(), apps_dir.clone(), (*user_storage).clone(), app_runtime_state, Some(appstore_registry)));
 
     // ── Agent Registry (global workforce) ────────────────────────
     let agent_registry_state = Arc::new(agent_registry::AgentRegistryState {

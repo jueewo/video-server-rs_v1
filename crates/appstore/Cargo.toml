@@ -1,0 +1,19 @@
+[package]
+name = "appstore"
+version = "0.1.0"
+edition = "2021"
+description = "Appstore template registry for installable app templates"
+
+[dependencies]
+axum          = { workspace = true }
+tokio         = { workspace = true }
+tower-sessions = { workspace = true }
+serde         = { workspace = true }
+serde_json    = { workspace = true }
+serde_yaml    = "0.9"
+tracing       = { workspace = true }
+anyhow        = { workspace = true }
+sqlx          = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

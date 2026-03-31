@@ -49,6 +49,8 @@ pub struct PublicationsState {
     /// Root directory for published app snapshots (default: `./storage-apps`).
     pub apps_dir: PathBuf,
     pub user_storage: UserStorageManager,
+    /// Optional appstore registry for template-based app publishing.
+    pub appstore_registry: Option<Arc<appstore::AppTemplateRegistry>>,
 }
 
 // ============================================================================
@@ -202,10 +204,37 @@ async fn create_handler(
                 return Err(StatusCode::NOT_FOUND);
             }
             let dst = state.apps_dir.join(&final_slug);
-            helpers::copy_dir_recursive(&src, &dst).await.map_err(|e| {
-                tracing::error!("Failed to copy app snapshot: {}", e);
+
+            // Check for app.yaml — template-based merge or plain copy
+            let app_config = appstore::AppConfig::load(&src).map_err(|e| {
+                tracing::error!("Failed to read app.yaml: {}", e);
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
+
+            if let Some(ref config) = app_config {
+                // Template-based: merge template code + folder data
+                let registry = state.appstore_registry.as_ref().ok_or_else(|| {
+                    tracing::error!("Appstore registry not configured");
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+                registry
+                    .merge_to_snapshot(&config.template, &src, &dst)
+                    .map_err(|e| {
+                        tracing::error!("Failed to merge template '{}': {}", config.template, e);
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    })?;
+                tracing::info!(
+                    "Published template-based app: {} (template: {})",
+                    final_slug,
+                    config.template
+                );
+            } else {
+                // Plain copy (non-template app)
+                helpers::copy_dir_recursive(&src, &dst).await.map_err(|e| {
+                    tracing::error!("Failed to copy app snapshot: {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+            }
 
             // Gallery marker if no index.html
             if !dst.join("index.html").exists() {
@@ -487,16 +516,36 @@ async fn republish_handler(
         let dir_name = pub_record.legacy_app_id.as_deref().unwrap_or(&slug);
         let dst = state.apps_dir.join(dir_name);
 
-        // Remove old and recopy
+        // Remove old snapshot
         if dst.exists() {
             tokio::fs::remove_dir_all(&dst)
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         }
-        helpers::copy_dir_recursive(&src, &dst).await.map_err(|e| {
-            tracing::error!("Republish copy failed: {}", e);
+
+        // Check for app.yaml — template-based merge or plain copy
+        let app_config = appstore::AppConfig::load(&src).map_err(|e| {
+            tracing::error!("Failed to read app.yaml on republish: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
+
+        if let Some(ref config) = app_config {
+            let registry = state.appstore_registry.as_ref().ok_or_else(|| {
+                tracing::error!("Appstore registry not configured");
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+            registry
+                .merge_to_snapshot(&config.template, &src, &dst)
+                .map_err(|e| {
+                    tracing::error!("Republish merge failed for '{}': {}", config.template, e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+        } else {
+            helpers::copy_dir_recursive(&src, &dst).await.map_err(|e| {
+                tracing::error!("Republish copy failed: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+        }
 
         if !dst.join("index.html").exists() {
             let _ = tokio::fs::write(dst.join("_gallery"), "").await;

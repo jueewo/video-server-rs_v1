@@ -451,68 +451,8 @@ async fn main() -> anyhow::Result<()> {
     });
     let app = app.merge(agent_registry::agent_registry_routes(agent_registry_state));
 
-    // ── Process Engine (BPMN-inspired process runtime) ─────────────
-    let process_engine = {
-        let process_repo: Arc<dyn db::processes::ProcessRepository> = database.clone();
-        let http_client = Arc::new(reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(120))
-            .build()
-            .expect("Failed to create HTTP client for process engine"));
-
-        // Register task executors
-        let executors: Vec<Arc<dyn process_engine::executor::TaskExecutor>> = vec![
-            Arc::new(process_engine::executor::ScriptTaskExecutor),
-            Arc::new(process_engine::executor::HumanTaskExecutor),
-            Arc::new(process_engine::executor::TimerEventExecutor),
-            Arc::new(process_engine::service::ServiceTaskExecutor {
-                http_client: http_client.clone(),
-            }),
-            Arc::new(process_engine::agent::AgentTaskExecutor {
-                agent_repo: database.clone(),
-                llm_repo: database.clone(),
-                http_client,
-                storage_root: storage_dir.clone(),
-            }),
-        ];
-
-        Arc::new(process_engine::engine::ProcessEngine::new(process_repo, executors))
-    };
-
-    // Recover any process instances that were running when the server stopped
-    if let Ok(count) = process_engine.recover_running_instances().await {
-        if count > 0 {
-            println!("\u{1f504} Recovered {count} running process instances");
-        }
-    }
-
-    let process_engine_state = Arc::new(process_engine::ProcessEngineState {
-        engine: process_engine.clone(),
-    });
-    let app = app.merge(
-        process_engine::routes::process_engine_routes(process_engine_state)
-            .route_layer(axum::middleware::from_fn_with_state(
-                api_key_repo.clone(), api_key_or_session_auth,
-            ))
-    );
-
-    // ── Scheduler (cron-based process/agent runs) ──────────────
-    let schedule_repo: Arc<dyn db::schedules::ScheduleRepository> = database.clone();
-    let scheduler = Arc::new(process_engine::scheduler::Scheduler::new(
-        schedule_repo.clone(),
-        process_engine,
-    ));
-    scheduler.start(); // background tokio task
-
-    let schedule_state = Arc::new(process_engine::scheduler::routes::ScheduleState {
-        repo: schedule_repo,
-    });
-    let app = app.merge(
-        process_engine::scheduler::routes::schedule_routes(schedule_state)
-            .route_layer(axum::middleware::from_fn_with_state(
-                api_key_repo.clone(), api_key_or_session_auth,
-            ))
-    );
-    println!("\u{2699}\u{fe0f}  Process engine + scheduler initialized");
+    // ── Process Engine — now runs as standalone sidecar (process-runtime) ──
+    // See crates/standalone/process-runtime/ for the standalone binary.
 
     // ── Federation (multi-server catalog sharing) ────────────────
     let federation_repo: Arc<dyn db::federation::FederationRepository> = database.clone();

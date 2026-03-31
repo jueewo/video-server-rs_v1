@@ -378,6 +378,53 @@ async fn serve_file_handler(
             .unwrap());
     }
 
+    // Check if target (before index.html fallback) is a directory with app.yaml
+    // e.g. path="bio-quiz/" → target is teaching-apps/bio-quiz/ which has app.yaml
+    if target.is_dir() && target.join("app.yaml").exists() {
+        // Template-based app subfolder — serve entry point or file from template
+        if let Some(entry_content) = resolve_template_file(&state, &target, "").await {
+            return Ok(Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
+                .body(Body::from(entry_content))
+                .unwrap());
+        }
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    // Check if path is inside a template-based subfolder (e.g. "bio-quiz/app.js")
+    // Split path into first segment (potential subfolder) and remainder
+    let trimmed = path.trim_start_matches('/');
+    if let Some(slash_pos) = trimmed.find('/') {
+        let subfolder = &trimmed[..slash_pos];
+        let rest = &trimmed[slash_pos + 1..];
+        let subfolder_abs = folder_abs.join(subfolder);
+        if subfolder_abs.is_dir() && subfolder_abs.join("app.yaml").exists() {
+            // Try workspace file first, then template
+            let local_file = subfolder_abs.join(rest);
+            if local_file.is_file() {
+                let content = tokio::fs::read(&local_file)
+                    .await
+                    .map_err(|_| StatusCode::NOT_FOUND)?;
+                let mime = mime_for_path(&local_file);
+                return Ok(Response::builder()
+                    .status(StatusCode::OK)
+                    .header(header::CONTENT_TYPE, mime)
+                    .body(Body::from(content))
+                    .unwrap());
+            }
+            if let Some(content) = resolve_template_file(&state, &subfolder_abs, rest).await {
+                let mime = mime_for_path(std::path::Path::new(rest));
+                return Ok(Response::builder()
+                    .status(StatusCode::OK)
+                    .header(header::CONTENT_TYPE, mime)
+                    .body(Body::from(content))
+                    .unwrap());
+            }
+            return Err(StatusCode::NOT_FOUND);
+        }
+    }
+
     // Directory with trailing slash or bare path without extension → index.html
     let target = if target.is_dir() || target.extension().is_none() {
         target.join("index.html")

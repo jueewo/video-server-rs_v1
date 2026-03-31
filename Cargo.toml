@@ -44,6 +44,7 @@ members = [
     "crates/app-runtime",
     "crates/appstore",
     "crates/standalone/micro-server",
+    "crates/standalone/process-runtime",
 ]
 resolver = "2"
 
@@ -96,7 +97,6 @@ db = { path = "crates/db" }
 db-sqlite = { path = "crates/db-sqlite" }
 app-runtime = { path = "crates/app-runtime" }
 appstore = { path = "crates/appstore" }
-process-engine = { path = "crates/process-engine" }
 
 # Web framework
 axum = { version = "0.8", features = ["multipart", "ws"] }

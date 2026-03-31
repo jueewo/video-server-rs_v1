@@ -1,0 +1,44 @@
+[package]
+name = "process-runtime"
+version = "0.1.0"
+edition = "2021"
+description = "Standalone BPMN process runtime sidecar with agentic AI task support"
+
+[[bin]]
+name = "process-runtime"
+path = "src/main.rs"
+
+[dependencies]
+# Platform crates
+process-engine = { path = "../../process-engine" }
+db             = { path = "../../db" }
+db-sqlite      = { path = "../../db-sqlite" }
+llm-provider   = { path = "../../llm-provider" }
+agent-tools    = { path = "../../agent-tools" }
+bpmn-simulator-processor = { path = "../../workspace-processors/bpmn-simulator" }
+
+# Web framework
+axum           = { workspace = true }
+tokio          = { workspace = true }
+tower-http     = { version = "0.6", features = ["cors"] }
+
+# Database
+sqlx           = { workspace = true }
+
+# Serialization
+serde          = { workspace = true }
+serde_json     = { workspace = true }
+
+# HTTP client
+reqwest        = { workspace = true }
+
+# Error handling
+anyhow         = { workspace = true }
+
+# Logging
+tracing        = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Utilities
+chrono         = { workspace = true }
+uuid           = { workspace = true }

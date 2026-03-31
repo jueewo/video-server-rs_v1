@@ -2651,6 +2651,7 @@ dependencies = [
 name = "js-tool-viewer"
 version = "0.1.0"
 dependencies = [
+ "appstore",
  "askama",
  "axum",
  "serde",
@@ -3903,6 +3904,30 @@ dependencies = [
  "tokio",
  "tower-sessions",
  "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "process-runtime"
+version = "0.1.0"
+dependencies = [
+ "agent-tools",
+ "anyhow",
+ "axum",
+ "bpmn-simulator-processor",
+ "chrono",
+ "db",
+ "db-sqlite",
+ "llm-provider",
+ "process-engine",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 
@@ -6318,7 +6343,6 @@ dependencies = [
  "opentelemetry-otlp",
  "opentelemetry_sdk",
  "pdf-viewer",
- "process-engine",
  "rate-limiter",
  "reqwest 0.12.28",
  "serde",

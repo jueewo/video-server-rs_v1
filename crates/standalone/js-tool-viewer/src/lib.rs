@@ -339,11 +339,11 @@ async fn folder_gallery_trailing_slash_handler(
     }
 
     // Template-based app: serve entry point from appstore template
-    if let Some(entry_content) = resolve_template_file(&state, &folder_abs, "").await {
+    if let Some(resolved) = resolve_template_file(&state, &folder_abs, "").await {
         return Ok(Response::builder()
             .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
-            .body(Body::from(entry_content))
+            .header(header::CONTENT_TYPE, resolved.mime.unwrap_or("text/html; charset=utf-8"))
+            .body(Body::from(resolved.content))
             .unwrap());
     }
 
@@ -382,11 +382,11 @@ async fn serve_file_handler(
     // e.g. path="bio-quiz/" → target is teaching-apps/bio-quiz/ which has app.yaml
     if target.is_dir() && target.join("app.yaml").exists() {
         // Template-based app subfolder — serve entry point or file from template
-        if let Some(entry_content) = resolve_template_file(&state, &target, "").await {
+        if let Some(resolved) = resolve_template_file(&state, &target, "").await {
             return Ok(Response::builder()
                 .status(StatusCode::OK)
-                .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
-                .body(Body::from(entry_content))
+                .header(header::CONTENT_TYPE, resolved.mime.unwrap_or("text/html; charset=utf-8"))
+                .body(Body::from(resolved.content))
                 .unwrap());
         }
         return Err(StatusCode::NOT_FOUND);
@@ -413,12 +413,12 @@ async fn serve_file_handler(
                     .body(Body::from(content))
                     .unwrap());
             }
-            if let Some(content) = resolve_template_file(&state, &subfolder_abs, rest).await {
-                let mime = mime_for_path(std::path::Path::new(rest));
+            if let Some(resolved) = resolve_template_file(&state, &subfolder_abs, rest).await {
+                let mime = resolved.mime.unwrap_or_else(|| mime_for_path(std::path::Path::new(rest)));
                 return Ok(Response::builder()
                     .status(StatusCode::OK)
                     .header(header::CONTENT_TYPE, mime)
-                    .body(Body::from(content))
+                    .body(Body::from(resolved.content))
                     .unwrap());
             }
             return Err(StatusCode::NOT_FOUND);
@@ -462,12 +462,12 @@ async fn serve_file_handler(
     }
 
     // File not in workspace folder — try appstore template
-    if let Some(content) = resolve_template_file(&state, &folder_abs, &path).await {
-        let mime = mime_for_path(std::path::Path::new(&path));
+    if let Some(resolved) = resolve_template_file(&state, &folder_abs, &path).await {
+        let mime = resolved.mime.unwrap_or_else(|| mime_for_path(std::path::Path::new(&path)));
         return Ok(Response::builder()
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, mime)
-            .body(Body::from(content))
+            .body(Body::from(resolved.content))
             .unwrap());
     }
 
@@ -482,23 +482,48 @@ async fn serve_file_handler(
 /// - Empty path → serve template entry point (index.html)
 /// - `data/{file}` → serve from workspace folder (strip data/ prefix)
 /// - Otherwise → serve from template directory
+/// Result from resolving a template file — includes content and optional mime override.
+struct ResolvedFile {
+    content: Vec<u8>,
+    mime: Option<&'static str>,
+}
+
 async fn resolve_template_file(
     state: &JsToolViewerState,
     folder_abs: &std::path::Path,
     path: &str,
-) -> Option<Vec<u8>> {
+) -> Option<ResolvedFile> {
     let registry = state.appstore_registry.as_ref()?;
 
     let app_config = appstore::AppConfig::load(folder_abs).ok()??;
     let template = registry.get(&app_config.template)?;
     let template_dir = registry.template_dir(&app_config.template);
 
+    // Data files: support JSON/YAML/TOML with auto-conversion
+    if let Some(data_path) = path.strip_prefix("data/") {
+        let target = folder_abs.join(data_path);
+
+        // Path traversal protection
+        if let Ok(canonical) = target.canonicalize() {
+            if let Ok(root) = folder_abs.canonicalize() {
+                if canonical.starts_with(&root) && canonical.is_file() {
+                    let content = tokio::fs::read(&canonical).await.ok()?;
+                    return Some(ResolvedFile { content, mime: None });
+                }
+            }
+        }
+
+        // Try format conversion (e.g. events.json -> events.yaml)
+        if let Some((content, mime)) = appstore::data_format::read_data_file(&target).await {
+            return Some(ResolvedFile { content, mime: Some(mime) });
+        }
+
+        return None;
+    }
+
     let target = if path.is_empty() {
         // Serve entry point from template
         template_dir.join(&template.entry)
-    } else if let Some(data_path) = path.strip_prefix("data/") {
-        // Serve from workspace folder
-        folder_abs.join(data_path)
     } else {
         // Try template dir
         template_dir.join(path)
@@ -513,7 +538,8 @@ async fn resolve_template_file(
         return None;
     }
 
-    tokio::fs::read(&canonical).await.ok()
+    let content = tokio::fs::read(&canonical).await.ok()?;
+    Some(ResolvedFile { content, mime: None })
 }
 
 fn mime_for_path(path: &std::path::Path) -> &'static str {

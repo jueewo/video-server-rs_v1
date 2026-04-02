@@ -11,6 +11,7 @@
 //! data are merged into a self-contained snapshot.
 
 mod app_yaml;
+pub mod data_format;
 mod preview;
 mod registry;
 mod routes;

@@ -11,9 +11,11 @@ tower-sessions = { workspace = true }
 serde         = { workspace = true }
 serde_json    = { workspace = true }
 serde_yaml    = "0.9"
+toml          = "0.8"
 tracing       = { workspace = true }
 anyhow        = { workspace = true }
 sqlx          = { workspace = true }
+askama        = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3"

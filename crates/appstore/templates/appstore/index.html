@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Store</title>
+    <link href="/static/vendor/daisyui.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/static/vendor/lucide.min.js"></script>
+    <style>
+        body { background: hsl(var(--b2)); }
+        .template-card:hover { transform: translateY(-2px); }
+    </style>
+</head>
+<body class="min-h-screen">
+
+<!-- Navbar -->
+<div class="navbar bg-base-100 border-b border-base-300 shadow-sm px-4">
+    <div class="navbar-start">
+        <a href="/apps" class="btn btn-ghost btn-sm gap-1">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            Apps
+        </a>
+    </div>
+    <div class="navbar-center">
+        <span class="text-lg font-semibold">App Store</span>
+    </div>
+    <div class="navbar-end">
+        <a href="/" class="btn btn-ghost btn-sm">Home</a>
+    </div>
+</div>
+
+<div class="container mx-auto px-4 py-8 max-w-6xl">
+
+    <!-- ── Installed Apps ─────────────────────────────────── -->
+    <div class="flex items-center gap-3 mb-6">
+        <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl shrink-0"
+              style="background: linear-gradient(135deg, #667eea, #764ba2); box-shadow: 0 4px 12px rgba(102,126,234,0.35);">
+            <i data-lucide="layout-grid" class="w-5 h-5 text-white"></i>
+        </span>
+        <div>
+            <h1 class="text-2xl font-bold leading-tight">Installed Apps</h1>
+            <p class="text-base-content/60 text-sm">Template-based apps in your workspaces</p>
+        </div>
+    </div>
+
+    {% if installed_apps.is_empty() %}
+    <div class="card bg-base-100 border border-base-300 shadow-sm mb-12">
+        <div class="card-body items-center text-center py-12">
+            <i data-lucide="package-open" class="w-12 h-12 mb-3 text-base-content/30"></i>
+            <h2 class="text-lg font-semibold mb-1">No apps installed yet</h2>
+            <p class="text-base-content/60 max-w-md text-sm">
+                Browse the templates below and install one into a workspace folder to get started.
+            </p>
+        </div>
+    </div>
+    {% else %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
+        {% for app in &installed_apps %}
+        <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200">
+            <div class="card-body p-5">
+                <div class="flex items-start gap-3 mb-2">
+                    <div class="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0 text-primary">
+                        <i data-lucide="{{ app.icon }}" class="w-5 h-5"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h2 class="card-title text-sm leading-snug">{{ app.title }}</h2>
+                        <p class="text-xs text-base-content/40 truncate">{{ app.template_id }}</p>
+                    </div>
+                </div>
+                {% if !app.description.is_empty() %}
+                <p class="text-sm text-base-content/70 mb-2 line-clamp-2">{{ app.description }}</p>
+                {% endif %}
+                <div class="text-xs text-base-content/40 mb-3">
+                    <span class="badge badge-ghost badge-xs">{{ app.workspace_name }}</span>
+                    <span class="ml-1">{{ app.folder_path }}</span>
+                </div>
+                <div class="card-actions justify-end mt-auto pt-2">
+                    <a href="{{ app.preview_url }}" target="_blank"
+                       class="btn btn-sm btn-outline btn-primary gap-1">
+                        <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                        Preview
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ── Available Templates ────────────────────────────── -->
+    <div class="divider"></div>
+
+    <div class="flex items-center gap-3 mb-6 mt-6">
+        <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl shrink-0"
+              style="background: linear-gradient(135deg, #f093fb, #f5576c); box-shadow: 0 4px 12px rgba(245,87,108,0.35);">
+            <i data-lucide="store" class="w-5 h-5 text-white"></i>
+        </span>
+        <div>
+            <h1 class="text-2xl font-bold leading-tight">Available Templates</h1>
+            <p class="text-base-content/60 text-sm">Install a template into a workspace folder</p>
+        </div>
+    </div>
+
+    {% if templates.is_empty() %}
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+        <div class="card-body items-center text-center py-12">
+            <i data-lucide="package" class="w-12 h-12 mb-3 text-base-content/30"></i>
+            <h2 class="text-lg font-semibold mb-1">No templates available</h2>
+            <p class="text-base-content/60 max-w-md text-sm">
+                Add template directories with a <code>manifest.yaml</code> to <code>storage/appstore/</code>.
+            </p>
+        </div>
+    </div>
+    {% else %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for tmpl in &templates %}
+        <div class="template-card card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-secondary/50 transition-all duration-200">
+            <div class="card-body p-5">
+                <div class="flex items-start gap-3 mb-2">
+                    <div class="w-10 h-10 rounded-lg bg-{{ tmpl.color }}/15 flex items-center justify-center flex-shrink-0 text-{{ tmpl.color }}">
+                        <i data-lucide="{{ tmpl.icon }}" class="w-5 h-5"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h2 class="card-title text-sm leading-snug">{{ tmpl.name }}</h2>
+                        <div class="flex gap-1 mt-0.5">
+                            <span class="badge badge-ghost badge-xs">{{ tmpl.category }}</span>
+                            <span class="badge badge-ghost badge-xs">v{{ tmpl.version }}</span>
+                            <span class="badge badge-ghost badge-xs">{{ tmpl.runtime }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% if !tmpl.description.is_empty() %}
+                <p class="text-sm text-base-content/70 mb-3 line-clamp-3">{{ tmpl.description }}</p>
+                {% endif %}
+                {% if !tmpl.data_files.is_empty() %}
+                <div class="text-xs text-base-content/50 mb-3">
+                    <span class="font-medium">Data files:</span>
+                    {% for df in &tmpl.data_files %}
+                    <code class="ml-1">{{ df.file }}</code>{% if !df.is_last %},{% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="card-actions justify-end mt-auto pt-2">
+                    <button onclick="openInstallModal('{{ tmpl.id }}', '{{ tmpl.name }}')"
+                            class="btn btn-sm btn-secondary gap-1">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                        Install
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- Install Modal -->
+<dialog id="installModal" class="modal">
+    <div class="modal-box">
+        <h3 class="text-lg font-bold mb-4">
+            Install <span id="modalTemplateName"></span>
+        </h3>
+        <form id="installForm" onsubmit="return doInstall(event)">
+            <input type="hidden" id="modalTemplateId" />
+            <div class="form-control mb-4">
+                <label class="label"><span class="label-text">Workspace</span></label>
+                <select id="workspaceSelect" class="select select-bordered w-full" required>
+                    <option value="" disabled selected>Loading workspaces...</option>
+                </select>
+            </div>
+            <div class="form-control mb-4">
+                <label class="label"><span class="label-text">Target folder</span></label>
+                <select id="folderSelect" class="select select-bordered w-full" required>
+                    <option value="" disabled selected>Select a workspace first</option>
+                </select>
+                <label class="label">
+                    <span class="label-text-alt text-base-content/50">Choose a js-tool or web-app folder</span>
+                </label>
+            </div>
+            <div class="form-control mb-4">
+                <label class="label"><span class="label-text">App name (subfolder name)</span></label>
+                <input type="text" id="appName" class="input input-bordered w-full"
+                       placeholder="e.g. my-quiz" pattern="[a-z0-9][a-z0-9_-]*" required />
+                <label class="label">
+                    <span class="label-text-alt text-base-content/50">Lowercase letters, numbers, hyphens</span>
+                </label>
+            </div>
+            <div class="form-control mb-6">
+                <label class="label"><span class="label-text">Title</span></label>
+                <input type="text" id="appTitle" class="input input-bordered w-full"
+                       placeholder="e.g. Biology Quiz" required />
+            </div>
+            <div class="modal-action">
+                <button type="button" class="btn" onclick="installModal.close()">Cancel</button>
+                <button type="submit" class="btn btn-secondary gap-1" id="installBtn">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    Install
+                </button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Toast -->
+<div id="toast" class="toast toast-end hidden">
+    <div class="alert" id="toastContent"></div>
+</div>
+
+<script>
+lucide.createIcons();
+
+const installModal = document.getElementById('installModal');
+const workspaceSelect = document.getElementById('workspaceSelect');
+const folderSelect = document.getElementById('folderSelect');
+
+// Cache
+let workspacesCache = null;
+
+async function loadWorkspaces() {
+    if (workspacesCache) return workspacesCache;
+    const res = await fetch('/api/user/workspaces');
+    if (!res.ok) throw new Error('Failed to load workspaces');
+    workspacesCache = await res.json();
+    return workspacesCache;
+}
+
+async function loadFolders(workspaceId) {
+    const res = await fetch(`/api/workspaces/${workspaceId}/dirs`);
+    if (!res.ok) throw new Error('Failed to load folders');
+    const dirs = await res.json();
+    // Filter to top-level folders only (no slashes in path) and exclude root
+    return dirs.filter(d => d.path && !d.path.includes('/'));
+}
+
+function openInstallModal(templateId, templateName) {
+    document.getElementById('modalTemplateId').value = templateId;
+    document.getElementById('modalTemplateName').textContent = templateName;
+    document.getElementById('appName').value = '';
+    document.getElementById('appTitle').value = '';
+    folderSelect.innerHTML = '<option value="" disabled selected>Select a workspace first</option>';
+
+    installModal.showModal();
+    lucide.createIcons();
+
+    // Load workspaces
+    loadWorkspaces().then(workspaces => {
+        workspaceSelect.innerHTML = '<option value="" disabled selected>Choose workspace...</option>';
+        for (const ws of workspaces) {
+            const opt = document.createElement('option');
+            opt.value = ws.workspace_id;
+            opt.textContent = ws.name || ws.workspace_id;
+            workspaceSelect.appendChild(opt);
+        }
+    }).catch(err => {
+        workspaceSelect.innerHTML = '<option value="" disabled>Failed to load</option>';
+    });
+}
+
+workspaceSelect.addEventListener('change', async () => {
+    const wsId = workspaceSelect.value;
+    folderSelect.innerHTML = '<option value="" disabled selected>Loading...</option>';
+
+    try {
+        const folders = await loadFolders(wsId);
+        folderSelect.innerHTML = '<option value="" disabled selected>Choose folder...</option>';
+        if (folders.length === 0) {
+            folderSelect.innerHTML = '<option value="" disabled>No folders found</option>';
+            return;
+        }
+        for (const f of folders) {
+            const opt = document.createElement('option');
+            opt.value = f.path;
+            opt.textContent = f.label || f.path;
+            folderSelect.appendChild(opt);
+        }
+    } catch(err) {
+        folderSelect.innerHTML = '<option value="" disabled>Failed to load folders</option>';
+    }
+});
+
+async function doInstall(event) {
+    event.preventDefault();
+    const btn = document.getElementById('installBtn');
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    const payload = {
+        template_id: document.getElementById('modalTemplateId').value,
+        workspace_id: workspaceSelect.value,
+        folder: folderSelect.value,
+        app_name: document.getElementById('appName').value,
+        title: document.getElementById('appTitle').value,
+    };
+
+    try {
+        const res = await fetch('/api/appstore/install', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+            const err = await res.text();
+            throw new Error(err || 'Install failed');
+        }
+
+        const result = await res.json();
+        installModal.close();
+        showToast('App installed! Reloading...', 'alert-success');
+        setTimeout(() => location.reload(), 1000);
+    } catch(err) {
+        showToast(err.message, 'alert-error');
+    } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+    }
+
+    return false;
+}
+
+function showToast(msg, cls) {
+    const toast = document.getElementById('toast');
+    const content = document.getElementById('toastContent');
+    content.className = 'alert ' + cls;
+    content.textContent = msg;
+    toast.classList.remove('hidden');
+    setTimeout(() => toast.classList.add('hidden'), 4000);
+}
+</script>
+</body>
+</html>

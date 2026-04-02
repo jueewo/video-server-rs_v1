@@ -57,14 +57,36 @@ pub async fn preview_handler(
 
     let template_dir = state.registry.template_dir(&config.template);
 
+    // Data files: support JSON/YAML/TOML with auto-conversion
+    if path.starts_with("data/") {
+        let data_path = &path[5..]; // strip "data/"
+        let target = folder_abs.join(data_path);
+
+        // Try direct file first with path traversal check
+        if let Ok(canonical) = target.canonicalize() {
+            if let Ok(root) = folder_abs.canonicalize() {
+                if canonical.starts_with(&root) && canonical.is_file() {
+                    return serve_file(&canonical).await;
+                }
+            }
+        }
+
+        // Try format conversion (e.g. events.json -> events.yaml)
+        if let Some((content, mime)) = crate::data_format::read_data_file(&target).await {
+            return Ok(Response::builder()
+                .header(header::CONTENT_TYPE, mime)
+                .header(header::CACHE_CONTROL, "no-cache")
+                .body(Body::from(content))
+                .unwrap());
+        }
+
+        return Err(StatusCode::NOT_FOUND);
+    }
+
     // Determine which file to serve
     let resolved_path = if path.is_empty() || path == "/" {
         // Serve entry point from template
         template_dir.join(&template.entry)
-    } else if path.starts_with("data/") {
-        // Serve from workspace folder (strip data/ prefix)
-        let data_path = &path[5..]; // strip "data/"
-        folder_abs.join(data_path)
     } else {
         // Try template dir first, fall back to folder data
         let tmpl_path = template_dir.join(&path);

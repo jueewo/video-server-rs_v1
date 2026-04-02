@@ -300,6 +300,7 @@ name = "appstore"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "askama",
  "axum",
  "serde",
  "serde_json",
@@ -307,6 +308,7 @@ dependencies = [
  "sqlx",
  "tempfile",
  "tokio",
+ "toml",
  "tower-sessions",
  "tracing",
 ]

@@ -1,5 +1,7 @@
 # Appstore — Template Registry for Installable Apps
 
+> See also: [Platform Architecture](platform-architecture.md) for how the appstore fits into the internal/external model.
+
 ## Overview
 
 The appstore is a curated registry of app templates that users can install into workspace folders and publish as self-contained apps. It separates **app code** (provided by templates) from **user content** (stored in workspace folders), enabling reuse across multiple instances.
@@ -94,6 +96,13 @@ bio-101/
 
 ## API Endpoints
 
+### Appstore UI & Install
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/appstore` | Appstore UI page (browse templates, see installed apps) |
+| `POST` | `/api/appstore/install` | Install template into workspace folder |
+
 ### Template Registry
 
 | Method | Path | Description |
@@ -158,6 +167,20 @@ crates/appstore/
 - **Publications crate** — `PublicationsState.appstore_registry` enables merge-on-publish
 - **workspace-apps crate** — passes registry through to publications
 - **main.rs** — loads registry on startup, mounts routes
+
+## Available Templates
+
+| Template | ID | Data file | Category | Description |
+|---|---|---|---|---|
+| Quiz | `quiz-app` | `questions.json` | education | Multiple-choice quiz with scoring and review |
+| Flashcards | `flashcards` | `cards.json` | education | Study cards with flip animation, progress tracking |
+| Timeline | `timeline` | `events.json` | education | Vertical timeline with scroll animations, category filters |
+| Poll/Survey | `poll` | `survey.json` | interaction | Multi-type survey (single/multiple choice, rating) with results |
+| Data Chart | `chart` | `chart.json` | visualization | Bar, line, pie, doughnut charts with pure Canvas API |
+| Kanban Board | `kanban` | `board.json` | productivity | Drag-and-drop task board with labels and priorities |
+| Image Comparison | `image-compare` | `compare.json` | media | Before/after slider for comparing image pairs |
+
+All templates are self-contained (no external CDN dependencies) and work as static files when published.
 
 ## Creating a New Template
 

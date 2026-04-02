@@ -235,23 +235,54 @@ impl AppTemplateRegistry {
         std::fs::create_dir_all(&data_dst)
             .with_context(|| format!("Failed to create data dir {:?}", data_dst))?;
 
-        // Copy expected data files
+        // Copy expected data files (with YAML/TOML → JSON conversion)
         for spec in &template.data_files {
             let src_file = folder_src.join(&spec.file);
+            let dst_file = data_dst.join(&spec.file);
+            if let Some(parent) = dst_file.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+
             if src_file.exists() {
-                let dst_file = data_dst.join(&spec.file);
-                if let Some(parent) = dst_file.parent() {
-                    std::fs::create_dir_all(parent)?;
-                }
+                // Direct copy — file exists as-is
                 std::fs::copy(&src_file, &dst_file).with_context(|| {
                     format!("Failed to copy data file {:?}", spec.file)
                 })?;
+            } else if spec.file.ends_with(".json") {
+                // Try YAML/TOML alternatives and convert to JSON
+                let stem = std::path::Path::new(&spec.file).with_extension("");
+                let converted = ["yaml", "yml", "toml"].iter().find_map(|ext| {
+                    let alt = folder_src.join(stem.with_extension(ext));
+                    if !alt.exists() { return None; }
+                    let content = std::fs::read_to_string(&alt).ok()?;
+                    let value: serde_json::Value = match *ext {
+                        "yaml" | "yml" => serde_yaml::from_str(&content).ok()?,
+                        "toml" => toml::from_str(&content).ok()?,
+                        _ => return None,
+                    };
+                    serde_json::to_string_pretty(&value).ok()
+                });
+                if let Some(json) = converted {
+                    std::fs::write(&dst_file, json).with_context(|| {
+                        format!("Failed to write converted data file {:?}", spec.file)
+                    })?;
+                }
             }
         }
 
         // Also copy any other files from the folder that aren't app.yaml or
         // already-copied data files (e.g. assets/, custom CSS, images)
-        let data_file_names: Vec<&str> = template.data_files.iter().map(|d| d.file.as_str()).collect();
+        // Include YAML/TOML variants of data files in the skip list
+        let mut data_file_names: Vec<String> = template.data_files.iter().map(|d| d.file.clone()).collect();
+        for spec in &template.data_files {
+            if spec.file.ends_with(".json") {
+                let stem = std::path::Path::new(&spec.file).with_extension("");
+                let stem_str = stem.to_string_lossy();
+                data_file_names.push(format!("{}.yaml", stem_str));
+                data_file_names.push(format!("{}.yml", stem_str));
+                data_file_names.push(format!("{}.toml", stem_str));
+            }
+        }
         if folder_src.exists() {
             for entry in std::fs::read_dir(folder_src)? {
                 let entry = entry?;
@@ -260,7 +291,7 @@ impl AppTemplateRegistry {
 
                 // Skip app.yaml, already-copied data files, and hidden files
                 if name_str == "app.yaml"
-                    || data_file_names.contains(&name_str.as_ref())
+                    || data_file_names.iter().any(|n| n == name_str.as_ref())
                     || name_str.starts_with('.')
                 {
                     continue;

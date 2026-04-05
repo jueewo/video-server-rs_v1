@@ -8,7 +8,7 @@ apps:
   - app_id: course-viewer
     label: Open Course
     icon: graduation-cap
-    url_template: /course-viewer
+    url_template: /course?workspace_id={workspace_id}&folder={folder_path}
 metadata_schema:
   - key: title
     label: Course Title

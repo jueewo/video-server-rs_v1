@@ -8,7 +8,27 @@ A production-ready media management platform with live streaming capabilities bu
 
 ## Build & Development Commands
 
-### Building
+### Full Build (CSS + Rust)
+```bash
+# Full production build (CSS + Rust release)
+./scripts/run/build.sh
+
+# Development build (faster, not optimized)
+./scripts/run/build.sh --dev
+
+# CSS only (after template changes — tailwind.css is gitignored)
+./scripts/run/build.sh --css-only
+
+# Rust only (skip CSS rebuild)
+./scripts/run/build.sh --rust-only
+
+# Clean build
+./scripts/run/build.sh --clean --release
+```
+
+**Important:** `static/css/tailwind.css` is gitignored and must be rebuilt on every deployment or after adding new Tailwind utility classes to templates. The build script handles this automatically.
+
+### Building (Rust only)
 ```bash
 # Build entire workspace
 cargo build
@@ -22,6 +42,16 @@ cargo build --release
 # Build main binary
 cargo run
 ```
+
+### Rebuilding CSS (Tailwind)
+```bash
+# One-off build (requires bun/node)
+bun run build:css
+
+# Watch mode during development
+bun run watch:css
+```
+Tailwind scans `templates/**/*.html` and `crates/**/templates/**/*.html` for classes. If you add new Tailwind classes (especially responsive variants like `lg:hidden` used in JS), you must rebuild CSS.
 
 ### Testing
 ```bash

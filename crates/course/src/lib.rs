@@ -213,19 +213,60 @@ async fn course_viewer_handler(
         .ok()
         .flatten()
         .ok_or(StatusCode::UNAUTHORIZED)?;
-    // No code provided — show landing page with entry form
-    let code = match q.code.as_deref() {
-        Some(c) if !c.is_empty() => c.to_string(),
-        _ => {
-            let html = EnterCodeTemplate {
-                authenticated: false,
-                branding: ResolvedBranding::default(),
-            }
-            .render()
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    // Direct access: authenticated user with workspace_id + folder but no code
+    // (e.g. from workspace browser "Open Course" button)
+    if q.code.is_none() || q.code.as_deref() == Some("") {
+        if let (Some(wid), Some(fp)) = (&q.workspace_id, &q.folder) {
+            // Render course directly — user is authenticated, no code needed
+            let workspace_root = state.storage.workspace_root(wid);
+            let folder_abs = workspace_root.join(fp);
+
+            let course = structure::load_course(&folder_abs, fp)
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let branding = resolve_branding(&workspace_root, wid, fp, &folder_abs, "");
+
+            let active_lesson_path = q.path.clone().or_else(|| {
+                course.modules.first()
+                    .and_then(|m| m.sections.first())
+                    .and_then(|s| s.lessons.first())
+                    .map(|l| l.path.clone())
+            });
+            let (raw_markdown, lesson_folder) = if let Some(ref lpath) = active_lesson_path {
+                let file_abs = folder_abs.join(lpath);
+                let content = std::fs::read_to_string(&file_abs).ok();
+                let folder = lpath.rfind('/').map(|i| lpath[..i].to_string()).unwrap_or_default();
+                (content, folder)
+            } else {
+                (None, String::new())
+            };
+
+            let tmpl = CourseViewerTemplate {
+                authenticated: true,
+                course,
+                code: String::new(),
+                workspace_id: wid.clone(),
+                folder_path: fp.clone(),
+                active_lesson_path,
+                raw_markdown,
+                lesson_folder,
+                branding,
+                base_url: String::new(),
+            };
+            let html = tmpl.render().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
             return Ok(Html(html));
         }
-    };
+
+        // No code and no workspace_id/folder — show landing page
+        let html = EnterCodeTemplate {
+            authenticated: false,
+            branding: ResolvedBranding::default(),
+        }
+        .render()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        return Ok(Html(html));
+    }
+
+    let code = q.code.as_deref().unwrap().to_string();
 
     // Fetch all non-vault (course/docs) folder grants for this code
     let grants = state.workspace_repo.get_folder_grants_for_code(&code)

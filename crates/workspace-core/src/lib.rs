@@ -25,14 +25,44 @@
 //! - [`WorkspaceConfig`] — workspace.yaml parsing and folder config management
 
 pub mod auth;
+pub mod error;
 mod workspace_config;
 
+pub use error::AppError;
 pub use workspace_config::{FolderConfig, FolderType, WorkspaceConfig};
 
 use async_trait::async_trait;
 use axum::{Router, http::StatusCode, response::Response};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+// ============================================================================
+// Shared utility types
+// ============================================================================
+
+/// A text file with its content, for LLM context gathering.
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct ContextFile {
+    pub path: String,
+    pub content: String,
+    pub size: u64,
+}
+
+/// Trait for querying folder type definitions (agent roles, type summaries).
+///
+/// Implemented by `FolderTypeRegistry` in workspace-manager. Used by crates
+/// that need folder-type metadata without depending on workspace-manager.
+pub trait FolderTypeLookup: Send + Sync {
+    /// Return agent role names declared by this folder type.
+    fn agent_roles(&self, type_id: &str) -> Vec<String>;
+
+    /// Return a JSON summary of the folder type (id, name, description, agent_roles).
+    fn type_summary(&self, type_id: &str) -> Option<serde_json::Value>;
+}
+
+/// Function signature for collecting context files from a workspace directory.
+pub type ContextFileCollectorFn =
+    fn(workspace_root: &Path, subpath: &str, recursive: bool, max_file_size: u64, max_total_bytes: u64) -> Vec<ContextFile>;
 
 // ============================================================================
 // Context passed to every renderer at render time

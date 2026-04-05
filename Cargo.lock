@@ -128,14 +128,17 @@ version = "0.1.0"
 dependencies = [
  "agent-collection-processor",
  "agent-tools",
+ "api-keys",
  "askama",
  "axum",
+ "common",
  "db",
  "serde",
  "serde_json",
  "tokio",
  "tower-sessions",
  "tracing",
+ "workspace-core",
 ]
 
 [[package]]
@@ -5443,6 +5446,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "tenant-admin"
+version = "0.1.0"
+dependencies = [
+ "api-keys",
+ "askama",
+ "axum",
+ "db",
+ "serde",
+ "serde_json",
+ "time",
+ "tower-sessions",
+ "tracing",
+ "urlencoding",
+ "workspace-core",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6351,6 +6371,7 @@ dependencies = [
  "serde_yaml",
  "site-overview",
  "sqlx",
+ "tenant-admin",
  "time",
  "tokio",
  "tower",
@@ -7074,8 +7095,10 @@ dependencies = [
  "axum",
  "db",
  "serde",
+ "serde_json",
  "serde_yaml",
  "tower-sessions",
+ "tracing",
  "walkdir",
 ]
 

@@ -8,6 +8,9 @@ description = "Global agent definitions registry with hierarchy support"
 db = { path = "../db" }
 agent-collection-processor = { path = "../content-processors/agent-collection" }
 agent-tools = { path = "../agent-tools" }
+workspace-core = { path = "../workspace-core" }
+common = { path = "../common" }
+api-keys = { path = "../api-keys" }
 
 axum          = { workspace = true }
 tokio         = { workspace = true }

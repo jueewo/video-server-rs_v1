@@ -10,7 +10,6 @@ use std::sync::RwLock;
 use tracing::warn;
 use workspace_core::FolderTypeRenderer;
 
-mod agent_handlers;
 mod course_handlers;
 mod file_browser;
 mod file_editor;
@@ -21,11 +20,10 @@ mod helpers;
 mod pages;
 mod presentation_handlers;
 mod publishing;
-mod tenant_admin;
 pub mod workspace_access;
 mod workspace_crud;
 
-pub use file_browser::{ContextFile, FileEntry, FolderEntry};
+pub use file_browser::{collect_context_files, ContextFile, FileEntry, FolderEntry};
 pub use folder_type_registry::{
     AgentRole, AppLink, FieldType, FolderTypeDefinition, FolderTypeRegistry, MetadataField,
 };
@@ -276,28 +274,6 @@ pub struct WorkspaceStats {
 }
 
 // ============================================================================
-// Template Display Types (access codes management page)
-// ============================================================================
-
-pub struct CreatedCodeRow {
-    pub code: String,
-    pub description: String,
-    pub folder_count: i64,
-    /// Human-readable folder labels: "workspace_id / folder_path"
-    pub folders: Vec<String>,
-    pub expires_at: String,
-    pub created_at: String,
-    pub is_active: bool,
-}
-
-pub struct ClaimedCodeRow {
-    pub code: String,
-    pub description: String,
-    pub created_by: String,
-    pub claimed_at: String,
-}
-
-// ============================================================================
 // Template Definitions
 // ============================================================================
 
@@ -310,13 +286,6 @@ pub struct WorkspaceListTemplate {
     pub workspaces: Vec<WorkspaceDisplay>,
     pub all_tags: Vec<String>,
     pub brand_name: String,
-}
-
-#[derive(Template)]
-#[template(path = "admin/tenants.html")]
-pub struct TenantAdminTemplate {
-    pub authenticated: bool,
-    pub tenants: Vec<tenant_admin::TenantResponse>,
 }
 
 #[derive(Template)]
@@ -362,14 +331,6 @@ pub struct WorkspaceBrowserTemplate {
     pub current_type_id: Option<String>,
     /// Preview URL for built sites (from folder metadata).
     pub last_preview_url: String,
-}
-
-#[derive(Template)]
-#[template(path = "workspaces/access_codes.html")]
-pub struct WorkspaceAccessCodesTemplate {
-    pub authenticated: bool,
-    pub created: Vec<CreatedCodeRow>,
-    pub claimed: Vec<ClaimedCodeRow>,
 }
 
 #[derive(Template)]
@@ -519,31 +480,6 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
             "/api/workspaces/{workspace_id}/files/context",
             get(file_ops::context_files_handler),
         )
-        // Agent discovery & tool endpoints
-        .route(
-            "/api/workspaces/{workspace_id}/agents",
-            get(agent_handlers::list_workspace_agents_handler),
-        )
-        .route(
-            "/api/workspaces/{workspace_id}/agents/export",
-            post(agent_handlers::export_agents_handler),
-        )
-        .route(
-            "/api/workspaces/{workspace_id}/folders/agents",
-            get(agent_handlers::folder_agents_handler),
-        )
-        .route(
-            "/api/workspaces/{workspace_id}/folders/ai-context",
-            get(agent_handlers::folder_ai_context_handler),
-        )
-        .route(
-            "/api/workspaces/{workspace_id}/agent/tools",
-            get(agent_handlers::list_agent_tools_handler),
-        )
-        .route(
-            "/api/workspaces/{workspace_id}/agent/tool",
-            post(agent_handlers::agent_tool_handler),
-        )
         .route(
             "/api/workspaces/{workspace_id}/files/save-text",
             post(file_ops::save_text_content),
@@ -660,40 +596,5 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
             "/workspaces/{workspace_id}/edit-text",
             get(pages::edit_text_file_page),
         )
-        .route(
-            "/workspace-access-codes",
-            get(tenant_admin::workspace_access_codes_page),
-        )
-        // Tenant admin API
-        .route(
-            "/api/admin/tenants",
-            get(tenant_admin::list_tenants_handler).post(tenant_admin::create_tenant_handler),
-        )
-        .route(
-            "/api/admin/tenants/{tenant_id}/users",
-            get(tenant_admin::list_tenant_users_handler),
-        )
-        .route(
-            "/api/admin/tenants/{tenant_id}/branding",
-            put(tenant_admin::update_tenant_branding_handler),
-        )
-        .route(
-            "/api/admin/users/{user_id}/tenant",
-            put(tenant_admin::assign_user_tenant_handler),
-        )
-        // Tenant admin UI page
-        .route("/admin/tenants", get(tenant_admin::tenant_admin_page))
-        // Tenant invitation API
-        .route(
-            "/api/admin/tenants/{tenant_id}/invitations",
-            get(tenant_admin::list_invitations_handler)
-                .post(tenant_admin::create_invitation_handler),
-        )
-        .route(
-            "/api/admin/tenants/{tenant_id}/invitations/{email}",
-            delete(tenant_admin::delete_invitation_handler),
-        )
-        // Current user branding
-        .route("/api/me/branding", get(tenant_admin::me_branding_handler))
         .with_state(state)
 }

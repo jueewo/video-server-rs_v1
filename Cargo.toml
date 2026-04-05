@@ -42,6 +42,7 @@ members = [
     "crates/db-sqlite",
     "crates/app-runtime",
     "crates/appstore",
+    "crates/tenant-admin",
     "crates/standalone/micro-server",
     "crates/standalone/process-runtime",
 ]
@@ -97,6 +98,7 @@ db = { path = "crates/db" }
 db-sqlite = { path = "crates/db-sqlite" }
 app-runtime = { path = "crates/app-runtime" }
 appstore = { path = "crates/appstore" }
+tenant-admin = { path = "crates/tenant-admin" }
 
 # Web framework
 axum = { version = "0.8", features = ["multipart", "ws"] }

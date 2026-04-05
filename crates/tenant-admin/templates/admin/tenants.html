@@ -1,0 +1,522 @@
+{% extends "base-tailwind.html" %}
+{% block title %}Tenant Admin{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-5xl">
+
+    <!-- Page Header -->
+    <div class="page-header mb-8">
+        <div>
+            <h1 class="page-header-title flex items-center gap-3">
+                <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl shrink-0"
+                      style="background: linear-gradient(135deg, #f093fb, #f5576c); box-shadow: 0 4px 12px rgba(245,87,108,0.35);">
+                    <i data-lucide="building-2" class="w-5 h-5 text-white"></i>
+                </span>
+                <span class="text-gradient">Tenant Admin</span>
+            </h1>
+            <p class="page-header-subtitle">Manage tenants and user assignments for hosted B2B (Tier 2)</p>
+        </div>
+        <div class="page-header-actions">
+            <button onclick="document.getElementById('create-modal').showModal()"
+                    class="btn gap-2 border-0 text-white font-semibold"
+                    style="background: linear-gradient(135deg, #f093fb, #f5576c); box-shadow: 0 4px 14px rgba(245,87,108,0.35);">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                New Tenant
+            </button>
+        </div>
+    </div>
+
+    <!-- Tenants Table -->
+    {% if tenants.is_empty() %}
+    <div class="card bg-base-100 shadow-xl border border-base-300">
+        <div class="card-body items-center text-center py-20">
+            <div class="w-20 h-20 rounded-2xl bg-base-200 flex items-center justify-center mb-5">
+                <i data-lucide="building-2" class="w-10 h-10 text-base-content/30"></i>
+            </div>
+            <h2 class="card-title text-2xl mb-2">Only the platform tenant exists</h2>
+            <p class="text-base-content/60 mb-8 max-w-sm leading-relaxed">
+                Create a tenant to onboard a B2B company. Their users will only see their own workspaces.
+            </p>
+            <button onclick="document.getElementById('create-modal').showModal()" class="btn btn-primary gap-2">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                Create First Tenant
+            </button>
+        </div>
+    </div>
+    {% else %}
+    <div class="space-y-4">
+        {% for tenant in tenants %}
+        <div class="card bg-base-100 shadow border border-base-300">
+            <div class="card-body py-4 px-5">
+                <div class="flex items-center justify-between gap-4">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-10 h-10 rounded-lg bg-base-200 flex items-center justify-center shrink-0">
+                            <i data-lucide="building-2" class="w-5 h-5 text-base-content/50"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="font-semibold text-base leading-snug">{{ tenant.name }}</div>
+                            <code class="text-xs text-base-content/40 font-mono">{{ tenant.id }}</code>
+                        </div>
+                        {% if tenant.id == "platform" %}
+                        <span class="badge badge-neutral badge-sm shrink-0">Platform</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button onclick="loadUsers('{{ tenant.id }}')"
+                                class="btn btn-sm btn-outline gap-1">
+                            <i data-lucide="users" class="w-3.5 h-3.5"></i> Users
+                        </button>
+                        <button onclick="openBrandingModal('{{ tenant.id }}', '{{ tenant.name }}')"
+                                class="btn btn-sm btn-outline gap-1">
+                            <i data-lucide="palette" class="w-3.5 h-3.5"></i> Branding
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Users panel (hidden by default, shown on click) -->
+                <div id="users-{{ tenant.id }}" class="hidden mt-4 border-t border-base-300 pt-4">
+                    <!-- Current users -->
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-semibold text-base-content/70">Users in this tenant</span>
+                        <button onclick="openAssignModal('{{ tenant.id }}')" class="btn btn-xs btn-ghost gap-1">
+                            <i data-lucide="user-plus" class="w-3 h-3"></i> Assign existing user
+                        </button>
+                    </div>
+                    <div id="users-list-{{ tenant.id }}" class="space-y-2 text-sm mb-5">
+                        <span class="text-base-content/40 italic">Loading...</span>
+                    </div>
+
+                    <!-- Pending invitations -->
+                    <div class="border-t border-base-300 pt-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-sm font-semibold text-base-content/70">Pending invitations</span>
+                            <button onclick="openInviteModal('{{ tenant.id }}')" class="btn btn-xs btn-ghost gap-1">
+                                <i data-lucide="mail-plus" class="w-3 h-3"></i> Invite by email
+                            </button>
+                        </div>
+                        <div id="invitations-list-{{ tenant.id }}" class="space-y-2 text-sm">
+                            <span class="text-base-content/40 italic">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Create Tenant Modal -->
+<dialog id="create-modal" class="modal">
+    <div class="modal-box max-w-md">
+        <h3 class="font-bold text-lg mb-5">New Tenant</h3>
+
+        <div id="create-error" class="alert alert-error mb-4 hidden">
+            <span id="create-error-msg"></span>
+        </div>
+
+        <div class="grid grid-cols-[7rem_1fr] items-center gap-x-4 gap-y-4 mb-6">
+            <label class="label py-0 justify-end">
+                <span class="font-semibold text-right">ID <span class="text-error">*</span></span>
+            </label>
+            <div>
+                <input type="text" id="create-id" class="input w-full font-mono"
+                       placeholder="acme" maxlength="64" />
+                <p class="text-xs text-base-content/40 mt-1">Slug, no spaces. Cannot be changed.</p>
+            </div>
+
+            <label class="label py-0 justify-end">
+                <span class="font-semibold text-right">Name <span class="text-error">*</span></span>
+            </label>
+            <input type="text" id="create-name" class="input w-full"
+                   placeholder="Acme Corp" maxlength="128" />
+        </div>
+
+        <div class="modal-action">
+            <button onclick="document.getElementById('create-modal').close()" class="btn btn-ghost">Cancel</button>
+            <button onclick="createTenant()" class="btn btn-primary" id="create-btn">Create Tenant</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Assign User Modal -->
+<dialog id="assign-modal" class="modal">
+    <div class="modal-box max-w-md">
+        <h3 class="font-bold text-lg mb-2">Assign User to Tenant</h3>
+        <p class="text-sm text-base-content/60 mb-5">
+            Moving a user to a new tenant will take effect on their next login.
+        </p>
+
+        <div id="assign-error" class="alert alert-error mb-4 hidden">
+            <span id="assign-error-msg"></span>
+        </div>
+
+        <div class="grid grid-cols-[8rem_1fr] items-center gap-x-4 gap-y-4 mb-6">
+            <label class="label py-0 justify-end">
+                <span class="font-semibold text-right">User ID <span class="text-error">*</span></span>
+            </label>
+            <input type="text" id="assign-user-id" class="input w-full font-mono text-sm"
+                   placeholder="user-sub from OIDC" />
+        </div>
+
+        <input type="hidden" id="assign-tenant-id" />
+        <div class="modal-action">
+            <button onclick="document.getElementById('assign-modal').close()" class="btn btn-ghost">Cancel</button>
+            <button onclick="assignUser()" class="btn btn-primary" id="assign-btn">Assign</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Invite User Modal -->
+<dialog id="invite-modal" class="modal">
+    <div class="modal-box max-w-md">
+        <h3 class="font-bold text-lg mb-2">Invite User by Email</h3>
+        <p class="text-sm text-base-content/60 mb-5">
+            When this email address logs in via OIDC for the first time, they will be
+            automatically assigned to this tenant.
+        </p>
+
+        <div id="invite-error" class="alert alert-error mb-4 hidden">
+            <span id="invite-error-msg"></span>
+        </div>
+
+        <div class="mb-6">
+            <label class="label py-1"><span class="font-semibold">Email address <span class="text-error">*</span></span></label>
+            <input type="email" id="invite-email" class="input w-full"
+                   placeholder="user@company.com" />
+        </div>
+
+        <input type="hidden" id="invite-tenant-id" />
+        <div class="modal-action">
+            <button onclick="document.getElementById('invite-modal').close()" class="btn btn-ghost">Cancel</button>
+            <button onclick="sendInvite()" class="btn btn-primary" id="invite-btn">Send Invitation</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Branding Modal -->
+<dialog id="branding-modal" class="modal">
+    <div class="modal-box max-w-lg">
+        <h3 class="font-bold text-lg mb-2">Tenant Branding</h3>
+        <p class="text-sm text-base-content/60 mb-5">
+            Override visual identity for this tenant's users. Leave fields empty to use platform defaults.
+        </p>
+
+        <div id="branding-error" class="alert alert-error mb-4 hidden">
+            <span id="branding-error-msg"></span>
+        </div>
+
+        <div class="space-y-4 mb-6">
+            <div >
+                <label class="label py-1"><span class="font-semibold">Display Name</span></label>
+                <input type="text" id="branding-name" class="input w-full"
+                       placeholder="Acme Knowledge Hub" maxlength="128" />
+            </div>
+            <div >
+                <label class="label py-1"><span class="font-semibold">Logo URL</span></label>
+                <input type="text" id="branding-logo" class="input w-full font-mono text-sm"
+                       placeholder="/static/custom/acme-logo.webp" />
+            </div>
+            <div >
+                <label class="label py-1"><span class="font-semibold">Primary Color</span></label>
+                <div class="flex gap-2 items-center">
+                    <input type="color" id="branding-color-picker" class="w-10 h-10 rounded cursor-pointer border border-base-300" />
+                    <input type="text" id="branding-primary-color" class="input flex-1 font-mono text-sm"
+                           placeholder="#0057b7" maxlength="9" />
+                </div>
+            </div>
+            <div >
+                <label class="label py-1"><span class="font-semibold">Support Email</span></label>
+                <input type="email" id="branding-support-email" class="input w-full"
+                       placeholder="support@acme.com" />
+            </div>
+        </div>
+
+        <input type="hidden" id="branding-tenant-id" />
+        <div class="modal-action">
+            <button onclick="document.getElementById('branding-modal').close()" class="btn btn-ghost">Cancel</button>
+            <button onclick="saveBranding()" class="btn btn-primary" id="branding-btn">Save Branding</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+{% endblock %}
+{% block extra_scripts %}
+<script>
+async function createTenant() {
+    const id = document.getElementById('create-id').value.trim();
+    const name = document.getElementById('create-name').value.trim();
+    const errEl = document.getElementById('create-error');
+    const errMsg = document.getElementById('create-error-msg');
+    errEl.classList.add('hidden');
+
+    if (!id || !name) {
+        errMsg.textContent = 'Both ID and Name are required.';
+        errEl.classList.remove('hidden');
+        return;
+    }
+
+    const btn = document.getElementById('create-btn');
+    btn.disabled = true; btn.textContent = 'Creating...';
+
+    try {
+        const res = await fetch('/api/admin/tenants', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, name }),
+        });
+        if (res.ok) {
+            document.getElementById('create-modal').close();
+            showToast('Tenant created!', 'success');
+            setTimeout(() => window.location.reload(), 800);
+        } else if (res.status === 409) {
+            errMsg.textContent = 'A tenant with that ID already exists.';
+            errEl.classList.remove('hidden');
+        } else {
+            errMsg.textContent = 'Failed to create tenant.';
+            errEl.classList.remove('hidden');
+        }
+    } catch (e) {
+        errMsg.textContent = 'Network error: ' + e.message;
+        errEl.classList.remove('hidden');
+    }
+    btn.disabled = false; btn.textContent = 'Create Tenant';
+}
+
+async function loadUsers(tenantId) {
+    const panel = document.getElementById('users-' + tenantId);
+    if (!panel.classList.contains('hidden')) {
+        panel.classList.add('hidden');
+        return;
+    }
+    panel.classList.remove('hidden');
+    await Promise.all([refreshUsers(tenantId), refreshInvitations(tenantId)]);
+}
+
+async function refreshUsers(tenantId) {
+    const listEl = document.getElementById('users-list-' + tenantId);
+    try {
+        const res = await fetch('/api/admin/tenants/' + tenantId + '/users');
+        const users = await res.json();
+        if (users.length === 0) {
+            listEl.innerHTML = '<span class="text-base-content/40 italic">No users assigned yet.</span>';
+        } else {
+            listEl.innerHTML = users.map(u => `
+                <div class="flex items-center justify-between py-1.5 px-3 bg-base-200 rounded-lg">
+                    <div>
+                        <span class="font-medium">${u.name || u.email}</span>
+                        <span class="text-base-content/50 text-xs ml-2">${u.email}</span>
+                    </div>
+                    <code class="text-xs text-base-content/40 font-mono hidden sm:block truncate max-w-[12rem]">${u.user_id}</code>
+                </div>`).join('');
+        }
+    } catch (e) {
+        listEl.innerHTML = '<span class="text-error text-xs">Failed to load users.</span>';
+    }
+}
+
+async function refreshInvitations(tenantId) {
+    const listEl = document.getElementById('invitations-list-' + tenantId);
+    try {
+        const res = await fetch('/api/admin/tenants/' + tenantId + '/invitations');
+        const invitations = await res.json();
+        if (invitations.length === 0) {
+            listEl.innerHTML = '<span class="text-base-content/40 italic">No pending invitations.</span>';
+        } else {
+            listEl.innerHTML = invitations.map(inv => `
+                <div class="flex items-center justify-between py-1.5 px-3 bg-base-200 rounded-lg">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="mail" class="w-3.5 h-3.5 text-base-content/40"></i>
+                        <span class="text-sm">${inv.email}</span>
+                    </div>
+                    <button onclick="deleteInvitation('${tenantId}', '${inv.email}', this)"
+                            class="btn btn-xs btn-ghost text-error gap-1">
+                        <i data-lucide="x" class="w-3 h-3"></i>
+                    </button>
+                </div>`).join('');
+            lucide.createIcons();
+        }
+    } catch (e) {
+        listEl.innerHTML = '<span class="text-error text-xs">Failed to load invitations.</span>';
+    }
+}
+
+function openAssignModal(tenantId) {
+    document.getElementById('assign-tenant-id').value = tenantId;
+    document.getElementById('assign-user-id').value = '';
+    document.getElementById('assign-error').classList.add('hidden');
+    document.getElementById('assign-modal').showModal();
+}
+
+function openInviteModal(tenantId) {
+    document.getElementById('invite-tenant-id').value = tenantId;
+    document.getElementById('invite-email').value = '';
+    document.getElementById('invite-error').classList.add('hidden');
+    document.getElementById('invite-modal').showModal();
+}
+
+async function sendInvite() {
+    const tenantId = document.getElementById('invite-tenant-id').value;
+    const email = document.getElementById('invite-email').value.trim();
+    const errEl = document.getElementById('invite-error');
+    const errMsg = document.getElementById('invite-error-msg');
+    errEl.classList.add('hidden');
+
+    if (!email) {
+        errMsg.textContent = 'Email is required.';
+        errEl.classList.remove('hidden');
+        return;
+    }
+
+    const btn = document.getElementById('invite-btn');
+    btn.disabled = true; btn.textContent = 'Sending...';
+
+    try {
+        const res = await fetch('/api/admin/tenants/' + tenantId + '/invitations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+        });
+        if (res.status === 201) {
+            document.getElementById('invite-modal').close();
+            showToast('Invitation created. User will be assigned on next login.', 'success');
+            const panel = document.getElementById('users-' + tenantId);
+            if (!panel.classList.contains('hidden')) refreshInvitations(tenantId);
+        } else {
+            errMsg.textContent = 'Failed to create invitation.';
+            errEl.classList.remove('hidden');
+        }
+    } catch (e) {
+        errMsg.textContent = 'Network error: ' + e.message;
+        errEl.classList.remove('hidden');
+    }
+    btn.disabled = false; btn.textContent = 'Send Invitation';
+}
+
+async function deleteInvitation(tenantId, email, btn) {
+    btn.disabled = true;
+    try {
+        const res = await fetch('/api/admin/tenants/' + tenantId + '/invitations/' + encodeURIComponent(email), {
+            method: 'DELETE',
+        });
+        if (res.status === 204) {
+            showToast('Invitation removed.', 'success');
+            refreshInvitations(tenantId);
+        } else {
+            showToast('Failed to remove invitation.', 'error');
+            btn.disabled = false;
+        }
+    } catch (e) {
+        showToast('Network error.', 'error');
+        btn.disabled = false;
+    }
+}
+
+async function assignUser() {
+    const tenantId = document.getElementById('assign-tenant-id').value;
+    const userId = document.getElementById('assign-user-id').value.trim();
+    const errEl = document.getElementById('assign-error');
+    const errMsg = document.getElementById('assign-error-msg');
+    errEl.classList.add('hidden');
+
+    if (!userId) {
+        errMsg.textContent = 'User ID is required.';
+        errEl.classList.remove('hidden');
+        return;
+    }
+
+    const btn = document.getElementById('assign-btn');
+    btn.disabled = true; btn.textContent = 'Assigning...';
+
+    try {
+        const res = await fetch('/api/admin/users/' + encodeURIComponent(userId) + '/tenant', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tenant_id: tenantId }),
+        });
+        if (res.status === 204) {
+            document.getElementById('assign-modal').close();
+            showToast('User assigned to tenant. Takes effect on their next login.', 'success');
+            // Refresh the users panel if open
+            const panel = document.getElementById('users-' + tenantId);
+            if (!panel.classList.contains('hidden')) {
+                refreshUsers(tenantId);
+        } else if (res.status === 404) {
+            errMsg.textContent = 'User not found.';
+            errEl.classList.remove('hidden');
+        } else {
+            errMsg.textContent = 'Failed to assign user.';
+            errEl.classList.remove('hidden');
+        }
+    } catch (e) {
+        errMsg.textContent = 'Network error: ' + e.message;
+        errEl.classList.remove('hidden');
+    }
+    btn.disabled = false; btn.textContent = 'Assign';
+}
+
+function openBrandingModal(tenantId, tenantName) {
+    document.getElementById('branding-tenant-id').value = tenantId;
+    document.getElementById('branding-name').value = '';
+    document.getElementById('branding-logo').value = '';
+    document.getElementById('branding-primary-color').value = '';
+    document.getElementById('branding-color-picker').value = '#667eea';
+    document.getElementById('branding-support-email').value = '';
+    document.getElementById('branding-error').classList.add('hidden');
+    document.getElementById('branding-modal').showModal();
+}
+
+// Sync color picker ↔ hex input
+document.getElementById('branding-color-picker').addEventListener('input', e => {
+    document.getElementById('branding-primary-color').value = e.target.value;
+});
+document.getElementById('branding-primary-color').addEventListener('input', e => {
+    const hex = e.target.value;
+    if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+        document.getElementById('branding-color-picker').value = hex;
+    }
+});
+
+async function saveBranding() {
+    const tenantId = document.getElementById('branding-tenant-id').value;
+    const errEl = document.getElementById('branding-error');
+    const errMsg = document.getElementById('branding-error-msg');
+    errEl.classList.add('hidden');
+
+    const branding = {};
+    const name = document.getElementById('branding-name').value.trim();
+    const logo = document.getElementById('branding-logo').value.trim();
+    const color = document.getElementById('branding-primary-color').value.trim();
+    const email = document.getElementById('branding-support-email').value.trim();
+    if (name) branding.name = name;
+    if (logo) branding.logo = logo;
+    if (color) branding.primary_color = color;
+    if (email) branding.support_email = email;
+
+    const btn = document.getElementById('branding-btn');
+    btn.disabled = true; btn.textContent = 'Saving...';
+
+    try {
+        const res = await fetch('/api/admin/tenants/' + encodeURIComponent(tenantId) + '/branding', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(branding),
+        });
+        if (res.ok) {
+            document.getElementById('branding-modal').close();
+            showToast('Branding saved!', 'success');
+        } else {
+            errMsg.textContent = 'Failed to save branding.';
+            errEl.classList.remove('hidden');
+        }
+    } catch (e) {
+        errMsg.textContent = 'Network error: ' + e.message;
+        errEl.classList.remove('hidden');
+    }
+    btn.disabled = false; btn.textContent = 'Save Branding';
+}
+</script>
+{% endblock %}

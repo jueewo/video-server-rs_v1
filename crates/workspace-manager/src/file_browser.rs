@@ -508,13 +508,8 @@ fn is_editable_by_extension(name: &str) -> bool {
         || lower.ends_with(".drawio")
 }
 
-/// A text file with its content, for LLM context gathering.
-#[derive(Clone, Debug, serde::Serialize)]
-pub struct ContextFile {
-    pub path: String,
-    pub content: String,
-    pub size: u64,
-}
+// Re-export from workspace-core
+pub use workspace_core::ContextFile;
 
 /// Collect text file contents from a directory (optionally recursive) for LLM context.
 ///

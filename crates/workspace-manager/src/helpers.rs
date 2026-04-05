@@ -3,7 +3,6 @@ use time::OffsetDateTime;
 // Re-export auth helpers from workspace-core so internal modules don't need to change imports.
 pub(crate) use workspace_core::auth::check_scope;
 pub(crate) use workspace_core::auth::require_auth;
-pub(crate) use workspace_core::auth::require_platform_admin;
 pub(crate) use workspace_core::auth::verify_workspace_ownership;
 
 pub(crate) fn format_human_date(date_str: &str) -> String {

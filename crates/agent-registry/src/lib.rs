@@ -22,6 +22,7 @@ pub mod db;
 pub mod hierarchy;
 pub mod import;
 pub mod models;
+pub mod workspace_agents;
 
 use askama::Template;
 use axum::{

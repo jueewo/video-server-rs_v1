@@ -1,23 +1,176 @@
-use crate::helpers::{check_scope, require_auth, require_platform_admin};
-use crate::{WorkspaceManagerState, WorkspaceAccessCodesTemplate, CreatedCodeRow, ClaimedCodeRow, TenantAdminTemplate};
+//! Tenant administration and workspace access codes management.
+//!
+//! Extracted from workspace-manager to keep that crate focused on
+//! file browsing and folder operations.
+
+use workspace_core::auth::{require_auth, require_platform_admin, check_scope};
 use api_keys::middleware::AuthenticatedUser;
 use askama::Template;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::{Html, IntoResponse, Json, Response},
-    Extension,
+    routing::{delete, get, put},
+    Extension, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tower_sessions::Session;
 use tracing::warn;
 
-/// GET /workspace-access-codes — management page for created and claimed codes
-pub(crate) async fn workspace_access_codes_page(
+// ============================================================================
+// State
+// ============================================================================
+
+#[derive(Clone)]
+pub struct TenantAdminState {
+    pub repo: Arc<dyn db::workspaces::WorkspaceRepository>,
+}
+
+// ============================================================================
+// Template display types
+// ============================================================================
+
+pub struct CreatedCodeRow {
+    pub code: String,
+    pub description: String,
+    pub folder_count: i64,
+    pub folders: Vec<String>,
+    pub expires_at: String,
+    pub created_at: String,
+    pub is_active: bool,
+}
+
+pub struct ClaimedCodeRow {
+    pub code: String,
+    pub description: String,
+    pub created_by: String,
+    pub claimed_at: String,
+}
+
+// ============================================================================
+// Templates
+// ============================================================================
+
+#[derive(Template)]
+#[template(path = "admin/tenants.html")]
+struct TenantAdminTemplate {
+    authenticated: bool,
+    tenants: Vec<TenantResponse>,
+}
+
+#[derive(Template)]
+#[template(path = "workspaces/access_codes.html")]
+struct WorkspaceAccessCodesTemplate {
+    authenticated: bool,
+    created: Vec<CreatedCodeRow>,
+    claimed: Vec<ClaimedCodeRow>,
+}
+
+// ============================================================================
+// Response types
+// ============================================================================
+
+#[derive(Serialize)]
+pub struct TenantResponse {
+    pub id: String,
+    pub name: String,
+    pub branding: Option<serde_json::Value>,
+    pub created_at: String,
+}
+
+#[derive(Serialize)]
+struct TenantUserResponse {
+    user_id: String,
+    email: String,
+    name: Option<String>,
+    tenant_id: String,
+}
+
+#[derive(Serialize)]
+struct InvitationResponse {
+    email: String,
+    tenant_id: String,
+    invited_at: String,
+}
+
+#[derive(Serialize)]
+struct BrandingResponse {
+    name: String,
+    logo: String,
+    primary_color: String,
+    support_email: String,
+}
+
+// ============================================================================
+// Request types
+// ============================================================================
+
+#[derive(Deserialize)]
+struct CreateTenantRequest {
+    id: String,
+    name: String,
+    branding: Option<serde_json::Value>,
+}
+
+#[derive(Deserialize)]
+struct AssignTenantRequest {
+    tenant_id: String,
+}
+
+#[derive(Deserialize)]
+struct InviteUserRequest {
+    email: String,
+}
+
+// ============================================================================
+// Router
+// ============================================================================
+
+pub fn tenant_admin_routes(state: Arc<TenantAdminState>) -> Router {
+    Router::new()
+        // UI pages
+        .route("/workspace-access-codes", get(workspace_access_codes_page))
+        .route("/admin/tenants", get(tenant_admin_page))
+        // Tenant CRUD API
+        .route(
+            "/api/admin/tenants",
+            get(list_tenants_handler).post(create_tenant_handler),
+        )
+        .route(
+            "/api/admin/tenants/{tenant_id}/users",
+            get(list_tenant_users_handler),
+        )
+        .route(
+            "/api/admin/tenants/{tenant_id}/branding",
+            put(update_tenant_branding_handler),
+        )
+        .route(
+            "/api/admin/users/{user_id}/tenant",
+            put(assign_user_tenant_handler),
+        )
+        // Invitations
+        .route(
+            "/api/admin/tenants/{tenant_id}/invitations",
+            get(list_invitations_handler).post(create_invitation_handler),
+        )
+        .route(
+            "/api/admin/tenants/{tenant_id}/invitations/{email}",
+            delete(delete_invitation_handler),
+        )
+        // Current user branding
+        .route("/api/me/branding", get(me_branding_handler))
+        .with_state(state)
+}
+
+// ============================================================================
+// Handlers
+// ============================================================================
+
+async fn workspace_access_codes_page(
     user: Option<Extension<AuthenticatedUser>>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<TenantAdminState>>,
 ) -> Result<Html<String>, StatusCode> {
     check_scope(&user, "read")?;
     let user_id = require_auth(&session).await?;
@@ -70,37 +223,9 @@ pub(crate) async fn workspace_access_codes_page(
     Ok(Html(html))
 }
 
-#[derive(Deserialize)]
-pub(crate) struct CreateTenantRequest {
-    pub id: String,
-    pub name: String,
-    pub branding: Option<serde_json::Value>,
-}
-
-#[derive(Serialize)]
-pub struct TenantResponse {
-    pub id: String,
-    pub name: String,
-    pub branding: Option<serde_json::Value>,
-    pub created_at: String,
-}
-
-#[derive(Serialize)]
-pub(crate) struct TenantUserResponse {
-    pub user_id: String,
-    pub email: String,
-    pub name: Option<String>,
-    pub tenant_id: String,
-}
-
-#[derive(Deserialize)]
-pub(crate) struct AssignTenantRequest {
-    pub tenant_id: String,
-}
-
-pub(crate) async fn list_tenants_handler(
+async fn list_tenants_handler(
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<TenantAdminState>>,
 ) -> Result<Json<Vec<TenantResponse>>, StatusCode> {
     require_platform_admin(&session).await?;
 
@@ -122,9 +247,9 @@ pub(crate) async fn list_tenants_handler(
     Ok(Json(tenants))
 }
 
-pub(crate) async fn create_tenant_handler(
+async fn create_tenant_handler(
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<TenantAdminState>>,
     Json(req): Json<CreateTenantRequest>,
 ) -> Result<Json<TenantResponse>, StatusCode> {
     require_platform_admin(&session).await?;
@@ -153,10 +278,10 @@ pub(crate) async fn create_tenant_handler(
     }))
 }
 
-pub(crate) async fn list_tenant_users_handler(
+async fn list_tenant_users_handler(
     Path(tenant_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<TenantAdminState>>,
 ) -> Result<Json<Vec<TenantUserResponse>>, StatusCode> {
     require_platform_admin(&session).await?;
 
@@ -177,10 +302,10 @@ pub(crate) async fn list_tenant_users_handler(
     Ok(Json(users))
 }
 
-pub(crate) async fn assign_user_tenant_handler(
+async fn assign_user_tenant_handler(
     Path(user_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<TenantAdminState>>,
     Json(req): Json<AssignTenantRequest>,
 ) -> Result<StatusCode, StatusCode> {
     require_platform_admin(&session).await?;
@@ -196,10 +321,10 @@ pub(crate) async fn assign_user_tenant_handler(
     }
 }
 
-pub(crate) async fn update_tenant_branding_handler(
+async fn update_tenant_branding_handler(
     Path(tenant_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<TenantAdminState>>,
     Json(branding): Json<serde_json::Value>,
 ) -> Result<StatusCode, StatusCode> {
     require_platform_admin(&session).await?;
@@ -218,9 +343,9 @@ pub(crate) async fn update_tenant_branding_handler(
     }
 }
 
-pub(crate) async fn tenant_admin_page(
+async fn tenant_admin_page(
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<TenantAdminState>>,
 ) -> Result<Response, StatusCode> {
     require_platform_admin(&session).await?;
 
@@ -250,34 +375,10 @@ pub(crate) async fn tenant_admin_page(
     .into_response())
 }
 
-// ============================================================================
-// Tenant Invitation API + Branding endpoint
-// ============================================================================
-
-#[derive(Deserialize)]
-pub(crate) struct InviteUserRequest {
-    pub email: String,
-}
-
-#[derive(Serialize)]
-pub(crate) struct InvitationResponse {
-    pub email: String,
-    pub tenant_id: String,
-    pub invited_at: String,
-}
-
-#[derive(Serialize)]
-pub(crate) struct BrandingResponse {
-    pub name: String,
-    pub logo: String,
-    pub primary_color: String,
-    pub support_email: String,
-}
-
-pub(crate) async fn create_invitation_handler(
+async fn create_invitation_handler(
     Path(tenant_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<TenantAdminState>>,
     Json(req): Json<InviteUserRequest>,
 ) -> Result<StatusCode, StatusCode> {
     require_platform_admin(&session).await?;
@@ -294,10 +395,10 @@ pub(crate) async fn create_invitation_handler(
     Ok(StatusCode::CREATED)
 }
 
-pub(crate) async fn list_invitations_handler(
+async fn list_invitations_handler(
     Path(tenant_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<TenantAdminState>>,
 ) -> Result<Json<Vec<InvitationResponse>>, StatusCode> {
     require_platform_admin(&session).await?;
 
@@ -316,10 +417,10 @@ pub(crate) async fn list_invitations_handler(
     ))
 }
 
-pub(crate) async fn delete_invitation_handler(
+async fn delete_invitation_handler(
     Path((tenant_id, email)): Path<(String, String)>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<TenantAdminState>>,
 ) -> Result<StatusCode, StatusCode> {
     require_platform_admin(&session).await?;
 
@@ -334,10 +435,9 @@ pub(crate) async fn delete_invitation_handler(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// GET /api/me/branding — returns the current user's tenant branding from session.
-pub(crate) async fn me_branding_handler(
+async fn me_branding_handler(
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<TenantAdminState>>,
 ) -> Result<Json<BrandingResponse>, StatusCode> {
     let tenant_id: String = session
         .get("tenant_id")

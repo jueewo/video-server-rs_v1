@@ -287,6 +287,29 @@ impl FolderTypeRegistry {
 }
 
 // ============================================================================
+// FolderTypeLookup implementation (workspace-core trait)
+// ============================================================================
+
+impl workspace_core::FolderTypeLookup for FolderTypeRegistry {
+    fn agent_roles(&self, type_id: &str) -> Vec<String> {
+        self.get_type(type_id)
+            .map(|def| def.agent_roles.iter().map(|r| r.role.clone()).collect())
+            .unwrap_or_default()
+    }
+
+    fn type_summary(&self, type_id: &str) -> Option<serde_json::Value> {
+        self.get_type(type_id).map(|def| {
+            serde_json::json!({
+                "id": def.id,
+                "name": def.name,
+                "description": def.description,
+                "agent_roles": def.agent_roles,
+            })
+        })
+    }
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 

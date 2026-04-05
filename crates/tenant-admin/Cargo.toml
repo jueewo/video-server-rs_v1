@@ -1,0 +1,19 @@
+[package]
+name = "tenant-admin"
+version = "0.1.0"
+edition = "2021"
+description = "Tenant administration and workspace access codes management"
+
+[dependencies]
+workspace-core = { path = "../workspace-core" }
+db = { path = "../db" }
+api-keys = { path = "../api-keys" }
+
+axum          = { workspace = true }
+tower-sessions = { workspace = true }
+askama        = { workspace = true }
+serde         = { workspace = true }
+serde_json    = { workspace = true }
+tracing       = { workspace = true }
+time          = { workspace = true }
+urlencoding   = { workspace = true }

@@ -40,6 +40,7 @@ use rate_limiter::RateLimitConfig;
 use user_auth::{auth_routes, AuthState, OidcConfig};
 use vault_manager::{vault_routes, VaultManagerState};
 use workspace_manager::{workspace_routes, WorkspaceManagerState};
+use tenant_admin::{TenantAdminState, tenant_admin_routes};
 use appstore::{AppstoreState, AppTemplateRegistry, appstore_routes};
 use federation::{federation_consumer_routes, federation_server_routes, FederationState};
 
@@ -415,8 +416,19 @@ async fn main() -> anyhow::Result<()> {
             ));
             if let Some(layer) = rate_limit.api_mutate_layer() { r.layer(layer) } else { r }
         })
-        .merge(workspace_routes(workspace_state))
+        .merge(workspace_routes(workspace_state.clone()))
         .merge(site_overview::site_handler_routes(site_handler_state.clone()))
+        .merge(tenant_admin_routes(Arc::new(TenantAdminState {
+            repo: database.clone(),
+        })))
+        .merge(agent_registry::workspace_agents::workspace_agent_routes(
+            Arc::new(agent_registry::workspace_agents::WorkspaceAgentState {
+                repo: database.clone(),
+                storage: user_storage.clone(),
+                folder_type_lookup: workspace_state.folder_type_registry.clone(),
+                collect_context_files: workspace_manager::collect_context_files,
+            }),
+        ))
         .merge(
             access_groups::routes::create_routes(Arc::new(access_groups::AccessGroupState {
                 repo: database.clone(),

@@ -163,7 +163,8 @@ async fn main() -> anyhow::Result<()> {
         .allow_headers(Any);
 
     let app = Router::new()
-        // Health
+        // Root + Health
+        .route("/", get(index))
         .route("/health", get(health))
         // Definitions
         .route("/api/processes", get(list_definitions).post(deploy_process))
@@ -282,6 +283,106 @@ async fn bootstrap_llm_providers(
 // ============================================================================
 // Health
 // ============================================================================
+
+async fn index(State(state): State<AppState>) -> axum::response::Html<String> {
+    let defs = state
+        .process_repo
+        .list_definitions(&state.default_user_id)
+        .await
+        .unwrap_or_default();
+    let instances = state
+        .process_repo
+        .list_instances(&state.default_user_id, None)
+        .await
+        .unwrap_or_default();
+    let running = instances.iter().filter(|i| i.status == "running").count();
+    let tasks = state
+        .process_repo
+        .list_pending_tasks(None)
+        .await
+        .unwrap_or_default();
+
+    axum::response::Html(format!(
+        r#"<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Process Runtime</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="min-h-screen bg-base-100">
+    <div class="navbar bg-base-300 shadow-lg">
+        <div class="flex-1">
+            <a href="/" class="btn btn-ghost normal-case text-xl gap-2">
+                <i data-lucide="workflow" class="w-6 h-6"></i>
+                Process Runtime
+            </a>
+        </div>
+        <div class="flex-none">
+            <a href="/health" class="btn btn-ghost btn-sm gap-1">
+                <i data-lucide="heart-pulse" class="w-4 h-4"></i> Health
+            </a>
+        </div>
+    </div>
+
+    <div class="container mx-auto p-6 max-w-4xl">
+        <!-- Stats -->
+        <div class="stats shadow w-full mb-8">
+            <div class="stat">
+                <div class="stat-figure text-primary"><i data-lucide="file-text" class="w-8 h-8"></i></div>
+                <div class="stat-title">Definitions</div>
+                <div class="stat-value text-primary">{defs}</div>
+                <div class="stat-desc">Synced process models</div>
+            </div>
+            <div class="stat">
+                <div class="stat-figure text-secondary"><i data-lucide="play-circle" class="w-8 h-8"></i></div>
+                <div class="stat-title">Instances</div>
+                <div class="stat-value text-secondary">{total}</div>
+                <div class="stat-desc">{running} running</div>
+            </div>
+            <div class="stat">
+                <div class="stat-figure text-accent"><i data-lucide="circle-check" class="w-8 h-8"></i></div>
+                <div class="stat-title">Pending Tasks</div>
+                <div class="stat-value text-accent">{tasks}</div>
+                <div class="stat-desc">Awaiting completion</div>
+            </div>
+        </div>
+
+        <!-- API Endpoints -->
+        <div class="card bg-base-200 shadow-lg">
+            <div class="card-body">
+                <h2 class="card-title gap-2"><i data-lucide="terminal" class="w-5 h-5"></i> API Endpoints</h2>
+                <div class="overflow-x-auto">
+                    <table class="table table-sm">
+                        <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+                        <tbody>
+                            <tr><td class="badge badge-success badge-sm">GET</td><td><code>/api/processes</code></td><td>List definitions</td></tr>
+                            <tr><td class="badge badge-info badge-sm">POST</td><td><code>/api/processes</code></td><td>Deploy YAML</td></tr>
+                            <tr><td class="badge badge-info badge-sm">POST</td><td><code>/api/processes/import-bpmn</code></td><td>Import BPMN XML</td></tr>
+                            <tr><td class="badge badge-info badge-sm">POST</td><td><code>/api/processes/{{id}}/start</code></td><td>Start instance</td></tr>
+                            <tr><td class="badge badge-success badge-sm">GET</td><td><code>/api/process-instances</code></td><td>List instances</td></tr>
+                            <tr><td class="badge badge-success badge-sm">GET</td><td><code>/api/process-tasks</code></td><td>Pending tasks</td></tr>
+                            <tr><td class="badge badge-info badge-sm">POST</td><td><code>/api/process-tasks/{{id}}/complete</code></td><td>Complete task</td></tr>
+                            <tr><td class="badge badge-success badge-sm">GET</td><td><code>/api/schedules</code></td><td>List schedules</td></tr>
+                            <tr><td class="badge badge-info badge-sm">POST</td><td><code>/api/sync</code></td><td>Trigger sync</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>lucide.createIcons();</script>
+</body>
+</html>"#,
+        defs = defs.len(),
+        total = instances.len(),
+        running = running,
+        tasks = tasks.len(),
+    ))
+}
 
 async fn health() -> Json<Value> {
     Json(json!({

@@ -40,7 +40,7 @@
         </span>
         <div>
             <h1 class="text-2xl font-bold leading-tight">Installed Apps</h1>
-            <p class="text-base-content/60 text-sm">Template-based apps in your workspaces</p>
+            <p class="text-base-content/60 text-sm">Apps across your workspaces</p>
         </div>
     </div>
 
@@ -60,12 +60,12 @@
         <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200">
             <div class="card-body p-5">
                 <div class="flex items-start gap-3 mb-2">
-                    <div class="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0 text-primary">
+                    <div class="w-10 h-10 rounded-lg bg-{{ app.color }}/15 flex items-center justify-center flex-shrink-0 text-{{ app.color }}">
                         <i data-lucide="{{ app.icon }}" class="w-5 h-5"></i>
                     </div>
                     <div class="min-w-0">
                         <h2 class="card-title text-sm leading-snug">{{ app.title }}</h2>
-                        <p class="text-xs text-base-content/40 truncate">{{ app.template_id }}</p>
+                        <span class="badge badge-{{ app.color }} badge-xs">{{ app.app_type_label }}</span>
                     </div>
                 </div>
                 {% if !app.description.is_empty() %}

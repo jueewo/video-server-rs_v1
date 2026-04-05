@@ -34,7 +34,7 @@ impl Config {
             .unwrap_or(4100);
 
         let database_url = std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "sqlite:process.db".to_string());
+            .unwrap_or_else(|_| "sqlite:process.db?mode=rwc".to_string());
 
         let storage_dir = std::env::var("STORAGE_DIR")
             .map(PathBuf::from)

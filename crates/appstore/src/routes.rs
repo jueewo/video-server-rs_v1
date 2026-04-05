@@ -89,8 +89,12 @@ struct DataFileView {
 struct InstalledAppView {
     title: String,
     description: String,
-    template_id: String,
+    /// "template:quiz-app" for appstore apps, or "course", "presentation", "bpmn" for folder-type apps
+    app_type: String,
+    /// Display label for the app type
+    app_type_label: String,
     icon: String,
+    color: String,
     workspace_name: String,
     folder_path: String,
     preview_url: String,
@@ -151,7 +155,8 @@ async fn appstore_page(
     Ok(Html(html))
 }
 
-/// Scan all workspaces owned by `user_id` for folders containing app.yaml.
+/// Scan all workspaces owned by `user_id` for apps — both appstore template
+/// apps (app.yaml) and folder-type apps (course, presentation, bpmn).
 async fn scan_installed_apps(state: &AppstoreState, user_id: &str) -> Vec<InstalledAppView> {
     let workspaces: Vec<(String, String)> = sqlx::query_as(
         "SELECT workspace_id, name FROM workspaces WHERE user_id = ? ORDER BY created_at DESC",
@@ -173,90 +178,161 @@ async fn scan_installed_apps(state: &AppstoreState, user_id: &str) -> Vec<Instal
         };
 
         for (folder_path, folder_config) in &config.folders {
-            if !matches!(
-                folder_config.folder_type.as_str(),
-                "js-tool" | "web-app" | "runtime-app"
-            ) {
-                continue;
-            }
             let folder_abs = workspace_root.join(folder_path);
-            // Scan for subfolders with app.yaml
-            let mut rd = match tokio::fs::read_dir(&folder_abs).await {
-                Ok(r) => r,
-                Err(_) => continue,
-            };
-            while let Ok(Some(entry)) = rd.next_entry().await {
-                let entry_path = entry.path();
-                if !entry_path.is_dir() {
-                    continue;
-                }
-                let app_yaml_path = entry_path.join("app.yaml");
-                if !app_yaml_path.exists() {
-                    continue;
-                }
-                let subfolder_name = entry_path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("")
-                    .to_string();
-                if subfolder_name.is_empty() || subfolder_name.starts_with('.') {
-                    continue;
-                }
 
-                if let Ok(Some(app_config)) = crate::AppConfig::load(&entry_path) {
-                    let icon = state
-                        .registry
-                        .get(&app_config.template)
-                        .map(|t| t.icon.clone())
-                        .unwrap_or_else(|| "puzzle".to_string());
-
-                    let preview_url = format!(
-                        "/js-apps/{}/{}/{}/",
-                        workspace_id, folder_path, subfolder_name
-                    );
-
+            match folder_config.folder_type.as_str() {
+                // ── Folder-type apps (the folder IS the app) ─────────
+                "course" => {
+                    let title = folder_config.metadata_title().unwrap_or_else(|| folder_path.clone());
+                    let preview_url = format!("/workspaces/{}/browse/{}", workspace_id, folder_path);
                     apps.push(InstalledAppView {
-                        title: if app_config.title.is_empty() {
-                            subfolder_name.clone()
-                        } else {
-                            app_config.title
-                        },
-                        description: app_config.description,
-                        template_id: app_config.template,
-                        icon,
-                        workspace_name: workspace_name.clone(),
-                        folder_path: format!("{}/{}", folder_path, subfolder_name),
-                        preview_url,
-                    });
-                }
-            }
-
-            // Also check if the folder itself has app.yaml (single-app folder)
-            if folder_abs.join("app.yaml").exists() {
-                if let Ok(Some(app_config)) = crate::AppConfig::load(&folder_abs) {
-                    let icon = state
-                        .registry
-                        .get(&app_config.template)
-                        .map(|t| t.icon.clone())
-                        .unwrap_or_else(|| "puzzle".to_string());
-
-                    let preview_url =
-                        format!("/js-apps/{}/{}/", workspace_id, folder_path);
-
-                    apps.push(InstalledAppView {
-                        title: if app_config.title.is_empty() {
-                            folder_path.clone()
-                        } else {
-                            app_config.title
-                        },
-                        description: app_config.description,
-                        template_id: app_config.template,
-                        icon,
+                        title,
+                        description: String::new(),
+                        app_type: "course".to_string(),
+                        app_type_label: "Course".to_string(),
+                        icon: "graduation-cap".to_string(),
+                        color: "success".to_string(),
                         workspace_name: workspace_name.clone(),
                         folder_path: folder_path.clone(),
                         preview_url,
                     });
                 }
+                "presentation" => {
+                    let title = folder_config.metadata_title().unwrap_or_else(|| folder_path.clone());
+                    let preview_url = format!("/workspaces/{}/browse/{}", workspace_id, folder_path);
+                    apps.push(InstalledAppView {
+                        title,
+                        description: String::new(),
+                        app_type: "presentation".to_string(),
+                        app_type_label: "Presentation".to_string(),
+                        icon: "presentation".to_string(),
+                        color: "warning".to_string(),
+                        workspace_name: workspace_name.clone(),
+                        folder_path: folder_path.clone(),
+                        preview_url,
+                    });
+                }
+                "bpmn-simulator" => {
+                    let title = folder_config.metadata_title().unwrap_or_else(|| folder_path.clone());
+                    let preview_url = format!("/workspaces/{}/browse/{}", workspace_id, folder_path);
+                    apps.push(InstalledAppView {
+                        title,
+                        description: String::new(),
+                        app_type: "bpmn".to_string(),
+                        app_type_label: "BPMN".to_string(),
+                        icon: "git-branch".to_string(),
+                        color: "accent".to_string(),
+                        workspace_name: workspace_name.clone(),
+                        folder_path: folder_path.clone(),
+                        preview_url,
+                    });
+                }
+
+                // ── App collection / single app folders ──────────────
+                "js-tool" | "web-app" | "runtime-app" => {
+                    // Scan for subfolders with app.yaml or index.html
+                    let mut rd = match tokio::fs::read_dir(&folder_abs).await {
+                        Ok(r) => r,
+                        Err(_) => continue,
+                    };
+                    while let Ok(Some(entry)) = rd.next_entry().await {
+                        let entry_path = entry.path();
+                        if !entry_path.is_dir() {
+                            continue;
+                        }
+                        let subfolder_name = entry_path
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("")
+                            .to_string();
+                        if subfolder_name.is_empty() || subfolder_name.starts_with('.') {
+                            continue;
+                        }
+
+                        if let Ok(Some(app_config)) = crate::AppConfig::load(&entry_path) {
+                            // Template-based app
+                            let (icon, color) = state
+                                .registry
+                                .get(&app_config.template)
+                                .map(|t| (t.icon.clone(), t.color.clone()))
+                                .unwrap_or_else(|| ("puzzle".to_string(), "primary".to_string()));
+
+                            let preview_url = format!(
+                                "/js-apps/{}/{}/{}/",
+                                workspace_id, folder_path, subfolder_name
+                            );
+
+                            apps.push(InstalledAppView {
+                                title: if app_config.title.is_empty() {
+                                    subfolder_name.clone()
+                                } else {
+                                    app_config.title
+                                },
+                                description: app_config.description,
+                                app_type: format!("template:{}", app_config.template),
+                                app_type_label: state.registry.get(&app_config.template)
+                                    .map(|t| t.name.clone())
+                                    .unwrap_or_else(|| app_config.template.clone()),
+                                icon,
+                                color,
+                                workspace_name: workspace_name.clone(),
+                                folder_path: format!("{}/{}", folder_path, subfolder_name),
+                                preview_url,
+                            });
+                        } else if entry_path.join("index.html").exists() {
+                            // Plain HTML/JS app (no template)
+                            let preview_url = format!(
+                                "/js-apps/{}/{}/{}/",
+                                workspace_id, folder_path, subfolder_name
+                            );
+                            apps.push(InstalledAppView {
+                                title: subfolder_name.clone(),
+                                description: String::new(),
+                                app_type: "custom".to_string(),
+                                app_type_label: "Custom App".to_string(),
+                                icon: "code-2".to_string(),
+                                color: "neutral".to_string(),
+                                workspace_name: workspace_name.clone(),
+                                folder_path: format!("{}/{}", folder_path, subfolder_name),
+                                preview_url,
+                            });
+                        }
+                    }
+
+                    // Also check if the folder itself has app.yaml (single-app folder)
+                    if folder_abs.join("app.yaml").exists() {
+                        if let Ok(Some(app_config)) = crate::AppConfig::load(&folder_abs) {
+                            let (icon, color) = state
+                                .registry
+                                .get(&app_config.template)
+                                .map(|t| (t.icon.clone(), t.color.clone()))
+                                .unwrap_or_else(|| ("puzzle".to_string(), "primary".to_string()));
+
+                            let preview_url =
+                                format!("/js-apps/{}/{}/", workspace_id, folder_path);
+
+                            apps.push(InstalledAppView {
+                                title: if app_config.title.is_empty() {
+                                    folder_path.clone()
+                                } else {
+                                    app_config.title
+                                },
+                                description: app_config.description,
+                                app_type: format!("template:{}", app_config.template),
+                                app_type_label: state.registry.get(&app_config.template)
+                                    .map(|t| t.name.clone())
+                                    .unwrap_or_else(|| app_config.template.clone()),
+                                icon,
+                                color,
+                                workspace_name: workspace_name.clone(),
+                                folder_path: folder_path.clone(),
+                                preview_url,
+                            });
+                        }
+                    }
+                }
+
+                _ => {} // skip other folder types
             }
         }
     }
@@ -274,6 +350,19 @@ struct WorkspaceYamlPartial {
 struct FolderConfigPartial {
     #[serde(rename = "type")]
     folder_type: String,
+    #[serde(default)]
+    metadata: Option<FolderMetadataPartial>,
+}
+
+#[derive(Deserialize)]
+struct FolderMetadataPartial {
+    title: Option<String>,
+}
+
+impl FolderConfigPartial {
+    fn metadata_title(&self) -> Option<String> {
+        self.metadata.as_ref()?.title.clone()
+    }
 }
 
 // ============================================================================

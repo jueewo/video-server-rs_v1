@@ -1,11 +1,4 @@
 # Multi-stage build for video-server-rs
-# Build arg controls which feature set is compiled in (controls license scope for Tier 3)
-#   full    — all features (default, Tier 1/2)
-#   media   — media + gallery only
-#   course  — course viewer only
-#   bpmn    — BPMN viewer only
-#   media,course — combine as needed
-ARG FEATURES=full
 
 # Pull bun binary from official image
 FROM oven/bun:1-alpine AS bun
@@ -44,9 +37,8 @@ COPY src/ ./src/
 COPY templates/ ./templates/
 COPY migrations/ ./migrations/
 
-# Build Rust application — compile only licensed features
-ARG FEATURES
-RUN cargo build --release --no-default-features --features "${FEATURES}"
+# Build Rust application
+RUN cargo build --release
 
 # ============================================================================
 # Final stage - Runtime image
@@ -76,9 +68,14 @@ WORKDIR /app
 # Copy binary from builder
 COPY --from=builder /app/target/release/video-server-rs /app/video-server-rs
 
-# Copy static files and templates
+# Copy static files, templates, docs, and migrations
 COPY --from=builder /app/static /app/static
 COPY templates/ /app/templates/
+COPY docs/ /app/docs/
+COPY migrations/ /app/migrations/
+
+# Copy site generator static files (used by SITE_COMPONENTS_DIR)
+COPY generator/static_files/ /app/generator/static_files/
 
 # Create storage directories (vault-based nested layout)
 RUN mkdir -p /app/storage/vaults \

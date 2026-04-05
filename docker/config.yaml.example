@@ -1,0 +1,16 @@
+# Deployment configuration — topology and tenant settings.
+# Copy to the project root:  cp config.yaml.example ../config.yaml
+#
+# In standalone mode, tenant_id and tenant_name identify this installation.
+# In hosted mode (default), tenants are resolved from the database.
+
+deployment_mode: standalone
+
+# Fixed tenant identity (standalone only — ignored in hosted mode)
+tenant_id: "my-org"
+tenant_name: "My Organisation"
+
+# Federation — pull-based multi-server content sharing.
+# Leave disabled unless you have multiple servers sharing content.
+federation_enabled: false
+federation_sync_interval_minutes: 15

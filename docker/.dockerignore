@@ -3,10 +3,10 @@
 **/.gitignore
 **/.gitattributes
 
-# Documentation
+# Documentation (keep docs/ for runtime docs viewer)
 **/*.md
 !README.md
-**/docs/
+!docs/**/*.md
 **/docs_archive/
 **/docs_designs/
 
@@ -27,7 +27,6 @@
 **/target_ra/
 **/target_wasm/
 **/*.rs.bk
-**/Cargo.lock
 
 # Build artifacts
 **/dist/

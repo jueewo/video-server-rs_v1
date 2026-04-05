@@ -9,10 +9,6 @@ on:
         description: "Version tag (e.g. 1.2.3) — leave blank for sha-only"
         required: false
         default: ""
-      features:
-        description: "Rust feature flags"
-        required: false
-        default: "full"
   push:
     tags:
       - "v*"
@@ -69,8 +65,6 @@ jobs:
           file: docker/Dockerfile
           push: true
           tags: ${{ steps.tags.outputs.tags }}
-          build-args: |
-            FEATURES=${{ github.event.inputs.features || 'full' }}
           labels: |
             git.sha=${{ steps.tags.outputs.sha }}
             build.date=${{ github.event.created }}

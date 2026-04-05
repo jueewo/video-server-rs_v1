@@ -1,0 +1,24 @@
+# Branding configuration — white-label identity for this deployment.
+# Copy to the project root:  cp branding.yaml.example ../branding.yaml
+#
+# All fields are optional — sensible defaults are used if omitted.
+
+# Display name shown in browser tabs, navbar, and footer
+name: "My Media Platform"
+
+# Path to the logo/icon (served from /static/)
+# Place your logo at static/custom/logo.webp and update this path
+logo: "/static/icon.webp"
+
+# Favicon path (defaults to /static/favicon.svg if not set)
+# favicon: "/static/custom/favicon.svg"
+
+# Primary accent color override (CSS hex, e.g. "#0057b7")
+# Leave empty to use the default theme color.
+# primary_color: ""
+
+# Support email shown in footer (leave empty to hide)
+# support_email: "support@example.com"
+
+# Optional description for meta tags
+description: "Self-hosted media management and streaming platform"

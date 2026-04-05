@@ -1,31 +1,21 @@
-# Standalone deployment compose file — Tier 3 (customer self-hosting)
+# Standalone deployment compose file — minimal self-hosting
 #
-# Usage:
-#   docker compose -f docker-compose.standalone.yml up -d
+# Quick start:
+#   ./scripts/quickstart-test.sh          # creates .env, config, branding, empty DB
+#   podman compose -f docker-compose.standalone.yml up -d
 #
-# Before starting:
-#   1. Edit ../branding.yaml — set your name, logo, colors
-#   2. Edit ../config.yaml   — set deployment_mode: standalone, tenant_id, tenant_name
-#   3. Configure OIDC env vars below (or use ENABLE_EMERGENCY_LOGIN for initial setup)
-#   4. Place your logo at ../static/custom/logo.webp (or update branding.yaml logo path)
-#
-# Build a licensed feature set:
-#   docker compose -f docker-compose.standalone.yml build --build-arg FEATURES=media,course
-
-version: "3.8"
+# Manual setup:
+#   1. cp .env.standalone.example .env
+#   2. cp branding.yaml.example ../branding.yaml
+#   3. cp config.yaml.example ../config.yaml
+#   4. touch ../media.db && mkdir -p ../storage
+#   5. podman compose -f docker-compose.standalone.yml up -d
 
 services:
   app:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-      args:
-        # Set FEATURES to the licensed feature set for this customer:
-        #   full          — all modules
-        #   media         — media manager + gallery
-        #   media,course  — media + course viewer
-        #   course,bpmn   — course + BPMN (no media pipeline)
-        FEATURES: ${FEATURES:-full}
     container_name: platform
     restart: unless-stopped
     ports:
@@ -33,39 +23,51 @@ services:
     volumes:
       # Persistent storage — all media, thumbnails, and vaults
       - storage:/app/storage
-      # Persistent database
-      - ../media.db:/app/media.db
-      # Branding and deployment config — mount as read-only so customer edits take effect on restart
-      - ../branding.yaml:/app/branding.yaml:ro
-      - ../config.yaml:/app/config.yaml:ro
-      # Custom static assets (logo, favicon) — customer drops files here
-      - ../static/custom:/app/static/custom:ro
+      # Persistent database (:z for SELinux on RHEL/Rocky)
+      - ../media.db:/app/media.db:z
+      # Branding and deployment config — edits take effect on restart
+      - ../branding.yaml:/app/branding.yaml:ro,z
+      - ../config.yaml:/app/config.yaml:ro,z
+      # Custom static assets (logo, favicon) — drop files here
+      - ../static/custom:/app/static/custom:ro,z
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       - DATABASE_URL=sqlite:media.db
       - STORAGE_DIR=/app/storage
 
-      # OIDC — point at the customer's own IdP
-      # - OIDC_ISSUER_URL=https://auth.customer.com
-      # - OIDC_CLIENT_ID=platform
-      # - OIDC_CLIENT_SECRET=changeme
-      # - OIDC_REDIRECT_URL=https://platform.customer.com/auth/callback
+      # MediaMTX (internal network)
+      - MEDIAMTX_HOST=mediamtx
+      - MEDIAMTX_API_PORT=9997
+      - MEDIAMTX_HLS_PORT=8888
 
-      # Emergency login — enable for initial setup, disable in production
-      # - ENABLE_EMERGENCY_LOGIN=true
-      # - SU_USER=admin
-      # - SU_PWD=changeme
+      # OIDC — set in .env or uncomment here
+      - OIDC_ISSUER_URL=${OIDC_ISSUER_URL:-}
+      - OIDC_CLIENT_ID=${OIDC_CLIENT_ID:-}
+      - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET:-}
+      - OIDC_REDIRECT_URL=${OIDC_REDIRECT_URL:-}
 
-      # Production mode enforces security checks
+      # Emergency login — set in .env (enabled by default in .env.standalone.example)
+      - ENABLE_EMERGENCY_LOGIN=${ENABLE_EMERGENCY_LOGIN:-false}
+      - SU_USER=${SU_USER:-}
+      - SU_PWD=${SU_PWD:-}
+
+      # RTMP streaming token
+      - RTMP_PUBLISH_TOKEN=${RTMP_PUBLISH_TOKEN:-changeme}
+
       - RUN_MODE=${RUN_MODE:-production}
+    depends_on:
+      mediamtx:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
       interval: 30s
       timeout: 5s
       start_period: 15s
       retries: 3
+    networks:
+      - platform-network
 
-  # MediaMTX — only needed if the media feature is compiled in and RTMP/HLS streaming is used
+  # MediaMTX — only needed if RTMP/HLS streaming is used
   # Comment out if customer does not need live streaming
   mediamtx:
     image: bluenviron/mediamtx:latest
@@ -77,7 +79,7 @@ services:
       - "8889:8889"  # WebRTC
       - "9997:9997"  # API
     volumes:
-      - ../mediamtx.yml:/mediamtx.yml:ro
+      - ../mediamtx.yml:/mediamtx.yml:ro,z
     environment:
       - MTX_PROTOCOLS=tcp
       - MTX_LOGLEVEL=info
@@ -87,6 +89,12 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    networks:
+      - platform-network
+
+networks:
+  platform-network:
+    driver: bridge
 
 volumes:
   storage:

@@ -1,19 +1,35 @@
-use crate::helpers::{check_scope, require_auth, verify_workspace_ownership};
-use crate::{WorkspaceConfig, WorkspaceManagerState};
+use workspace_core::auth::{check_scope, require_auth, verify_workspace_ownership};
+use workspace_core::WorkspaceConfig;
 use api_keys::middleware::AuthenticatedUser;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{Html, IntoResponse, Json, Response},
-    Extension,
+    routing::{delete, get, patch, post, put},
+    Extension, Router,
 };
+use common::storage::UserStorageManager;
+use db::workspaces::WorkspaceRepository;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tower_sessions::Session;
 use tracing::{info, warn};
 
+// ============================================================================
+// State for site handler routes
+// ============================================================================
+
+#[derive(Clone)]
+pub struct SiteHandlerState {
+    pub repo: Arc<dyn WorkspaceRepository>,
+    pub storage: Arc<UserStorageManager>,
+    /// Root directory for site builds and git repo caches.
+    pub sites_dir: std::path::PathBuf,
+    pub git_repo: Arc<dyn db::git_providers::GitProviderRepository>,
+}
+
 #[derive(Deserialize)]
-pub(crate) struct GenerateSiteRequest {
+pub struct GenerateSiteRequest {
     /// Workspace-relative path to the yhm-site-data folder (e.g. "websites/minimal")
     pub folder_path: String,
     /// Optional: server path to the Astro components/layouts directory
@@ -26,7 +42,7 @@ pub(crate) struct GenerateSiteRequest {
 }
 
 #[derive(Serialize)]
-pub(crate) struct GenerateSiteResponse {
+pub struct GenerateSiteResponse {
     pub output_dir: String,
     pub message: String,
     #[serde(skip_serializing_if = "String::is_empty")]
@@ -47,11 +63,11 @@ fn site_home_subpath(source_dir: &std::path::Path) -> Option<String> {
 ///
 /// Generates the merged Astro project from the sitedef.yaml + data files in the
 /// specified yhm-site-data folder. Output is written to {SITES_DIR}/builds/.
-pub(crate) async fn generate_site_handler(
+pub async fn generate_site_handler(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<SiteHandlerState>>,
     Json(request): Json<GenerateSiteRequest>,
 ) -> Result<Json<GenerateSiteResponse>, (StatusCode, Json<serde_json::Value>)> {
     let je = |s: StatusCode| (s, Json(serde_json::json!({})));
@@ -299,11 +315,11 @@ pub(crate) async fn generate_site_handler(
 ///
 /// Removes the local build directory for a site folder, freeing disk space.
 /// Clears build-related metadata (preview URL, build time) but preserves push metadata.
-pub(crate) async fn delete_site_build_handler(
+pub async fn delete_site_build_handler(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<SiteHandlerState>>,
     Json(request): Json<DeleteSiteBuildRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let je = |s: StatusCode| (s, Json(serde_json::json!({})));
@@ -357,7 +373,7 @@ pub(crate) async fn delete_site_build_handler(
 }
 
 #[derive(Deserialize)]
-pub(crate) struct DeleteSiteBuildRequest {
+pub struct DeleteSiteBuildRequest {
     pub folder_path: String,
 }
 
@@ -378,7 +394,7 @@ fn dir_size(path: &std::path::Path) -> u64 {
 // ============================================================================
 
 #[derive(Deserialize)]
-pub(crate) struct AddVitepressPageRequest {
+pub struct AddVitepressPageRequest {
     /// Workspace-relative path to the vitepress-docs folder.
     pub folder_path: String,
     /// Human-readable page title.
@@ -397,18 +413,18 @@ pub(crate) struct AddVitepressPageRequest {
 }
 
 #[derive(Serialize)]
-pub(crate) struct AddVitepressPageResponse {
+pub struct AddVitepressPageResponse {
     pub edit_url: String,
 }
 
 /// POST /api/workspaces/{workspace_id}/vitepress/add-page
 ///
 /// Creates a new Markdown file under docs/ and registers it in vitepressdef.yaml.
-pub(crate) async fn vitepress_add_page_handler(
+pub async fn vitepress_add_page_handler(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<SiteHandlerState>>,
     Json(request): Json<AddVitepressPageRequest>,
 ) -> Result<Json<AddVitepressPageResponse>, (StatusCode, Json<serde_json::Value>)> {
     let err = |msg: &str| {
@@ -539,17 +555,17 @@ pub(crate) async fn vitepress_add_page_handler(
 /// Uses a query-param for the folder path because Axum wildcards must be the
 /// last segment (can't do `{*path}/editor`).
 #[derive(serde::Deserialize)]
-pub(crate) struct SiteEditorQuery {
+pub struct SiteEditorQuery {
     path: Option<String>,
     page: Option<String>,
     lang: Option<String>,
 }
 
-pub(crate) async fn site_editor_page(
+pub async fn site_editor_page(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<SiteHandlerState>>,
     Query(query): Query<SiteEditorQuery>,
 ) -> Result<Response, StatusCode> {
     check_scope(&user, "read")?;
@@ -566,7 +582,7 @@ pub(crate) async fn site_editor_page(
     let selected_lang = query.lang.unwrap_or_default();
 
     let html = tokio::task::spawn_blocking(move || {
-        site_overview::render_site_editor(
+        crate::render_site_editor(
             &workspace_root,
             &workspace_id,
             &workspace_name,
@@ -588,16 +604,16 @@ pub(crate) async fn site_editor_page(
 // -- Collection entry list page ------------------------------------------------
 
 #[derive(serde::Deserialize)]
-pub(crate) struct SiteCollectionQuery {
+pub struct SiteCollectionQuery {
     path: Option<String>,
     collection: Option<String>,
 }
 
-pub(crate) async fn site_collection_page(
+pub async fn site_collection_page(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<SiteHandlerState>>,
     Query(query): Query<SiteCollectionQuery>,
 ) -> Result<Response, StatusCode> {
     check_scope(&user, "read")?;
@@ -612,7 +628,7 @@ pub(crate) async fn site_collection_page(
 
     let workspace_root = state.storage.workspace_root(&workspace_id);
     let html = tokio::task::spawn_blocking(move || {
-        site_overview::render_collection_entries(
+        crate::render_collection_entries(
             &workspace_root, &workspace_id, &workspace_name, &folder_path, &collection,
         )
     })
@@ -626,18 +642,18 @@ pub(crate) async fn site_collection_page(
 // -- Entry editor page ---------------------------------------------------------
 
 #[derive(serde::Deserialize)]
-pub(crate) struct SiteEntryQuery {
+pub struct SiteEntryQuery {
     path: Option<String>,
     collection: Option<String>,
     locale: Option<String>,
     slug: Option<String>,
 }
 
-pub(crate) async fn site_entry_editor_page(
+pub async fn site_entry_editor_page(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<SiteHandlerState>>,
     Query(query): Query<SiteEntryQuery>,
 ) -> Result<Response, StatusCode> {
     check_scope(&user, "read")?;
@@ -654,7 +670,7 @@ pub(crate) async fn site_entry_editor_page(
 
     let workspace_root = state.storage.workspace_root(&workspace_id);
     let html = tokio::task::spawn_blocking(move || {
-        site_overview::render_entry_editor(
+        crate::render_entry_editor(
             &workspace_root, &workspace_id, &workspace_name,
             &folder_path, &collection, &locale, &slug,
         )
@@ -669,7 +685,7 @@ pub(crate) async fn site_entry_editor_page(
 // -- Collection entry CRUD API -------------------------------------------------
 
 #[derive(serde::Deserialize)]
-pub(crate) struct CreateEntryRequest {
+pub struct CreateEntryRequest {
     folder_path: String,
     collection: String,
     locale: String,
@@ -677,11 +693,11 @@ pub(crate) struct CreateEntryRequest {
     title: String,
 }
 
-pub(crate) async fn create_collection_entry(
+pub async fn create_collection_entry(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<SiteHandlerState>>,
     Json(req): Json<CreateEntryRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     check_scope(&user, "write")?;
@@ -716,14 +732,14 @@ pub(crate) async fn create_collection_entry(
     let fm: serde_yaml::Value = serde_yaml::from_str(&fm_yaml).unwrap_or_default();
 
     std::fs::create_dir_all(&locale_dir).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    site_overview::save_entry_file(&locale_dir, &req.slug, &fm, "")
+    crate::save_entry_file(&locale_dir, &req.slug, &fm, "")
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
 #[derive(serde::Deserialize)]
-pub(crate) struct SaveEntryRequest {
+pub struct SaveEntryRequest {
     folder_path: String,
     collection: String,
     locale: String,
@@ -732,11 +748,11 @@ pub(crate) struct SaveEntryRequest {
     body: String,
 }
 
-pub(crate) async fn save_collection_entry(
+pub async fn save_collection_entry(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<SiteHandlerState>>,
     Json(req): Json<SaveEntryRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     check_scope(&user, "write")?;
@@ -754,25 +770,25 @@ pub(crate) async fn save_collection_entry(
     let fm_yaml: serde_yaml::Value = serde_yaml::to_value(&req.frontmatter)
         .map_err(|_| StatusCode::BAD_REQUEST)?;
 
-    site_overview::save_entry_file(&locale_dir, &req.slug, &fm_yaml, &req.body)
+    crate::save_entry_file(&locale_dir, &req.slug, &fm_yaml, &req.body)
         .map_err(|e| { warn!("save entry error: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
 
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
 #[derive(serde::Deserialize)]
-pub(crate) struct DeleteEntryQuery {
+pub struct DeleteEntryQuery {
     folder_path: String,
     collection: String,
     locale: String,
     slug: String,
 }
 
-pub(crate) async fn delete_collection_entry(
+pub async fn delete_collection_entry(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<SiteHandlerState>>,
     Query(req): Query<DeleteEntryQuery>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     check_scope(&user, "write")?;
@@ -786,7 +802,7 @@ pub(crate) async fn delete_collection_entry(
         .join(&req.collection)
         .join(&req.locale);
 
-    site_overview::delete_entry_file(&locale_dir, &req.slug)
+    crate::delete_entry_file(&locale_dir, &req.slug)
         .map_err(|e| { warn!("delete entry error: {e}"); StatusCode::INTERNAL_SERVER_ERROR })?;
 
     Ok(Json(serde_json::json!({ "ok": true })))
@@ -795,17 +811,17 @@ pub(crate) async fn delete_collection_entry(
 // -- Create page ---------------------------------------------------------------
 
 #[derive(Deserialize)]
-pub(crate) struct CreatePageRequest {
+pub struct CreatePageRequest {
     folder_path: String,
     slug: String,
     title: String,
 }
 
-pub(crate) async fn create_site_page(
+pub async fn create_site_page(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<SiteHandlerState>>,
     Json(req): Json<CreatePageRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     check_scope(&user, "write")?;
@@ -885,7 +901,7 @@ pub(crate) async fn create_site_page(
 // -- Create collection ---------------------------------------------------------
 
 #[derive(Deserialize)]
-pub(crate) struct CreateCollectionRequest {
+pub struct CreateCollectionRequest {
     folder_path: String,
     name: String,
     coltype: String,
@@ -893,11 +909,11 @@ pub(crate) struct CreateCollectionRequest {
     searchable: bool,
 }
 
-pub(crate) async fn create_site_collection(
+pub async fn create_site_collection(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<SiteHandlerState>>,
     Json(req): Json<CreateCollectionRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     check_scope(&user, "write")?;
@@ -980,15 +996,15 @@ pub(crate) async fn create_site_collection(
 // -- Site status (JSON) --------------------------------------------------------
 
 #[derive(Deserialize)]
-pub(crate) struct SiteFolderQuery {
+pub struct SiteFolderQuery {
     folder_path: String,
 }
 
-pub(crate) async fn site_status_handler(
+pub async fn site_status_handler(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<SiteHandlerState>>,
     Query(req): Query<SiteFolderQuery>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     check_scope(&user, "read")?;
@@ -1021,11 +1037,11 @@ pub(crate) async fn site_status_handler(
 
 // -- List pages ----------------------------------------------------------------
 
-pub(crate) async fn list_site_pages_handler(
+pub async fn list_site_pages_handler(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<SiteHandlerState>>,
     Query(req): Query<SiteFolderQuery>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     check_scope(&user, "read")?;
@@ -1048,16 +1064,16 @@ pub(crate) async fn list_site_pages_handler(
 // -- Remove page ---------------------------------------------------------------
 
 #[derive(Deserialize)]
-pub(crate) struct RemovePageQuery {
+pub struct RemovePageQuery {
     folder_path: String,
     slug: String,
 }
 
-pub(crate) async fn remove_site_page_handler(
+pub async fn remove_site_page_handler(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<SiteHandlerState>>,
     Query(req): Query<RemovePageQuery>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     check_scope(&user, "write")?;
@@ -1101,11 +1117,11 @@ pub(crate) async fn remove_site_page_handler(
 
 // -- List collections ----------------------------------------------------------
 
-pub(crate) async fn list_site_collections_handler(
+pub async fn list_site_collections_handler(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<SiteHandlerState>>,
     Query(req): Query<SiteFolderQuery>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     check_scope(&user, "read")?;
@@ -1127,16 +1143,16 @@ pub(crate) async fn list_site_collections_handler(
 // -- Remove collection ---------------------------------------------------------
 
 #[derive(Deserialize)]
-pub(crate) struct RemoveCollectionQuery {
+pub struct RemoveCollectionQuery {
     folder_path: String,
     name: String,
 }
 
-pub(crate) async fn remove_site_collection_handler(
+pub async fn remove_site_collection_handler(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<SiteHandlerState>>,
     Query(req): Query<RemoveCollectionQuery>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     check_scope(&user, "write")?;
@@ -1181,17 +1197,17 @@ pub(crate) async fn remove_site_collection_handler(
 // -- List collection entries ---------------------------------------------------
 
 #[derive(Deserialize)]
-pub(crate) struct ListEntriesQuery {
+pub struct ListEntriesQuery {
     folder_path: String,
     collection: String,
     locale: Option<String>,
 }
 
-pub(crate) async fn list_collection_entries_handler(
+pub async fn list_collection_entries_handler(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<SiteHandlerState>>,
     Query(req): Query<ListEntriesQuery>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     check_scope(&user, "read")?;
@@ -1254,11 +1270,11 @@ pub(crate) async fn list_collection_entries_handler(
 
 // -- Site validate -------------------------------------------------------------
 
-pub(crate) async fn site_validate_handler(
+pub async fn site_validate_handler(
     user: Option<Extension<AuthenticatedUser>>,
     Path(workspace_id): Path<String>,
     session: Session,
-    State(state): State<Arc<WorkspaceManagerState>>,
+    State(state): State<Arc<SiteHandlerState>>,
     Query(req): Query<SiteFolderQuery>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     check_scope(&user, "read")?;
@@ -1302,4 +1318,70 @@ pub(crate) async fn site_validate_handler(
         "errorCount": errors.len(),
         "warningCount": warnings.len(),
     })))
+}
+
+// ============================================================================
+// Route builder
+// ============================================================================
+
+/// All site management routes. Merge into the app router in main.rs.
+pub fn site_handler_routes(state: Arc<SiteHandlerState>) -> Router {
+    Router::new()
+        // API endpoints
+        .route(
+            "/api/workspaces/{workspace_id}/site/generate",
+            post(generate_site_handler),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/site/build",
+            delete(delete_site_build_handler),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/vitepress/add-page",
+            post(vitepress_add_page_handler),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/site-collections",
+            post(create_site_collection)
+                .get(list_site_collections_handler)
+                .delete(remove_site_collection_handler),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/site-pages",
+            post(create_site_page)
+                .get(list_site_pages_handler)
+                .delete(remove_site_page_handler),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/site-collection/entries",
+            post(create_collection_entry)
+                .put(save_collection_entry)
+                .delete(delete_collection_entry),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/site-collection/entries/list",
+            get(list_collection_entries_handler),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/site/status",
+            get(site_status_handler),
+        )
+        .route(
+            "/api/workspaces/{workspace_id}/site/validate",
+            get(site_validate_handler),
+        )
+        // UI pages
+        .route(
+            "/workspaces/{workspace_id}/site-editor",
+            get(site_editor_page),
+        )
+        .route(
+            "/workspaces/{workspace_id}/site-collection",
+            get(site_collection_page),
+        )
+        .route(
+            "/workspaces/{workspace_id}/site-entry",
+            get(site_entry_editor_page),
+        )
+        .with_state(state)
 }

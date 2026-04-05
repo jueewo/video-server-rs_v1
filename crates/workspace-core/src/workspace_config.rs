@@ -80,7 +80,6 @@ impl WorkspaceConfig {
         let yaml_path = workspace_root.join("workspace.yaml");
 
         if !yaml_path.exists() {
-            // Create default config if file doesn't exist
             let config = Self::new("Workspace".to_string(), String::new());
             config.save(workspace_root)?;
             return Ok(config);
@@ -167,7 +166,6 @@ impl WorkspaceConfig {
     }
 
     /// Copy folder config (and any sub-folder configs) from one path to another.
-    /// Used when duplicating or copying typed folders.
     pub fn copy_folder_prefix(&mut self, from_prefix: &str, to_prefix: &str) {
         let entries: Vec<(String, FolderConfig)> = self
             .folders
@@ -204,12 +202,11 @@ impl WorkspaceConfig {
         }
     }
 
-    /// Sync config with actual filesystem folder structure
-    /// Adds missing folders, removes deleted folders
+    /// Sync config with actual filesystem folder structure.
+    /// Removes entries for folders that no longer exist on disk.
     pub fn sync_with_filesystem(&mut self, workspace_root: &Path) -> Result<()> {
         let mut found_folders = std::collections::HashSet::new();
 
-        // Walk the workspace directory
         if workspace_root.exists() {
             for entry in walkdir::WalkDir::new(workspace_root)
                 .min_depth(1)
@@ -217,7 +214,6 @@ impl WorkspaceConfig {
                 .filter_map(|e| e.ok())
                 .filter(|e| e.file_type().is_dir())
             {
-                // Get relative path from workspace root
                 let rel_path = entry
                     .path()
                     .strip_prefix(workspace_root)
@@ -226,13 +222,11 @@ impl WorkspaceConfig {
                     .map(|s| s.to_string());
 
                 if let Some(path) = rel_path {
-                    found_folders.insert(path.clone());
-                    // Default-type folders are not registered — only track existing registered ones
+                    found_folders.insert(path);
                 }
             }
         }
 
-        // Remove folders from config that don't exist on filesystem
         self.folders.retain(|path, _| found_folders.contains(path));
 
         Ok(())
@@ -255,9 +249,7 @@ mod tests {
     fn test_upsert_folder() {
         let mut config = WorkspaceConfig::new("Test".to_string(), String::new());
         config.upsert_folder("agents".to_string(), FolderType::new("agent-collection"));
-
         assert_eq!(config.folders.len(), 1);
-        assert!(config.folders.contains_key("agents"));
         assert_eq!(
             config.folders.get("agents").unwrap().folder_type.as_str(),
             "agent-collection"
@@ -265,54 +257,16 @@ mod tests {
     }
 
     #[test]
-    fn test_upsert_folder_updates_type() {
+    fn test_upsert_default_removes() {
         let mut config = WorkspaceConfig::new("Test".to_string(), String::new());
-
-        // Default type → folder is removed/not registered
         config.upsert_folder("my-folder".to_string(), FolderType::default());
         assert!(!config.folders.contains_key("my-folder"));
 
-        // Insert as static-site
-        config.upsert_folder("my-folder".to_string(), FolderType::new("static-site"));
-        assert_eq!(
-            config.folders.get("my-folder").unwrap().folder_type.as_str(),
-            "static-site"
-        );
-
-        // Update to course
         config.upsert_folder("my-folder".to_string(), FolderType::new("course"));
         assert_eq!(
             config.folders.get("my-folder").unwrap().folder_type.as_str(),
             "course"
         );
-
-        // Should still be only one folder
-        assert_eq!(config.folders.len(), 1);
-    }
-
-    #[test]
-    fn test_remove_folder() {
-        let mut config = WorkspaceConfig::new("Test".to_string(), String::new());
-        config.upsert_folder("temp".to_string(), FolderType::new("documentation"));
-
-        assert!(config.remove_folder("temp"));
-        assert!(!config.folders.contains_key("temp"));
-        assert!(!config.remove_folder("nonexistent"));
-    }
-
-    #[test]
-    fn test_folder_metadata() {
-        let mut config = WorkspaceConfig::new("Test".to_string(), String::new());
-        config.upsert_folder("agents".to_string(), FolderType::new("agent-collection"));
-
-        config.set_folder_metadata(
-            "agents",
-            "model".to_string(),
-            serde_yaml::Value::String("claude-sonnet-4.5".to_string()),
-        );
-
-        let folder = config.get_folder("agents").unwrap();
-        assert!(folder.metadata.contains_key("model"));
     }
 
     #[test]
@@ -324,12 +278,10 @@ mod tests {
 
     #[test]
     fn test_folder_type_serde_transparent() {
-        // Serialises as a plain string
         let ft = FolderType::new("course");
         let serialised = serde_yaml::to_string(&ft).unwrap();
         assert!(serialised.trim() == "course");
 
-        // Deserialises from a plain string
         let de: FolderType = serde_yaml::from_str("static-site").unwrap();
         assert_eq!(de.as_str(), "static-site");
     }

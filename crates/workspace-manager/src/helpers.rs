@@ -1,18 +1,17 @@
-use api_keys::middleware::{require_scope, AuthenticatedUser};
-use axum::{extract::Extension, http::StatusCode};
-use db::workspaces::WorkspaceRepository;
 use time::OffsetDateTime;
-use tower_sessions::Session;
+
+// Re-export auth helpers from workspace-core so internal modules don't need to change imports.
+pub(crate) use workspace_core::auth::check_scope;
+pub(crate) use workspace_core::auth::require_auth;
+pub(crate) use workspace_core::auth::require_platform_admin;
+pub(crate) use workspace_core::auth::verify_workspace_ownership;
 
 pub(crate) fn format_human_date(date_str: &str) -> String {
-    // Try ISO 8601 first, then SQLite datetime format
     let dt = OffsetDateTime::parse(
         date_str,
         &time::format_description::well_known::Iso8601::DEFAULT,
     )
     .or_else(|_| {
-        // SQLite datetime() returns "YYYY-MM-DD HH:MM:SS" without timezone
-        // Append Z to treat as UTC
         let with_z = format!("{}Z", date_str.replace(' ', "T"));
         OffsetDateTime::parse(
             &with_z,
@@ -63,60 +62,6 @@ pub(crate) fn count_files_in_dir(path: &std::path::Path) -> i64 {
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
         .count() as i64
-}
-
-/// Auth helper: get authenticated user_id from session or return 401/500
-pub(crate) async fn require_auth(session: &Session) -> Result<String, StatusCode> {
-    let authenticated: bool = session
-        .get("authenticated")
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or(false);
-
-    if !authenticated {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
-
-    let user_id: String = session
-        .get("user_id")
-        .await
-        .ok()
-        .flatten()
-        .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    Ok(user_id)
-}
-
-/// Platform-admin guard: only the user whose id matches the PLATFORM_ADMIN_ID env var
-/// (default "7bda815e-729a-49ea-88c5-3ca59b9ce487") may access tenant-admin endpoints.
-pub(crate) async fn require_platform_admin(session: &Session) -> Result<String, StatusCode> {
-    let user_id = require_auth(session).await?;
-    let admin_id = std::env::var("PLATFORM_ADMIN_ID").unwrap_or_else(|_| "7bda815e-729a-49ea-88c5-3ca59b9ce487".to_string());
-    if user_id != admin_id {
-        return Err(StatusCode::FORBIDDEN);
-    }
-    Ok(user_id)
-}
-
-/// Verify that `workspace_id` belongs to `user_id`. Returns the workspace (name, description).
-pub(crate) async fn verify_workspace_ownership(
-    repo: &dyn WorkspaceRepository,
-    workspace_id: &str,
-    user_id: &str,
-) -> Result<(String, Option<String>), StatusCode> {
-    repo.verify_workspace_ownership(workspace_id, user_id)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .ok_or(StatusCode::NOT_FOUND)
-}
-
-/// Check API key scope if authenticated via API key (session auth has full permissions)
-pub(crate) fn check_scope(user_ext: &Option<Extension<AuthenticatedUser>>, scope: &str) -> Result<(), StatusCode> {
-    if let Some(Extension(user)) = user_ext {
-        require_scope(user, scope)?;
-    }
-    Ok(())
 }
 
 /// Map a file extension to a Monaco editor language identifier.
@@ -234,15 +179,13 @@ pub(crate) fn parent_browse_url(workspace_id: &str, file_path: &str) -> String {
 }
 
 /// Find the typed folder root for a file path by checking which ancestor path
-/// is a key in the workspace config's folders map. Returns the folder path
-/// and its browse URL, or falls back to `parent_browse_url`.
+/// is a key in the workspace config's folders map.
 pub(crate) fn typed_folder_browse_url(
     workspace_id: &str,
     file_path: &str,
     ws_config: Option<&crate::WorkspaceConfig>,
 ) -> (String, String) {
     if let Some(config) = ws_config {
-        // Walk ancestors from longest to shortest to find the typed folder root
         let mut path = std::path::Path::new(file_path);
         while let Some(parent) = path.parent() {
             if parent.as_os_str().is_empty() {
@@ -261,7 +204,6 @@ pub(crate) fn typed_folder_browse_url(
             path = parent;
         }
     }
-    // Fallback: immediate parent
     let url = parent_browse_url(workspace_id, file_path);
     let label = std::path::Path::new(file_path)
         .parent()
@@ -272,18 +214,14 @@ pub(crate) fn typed_folder_browse_url(
     (label, url)
 }
 
-/// Build structured breadcrumb items for a workspace file:
-/// Workspaces → workspace_name → folder → subfolder → …
+/// Build structured breadcrumb items for a workspace file.
 pub(crate) fn build_path_crumbs(
     workspace_id: &str,
     workspace_name: &str,
     file_path: &str,
 ) -> Vec<(String, String)> {
     let mut crumbs = vec![
-        (
-            "Workspaces".to_string(),
-            "/workspaces".to_string(),
-        ),
+        ("Workspaces".to_string(), "/workspaces".to_string()),
         (
             workspace_name.to_string(),
             format!("/workspaces/{}/browse", workspace_id),

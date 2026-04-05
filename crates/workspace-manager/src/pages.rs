@@ -2,7 +2,6 @@ use crate::helpers::{check_scope, require_auth, verify_workspace_ownership, form
 use crate::{WorkspaceManagerState, WorkspaceConfig, WorkspaceDisplay, WorkspaceStats, WorkspaceListTemplate, NewWorkspaceTemplate, WorkspaceDashboardTemplate, WorkspaceBrowserTemplate, ImageViewerTemplate, DrawioEditorTemplate, MermaidEditorTemplate, ExcalidrawEditorTemplate, MarkdownPreviewTemplate, AgentViewerTemplate};
 use crate::file_browser;
 use crate::file_editor;
-use crate::workspace_config;
 use workspace_core::FolderViewContext;
 use api_keys::middleware::AuthenticatedUser;
 use askama::Template;
@@ -562,7 +561,7 @@ pub(crate) async fn edit_text_file_page(
     // Show format reference helper when editing agent files
     let folder_name = template.folder_path.trim_start_matches('/');
     let is_agent_folder = if !folder_name.is_empty() {
-        workspace_config::WorkspaceConfig::load(&workspace_root)
+        WorkspaceConfig::load(&workspace_root)
             .ok()
             .and_then(|cfg| cfg.folders.get(folder_name).map(|f| f.folder_type.as_str() == "agent-collection"))
             .unwrap_or(false)
@@ -742,7 +741,7 @@ pub(crate) async fn open_file_page(
             let is_agent_file = {
                 let folder_name = file_dir.trim_start_matches('/');
                 if !folder_name.is_empty() {
-                    workspace_config::WorkspaceConfig::load(&workspace_root)
+                    WorkspaceConfig::load(&workspace_root)
                         .ok()
                         .and_then(|cfg| cfg.folders.get(folder_name).map(|f| f.folder_type.as_str() == "agent-collection"))
                         .unwrap_or(false)
@@ -956,7 +955,7 @@ pub(crate) async fn open_file_page(
                 .unwrap_or("")
                 .trim_start_matches('/');
             !folder_name.is_empty()
-                && workspace_config::WorkspaceConfig::load(&workspace_root)
+                && WorkspaceConfig::load(&workspace_root)
                     .ok()
                     .and_then(|cfg| cfg.folders.get(folder_name).map(|f| f.folder_type.as_str() == "agent-collection"))
                     .unwrap_or(false)

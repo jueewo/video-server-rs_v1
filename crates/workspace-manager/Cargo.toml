@@ -27,9 +27,6 @@ docs-viewer = { path = "../docs-viewer" }
 pdf-viewer = { path = "../pdf-viewer" }
 bpmn-viewer = { path = "../bpmn-viewer" }
 course-processor = { path = "../content-processors/course-processor" }
-site-publisher = { path = "../site-publisher" }
-site-generator = { path = "../site-generator" }
-site-overview  = { path = "../site-overview" }
 git-provider = { path = "../git-provider" }
 agent-collection-processor = { path = "../content-processors/agent-collection" }
 agent-tools = { path = "../agent-tools" }

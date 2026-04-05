@@ -21,17 +21,16 @@ mod helpers;
 mod pages;
 mod presentation_handlers;
 mod publishing;
-mod site_handlers;
 mod tenant_admin;
 pub mod workspace_access;
-mod workspace_config;
 mod workspace_crud;
 
 pub use file_browser::{ContextFile, FileEntry, FolderEntry};
 pub use folder_type_registry::{
     AgentRole, AppLink, FieldType, FolderTypeDefinition, FolderTypeRegistry, MetadataField,
 };
-pub use workspace_config::{FolderConfig, FolderType, WorkspaceConfig};
+// Re-export from workspace-core (canonical home)
+pub use workspace_core::{FolderConfig, FolderType, WorkspaceConfig};
 
 // ============================================================================
 // State
@@ -578,18 +577,6 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
             post(publishing::publish_course),
         )
         .route(
-            "/api/workspaces/{workspace_id}/site/generate",
-            post(site_handlers::generate_site_handler),
-        )
-        .route(
-            "/api/workspaces/{workspace_id}/site/build",
-            delete(site_handlers::delete_site_build_handler),
-        )
-        .route(
-            "/api/workspaces/{workspace_id}/vitepress/add-page",
-            post(site_handlers::vitepress_add_page_handler),
-        )
-        .route(
             "/api/workspaces/{workspace_id}/presentation/sync-yaml",
             post(presentation_handlers::sync_presentation_yaml),
         )
@@ -672,48 +659,6 @@ pub fn workspace_routes(state: Arc<WorkspaceManagerState>) -> Router {
         .route(
             "/workspaces/{workspace_id}/edit-text",
             get(pages::edit_text_file_page),
-        )
-        .route(
-            "/workspaces/{workspace_id}/site-editor",
-            get(site_handlers::site_editor_page),
-        )
-        .route(
-            "/workspaces/{workspace_id}/site-collection",
-            get(site_handlers::site_collection_page),
-        )
-        .route(
-            "/workspaces/{workspace_id}/site-entry",
-            get(site_handlers::site_entry_editor_page),
-        )
-        .route(
-            "/api/workspaces/{workspace_id}/site-collections",
-            post(site_handlers::create_site_collection)
-                .get(site_handlers::list_site_collections_handler)
-                .delete(site_handlers::remove_site_collection_handler),
-        )
-        .route(
-            "/api/workspaces/{workspace_id}/site-pages",
-            post(site_handlers::create_site_page)
-                .get(site_handlers::list_site_pages_handler)
-                .delete(site_handlers::remove_site_page_handler),
-        )
-        .route(
-            "/api/workspaces/{workspace_id}/site-collection/entries",
-            post(site_handlers::create_collection_entry)
-                .put(site_handlers::save_collection_entry)
-                .delete(site_handlers::delete_collection_entry),
-        )
-        .route(
-            "/api/workspaces/{workspace_id}/site-collection/entries/list",
-            get(site_handlers::list_collection_entries_handler),
-        )
-        .route(
-            "/api/workspaces/{workspace_id}/site/status",
-            get(site_handlers::site_status_handler),
-        )
-        .route(
-            "/api/workspaces/{workspace_id}/site/validate",
-            get(site_handlers::site_validate_handler),
         )
         .route(
             "/workspace-access-codes",

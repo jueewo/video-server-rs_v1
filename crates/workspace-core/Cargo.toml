@@ -4,6 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# Renderer trait
 axum = { workspace = true }
 async-trait = { workspace = true }
 serde_yaml = "0.9"
+
+# WorkspaceConfig
+serde = { workspace = true }
+anyhow = { workspace = true }
+walkdir = "2.5"
+
+# Auth helpers
+tower-sessions = { workspace = true }
+db = { path = "../db" }
+api-keys = { path = "../api-keys" }

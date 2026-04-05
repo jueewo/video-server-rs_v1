@@ -4,13 +4,31 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# Core
 workspace-core  = { path = "../workspace-core" }
+db              = { path = "../db" }
+common          = { path = "../common" }
+api-keys        = { path = "../api-keys" }
+
+# Site generation
 site-generator  = { path = "../site-generator" }
+site-publisher  = { path = "../site-publisher" }
+git-provider    = { path = "../git-provider" }
+
+# Web framework
 axum            = { workspace = true }
+tower-sessions  = { workspace = true }
 askama          = { workspace = true }
 async-trait     = { workspace = true }
-tracing         = { workspace = true }
-anyhow          = { workspace = true }
-tokio           = { workspace = true }
+
+# Serialization
+serde           = { workspace = true }
 serde_json      = { workspace = true }
 serde_yaml      = "0.9"
+
+# Utilities
+tokio           = { workspace = true }
+tracing         = { workspace = true }
+anyhow          = { workspace = true }
+chrono          = { workspace = true }
+urlencoding     = { workspace = true }

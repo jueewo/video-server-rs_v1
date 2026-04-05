@@ -91,6 +91,7 @@ git-provider = { path = "crates/git-provider" }
 course = { path = "crates/course" }
 media-viewer = { path = "crates/media-viewer" }
 agent-registry = { path = "crates/agent-registry" }
+site-overview = { path = "crates/site-overview" }
 federation = { path = "crates/federation" }
 db = { path = "crates/db" }
 db-sqlite = { path = "crates/db-sqlite" }

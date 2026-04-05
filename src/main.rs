@@ -217,6 +217,13 @@ async fn main() -> anyhow::Result<()> {
     workspace_renderers::register_all(&mut workspace_state, database.clone(), database.clone(), (*user_storage).clone());
     let workspace_state = Arc::new(workspace_state);
 
+    let site_handler_state = Arc::new(site_overview::SiteHandlerState {
+        repo: database.clone(),
+        storage: user_storage.clone(),
+        sites_dir: sites_dir.clone(),
+        git_repo: database.clone(),
+    });
+
     let llm_state = LlmProviderState::new(database.clone()).with_storage(storage_dir.clone());
     println!("\u{1f916} LLM Provider service initialized");
 
@@ -409,6 +416,7 @@ async fn main() -> anyhow::Result<()> {
             if let Some(layer) = rate_limit.api_mutate_layer() { r.layer(layer) } else { r }
         })
         .merge(workspace_routes(workspace_state))
+        .merge(site_overview::site_handler_routes(site_handler_state.clone()))
         .merge(
             access_groups::routes::create_routes(Arc::new(access_groups::AccessGroupState {
                 repo: database.clone(),

@@ -4967,14 +4967,23 @@ name = "site-overview"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "api-keys",
  "askama",
  "async-trait",
  "axum",
+ "chrono",
+ "common",
+ "db",
+ "git-provider",
+ "serde",
  "serde_json",
  "serde_yaml",
  "site-generator",
+ "site-publisher",
  "tokio",
+ "tower-sessions",
  "tracing",
+ "urlencoding",
  "workspace-core",
 ]
 
@@ -6340,6 +6349,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "site-overview",
  "sqlx",
  "time",
  "tokio",
@@ -7058,9 +7068,15 @@ dependencies = [
 name = "workspace-core"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "api-keys",
  "async-trait",
  "axum",
+ "db",
+ "serde",
  "serde_yaml",
+ "tower-sessions",
+ "walkdir",
 ]
 
 [[package]]
@@ -7086,9 +7102,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "site-generator",
- "site-overview",
- "site-publisher",
  "tempfile",
  "time",
  "tokio",

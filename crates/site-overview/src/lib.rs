@@ -2,7 +2,11 @@
 //!
 //! Reads `sitedef.yaml` and counts element/article files to display a rich dashboard.
 //!
-//! Also provides `render_site_editor` for the inline page-element tree editor.
+//! Also provides `render_site_editor` for the inline page-element tree editor,
+//! and all site management API/UI routes (`handlers` module).
+
+pub mod handlers;
+pub use handlers::{SiteHandlerState, site_handler_routes};
 
 use askama::Template;
 use async_trait::async_trait;

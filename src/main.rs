@@ -85,7 +85,7 @@ async fn main() -> anyhow::Result<()> {
         tracing_subscriber::fmt::init();
     }
 
-    println!("\n\u{1f680} Initializing Modular Media Server...");
+    println!("\n\u{1f680} Initializing Appkask Media Platform...");
 
     // Detect run mode
     let production = is_production();
@@ -233,7 +233,7 @@ async fn main() -> anyhow::Result<()> {
         video_state.metrics_store.clone(),
         video_state.audit_logger.clone(),
     ));
-        println!("\u{1f4c1} Unified Media Manager initialized (images with original + WebP support, HLS video transcoding)");
+        println!("\u{1f4c1} Media Manager initialized (images with original + WebP support, HLS video transcoding)");
 
     let docs_root = std::env::var("DOCS_ROOT")
         .map(std::path::PathBuf::from)
@@ -633,7 +633,7 @@ async fn main() -> anyhow::Result<()> {
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
 
     println!("\n\u{2554}{}\u{2557}", "\u{2550}".repeat(64));
-    println!("\u{2551}   \u{1f3a5}  MODULAR MEDIA SERVER - READY!                           \u{2551}");
+    println!("\u{2551}   \u{1f3a5}  APPKASK MEDIA PLATFORM - READY!                         \u{2551}");
     println!("\u{255a}{}\u{255d}\n", "\u{2550}".repeat(64));
     println!("\u{1f4e6} MODULES LOADED:");
     println!("   \u{2705} video-manager    (Video streaming & HLS proxy)");

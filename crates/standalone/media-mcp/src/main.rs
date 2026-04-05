@@ -1,6 +1,6 @@
 //! Media MCP Server
 //!
-//! Model Context Protocol (MCP) server for Media Server integration with Claude Desktop.
+//! Model Context Protocol (MCP) server for Appkask integration with Claude Desktop.
 //!
 //! This server provides:
 //! - Resources: Read-only access to media library (videos, images, groups, etc.)

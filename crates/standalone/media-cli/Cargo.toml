@@ -2,8 +2,8 @@
 name = "media-cli"
 version = "0.1.0"
 edition = "2021"
-description = "Command-line interface for media-server administrative operations"
-authors = ["Media Server Team"]
+description = "Command-line interface for Appkask administrative operations"
+authors = ["Mustcato"]
 
 # Binary configuration
 [[bin]]

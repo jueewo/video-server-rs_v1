@@ -2,7 +2,7 @@
 name = "media-core"
 version = "0.1.0"
 edition = "2021"
-authors = ["Media Server Team"]
+authors = ["Mustcato"]
 description = "Core abstractions and shared logic for all media types"
 
 [dependencies]

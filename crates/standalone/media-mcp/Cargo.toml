@@ -2,8 +2,8 @@
 name = "media-mcp"
 version = "0.1.0"
 edition = "2021"
-authors = ["Media Server Team"]
-description = "Model Context Protocol (MCP) server for Media Server integration with Claude Desktop"
+authors = ["Mustcato"]
+description = "Model Context Protocol (MCP) server for Appkask integration with Claude Desktop"
 license = "MIT OR Apache-2.0"
 
 [[bin]]

@@ -3,8 +3,8 @@
 # See config.yaml for deployment mode (standalone vs hosted).
 
 # Display name shown in browser tabs, navbar, and footer
-name: "Media Server | appkask"
-title: "Media Server"
+name: "Appkask Media Platform"
+title: "Appkask"
 
 # Path to the logo/icon (relative URLs served from /static/)
 logo: "/static/icon.webp"
@@ -20,4 +20,4 @@ logo: "/static/icon.webp"
 # support_email: "support@example.com"
 
 # Optional description for meta tags
-description: "A workspace, media & video streaming server"
+description: "Self-hosted media management and streaming platform by Mustcato"

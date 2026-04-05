@@ -20,7 +20,7 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            name: "Media Server".to_string(),
+            name: "Appkask".to_string(),
             logo: "/static/icon.webp".to_string(),
             favicon: None,
             primary_color: None,

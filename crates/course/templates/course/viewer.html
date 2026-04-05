@@ -56,13 +56,17 @@
     <!-- Mobile sidebar backdrop -->
     <div id="sidebar-backdrop" class="fixed inset-0 bg-black/40 z-30 hidden lg:hidden" onclick="closeSidebar()"></div>
 
-    <!-- Sidebar: static on desktop, hidden on mobile until toggled by JS -->
+    <!-- Sidebar: static on desktop (togglable), overlay on mobile -->
     <aside id="course-sidebar"
            class="w-72 shrink-0 bg-base-200 border-r border-base-300 hidden lg:flex flex-col overflow-hidden">
-        <!-- Mobile close button -->
-        <div class="flex items-center justify-between px-4 pt-3 pb-0 lg:hidden">
-            <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">Menu</span>
-            <button onclick="closeSidebar()" class="btn btn-ghost btn-xs btn-circle">
+        <!-- Header with close button -->
+        <div class="flex items-center justify-between px-4 pt-3 pb-0">
+            <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider lg:hidden">Menu</span>
+            <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider hidden lg:inline">Contents</span>
+            <button onclick="closeSidebarDesktop()" class="btn btn-ghost btn-xs btn-circle hidden lg:flex" title="Close menu">
+                <i data-lucide="panel-left-close" class="w-4 h-4"></i>
+            </button>
+            <button onclick="closeSidebar()" class="btn btn-ghost btn-xs btn-circle lg:hidden">
                 <i data-lucide="x" class="w-4 h-4"></i>
             </button>
         </div>
@@ -117,6 +121,12 @@
             </button>
             <span class="text-sm font-medium truncate">{{ course.title }}</span>
         </div>
+        <!-- Desktop: reopen sidebar button (shown when sidebar is closed) -->
+        <button id="desktop-sidebar-toggle" onclick="openSidebarDesktop()"
+                class="hidden absolute top-3 left-3 z-10 btn btn-ghost btn-sm btn-square text-base-content/50 hover:text-base-content"
+                title="Open menu">
+            <i data-lucide="panel-left-open" class="w-5 h-5"></i>
+        </button>
 
         {% if raw_markdown.is_some() %}
         <article id="lesson-content" class="max-w-3xl mx-auto px-6 sm:px-8 py-8 markdown-body"></article>
@@ -406,7 +416,7 @@ function openAppPopup(url, title) {
 </script>
 {% endif %}
 <script>
-// Sidebar toggle for mobile
+// Mobile sidebar (overlay)
 function openSidebar() {
     const sb = document.getElementById('course-sidebar');
     sb.classList.remove('hidden');
@@ -421,6 +431,23 @@ function closeSidebar() {
     document.getElementById('sidebar-backdrop').classList.add('hidden');
     document.body.style.overflow = '';
 }
+
+// Desktop sidebar (non-overlapping, in-flow)
+function closeSidebarDesktop() {
+    const sb = document.getElementById('course-sidebar');
+    sb.classList.remove('lg:flex');
+    sb.classList.add('lg:hidden');
+    document.getElementById('desktop-sidebar-toggle').classList.remove('hidden');
+    document.getElementById('desktop-sidebar-toggle').classList.add('lg:flex');
+}
+function openSidebarDesktop() {
+    const sb = document.getElementById('course-sidebar');
+    sb.classList.remove('lg:hidden');
+    sb.classList.add('lg:flex');
+    document.getElementById('desktop-sidebar-toggle').classList.add('hidden');
+    document.getElementById('desktop-sidebar-toggle').classList.remove('lg:flex');
+}
+
 // Close sidebar when clicking a lesson link on mobile
 document.querySelectorAll('a[data-lesson-link]').forEach(a => {
     a.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); });

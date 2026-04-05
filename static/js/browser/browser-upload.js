@@ -105,6 +105,7 @@ async function newFolder() {
     document.getElementById('git-repo-status').classList.add('hidden');
     document.getElementById('git-create-status').classList.add('hidden');
     populateFolderTypeSelect('default');
+    document.getElementById('folder-type-picker').classList.add('hidden');
 
     // Hide delete button in create mode
     document.getElementById('delete-folder-btn').classList.add('hidden');

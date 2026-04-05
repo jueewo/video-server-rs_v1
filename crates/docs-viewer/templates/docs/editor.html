@@ -116,6 +116,11 @@
         {% include "components/page-header.html" %}
         <div class="page-header-actions">
             <span id="save-indicator" class="save-indicator text-sm"></span>
+            {% if language == "markdown" %}
+            <button onclick="document.getElementById('md-help-dialog').showModal()" class="btn btn-ghost btn-sm btn-circle" title="Markdown syntax help">
+                <i data-lucide="circle-help" class="w-4 h-4"></i>
+            </button>
+            {% endif %}
             <button
                 onclick="saveDocument()"
                 class="btn btn-primary btn-sm gap-2"
@@ -247,6 +252,136 @@
     </div>
     {% endif %}
 </div>
+
+{% if language == "markdown" %}
+<!-- Markdown Syntax Help Dialog -->
+<dialog id="md-help-dialog" class="modal">
+    <div class="modal-box max-w-3xl max-h-[85vh]">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-lg flex items-center gap-2">
+                <i data-lucide="circle-help" class="w-5 h-5"></i> Markdown Syntax Reference
+            </h3>
+            <button onclick="document.getElementById('md-help-dialog').close()" class="btn btn-ghost btn-sm btn-circle">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <div class="space-y-5 text-sm overflow-y-auto">
+
+            <!-- Media -->
+            <div>
+                <h4 class="font-semibold text-base-content/70 uppercase text-xs tracking-wider mb-2">Media</h4>
+                <div class="space-y-3">
+                    <div>
+                        <p class="font-medium mb-1">Image from media server</p>
+                        <pre class="bg-base-200 rounded-lg p-3 text-xs overflow-x-auto"><code>```media-image title="Caption" width=400 centered
+my-image-slug
+```</code></pre>
+                        <p class="text-xs text-base-content/50 mt-1">Options: <code class="bg-base-200 px-1 rounded">title="..."</code> <code class="bg-base-200 px-1 rounded">width=N</code> <code class="bg-base-200 px-1 rounded">height=N</code> <code class="bg-base-200 px-1 rounded">centered</code></p>
+                    </div>
+                    <div>
+                        <p class="font-medium mb-1">Video from media server</p>
+                        <pre class="bg-base-200 rounded-lg p-3 text-xs overflow-x-auto"><code>```media-video title="Lecture 1"
+my-video-slug
+```</code></pre>
+                        <p class="text-xs text-base-content/50 mt-1">Plays HLS with MP4 fallback. Option: <code class="bg-base-200 px-1 rounded">title="..."</code></p>
+                    </div>
+                    <div>
+                        <p class="font-medium mb-1">Video from workspace files</p>
+                        <pre class="bg-base-200 rounded-lg p-3 text-xs overflow-x-auto"><code>```workspace-video title="Demo"
+path/to/video.mp4
+```</code></pre>
+                        <p class="text-xs text-base-content/50 mt-1">Path relative to current folder. Option: <code class="bg-base-200 px-1 rounded">title="..."</code></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="divider my-1"></div>
+
+            <!-- Interactive -->
+            <div>
+                <h4 class="font-semibold text-base-content/70 uppercase text-xs tracking-wider mb-2">Interactive Embeds</h4>
+                <div class="space-y-3">
+                    <div>
+                        <p class="font-medium mb-1">Embed a published app</p>
+                        <pre class="bg-base-200 rounded-lg p-3 text-xs overflow-x-auto"><code>```app-embed height=600
+/pub/my-app-slug
+```</code></pre>
+                        <p class="text-xs text-base-content/50 mt-1">Option: <code class="bg-base-200 px-1 rounded">height=N</code> (default 480). Works with any URL.</p>
+                    </div>
+                    <div>
+                        <p class="font-medium mb-1">Embed a presentation</p>
+                        <pre class="bg-base-200 rounded-lg p-3 text-xs overflow-x-auto"><code>```presentation height=500
+slides/intro
+```</code></pre>
+                        <p class="text-xs text-base-content/50 mt-1">Path to presentation subfolder (relative to course). Option: <code class="bg-base-200 px-1 rounded">height=N</code></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="divider my-1"></div>
+
+            <!-- Diagrams & Math -->
+            <div>
+                <h4 class="font-semibold text-base-content/70 uppercase text-xs tracking-wider mb-2">Diagrams & Math</h4>
+                <div class="space-y-3">
+                    <div>
+                        <p class="font-medium mb-1">Mermaid diagram</p>
+                        <pre class="bg-base-200 rounded-lg p-3 text-xs overflow-x-auto"><code>```mermaid
+graph TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Done]
+    B -->|No| A
+```</code></pre>
+                        <p class="text-xs text-base-content/50 mt-1">Supports flowcharts, sequence, ER, state, pie, gantt, and more.</p>
+                    </div>
+                    <div>
+                        <p class="font-medium mb-1">Math (KaTeX)</p>
+                        <pre class="bg-base-200 rounded-lg p-3 text-xs overflow-x-auto"><code>Inline: $E = mc^2$
+
+Display block:
+$$
+\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
+$$</code></pre>
+                        <p class="text-xs text-base-content/50 mt-1">Use <code class="bg-base-200 px-1 rounded">$...$</code> for inline, <code class="bg-base-200 px-1 rounded">$$...$$</code> for display blocks.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="divider my-1"></div>
+
+            <!-- Basics -->
+            <div>
+                <h4 class="font-semibold text-base-content/70 uppercase text-xs tracking-wider mb-2">Markdown Basics</h4>
+                <div class="overflow-x-auto">
+                    <table class="table table-xs">
+                        <tbody>
+                            <tr><td class="font-mono text-xs"># Heading 1</td><td>Heading levels 1-4</td></tr>
+                            <tr><td class="font-mono text-xs">**bold** / *italic*</td><td>Text formatting</td></tr>
+                            <tr><td class="font-mono text-xs">[text](url)</td><td>Link</td></tr>
+                            <tr><td class="font-mono text-xs">![alt](path)</td><td>Image (no size control)</td></tr>
+                            <tr><td class="font-mono text-xs">&lt;img src="path" width="200" /&gt;</td><td>Image with size (use HTML)</td></tr>
+                            <tr><td class="font-mono text-xs">`code`</td><td>Inline code</td></tr>
+                            <tr><td class="font-mono text-xs">```lang ... ```</td><td>Code block with syntax highlighting</td></tr>
+                            <tr><td class="font-mono text-xs">> quote</td><td>Blockquote</td></tr>
+                            <tr><td class="font-mono text-xs">- item / 1. item</td><td>Lists (unordered / ordered)</td></tr>
+                            <tr><td class="font-mono text-xs">| a | b |</td><td>Tables (GFM)</td></tr>
+                            <tr><td class="font-mono text-xs">---</td><td>Horizontal rule</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="modal-action">
+            <button onclick="document.getElementById('md-help-dialog').close()" class="btn btn-sm">Close</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+{% endif %}
+
 {% endblock %} {% block extra_scripts %}
 <!-- Monaco Editor from CDN -->
 <script src="/static/vendor/monaco/vs/loader.js"></script>

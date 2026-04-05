@@ -15,7 +15,7 @@ db             = { path = "../../db" }
 db-sqlite      = { path = "../../db-sqlite" }
 llm-provider   = { path = "../../llm-provider" }
 agent-tools    = { path = "../../agent-tools" }
-bpmn-simulator-processor = { path = "../../workspace-processors/bpmn-simulator" }
+bpmn-simulator-processor = { path = "../../content-processors/bpmn-simulator" }
 
 # Web framework
 axum           = { workspace = true }

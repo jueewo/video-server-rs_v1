@@ -95,42 +95,17 @@ mediamtx mediamtx.yml
 
 ## Architecture
 
-### Workspace Structure
-Cargo workspace with 23+ crates organized in `crates/`:
+> **See `ARCHITECTURE.md`** for the full crate inventory, folder-type registry, and core vs addon classification.
 
-**Core Infrastructure:**
-- `common` - Shared types, storage manager, database utilities
-- `media-core` - Media type detection, EXIF extraction
-- `access-control` - Unified access control service (user ownership, groups, access codes)
+### Crate Organization
+Cargo workspace with ~45 crates in `crates/`, classified as:
 
-**Media Management:**
-- `media-manager` - **Unified media endpoint** (videos, images, documents)
-  - Handles upload, listing, search, CRUD, serving
-  - HLS transcoding integration with real-time WebSocket progress
-  - Vault-based storage isolation
-- `video-manager` - HLS transcoding pipeline (8 stages), FFmpeg integration
-- `docs-viewer` - Markdown/BPMN/PDF viewers
-- `bpmn-viewer`, `pdf-viewer` - Specialized viewers
-
-**Authentication & Authorization:**
-- `user-auth` - OIDC authentication (Casdoor), session management
-- `access-codes` - Shareable access codes for media
-- `access-groups` - User groups and permissions
-- `api-keys` - API key management
-
-**Federation:**
-- `federation` - Pull-based multi-server catalog sharing, proxy, caching
-
-**Utilities:**
-- `vault-manager` - Storage vault management
-- `rate-limiter` - tower_governor integration
-- `workspace-manager` - Multi-tenant workspace support
-
-**Standalone Apps:**
-- `standalone/3d-gallery` - Three.js 3D gallery viewer
-- `standalone/media-mcp` - MCP server for Claude Desktop
-- `standalone/course-viewer` - Course content viewer
-- `standalone/media-cli` - CLI tool
+- **Core Platform** — data layer (`db`, `db-sqlite`, `common`, `media-core`), auth (`user-auth`, `access-control`, `access-codes`, `access-groups`, `api-keys`), media pipeline (`media-manager`, `video-manager`, `vault-manager`), workspace system (`workspace-core`, `workspace-manager`, `workspace-renderers`), content (`docs-viewer`, `publications`), infra (`rate-limiter`)
+- **Baked-In Addons** — domain features compiled into the binary: course, presentation, BPMN, media gallery, site generator, PDF viewer
+- **Agent/AI System** — `agent-registry`, `agent-tools`, `agent-collection-processor`, `process-engine`, `llm-provider`
+- **App Runtime** — `appstore`, `app-runtime`, `workspace-apps` (kept, deprioritized)
+- **Integration** — `federation`, `git-provider`
+- **Standalone Binaries** — `process-runtime`, `media-mcp`, `media-cli`, `site-cli`, `js-tool-viewer`, `3d-gallery`, `webdav`, `micro-server`
 
 ### Key Architectural Patterns
 

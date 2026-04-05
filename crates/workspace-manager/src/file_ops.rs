@@ -694,17 +694,26 @@ pub(crate) async fn get_folder_config(
     // Get folder config
     let folder_config = config.get_folder(&query.path);
 
+    // Check if any child folders have a type set
+    let prefix = if query.path.ends_with('/') { query.path.clone() } else { format!("{}/", query.path) };
+    let typed_children: Vec<&str> = config.folders.iter()
+        .filter(|(p, fc)| p.starts_with(&prefix) && fc.folder_type.as_str() != "default")
+        .map(|(p, _)| p.as_str())
+        .collect();
+
     let response = if let Some(fc) = folder_config {
         serde_json::json!({
             "type": fc.folder_type,
             "description": fc.description,
             "metadata": fc.metadata,
+            "has_typed_children": !typed_children.is_empty(),
         })
     } else {
         serde_json::json!({
             "type": "default",
             "description": null,
             "metadata": {},
+            "has_typed_children": !typed_children.is_empty(),
         })
     };
 

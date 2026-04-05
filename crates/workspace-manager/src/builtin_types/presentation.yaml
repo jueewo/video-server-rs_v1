@@ -38,3 +38,13 @@ agent_roles:
     default_actions:
       - Restructure slides
       - Improve visual hierarchy
+  - role: presentation-generator
+    description: Generates a concise presentation from a course folder by reading all lessons, extracting key concepts, and producing slide-appropriate content
+    default_actions:
+      - Generate slides from course
+    input_context:
+      - source: course-folder
+        description: Path to the source course folder within the same workspace. The agent reads course.yaml, all module/lesson markdown files, and preserves references to media embeds, math blocks, code snippets (shortened), and mermaid diagrams.
+    output:
+      - file: slides.md
+        description: A Reveal.js-compatible markdown file with --- slide separators. Should contain 15-30 slides that distill the course into key teaching points, not a verbatim copy. Each lesson should be summarized, not pasted in full.

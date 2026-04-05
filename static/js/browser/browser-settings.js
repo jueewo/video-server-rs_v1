@@ -29,10 +29,12 @@ async function openFolderSettings(folderPath, folderName) {
     document.getElementById('git-create-status').classList.add('hidden');
 
     // Load existing folder config from workspace.yaml
+    let hasTypedChildren = false;
     try {
         const r = await fetch(`/api/workspaces/${WORKSPACE_ID}/folder-config?path=${encodeURIComponent(folderPath)}`);
         if (r.ok) {
             const config = await r.json();
+            hasTypedChildren = !!config.has_typed_children;
             populateFolderTypeSelect(config.type || 'default');
             document.getElementById('folder-description').value = config.description || '';
 
@@ -51,7 +53,9 @@ async function openFolderSettings(folderPath, folderName) {
         console.error('Failed to load folder config:', e);
     }
 
+    document.getElementById('folder-type-picker').classList.add('hidden');
     applyParentTypeLock();
+    applyChildTypeLock(hasTypedChildren);
     document.getElementById('folder-settings-modal').showModal();
     lucide.createIcons();
 }
@@ -59,20 +63,45 @@ async function openFolderSettings(folderPath, folderName) {
 // Locks the type selector when the current directory is itself a typed folder.
 // Sub-folders of typed folders should not get their own independent type.
 function applyParentTypeLock() {
-    const select = document.getElementById('folder-type');
+    const hidden = document.getElementById('folder-type');
+    const changeBtn = document.getElementById('folder-type-change-btn');
+    const picker = document.getElementById('folder-type-picker');
     const notice = document.getElementById('parent-type-notice');
 
     if (currentDirType) {
-        select.disabled = true;
-        select.value = 'default';
+        hidden.disabled = true;
+        hidden.value = 'default';
+        if (changeBtn) changeBtn.classList.add('hidden');
+        if (picker) picker.classList.add('hidden');
+        updateFolderTypeCard('default');
         if (notice) {
             notice.innerHTML = `<i data-lucide="lock" class="w-3 h-3 inline-block align-middle mr-1"></i>This folder is inside a "<strong>${currentDirType}</strong>" folder — sub-folders inherit that context and cannot have their own type.`;
             lucide.createIcons({ nodes: [notice] });
             notice.classList.remove('hidden');
         }
     } else {
-        select.disabled = false;
+        hidden.disabled = false;
+        if (changeBtn) changeBtn.classList.remove('hidden');
         if (notice) notice.classList.add('hidden');
+    }
+}
+
+// Locks the type selector when the folder has typed children.
+function applyChildTypeLock(hasTypedChildren) {
+    if (!hasTypedChildren) return;
+    // Don't override parent lock (which is stricter)
+    if (currentDirType) return;
+
+    const changeBtn = document.getElementById('folder-type-change-btn');
+    const picker = document.getElementById('folder-type-picker');
+    const notice = document.getElementById('parent-type-notice');
+
+    if (changeBtn) changeBtn.classList.add('hidden');
+    if (picker) picker.classList.add('hidden');
+    if (notice) {
+        notice.innerHTML = `<i data-lucide="lock" class="w-3 h-3 inline-block align-middle mr-1"></i>This folder has typed subfolders — remove their types first to change this folder's type.`;
+        lucide.createIcons({ nodes: [notice] });
+        notice.classList.remove('hidden');
     }
 }
 

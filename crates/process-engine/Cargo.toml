@@ -8,7 +8,7 @@ description = "BPMN-inspired process runtime engine with agentic AI task support
 db            = { path = "../db" }
 agent-tools   = { path = "../agent-tools" }
 llm-provider  = { path = "../llm-provider" }
-bpmn-simulator-processor = { path = "../workspace-processors/bpmn-simulator" }
+bpmn-simulator-processor = { path = "../content-processors/bpmn-simulator" }
 
 axum          = { workspace = true }
 tokio         = { workspace = true }

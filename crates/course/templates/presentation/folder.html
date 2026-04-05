@@ -54,9 +54,11 @@
                     <li><button onclick="syncPresentationYaml()" class="gap-2 text-sm">
                         <i data-lucide="refresh-cw" class="w-4 h-4"></i> Sync YAML
                     </button></li>
-                    <li><button onclick="generateFromCourse()" class="gap-2 text-sm">
-                        <i data-lucide="wand-2" class="w-4 h-4"></i> Generate from Course
-                    </button></li>
+                    <li class="disabled opacity-40" title="Requires AI agent runtime">
+                        <span class="gap-2 text-sm cursor-not-allowed">
+                            <i data-lucide="sparkles" class="w-4 h-4"></i> Generate from Course (AI)
+                        </span>
+                    </li>
                     <li><a href="/workspaces/{{ workspace_id }}/edit?file={{ folder_path }}/slides.md" class="gap-2 text-sm">
                         <i data-lucide="file-text" class="w-4 h-4"></i> Edit slides.md
                     </a></li>
@@ -277,29 +279,6 @@
             window.location.href = `/workspaces/{{ workspace_id }}/edit?file=${encodeURIComponent(data.file_path)}`;
         } else {
             alert('Failed to sync presentation.yaml.');
-        }
-    }
-
-    async function generateFromCourse() {
-        const coursePath = prompt('Enter the source course folder path (relative to workspace root):');
-        if (!coursePath) return;
-
-        const r = await fetch('/api/workspaces/{{ workspace_id }}/presentation/generate-from-course', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                course_folder: coursePath,
-                target_folder: '{{ folder_path }}',
-            }),
-        });
-
-        if (r.ok) {
-            const data = await r.json();
-            alert(`Generated slides.md with ${data.slide_count} slides.`);
-            window.location.href = `/workspaces/{{ workspace_id }}/edit?file=${encodeURIComponent(data.file_path)}`;
-        } else {
-            const text = await r.text();
-            alert('Failed to generate slides: ' + text);
         }
     }
 

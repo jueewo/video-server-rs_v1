@@ -1,7 +1,7 @@
 //! Config-driven folder type registry.
 //!
 //! Folder types are defined as YAML files on disk under `storage/folder-type-registry/`.
-//! Six built-in types are embedded in the binary and written to disk on first startup.
+//! Nine built-in types are embedded in the binary and written to disk on first startup.
 //! Users can freely edit the files after that to customise icons, metadata schemas, etc.
 
 use anyhow::{Context, Result};
@@ -14,11 +14,8 @@ use std::path::{Path, PathBuf};
 // ============================================================================
 
 const BUILTIN_COURSE: &str = include_str!("builtin_types/course.yaml");
-const BUILTIN_STATIC_SITE: &str = include_str!("builtin_types/static-site.yaml");
 const BUILTIN_BPMN_SIMULATOR: &str = include_str!("builtin_types/bpmn-simulator.yaml");
 const BUILTIN_AGENT_COLLECTION: &str = include_str!("builtin_types/agent-collection.yaml");
-const BUILTIN_DOCUMENTATION: &str = include_str!("builtin_types/documentation.yaml");
-const BUILTIN_DATA_PIPELINE: &str = include_str!("builtin_types/data-pipeline.yaml");
 const BUILTIN_JS_TOOL: &str = include_str!("builtin_types/js-tool.yaml");
 const BUILTIN_MEDIA_SERVER: &str = include_str!("builtin_types/media-server.yaml");
 const BUILTIN_PRESENTATION: &str = include_str!("builtin_types/presentation.yaml");
@@ -28,11 +25,8 @@ const BUILTIN_WEB_APP: &str = include_str!("builtin_types/web-app.yaml");
 
 const BUILTINS: &[(&str, &str)] = &[
     ("course.yaml", BUILTIN_COURSE),
-    ("static-site.yaml", BUILTIN_STATIC_SITE),
     ("bpmn-simulator.yaml", BUILTIN_BPMN_SIMULATOR),
     ("agent-collection.yaml", BUILTIN_AGENT_COLLECTION),
-    ("documentation.yaml", BUILTIN_DOCUMENTATION),
-    ("data-pipeline.yaml", BUILTIN_DATA_PIPELINE),
     ("js-tool.yaml", BUILTIN_JS_TOOL),
     ("media-server.yaml", BUILTIN_MEDIA_SERVER),
     ("presentation.yaml", BUILTIN_PRESENTATION),

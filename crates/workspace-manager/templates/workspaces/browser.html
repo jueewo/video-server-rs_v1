@@ -660,20 +660,27 @@
 
         <div class="divider my-2"></div>
 
-        <table class="table table-sm mb-4">
-            <tbody>
-                <tr>
-                    <td class="font-medium w-1/3">Folder Type</td>
-                    <td>
-                        <select id="folder-type" class="select select-sm w-full" onchange="updateMetadataFields()">
-                            <option value="default">Default — Regular file storage</option>
-                            <!-- populated from /api/folder-types on load -->
-                        </select>
-                        <p id="parent-type-notice" class="text-xs text-base-content/50 mt-1 hidden"></p>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+        <input type="hidden" id="folder-type" value="default" />
+
+        <!-- Current folder type display -->
+        <div id="folder-type-current" class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-base-300 bg-base-100 mb-2">
+            <span id="folder-type-icon" class="inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0">
+                <i data-lucide="folder" class="w-5 h-5"></i>
+            </span>
+            <div class="min-w-0 flex-1">
+                <span id="folder-type-name" class="text-sm font-semibold">Default</span>
+                <span id="folder-type-desc" class="text-xs text-base-content/50 block truncate">Regular file storage</span>
+            </div>
+            <button type="button" id="folder-type-change-btn" onclick="toggleFolderTypePicker()" class="btn btn-ghost btn-xs">Change</button>
+        </div>
+        <p id="parent-type-notice" class="text-xs text-base-content/50 mt-1 mb-2 hidden"></p>
+
+        <!-- Expandable folder type picker -->
+        <div id="folder-type-picker" class="hidden mb-2">
+            <div id="folder-type-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 rounded-lg border border-base-300 bg-base-200/50">
+                <!-- populated by populateFolderTypeSelect() -->
+            </div>
+        </div>
 
         <!-- Dynamic metadata fields based on type -->
         <div id="metadata-fields">
